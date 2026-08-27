@@ -1,0 +1,99 @@
+{
+  "source": {
+    "file": "omp-image-15677b7cc839073a.jpg",
+    "width": 1024,
+    "height": 1024
+  },
+  "grid": {
+    "rows": 1,
+    "cols": 1
+  },
+  "output": {
+    "cellSize": 1024,
+    "align": "center",
+    "scaleMode": "fit",
+    "fit": 0.68,
+    "sampling": "smooth",
+    "durationMs": 120,
+    "componentMode": "all",
+    "componentPadding": 0,
+    "minComponentArea": 1
+  },
+  "qc": {
+    "strict": true,
+    "passed": true,
+    "failures": [],
+    "summary": {
+      "frameCount": 1,
+      "validFrameCount": 1,
+      "emptyCount": 0,
+      "sourceEdgeTouchCount": 0,
+      "outputEdgeTouchCount": 0,
+      "pasteClampedCount": 0,
+      "bodyScaleMean": 0.5068359375,
+      "bodyScaleCv": 0,
+      "anchorXStd": 0,
+      "anchorYStd": 0,
+      "anchorYMean": 0.50048828125,
+      "outputSubjectHeightMean": 696
+    },
+    "retryHints": [],
+    "background": {
+      "keyedFraction": 0.8133630752563477,
+      "edgeKeyFraction": 1,
+      "foreignRegionCount": 0,
+      "cellCoverage": [
+        0.18663692474365234
+      ],
+      "emptyCells": [],
+      "cell": {
+        "width": 1024,
+        "height": 1024,
+        "aspect": 1
+      },
+      "geometryMismatch": false,
+      "contaminated": false,
+      "findings": []
+    }
+  },
+  "frames": [
+    {
+      "index": 0,
+      "file": "frames/frame-000.png",
+      "sourceBox": {
+        "left": 0,
+        "top": 0,
+        "width": 1024,
+        "height": 1024
+      },
+      "subjectBox": {
+        "left": 275,
+        "top": 253,
+        "width": 475,
+        "height": 519
+      },
+      "alignedBox": {
+        "left": 193,
+        "top": 164,
+        "width": 637,
+        "height": 696
+      },
+      "sourceAnchor": {
+        "x": 512.5,
+        "y": 512.5
+      },
+      "targetAnchor": {
+        "x": 512,
+        "y": 512
+      },
+      "empty": false,
+      "componentCount": 5,
+      "subjectArea": 195309,
+      "bodyScale": 0.5068359375,
+      "sourceEdgeTouch": false,
+      "outputEdgeTouch": false,
+      "pasteClamped": false,
+      "scale": 1.3416570327552988
+    }
+  ]
+}

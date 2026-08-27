@@ -1,0 +1,21 @@
+{
+  "name": "game-template",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Phaser 4 + Vite portrait (9:16) game template for daily generated games",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "phaser": "^4.2.1"
+  },
+  "devDependencies": {
+    "@types/node": "^26.3.0",
+    "typescript": "^5.9.3",
+    "vite": "^8.2.2"
+  }
+}

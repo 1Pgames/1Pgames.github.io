@@ -1,0 +1,256 @@
+{
+  "styleProfile": "art/style.json",
+  "outputRoot": "public/assets/generated",
+  "conventions": {
+    "bodyCellSize": 256,
+    "fxCellSize": 128,
+    "uiCellSize": 256,
+    "bodyProfile": "hd-body",
+    "fxProfile": "hd-fx",
+    "canvas": {
+      "image_size": "1024x1024",
+      "aspect_ratio": "1:1"
+    },
+    "note": "Measured rule: on a square canvas only NxN grids (1x1, 2x2, 3x3, 4x4) have square cells. A 2x4 grid has 256x512 cells and cannot be locked to a 2x2 scale profile - hold its consistency with maxBodyScaleCv/maxAnchorYStd plus a sprite_anchor_guide instead. Exported sheets are normalised to square cellSize frames regardless."
+  },
+  "groups": [
+    {
+      "group": "hero",
+      "owner": "ArtHero",
+      "scaleProfile": "public/assets/generated/hero/hero-scale.json",
+      "assets": [
+        {
+          "id": "hero-idle",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "action": "idle breathing bob",
+          "writeScaleProfile": true
+        },
+        {
+          "id": "hero-run",
+          "kind": "body",
+          "rows": 2,
+          "cols": 4,
+          "action": "8-frame run cycle"
+        },
+        {
+          "id": "hero-attack",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "action": "4-frame ranged cast / shoot"
+        },
+        {
+          "id": "hero-hurt",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "action": "4-frame hurt recoil flash"
+        }
+      ]
+    },
+    {
+      "group": "enemies-light",
+      "owner": "ArtEnemiesLight",
+      "assets": [
+        {
+          "id": "swarm-move",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "action": "small blob creature crawl cycle"
+        },
+        {
+          "id": "runner-move",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "action": "lean fast creature dash cycle"
+        },
+        {
+          "id": "shooter-idle",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "action": "floating caster with charging orb"
+        },
+        {
+          "id": "healer-idle",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "action": "floating support with pulsing halo"
+        }
+      ]
+    },
+    {
+      "group": "enemies-heavy",
+      "owner": "ArtEnemiesHeavy",
+      "assets": [
+        {
+          "id": "tank-move",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "action": "armoured heavy stomp cycle"
+        },
+        {
+          "id": "splitter-move",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "action": "wobbling gel creature about to split"
+        },
+        {
+          "id": "elite-move",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "action": "horned elite charge wind-up"
+        },
+        {
+          "id": "boss-idle",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "action": "throne-sized boss breathing menace"
+        }
+      ]
+    },
+    {
+      "group": "pickups-fx",
+      "owner": "ArtPickupsFx",
+      "assets": [
+        {
+          "id": "xp-orb",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "action": "green energy gem spin loop"
+        },
+        {
+          "id": "coin",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "action": "gold coin spin loop"
+        },
+        {
+          "id": "hit-spark",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "action": "impact spark burst"
+        },
+        {
+          "id": "levelup-burst",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "action": "golden level-up shockwave ring"
+        },
+        {
+          "id": "bullet",
+          "kind": "fx",
+          "rows": 1,
+          "cols": 1,
+          "action": "cyan energy bolt projectile"
+        }
+      ]
+    },
+    {
+      "group": "ui",
+      "owner": "ArtUi",
+      "note": "Chrome (panels, buttons, bar housings) is drawn with src/ui/primitives.ts, not generated: geometry must fit any size and follow PALETTE. Only glyphs and emblems are generated here.",
+      "assets": [
+        {
+          "id": "icons",
+          "kind": "ui",
+          "rows": 2,
+          "cols": 2,
+          "action": "icon set: heart, star, coin, lightning"
+        },
+        {
+          "id": "icons-b",
+          "kind": "ui",
+          "rows": 2,
+          "cols": 2,
+          "action": "icon set: shield, skull, clock, level chevron"
+        }
+      ]
+    },
+    {
+      "group": "props",
+      "owner": "ArtProps",
+      "note": "Impassable arena obstacles. Static 1x1 props, hd-fx, cellSize 256; collision is a circle sized by data/props.ts bodyScale.",
+      "assets": [
+        {
+          "id": "rock",
+          "kind": "ui",
+          "rows": 1,
+          "cols": 1,
+          "action": "faceted hard rock chunk"
+        },
+        {
+          "id": "crystal",
+          "kind": "ui",
+          "rows": 1,
+          "cols": 1,
+          "action": "cyan/violet shard cluster on a stone base"
+        },
+        {
+          "id": "pillar",
+          "kind": "ui",
+          "rows": 1,
+          "cols": 1,
+          "action": "broken ruin column with gold trim"
+        },
+        {
+          "id": "stump",
+          "kind": "ui",
+          "rows": 1,
+          "cols": 1,
+          "action": "fat dead tree stump"
+        }
+      ]
+    },
+    {
+      "group": "arena",
+      "owner": "ArtArena",
+      "note": "Bounded field surface. `floor` is a seamless 512 tile drawn through a TileSprite; decals are flat, non-colliding and dimmed in data/props.ts.",
+      "assets": [
+        {
+          "id": "floor",
+          "kind": "bg",
+          "rows": 1,
+          "cols": 1,
+          "action": "seamless dark panel deck, full-bleed, fit 1.0, strict off"
+        },
+        {
+          "id": "decal-cracks",
+          "kind": "ui",
+          "rows": 1,
+          "cols": 1,
+          "action": "flat glowing floor cracks"
+        },
+        {
+          "id": "decal-plate",
+          "kind": "ui",
+          "rows": 1,
+          "cols": 1,
+          "action": "flat circular tech plate"
+        }
+      ]
+    }
+  ],
+  "integration": {
+    "loader": "src/data/art.ts + src/scenes/preload.ts",
+    "keys": "Phaser texture key equals the asset id; animation key equals `<id>` with frames from the processed sprite sheet.",
+    "gates": [
+      "sprite_preflight_background on every raw sheet",
+      "art_review on at least one asset per group plus one cross-group set call",
+      "sprite_check_palette against art/style.json for every exported asset"
+    ]
+  }
+}

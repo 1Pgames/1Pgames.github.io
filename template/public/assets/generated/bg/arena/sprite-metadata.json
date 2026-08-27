@@ -1,0 +1,95 @@
+{
+  "source": {
+    "file": "raw-source.png",
+    "width": 1664,
+    "height": 2496
+  },
+  "grid": {
+    "rows": 1,
+    "cols": 1
+  },
+  "output": {
+    "cellSize": 1536,
+    "align": "center",
+    "scaleMode": "preserve",
+    "fit": 1,
+    "sampling": "smooth",
+    "durationMs": 120,
+    "componentMode": "all",
+    "componentPadding": 0,
+    "minComponentArea": 1
+  },
+  "qc": {
+    "strict": false,
+    "passed": false,
+    "failures": [
+      "frame-000.png:output-edge-touch"
+    ],
+    "summary": {
+      "frameCount": 1,
+      "validFrameCount": 1,
+      "emptyCount": 0,
+      "sourceEdgeTouchCount": 1,
+      "outputEdgeTouchCount": 1,
+      "pasteClampedCount": 0,
+      "bodyScaleMean": 1,
+      "bodyScaleCv": 0,
+      "anchorXStd": 0,
+      "anchorYStd": 0,
+      "anchorYMean": 0.5,
+      "outputSubjectHeightMean": 1536
+    },
+    "retryHints": [
+      {
+        "failure": "output-edge-touch",
+        "frames": [
+          0
+        ],
+        "promptDelta": "Shrink the character slightly within its source cell so the exported, aligned frame keeps a margin from the output canvas edge after scaling and repositioning.",
+        "processorDelta": {
+          "fit": 0.8
+        }
+      }
+    ]
+  },
+  "frames": [
+    {
+      "index": 0,
+      "file": "frames/frame-000.png",
+      "sourceBox": {
+        "left": 0,
+        "top": 0,
+        "width": 1664,
+        "height": 2496
+      },
+      "subjectBox": {
+        "left": 0,
+        "top": 0,
+        "width": 1664,
+        "height": 2496
+      },
+      "alignedBox": {
+        "left": 256,
+        "top": 0,
+        "width": 1024,
+        "height": 1536
+      },
+      "sourceAnchor": {
+        "x": 832,
+        "y": 1248
+      },
+      "targetAnchor": {
+        "x": 768,
+        "y": 768
+      },
+      "empty": false,
+      "componentCount": 1,
+      "subjectArea": 4153344,
+      "bodyScale": 1,
+      "sourceEdgeTouch": true,
+      "outputEdgeTouch": true,
+      "pasteClamped": false,
+      "scale": 0.6153846153846154
+    }
+  ]
+}

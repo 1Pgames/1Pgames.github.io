@@ -1,0 +1,169 @@
+import { load, save } from './storage';
+import { STORE } from './keys';
+
+/**
+ * Zero-asset sound. Everything is synthesised with WebAudio at runtime, so a
+ * generated game ships with no audio files and still has full game feel.
+ *
+ * Usage:  sfx('pickup')  /  sfx('hit', { rate: 1.2 })  /  toggleMute()
+ */
+
+type Wave = OscillatorType;
+
+interface Voice {
+  wave: Wave;
+  /** Start frequency in Hz. */
+  freq: number;
+  /** Frequency at the end of the sweep; omit for a flat tone. */
+  freqEnd?: number;
+  /** Seconds. */
+  attack: number;
+  decay: number;
+  gain: number;
+  /** Adds a filtered noise burst on top — reads as impact/whoosh. */
+  noise?: number;
+  /** Detuned second oscillator for thickness. */
+  detune?: number;
+}
+
+const VOICES = {
+  ui: { wave: 'square', freq: 660, freqEnd: 880, attack: 0.002, decay: 0.07, gain: 0.18 },
+  tap: { wave: 'triangle', freq: 420, freqEnd: 620, attack: 0.002, decay: 0.09, gain: 0.22 },
+  pickup: {
+    wave: 'square',
+    freq: 720,
+    freqEnd: 1320,
+    attack: 0.002,
+    decay: 0.14,
+    gain: 0.2,
+    detune: 12,
+  },
+  combo: { wave: 'square', freq: 980, freqEnd: 1760, attack: 0.002, decay: 0.12, gain: 0.18 },
+  jump: { wave: 'sawtooth', freq: 300, freqEnd: 720, attack: 0.002, decay: 0.16, gain: 0.2 },
+  hit: {
+    wave: 'sawtooth',
+    freq: 260,
+    freqEnd: 70,
+    attack: 0.001,
+    decay: 0.24,
+    gain: 0.3,
+    noise: 0.35,
+  },
+  die: {
+    wave: 'triangle',
+    freq: 340,
+    freqEnd: 48,
+    attack: 0.004,
+    decay: 0.75,
+    gain: 0.34,
+    noise: 0.18,
+  },
+  levelup: { wave: 'square', freq: 520, freqEnd: 1040, attack: 0.004, decay: 0.3, gain: 0.2 },
+  whoosh: { wave: 'sine', freq: 180, freqEnd: 90, attack: 0.01, decay: 0.3, gain: 0.12, noise: 0.5 },
+} as const satisfies Record<string, Voice>;
+
+export type SfxName = keyof typeof VOICES;
+
+interface PlayOptions {
+  /** Pitch multiplier — cheap variation, e.g. rising combo pitch. */
+  rate?: number;
+  /** Volume multiplier on top of the preset gain. */
+  volume?: number;
+  /** Seconds of delay before the voice starts. */
+  delay?: number;
+}
+
+let ctx: AudioContext | null = null;
+let master: GainNode | null = null;
+let muted = load<boolean>(STORE.muted, false);
+let noiseBuffer: AudioBuffer | null = null;
+
+/** Browsers require a user gesture; call once from a pointer/key handler. */
+export function unlockAudio(): void {
+  if (!ctx) {
+    if (typeof window.AudioContext !== 'function') return;
+    ctx = new AudioContext();
+    master = ctx.createGain();
+    master.gain.value = muted ? 0 : 0.9;
+    master.connect(ctx.destination);
+
+    const frames = Math.floor(ctx.sampleRate * 0.4);
+    noiseBuffer = ctx.createBuffer(1, frames, ctx.sampleRate);
+    const data = noiseBuffer.getChannelData(0);
+    for (let i = 0; i < frames; i += 1) data[i] = Math.random() * 2 - 1;
+  }
+  if (ctx.state === 'suspended') void ctx.resume();
+}
+
+export function isMuted(): boolean {
+  return muted;
+}
+
+export function toggleMute(): boolean {
+  muted = !muted;
+  save(STORE.muted, muted);
+  if (master && ctx) master.gain.setTargetAtTime(muted ? 0 : 0.9, ctx.currentTime, 0.02);
+  return muted;
+}
+
+export function sfx(name: SfxName, options: PlayOptions = {}): void {
+  if (muted) return;
+  unlockAudio();
+  if (!ctx || !master) return;
+
+  const voice: Voice = VOICES[name];
+  const rate = options.rate ?? 1;
+  const t0 = ctx.currentTime + (options.delay ?? 0);
+  const peak = voice.gain * (options.volume ?? 1);
+  const end = t0 + voice.attack + voice.decay;
+
+  const env = ctx.createGain();
+  env.gain.setValueAtTime(0.0001, t0);
+  env.gain.exponentialRampToValueAtTime(peak, t0 + voice.attack);
+  env.gain.exponentialRampToValueAtTime(0.0001, end);
+  env.connect(master);
+
+  const startOsc = (detune: number): void => {
+    const osc = ctx!.createOscillator();
+    osc.type = voice.wave;
+    osc.detune.value = detune;
+    osc.frequency.setValueAtTime(voice.freq * rate, t0);
+    if (voice.freqEnd !== undefined) {
+      osc.frequency.exponentialRampToValueAtTime(Math.max(20, voice.freqEnd * rate), end);
+    }
+    osc.connect(env);
+    osc.start(t0);
+    osc.stop(end + 0.02);
+  };
+
+  startOsc(0);
+  if (voice.detune !== undefined) startOsc(voice.detune);
+
+  if (voice.noise !== undefined && noiseBuffer) {
+    const src = ctx.createBufferSource();
+    src.buffer = noiseBuffer;
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.setValueAtTime(voice.freq * 3 * rate, t0);
+    filter.frequency.exponentialRampToValueAtTime(Math.max(60, voice.freq * rate), end);
+    const noiseGain = ctx.createGain();
+    noiseGain.gain.setValueAtTime(0.0001, t0);
+    noiseGain.gain.exponentialRampToValueAtTime(peak * voice.noise, t0 + voice.attack);
+    noiseGain.gain.exponentialRampToValueAtTime(0.0001, end);
+    src.connect(filter).connect(noiseGain).connect(master);
+    src.start(t0);
+    src.stop(end + 0.02);
+  }
+}
+
+/** Ascending arpeggio — use for combos, level-ups, milestone score. */
+export function sfxArp(name: SfxName, steps: number, options: PlayOptions = {}): void {
+  const capped = Math.min(steps, 6);
+  for (let i = 0; i < capped; i += 1) {
+    sfx(name, {
+      ...options,
+      rate: (options.rate ?? 1) * (1 + i * 0.14),
+      delay: (options.delay ?? 0) + i * 0.06,
+    });
+  }
+}

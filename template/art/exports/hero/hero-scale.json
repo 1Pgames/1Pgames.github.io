@@ -1,0 +1,31 @@
+{
+  "version": 2,
+  "name": "hero",
+  "processing": {
+    "cellSize": 256,
+    "align": "feet",
+    "scaleMode": "preserve",
+    "fit": 0.86,
+    "threshold": 105,
+    "feather": 55,
+    "edgeThreshold": 170,
+    "sampling": "smooth",
+    "componentMode": "largest",
+    "componentPadding": 0,
+    "minComponentArea": 1
+  },
+  "reference": {
+    "rows": 2,
+    "cols": 2,
+    "bodyScaleMean": 0.775390625,
+    "bodyScaleCv": 0,
+    "anchorYMean": 0.87939453125,
+    "sourceToOutputScale": 0.43,
+    "sourceCellWidth": 512,
+    "sourceCellHeight": 512,
+    "outputSubjectHeightMean": 171
+  },
+  "qc": {
+    "maxBodyScaleDrift": 0.08
+  }
+}
