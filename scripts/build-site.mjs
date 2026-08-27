@@ -115,9 +115,24 @@ function indexHtml(games) {
   const chips = ['<button class="chip active" data-family="all">All</button>']
     .concat(families.map((f) => `<button class="chip" data-family="${esc(f)}">${esc(FAMILY_LABEL[f] ?? f)}</button>`))
     .join('\n      ');
-  const body = `
+  const body =
+    games.length === 0
+      ? `
   <main class="wrap">
-    ${games.length > 0 ? heroHtml(games[0]) : ''}
+    <section class="hero" style="grid-template-columns: 1fr; min-height: 380px;">
+      <div class="info" style="align-items: center; text-align: center;">
+        <span class="kicker">OPENING SOON</span>
+        <h1>The first release is on its way</h1>
+        <p class="prompt-quote" style="border: 0; padding: 0;">
+          Every game here starts as a single prompt and ships the same day —
+          fully playable, balance-gated, with its original prompt on the box.
+        </p>
+      </div>
+    </section>
+  </main>`
+      : `
+  <main class="wrap">
+    ${heroHtml(games[0])}
     <div class="chips">
       ${chips}
     </div>
