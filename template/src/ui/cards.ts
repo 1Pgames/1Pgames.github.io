@@ -3,6 +3,7 @@ import { CSS, PALETTE, SAFE, TEXT, VIEW } from '../config';
 import { drawPanel } from './primitives';
 import { enterFromBottom } from '../core/juice';
 import { sfx } from '../core/audio';
+import { Button } from './button';
 import type { UpgradeDef, Rarity } from '../data/upgrades';
 
 /**
@@ -29,19 +30,32 @@ export interface UpgradeCardsHandle {
   destroy(): void;
 }
 
+/** Optional one-shot reroll: draws a fresh set of choices, replacing the ones on screen. */
+export interface UpgradeCardsOptions {
+  rerollCost: number;
+  /** Whether the reroll button should be tappable right now (affordability + not already used). */
+  canReroll: () => boolean;
+  /** Draws a new choice set excluding whatever is currently shown. */
+  onReroll: () => readonly UpgradeDef[];
+}
+
 const CARD_WIDTH = VIEW.width - SAFE.side * 2;
 const CARD_HEIGHT = 220;
 const CARD_GAP = 28;
+const REROLL_BUTTON_HEIGHT = 88;
 
 /**
  * Shows `choices` (expected length 3, but any count fits) as stacked cards
  * centered in the safe area. `onPick` fires once per overlay, for the
  * tapped card only; the other cards are torn down immediately after.
+ * `reroll`, when supplied, adds a one-shot "REROLL" button below the cards
+ * that redraws the card set in place via `reroll.onReroll`.
  */
 export function showUpgradeCards(
   scene: Phaser.Scene,
   choices: readonly UpgradeDef[],
   onPick: (choice: UpgradeDef) => void,
+  reroll?: UpgradeCardsOptions,
 ): UpgradeCardsHandle {
   // Every object here is screen-space. With a scrolling camera, `scrollFactor`
   // must be set on each interactive object, not just the parent container:
@@ -56,11 +70,8 @@ export function showUpgradeCards(
     .setInteractive();
   root.add(dim);
 
-  const totalHeight = choices.length * CARD_HEIGHT + (choices.length - 1) * CARD_GAP;
-  const startY = VIEW.centerY - totalHeight / 2 + CARD_HEIGHT / 2;
-
   const heading = scene.add
-    .text(VIEW.centerX, startY - CARD_HEIGHT / 2 - 60, 'CHOOSE AN UPGRADE', TEXT.heading)
+    .text(0, 0, 'CHOOSE AN UPGRADE', TEXT.heading)
     .setOrigin(0.5)
     .setScrollFactor(0)
     .setFontSize(44);
@@ -68,26 +79,64 @@ export function showUpgradeCards(
   enterFromBottom(scene, heading);
 
   let resolved = false;
-  const cards: Phaser.GameObjects.Container[] = [];
+  let cardGroup: Phaser.GameObjects.Container[] = [];
+  let rerollButton: Button | null = null;
 
-  choices.forEach((choice, index) => {
-    const y = startY + index * (CARD_HEIGHT + CARD_GAP);
-    const card = buildCard(scene, VIEW.centerX, y, choice, () => {
-      if (resolved) return;
-      resolved = true;
-      sfx('ui');
-      onPick(choice);
+  function layout(current: readonly UpgradeDef[]): void {
+    const totalHeight = current.length * CARD_HEIGHT + (current.length - 1) * CARD_GAP;
+    const startY = VIEW.centerY - totalHeight / 2 + CARD_HEIGHT / 2;
+    heading.setPosition(VIEW.centerX, startY - CARD_HEIGHT / 2 - 60);
+
+    for (const card of cardGroup) card.destroy();
+    cardGroup = current.map((choice, index) => {
+      const y = startY + index * (CARD_HEIGHT + CARD_GAP);
+      const card = buildCard(scene, VIEW.centerX, y, choice, () => {
+        if (resolved) return;
+        resolved = true;
+        sfx('ui');
+        onPick(choice);
+      });
+      root.add(card);
+      enterFromBottom(scene, card, index * 70);
+      return card;
     });
-    root.add(card);
-    enterFromBottom(scene, card, index * 70);
-    cards.push(card);
-  });
+
+    if (reroll === undefined) return;
+    const rerollY = startY + current.length * (CARD_HEIGHT + CARD_GAP) - CARD_GAP + REROLL_BUTTON_HEIGHT / 2 + 16;
+    if (rerollButton === null) {
+      rerollButton = new Button(
+        scene,
+        VIEW.centerX,
+        rerollY,
+        rerollLabel(reroll.rerollCost),
+        () => {
+          if (resolved || !reroll.canReroll()) return;
+          const fresh = reroll.onReroll();
+          layout(fresh);
+        },
+        { width: CARD_WIDTH, height: REROLL_BUTTON_HEIGHT, fill: PALETTE.bgTop, stroke: PALETTE.primary, textColor: CSS.ink, fontSize: '32px' },
+      );
+      root.add(rerollButton);
+      enterFromBottom(scene, rerollButton, current.length * 70);
+    } else {
+      rerollButton.setPosition(VIEW.centerX, rerollY);
+    }
+    rerollButton.setAlpha(reroll.canReroll() ? 1 : 0.4);
+    rerollButton.disableInteractive();
+    if (reroll.canReroll()) rerollButton.setInteractive({ useHandCursor: true });
+  }
+
+  layout(choices);
 
   return {
     destroy(): void {
       root.destroy(true);
     },
   };
+}
+
+function rerollLabel(cost: number): string {
+  return cost > 0 ? `REROLL (${cost})` : 'REROLL (FREE)';
 }
 
 function buildCard(

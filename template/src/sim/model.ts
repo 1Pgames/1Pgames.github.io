@@ -1,8 +1,9 @@
 import { PLAYER_BASE_STATS, TUNING, VIEW } from '../config';
 import { ENEMIES, scaleEnemy, type EnemyDef } from '../data/enemies';
-import { PHASES, WAVES } from '../data/waves';
-import { rollUpgradeChoices } from '../data/upgrades';
-import { RunDirector } from '../core/run';
+import { PHASES, TIMELINE_EVENTS, WAVES } from '../data/waves';
+import { rollUpgradeChoices, type UpgradeDef } from '../data/upgrades';
+import { weaponBoostDamageMul, type WeaponPattern } from '../data/weapons';
+import { RunDirector, type EventSpec } from '../core/run';
 import { StatBlock } from '../core/stats';
 import { Health, rollDamage, setDamageClock } from '../core/damage';
 import { Rng } from '../core/rng';
@@ -12,34 +13,60 @@ import type { RunMetrics } from './metrics';
 
 /**
  * Headless balance simulator: replays a full 480s run against the REAL
- * template data (`TUNING`, `ENEMIES`, `PHASES`/`WAVES` via `RunDirector`,
- * `StatBlock`, `Health`, `rollDamage`, `rollUpgradeChoices`) with a scalar
- * spatial abstraction instead of Arcade physics — there is no x/y, only each
- * enemy's straight-line `distance` to the player. That abstraction is the
- * only thing this file invents; every number that affects the outcome
- * (damage, HP, speeds, cadences, thresholds) comes from `src/config.ts` and
- * `src/data/*`, never duplicated here.
+ * template data (`TUNING`, `ENEMIES`, `PHASES`/`WAVES`/`TIMELINE_EVENTS` via
+ * `RunDirector`, `StatBlock`, `Health`, `rollDamage`, `rollUpgradeChoices`)
+ * with a scalar spatial abstraction instead of Arcade physics — there is no
+ * x/y, only each enemy's straight-line `distance` to the player. That
+ * abstraction is the only thing this file invents; every number that affects
+ * the outcome (damage, HP, speeds, cadences, thresholds) comes from
+ * `src/config.ts` and `src/data/*`, never duplicated here.
+ *
+ * Weapon parity: the four `data/weapons.ts` patterns are modelled with the
+ * exact damage/cooldown formulas `systems/combat.ts` uses — bolt as the aimed
+ * shot loop, orbit as an in-radius per-target tick, nova as a periodic
+ * falloff pulse, rail as a pierce burst through the nearest cluster (a 1D
+ * stand-in for "densest cluster"). Boss parity: `TUNING.boss` phases gate a
+ * volley/summon-shield/enrage-ring pressure model. Scripted events
+ * (chest/breather/elite-rush) run through the real `RunDirector.onEvent`.
  *
  * The constants below (`KITE_EFFECTIVENESS`, `SHOOT_STANDOFF_PX`, ...) are
- * the sim-only bot/abstraction calibration the assignment asks for — they
- * describe how a bot *plays*, not how the game is *balanced*, and must never
- * move into `TUNING`. Some mirror hardcoded numbers already baked into
- * `objects/enemy.ts` (standoff distance, charge windup/dash) because those
- * numbers are behaviour, not data — enemy.ts hardcodes them too, so copying
- * them here is copying source-of-truth constants, not re-tuning balance.
+ * the sim-only bot/abstraction calibration — they describe how a bot
+ * *plays*, not how the game is *balanced*, and must never move into
+ * `TUNING`. Some mirror hardcoded numbers baked into `objects/enemy.ts`
+ * (standoff distance, charge windup/dash) because those numbers are
+ * behaviour, not data.
  */
 
 /** Fraction of the player's raw move speed a skilled bot converts into net evasion against a closing enemy. */
-const KITE_EFFECTIVENESS = 0.6;
+const KITE_EFFECTIVENESS = 0.75;
+/**
+ * A kiting player does not push enemies off to infinity — they hold slower
+ * enemies just inside their own attack range and keep farming them (that is
+ * the entire point of kiting). When evasion outruns an enemy, its distance
+ * drifts back only up to `range * KITE_HOLD_RANGE_RATIO` and holds there,
+ * keeping kills flowing at high skill instead of starving the run — the
+ * starvation was an artifact of the collapsed dimension, not real play.
+ */
+const KITE_HOLD_RANGE_RATIO = 0.45;
+/**
+ * Skill-scaled dodge chances for AVOIDABLE damage: a slow visible projectile
+ * and a telegraphed dash are what a skilled player actually dodges; plain
+ * chase contact is priced by the kite model instead. `skill * factor` is the
+ * probability one such hit misses.
+ */
+const RANGED_DODGE = 1.0;
+const CHARGE_DODGE = 1.0;
+/** Probability one bolt aims at a random in-range target instead of the strict nearest (2D weave reshuffle). */
+const BOLT_TARGET_NOISE = 0.35;
+/** Post-dash overshoot: a dash that ends (hit or miss) carries the runner past the player. */
+const CHARGE_OVERSHOOT_PX = 200;
 /** Mirrors `Enemy.tickAi`'s `'shoot'` case: hold this far back, fire on this cadence. */
 const SHOOT_STANDOFF_PX = 320;
 const SHOOT_CADENCE_MS = 1500;
 /**
  * Mirrors `CombatSystem.enemyShoot` + `Projectile.fire`: an enemy shot
  * travels at 420px/s and expires after 1600ms, so it only ever reaches
- * ~672px — a shooter/boss well outside that range fires into nothing. The
- * real system has no distance gate on when `onShoot` fires; the shot's own
- * finite lifetime is what makes range matter.
+ * ~672px — a shooter/boss well outside that range fires into nothing.
  */
 const ENEMY_SHOT_SPEED = 420;
 const ENEMY_SHOT_LIFE_MS = 1600;
@@ -51,6 +78,8 @@ const CHARGE_DASH_MUL = 2.6;
 const CHARGE_WINDUP_MUL = 0.6;
 /** Mirrors `Enemy.tickAi`'s `'orbit'` case: holds station at this radius, rarely reaching contact. */
 const ORBIT_RADIUS_PX = 240;
+/** 1D stand-in for the rail's line coverage: how deep into the crowd a pierce shot reaches. */
+const RAIL_RANGE_PX = 700;
 
 const STEP_MS = 100;
 
@@ -68,6 +97,10 @@ interface SimEnemy {
   /** Behaviour-local state timer, reused per-behaviour like `Enemy.stateMs`. */
   stateMs: number;
   dashMs: number;
+  /** Per-target orbit-blade hit gate, mirroring `CombatSystem.bladeHitAt`. */
+  orbitHitAt: number;
+  /** Phase-2 boss summon, tracked so the boss shield drops when they die. */
+  isBossAdd: boolean;
 }
 
 interface PendingOrb {
@@ -75,16 +108,22 @@ interface PendingOrb {
   value: number;
 }
 
+/** One equipped weapon slot — mirrors `data/weapons.ts` `WeaponState` minus the render-only angle. */
+interface SimWeapon {
+  id: WeaponPattern;
+  boosts: number;
+  evolved: boolean;
+  cooldownMs: number;
+}
+
 /**
  * Enemies spawn on the real elliptical ring `combat.ts spawn()` uses
  * (`rx = VIEW.width/2 + spawnMargin`, `ry = VIEW.height/2 + spawnMargin`) at
  * a uniformly random angle — reimplemented here as a scalar distance instead
  * of an (x, y) point. Randomising per spawn (rather than a single fixed
- * "half-diagonal" distance) matters for more than realism: without it every
- * enemy in the same wave shares one distance and one speed, so they arrive
- * in lockstep and land simultaneous contact hits the instant they're all in
- * reach — an artifact of the collapsed dimension, not the template's real
- * spatial spread.
+ * "half-diagonal" distance) desynchronizes same-wave arrivals; without it a
+ * wave lands simultaneous contact hits in lockstep, an artifact of the
+ * collapsed dimension.
  */
 function spawnDistance(rng: Rng): number {
   const angle = rng.float(0, Math.PI * 2);
@@ -118,15 +157,27 @@ export function simulateRun(options: SimOptions): RunMetrics {
   const enemies: SimEnemy[] = [];
   const pendingOrbs: PendingOrb[] = [];
   const taken: string[] = [];
+  const weapons: SimWeapon[] = [{ id: 'bolt', boosts: 0, evolved: false, cooldownMs: 0 }];
 
   let level = 1;
   let xp = 0;
   let kills = 0;
   let levelUps = 0;
+  let choiceEvents = 0;
+  let choicesBy120S = 0;
   let firstUpgradeS: number | null = null;
   let deathS: number | null = null;
   let hpMinPct = 1;
-  let attackCooldownMs = 0;
+  let glassCannon = false;
+  let spawnSilencedUntilMs = -Infinity;
+  let bossKilled = false;
+
+  // Boss phase state (null until the boss spawns).
+  let boss: SimEnemy | null = null;
+  let bossPhase = 1;
+  let bossVolleyCd = 0;
+  let bossRingCd = 0;
+  let bossAddsAlive = 0;
 
   const bucketCount = Math.ceil(TUNING.runSeconds / 60);
   const dpsBy60s = new Array<number>(bucketCount).fill(0);
@@ -135,12 +186,13 @@ export function simulateRun(options: SimOptions): RunMetrics {
     return Math.min(bucketCount - 1, Math.floor(elapsedMs / 1000 / 60));
   }
 
-  function spawnEnemy(id: string, difficultyMul: number, atDistance: number): void {
+  function spawnEnemy(id: string, difficultyMul: number, atDistance: number, force = false): void {
+    if (!force && simTimeMs < spawnSilencedUntilMs) return; // breather lull, mirrors `CombatSystem.silenceSpawns`.
     if (enemies.length >= TUNING.enemy.maxAlive) return;
     const def = DEFS[id];
     if (def === undefined) return;
     const scaled = scaleEnemy(def, difficultyMul);
-    enemies.push({
+    const enemy: SimEnemy = {
       def,
       health: new Health(scaled.maxHp),
       damage: scaled.damage,
@@ -150,7 +202,16 @@ export function simulateRun(options: SimOptions): RunMetrics {
       lastContactAt: -Infinity,
       stateMs: 0,
       dashMs: 0,
-    });
+      orbitHitAt: -Infinity,
+      isBossAdd: false,
+    };
+    enemies.push(enemy);
+    if (def.id === 'boss' && boss === null) {
+      boss = enemy;
+      bossPhase = 1;
+      bossVolleyCd = TUNING.boss.volleyCooldownMs;
+      bossRingCd = TUNING.boss.ringCooldownMs;
+    }
   }
 
   const director = new RunDirector(
@@ -158,24 +219,70 @@ export function simulateRun(options: SimOptions): RunMetrics {
     WAVES,
     PHASES,
     (id) => spawnEnemy(id, director.difficulty, spawnDistance(rng)),
-    { durationSeconds: TUNING.runSeconds },
+    {
+      durationSeconds: TUNING.runSeconds,
+      events: TIMELINE_EVENTS,
+      onEvent: (event: EventSpec) => onScriptedEvent(event),
+    },
   );
 
-  /** Applies one accepted upgrade card's modifiers, mirroring `Player.applyModifier`. */
-  function applyUpgrade(mods: readonly { stat: string; add?: number; mul?: number }[], sourceTag: string): void {
-    for (const mod of mods) {
-      stats.addModifier({ ...mod, source: sourceTag });
-      if (mod.stat === 'maxHp') health.setMax(stats.get('maxHp'), true);
+  /** Mirrors `GameScene.onScriptedEvent`. */
+  function onScriptedEvent(event: EventSpec): void {
+    switch (event.kind) {
+      case 'chest':
+        resolveDraft(simTimeMs / 1000); // bonus draft, no level behind it
+        break;
+      case 'breather':
+        health.heal(health.max * TUNING.events.breatherHealRatio);
+        spawnSilencedUntilMs = simTimeMs + TUNING.events.breatherSilenceMs;
+        break;
+      case 'elite-rush':
+        for (let i = 0; i < TUNING.events.eliteRushCount; i += 1) {
+          spawnEnemy('elite', director.difficulty, spawnDistance(rng), true);
+        }
+        break;
     }
   }
 
-  /** One draft: the bot picks among the offered cards per its lane policy, mirroring `openDraft`. */
+  /** Applies one accepted upgrade card, mirroring `GameScene.applyUpgrade` (stats, weapon slots, effect hooks). */
+  function acceptCard(card: UpgradeDef): void {
+    taken.push(card.id);
+    if (card.kind === 'weapon-unlock' && card.weapon !== undefined) {
+      weapons.push({ id: card.weapon, boosts: 0, evolved: false, cooldownMs: 0 });
+      return;
+    }
+    if (card.kind === 'weapon-boost' && card.weapon !== undefined) {
+      const weapon = weapons.find((w) => w.id === card.weapon);
+      if (weapon !== undefined) {
+        weapon.boosts += 1;
+        if (weapon.boosts >= TUNING.weapons.maxBoosts) weapon.evolved = true;
+      }
+      return;
+    }
+    for (const mod of card.modifiers) {
+      stats.addModifier({ ...mod, source: `card:${card.id}:${taken.length}` });
+      if (mod.stat === 'maxHp') health.setMax(stats.get('maxHp'), true);
+    }
+    if (card.effect === 'glass-cannon') {
+      glassCannon = true;
+      health.capRatio = TUNING.effects.glassCannon.hpCapRatio;
+      health.heal(0); // clamp current hp down to the new cap, like `core/effects.ts`
+    }
+    // 'bulwark' is fully covered by its stat modifiers here: knockback has no
+    // 1D analogue (it buys contact relief the model prices into i-frames).
+  }
+
+  /** One draft: the bot picks among the real offered cards per its lane policy. */
   function resolveDraft(elapsedS: number): void {
-    const choices = rollUpgradeChoices(rng, taken, TUNING.draft.choices);
+    const choices = rollUpgradeChoices(rng, taken, TUNING.draft.choices, {
+      ownedWeapons: weapons.map((w) => w.id),
+      hasFreeWeaponSlot: weapons.length < TUNING.weapons.maxSlots,
+    });
     if (choices.length === 0) return;
-    const choice = pickUpgrade(lane, choices, rng);
-    taken.push(choice.id);
-    applyUpgrade(choice.modifiers, `card:${choice.id}:${taken.length}`);
+    choiceEvents += 1;
+    if (simTimeMs <= 120_000) choicesBy120S += 1;
+    const choice = pickUpgrade(lane, choices, rng, health.ratio);
+    acceptCard(choice);
     if (firstUpgradeS === null) firstUpgradeS = elapsedS;
   }
 
@@ -193,16 +300,25 @@ export function simulateRun(options: SimOptions): RunMetrics {
   }
 
   /** Player i-frame-aware hit resolution, mirroring `CombatSystem.damagePlayer`. */
-  function damagePlayer(amount: number): void {
+  function damagePlayer(amount: number, dbgSource = 'contact'): void {
     const before = health.hp;
     const died = health.apply({ amount, crit: false, source: 'enemy' });
     if (health.hp === before && !died) return; // i-frames swallowed the hit.
+    if (process.env.SIM_DEBUG === '1') {
+      console.error(`t=${(simTimeMs / 1000).toFixed(1)} ${dbgSource} -${amount.toFixed(1)} hp=${health.hp.toFixed(1)}`);
+    }
     hpMinPct = Math.min(hpMinPct, health.ratio);
     if (died && deathS === null) deathS = simTimeMs / 1000;
   }
 
   function killEnemy(enemy: SimEnemy, index: number): void {
     kills += 1;
+    if (glassCannon) health.grantIframes(TUNING.effects.glassCannon.killIframesMs);
+    if (enemy.isBossAdd && bossAddsAlive > 0) bossAddsAlive -= 1;
+    if (enemy === boss) {
+      boss = null;
+      bossKilled = true; // boss kill = immediate win, mirrors `GameScene.finish(true)`
+    }
     const dropDistance = enemy.distance;
     const delayS =
       Math.max(0, dropDistance - stats.get('pickupRadius')) / (TUNING.xp.orbSpeed * TUNING.xp.driftFactor);
@@ -210,64 +326,104 @@ export function simulateRun(options: SimOptions): RunMetrics {
     const last = enemies.pop();
     if (last !== undefined && index < enemies.length) enemies[index] = last;
     if (enemy.def.splitInto !== undefined) {
-      for (const childId of enemy.def.splitInto) spawnEnemy(childId, director.difficulty, enemy.distance);
+      for (const childId of enemy.def.splitInto) spawnEnemy(childId, director.difficulty, enemy.distance, true);
+    }
+  }
+
+  /** All player damage funnels through here: boss phase-2 shield, dps buckets, kill handling. */
+  function damageEnemy(enemy: SimEnemy, amount: number, crit: boolean): void {
+    let dealt = amount;
+    if (enemy === boss && bossPhase === 2 && bossAddsAlive > 0) {
+      dealt *= TUNING.boss.shieldDamageMul; // mirrors `CombatSystem.hitEnemy`'s shielded branch
+    }
+    dpsBy60s[currentBucket(simTimeMs)] = (dpsBy60s[currentBucket(simTimeMs)] ?? 0) + dealt;
+    const died = enemy.health.apply({ amount: dealt, crit, source: 'player' });
+    if (died) {
+      const index = enemies.indexOf(enemy);
+      if (index >= 0) killEnemy(enemy, index);
     }
   }
 
   /**
-   * Distance is a scalar stand-in for the real 2D chase: an enemy's own
-   * speed closes it, the player's `moveSpeed` (scaled by `skill` and
-   * `KITE_EFFECTIVENESS`) opens it back up as `netSpeed`. This return path is
-   * the abstraction's load-bearing piece: without it, every enemy that isn't
-   * one-shot eventually converges on contact and stays there forever
-   * (nothing in a 1D distance model ever "walks past" or "loses" the
-   * player), which a real player's move-speed advantage (330 vs a swarm's
-   * 140, a tank's 70, ...) routinely prevents by simply out-walking anything
-   * slower. `netSpeed` can go negative — the enemy falls behind and the gap
-   * widens back toward the spawn ring — exactly how a skilled player
-   * permanently evades slow archetypes instead of merely postponing
-   * contact. `contactReach`/`hitMs` (unchanged) still gate whether a landed
-   * approach actually deals damage on schedule.
+   * Distance is a scalar stand-in for the real 2D chase. Kiting in a BOUNDED
+   * arena is circular, not linear flight: every enemy eventually converges on
+   * the player's neighbourhood no matter how fast the player is — skill
+   * decides what happens inside the engagement bubble, not whether an enemy
+   * ever arrives. So: outside the kite-hold band an enemy approaches at its
+   * own full speed; inside it, the player's evasion (`moveSpeed * skill *
+   * KITE_EFFECTIVENESS`) pushes slower enemies back out to the band edge —
+   * they hover at the rim of the player's weapons and get farmed — while
+   * faster enemies still push through to contact.
    */
   function tickEnemyDistance(enemy: SimEnemy, deltaMs: number): void {
     enemy.stateMs += deltaMs;
     const deltaS = deltaMs / 1000;
     const evadeSpeed = stats.get('moveSpeed') * skill * KITE_EFFECTIVENESS;
+    const holdDistance = stats.get('range') * KITE_HOLD_RANGE_RATIO;
+
+    const approach = (speed: number): void => {
+      if (enemy.distance > holdDistance) {
+        // Convergence: full own speed down to the band edge.
+        enemy.distance = Math.max(holdDistance, enemy.distance - speed * deltaS);
+        return;
+      }
+      const netSpeed = speed - evadeSpeed;
+      if (netSpeed >= 0) enemy.distance = Math.max(0, enemy.distance - netSpeed * deltaS);
+      else enemy.distance = Math.min(holdDistance, enemy.distance - netSpeed * deltaS);
+    };
 
     switch (enemy.def.behaviour) {
       case 'chase':
-      case 'split': {
-        const netSpeed = enemy.speed - evadeSpeed;
-        enemy.distance = Math.max(0, enemy.distance - netSpeed * deltaS);
+      case 'split':
+        approach(enemy.speed);
         break;
-      }
 
       case 'charge': {
+        const wasDashing = enemy.dashMs > 0;
         enemy.dashMs -= deltaMs;
+        if (wasDashing && enemy.dashMs <= 0) {
+          // Dash ended: it carried the runner past the player (2D overshoot),
+          // so the gap reopens instead of parking the runner in contact.
+          enemy.distance = Math.max(enemy.distance, CHARGE_OVERSHOOT_PX);
+        }
         if (enemy.dashMs <= 0 && enemy.stateMs > CHARGE_WINDUP_MS) {
           enemy.dashMs = CHARGE_DASH_MS;
           enemy.stateMs = 0;
         }
-        const mul = enemy.dashMs > 0 ? CHARGE_DASH_MUL : CHARGE_WINDUP_MUL;
-        const netSpeed = enemy.speed * mul - evadeSpeed;
-        enemy.distance = Math.max(0, enemy.distance - netSpeed * deltaS);
+        // A dash always closes regardless of kiting (that is its job).
+        if (enemy.dashMs > 0) {
+          enemy.distance = Math.max(0, enemy.distance - enemy.speed * CHARGE_DASH_MUL * deltaS);
+        } else {
+          approach(enemy.speed * CHARGE_WINDUP_MUL);
+        }
         break;
       }
 
       case 'shoot': {
-        // Mirrors `Enemy.tickAi`'s standoff dance: approaches when too far,
-        // backs off at half speed when too close. Evasion only matters
-        // while it is trying to approach.
-        const approaching = enemy.distance > SHOOT_STANDOFF_PX;
-        const netSpeed = approaching ? enemy.speed - evadeSpeed : -enemy.speed * 0.5;
-        enemy.distance = Math.max(0, enemy.distance - netSpeed * deltaS);
+        // The standoff dance has hysteresis and drift; the player pushing
+        // toward a shooter drags the dance just inside their attack range,
+        // which is how shooters actually die in the real game.
+        const standoff = SHOOT_STANDOFF_PX * 0.8;
+        if (enemy.distance > standoff) {
+          enemy.distance = Math.max(standoff, enemy.distance - enemy.speed * deltaS);
+        }
         break;
       }
 
       case 'orbit':
         if (enemy.distance > ORBIT_RADIUS_PX) {
-          const netSpeed = enemy.speed - evadeSpeed;
-          enemy.distance = Math.max(ORBIT_RADIUS_PX, enemy.distance - netSpeed * deltaS);
+          enemy.distance = Math.max(ORBIT_RADIUS_PX, enemy.distance - enemy.speed * deltaS);
+        }
+        break;
+
+      case 'boss':
+        // The boss relentlessly closes to shot range; kiting delays, never escapes.
+        if (enemy.distance > SHOOT_STANDOFF_PX) {
+          const speedMul = bossPhase === 3 ? TUNING.boss.enrageSpeedMul : 1;
+          enemy.distance = Math.max(
+            SHOOT_STANDOFF_PX,
+            enemy.distance - Math.max(20, enemy.speed * speedMul - evadeSpeed * 0.5) * deltaS,
+          );
         }
         break;
     }
@@ -278,7 +434,50 @@ export function simulateRun(options: SimOptions): RunMetrics {
     if (enemy.stateMs < SHOOT_CADENCE_MS) return;
     enemy.stateMs = 0;
     if (enemy.distance > ENEMY_SHOT_MAX_RANGE_PX) return; // shot expires before reaching the player.
-    damagePlayer(enemy.damage);
+    // A 420px/s projectile is sidestepped by a skilled player most of the time.
+    if (rng.chance(skill * RANGED_DODGE)) return;
+    damagePlayer(enemy.damage, `shot:${enemy.def.id}`);
+  }
+
+  /** Boss pressure model: phase transitions + volley / summon-shield / enrage-ring, all from `TUNING.boss`. */
+  function tickBoss(deltaMs: number): void {
+    if (boss === null) return;
+    const cfg = TUNING.boss;
+    const ratio = boss.health.ratio;
+    if (bossPhase === 1 && ratio <= cfg.phase2At) {
+      bossPhase = 2;
+      const summons = rng.int(cfg.summonMin, cfg.summonMax);
+      for (let i = 0; i < summons; i += 1) {
+        spawnEnemy('swarm', director.difficulty, boss.distance, true);
+        const added = enemies[enemies.length - 1];
+        if (added !== undefined && added.def.id === 'swarm') {
+          added.isBossAdd = true;
+          bossAddsAlive += 1;
+        }
+      }
+    }
+    if (bossPhase === 2 && ratio <= cfg.phase3At) bossPhase = 3;
+
+    // Phase 1+: spread volleys on their own cadence (enraged cadence in phase 3).
+    const cadenceMul = bossPhase === 3 ? cfg.enrageCadenceMul : 1;
+    bossVolleyCd -= deltaMs;
+    if (bossVolleyCd <= 0) {
+      bossVolleyCd = cfg.volleyCooldownMs * cadenceMul;
+      // One volley = one dodgeable hit opportunity: i-frames make per-shot
+      // resolution meaningless inside a 700ms invuln window.
+      if (boss.distance <= ENEMY_SHOT_MAX_RANGE_PX && !rng.chance(skill * 0.7)) {
+        damagePlayer(boss.damage, 'boss-volley');
+      }
+    }
+
+    // Phase 3: telegraphed radial ring, dodged with probability `skill`.
+    if (bossPhase === 3) {
+      bossRingCd -= deltaMs;
+      if (bossRingCd <= 0) {
+        bossRingCd = cfg.ringCooldownMs;
+        if (!rng.chance(skill)) damagePlayer(boss.damage * 0.8, 'boss-ring');
+      }
+    }
   }
 
   function contactReach(enemy: SimEnemy): number {
@@ -289,32 +488,130 @@ export function simulateRun(options: SimOptions): RunMetrics {
     if (enemy.distance > contactReach(enemy)) return;
     if (simTimeMs - enemy.lastContactAt < TUNING.enemy.hitMs) return;
     enemy.lastContactAt = simTimeMs;
-    damagePlayer(enemy.damage);
+    // A telegraphed dash (0.4s windup flash + straight line) is sidestepped
+    // by a skilled player; the dash then overshoots past them and the gap
+    // reopens to the kite-hold band. Plain chase contact stays unavoidable —
+    // the kite-hold model already priced evasion into whether it ever lands.
+    if (enemy.def.behaviour === 'charge' && rng.chance(skill * CHARGE_DODGE)) {
+      enemy.distance = stats.get('range') * KITE_HOLD_RANGE_RATIO;
+      return;
+    }
+    damagePlayer(enemy.damage, `contact:${enemy.def.id}`);
   }
 
-  function tickAutoAttack(deltaMs: number): void {
-    attackCooldownMs -= deltaMs;
-    if (attackCooldownMs > 0) return;
-    if (enemies.length === 0) return;
+  /** Healer aura parity: every pulse heals every non-healer enemy inside the (1D) radius band. */
+  function tickHealAura(enemy: SimEnemy): void {
+    if (enemy.def.healAura !== true) return;
+    if (enemy.stateMs < TUNING.enemy.healAuraIntervalMs) return;
+    enemy.stateMs = 0;
+    for (const other of enemies) {
+      if (other === enemy || other.health.hp >= other.health.max) continue;
+      // Half the 2D radius: two enemies at the same scalar distance sit on a
+      // ring, not at one point — a full-radius band over-credits the aura.
+      if (Math.abs(other.distance - enemy.distance) <= TUNING.enemy.healAuraRadius / 2) {
+        other.health.heal(TUNING.enemy.healAuraAmount);
+      }
+    }
+  }
 
+  // --- Weapon ticks: formulas mirror `systems/combat.ts` -------------------
+
+  let boltCooldownMs = 0;
+
+  function tickBolt(weapon: SimWeapon, deltaMs: number): void {
+    boltCooldownMs -= deltaMs;
+    if (boltCooldownMs > 0 || enemies.length === 0) return;
     const range = stats.get('range');
-    const inRange = enemies.filter((enemy) => enemy.distance <= range).sort((a, b) => a.distance - b.distance);
+    const inRange = enemies.filter((e) => e.distance <= range).sort((a, b) => a.distance - b.distance);
     if (inRange.length === 0) return;
 
     const attackSpeed = Math.max(0.1, stats.get('attackSpeed'));
-    attackCooldownMs = stats.get('attackMs') / attackSpeed;
-    const count = Math.max(1, Math.round(stats.get('projectiles')));
-    const bucket = currentBucket(simTimeMs);
+    const boostCooldownMul = 1 - TUNING.weapons.bolt.boostCooldownMul * weapon.boosts;
+    boltCooldownMs = (stats.get('attackMs') / attackSpeed) * Math.max(0.4, boostCooldownMul);
 
-    for (let i = 0; i < count; i += 1) {
-      const target = inRange[Math.min(i, inRange.length - 1)];
-      if (target === undefined) continue;
-      const roll = rollDamage(stats, rng, 'auto');
-      dpsBy60s[bucket] = (dpsBy60s[bucket] ?? 0) + roll.amount;
-      const died = target.health.apply({ amount: roll.amount, crit: roll.crit, source: 'player' });
-      if (died) {
-        const index = enemies.indexOf(target);
-        if (index >= 0) killEnemy(target, index);
+    const volleys = weapon.evolved ? 2 : 1;
+    const count = Math.max(1, Math.round(stats.get('projectiles')));
+    const damageMul = weaponBoostDamageMul('bolt', weapon.boosts);
+    for (let v = 0; v < volleys; v += 1) {
+      for (let i = 0; i < count; i += 1) {
+        // 2D "nearest" reshuffles constantly as the player weaves, so the
+        // back line (parked shooters, healers) does get aimed at sometimes.
+        const target = rng.chance(BOLT_TARGET_NOISE)
+          ? rng.pick(inRange)
+          : inRange[Math.min(v * count + i, inRange.length - 1)];
+        if (target === undefined || target.health.hp <= 0) continue;
+        const roll = rollDamage(stats, rng, 'auto');
+        damageEnemy(target, roll.amount * damageMul, roll.crit);
+      }
+    }
+  }
+
+  function tickOrbit(weapon: SimWeapon): void {
+    const cfg = TUNING.weapons.orbit;
+    const radius = cfg.radius * (1 + cfg.boostRadiusMul * weapon.boosts);
+    const damage = stats.get('damage') * cfg.damageMul * weaponBoostDamageMul('orbit', weapon.boosts);
+    for (let i = enemies.length - 1; i >= 0; i -= 1) {
+      const enemy = enemies[i];
+      if (enemy === undefined || enemy.distance > radius) continue;
+      if (simTimeMs - enemy.orbitHitAt < cfg.hitCooldownMs) continue;
+      enemy.orbitHitAt = simTimeMs;
+      damageEnemy(enemy, damage, false);
+    }
+  }
+
+  function tickNova(weapon: SimWeapon, deltaMs: number): void {
+    const cfg = TUNING.weapons.nova;
+    weapon.cooldownMs -= deltaMs;
+    if (weapon.cooldownMs > 0) return;
+    const boostCooldownMul = 1 - cfg.boostCooldownMul * weapon.boosts;
+    weapon.cooldownMs = cfg.cooldownMs * Math.max(0.4, boostCooldownMul);
+    const pulses = weapon.evolved ? 2 : 1;
+    const baseDamage = stats.get('damage') * cfg.damageMul * weaponBoostDamageMul('nova', weapon.boosts);
+    for (let p = 0; p < pulses; p += 1) {
+      for (let i = enemies.length - 1; i >= 0; i -= 1) {
+        const enemy = enemies[i];
+        if (enemy === undefined || enemy.distance > cfg.radius) continue;
+        const falloffAt = cfg.radius * cfg.falloffStart;
+        const t =
+          enemy.distance <= falloffAt ? 1 : Math.max(0, 1 - (enemy.distance - falloffAt) / (cfg.radius - falloffAt));
+        if (t <= 0) continue;
+        damageEnemy(enemy, baseDamage * t, false);
+      }
+    }
+  }
+
+  function tickRail(weapon: SimWeapon, deltaMs: number): void {
+    const cfg = TUNING.weapons.rail;
+    weapon.cooldownMs -= deltaMs;
+    if (weapon.cooldownMs > 0 || enemies.length === 0) return;
+    weapon.cooldownMs = cfg.cooldownMs;
+    const pierce = cfg.pierceCount + cfg.boostPierceAdd * weapon.boosts + (weapon.evolved ? 2 : 0);
+    const damage = stats.get('damage') * cfg.damageMul * weaponBoostDamageMul('rail', weapon.boosts);
+    // "Through the densest cluster": the line enters the front of the crowd
+    // and exits its back — in 1D, the FURTHEST targets in range are the back
+    // line the rail exists to reach (parked shooters, healers behind swarms).
+    const targets = enemies
+      .filter((e) => e.distance <= RAIL_RANGE_PX)
+      .sort((a, b) => b.distance - a.distance)
+      .slice(0, pierce + 1);
+    for (const target of targets) damageEnemy(target, damage, false);
+  }
+
+  function tickWeapons(deltaMs: number): void {
+    for (const weapon of weapons) {
+      switch (weapon.id) {
+        case 'bolt':
+          tickBolt(weapon, deltaMs);
+          break;
+        case 'orbit':
+          tickOrbit(weapon);
+          break;
+        case 'nova':
+          tickNova(weapon, deltaMs);
+          break;
+        case 'rail':
+          tickRail(weapon, deltaMs);
+          break;
       }
     }
   }
@@ -336,7 +633,8 @@ export function simulateRun(options: SimOptions): RunMetrics {
   }
 
   const totalSteps = Math.ceil((TUNING.runSeconds * 1000) / STEP_MS);
-  for (let step = 0; step < totalSteps && deathS === null; step += 1) {
+  let steps = 0;
+  for (; steps < totalSteps && deathS === null && !bossKilled; steps += 1) {
     simTimeMs += STEP_MS;
     director.update(STEP_MS);
     tickRegen(STEP_MS);
@@ -346,23 +644,29 @@ export function simulateRun(options: SimOptions): RunMetrics {
       if (enemy === undefined) continue;
       tickEnemyDistance(enemy, STEP_MS);
       tickRangedAttack(enemy);
+      tickHealAura(enemy);
       tickContactDamage(enemy);
       if (deathS !== null) break;
     }
+    tickBoss(STEP_MS);
 
-    tickAutoAttack(STEP_MS);
+    tickWeapons(STEP_MS);
     tickOrbs();
   }
 
   const survived = deathS === null;
+  const endS = deathS ?? (steps * STEP_MS) / 1000;
   return {
     seed,
     lane,
     skill,
     firstUpgradeS,
     levelUps,
+    choiceEvents,
+    choicesBy120S,
     kills,
     deathS,
+    endS,
     survived,
     hpMinPct,
     dpsBy60s: dpsBy60s.map((total, index) => {

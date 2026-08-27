@@ -42,6 +42,22 @@ export interface WaveSpec {
   until?: number;
   /** Marks pressure spikes ("elite", "boss") for UI/telegraphs. */
   label?: string;
+  /**
+   * Spawn-ring geometry for this wave's enemies (default `'ring'`, the
+   * original uniform-random-angle behaviour). `'arc'` and `'line'` spawn
+   * from one deterministic direction (derived from `at`) instead of all
+   * around; `'cluster'` tightens the spawn scatter so the wave lands as one
+   * group instead of spread around the ring. Purely spatial: it changes
+   * where enemies enter, never `count`/`everyMs` pacing.
+   */
+  pattern?: 'ring' | 'arc' | 'line' | 'cluster';
+}
+
+/** A scripted, one-shot timeline beat distinct from ordinary enemy waves. */
+export interface EventSpec {
+  /** Seconds into the run this event fires, exactly once. */
+  at: number;
+  kind: 'chest' | 'breather' | 'elite-rush';
 }
 
 export interface RunPhase {
@@ -64,7 +80,11 @@ export interface RunDirectorOptions {
   /** Fixed run length; enables `remainingSeconds`. Omit for an endless run. */
   durationSeconds?: number;
   onPhaseChange?: (phase: RunPhase) => void;
+  /** Scripted timeline beats (chests, breathers, elite rushes) — see `EventSpec`. */
+  events?: readonly EventSpec[];
+  onEvent?: (event: EventSpec) => void;
 }
+
 
 const FALLBACK_PHASE: RunPhase = { name: 'default', fromSeconds: 0, difficultyMul: 1 };
 
@@ -76,9 +96,12 @@ const FALLBACK_PHASE: RunPhase = { name: 'default', fromSeconds: 0, difficultyMu
 export class RunDirector {
   private readonly waves: readonly WaveSpec[];
   private readonly phases: readonly RunPhase[];
-  private readonly onSpawn: (id: string, index: number, total: number) => void;
+  private readonly onSpawn: (id: string, index: number, total: number, pattern: WaveSpec['pattern']) => void;
   private readonly durationSeconds: number | null;
   private readonly onPhaseChange: ((phase: RunPhase) => void) | undefined;
+  private readonly events: readonly EventSpec[];
+  private readonly onEvent: ((event: EventSpec) => void) | undefined;
+  private nextEventIndex = 0;
 
   private elapsedMs = 0;
   private paused = false;
@@ -91,7 +114,7 @@ export class RunDirector {
     host: RunDirectorHost,
     waves: readonly WaveSpec[],
     phases: readonly RunPhase[],
-    onSpawn: (id: string, index: number, total: number) => void,
+    onSpawn: (id: string, index: number, total: number, pattern: WaveSpec['pattern']) => void,
     options: RunDirectorOptions = {},
   ) {
     // Waves must fire in timeline order — sort once up front so `update`
@@ -101,6 +124,8 @@ export class RunDirector {
     this.onSpawn = onSpawn;
     this.durationSeconds = options.durationSeconds ?? null;
     this.onPhaseChange = options.onPhaseChange;
+    this.events = [...(options.events ?? [])].sort((a, b) => a.at - b.at);
+    this.onEvent = options.onEvent;
     this.currentPhase = this.phases[0] ?? FALLBACK_PHASE;
     host.events.once('shutdown', () => {
       this.stopped = true;
@@ -143,6 +168,7 @@ export class RunDirector {
     this.advancePhase();
     this.startDueWaves();
     this.tickPendingSpawns();
+    this.fireDueEvents();
   }
 
   private advancePhase(): void {
@@ -191,12 +217,23 @@ export class RunDirector {
       const sustained = until !== undefined && this.elapsedSeconds < until && interval > 0;
 
       while ((sustained || entry.spawned < spec.count) && entry.nextFireAtMs <= this.elapsedMs) {
-        this.onSpawn(spec.id, entry.spawned, spec.count);
+        this.onSpawn(spec.id, entry.spawned, spec.count, entry.wave.pattern);
         entry.spawned += 1;
         entry.nextFireAtMs += interval;
       }
       const finished = until === undefined ? entry.spawned >= spec.count : this.elapsedSeconds >= until;
       if (finished) this.pending.splice(i, 1);
+    }
+  }
+
+  /** Fires every scripted `EventSpec` whose `at` has arrived, in timeline order, each exactly once. */
+  private fireDueEvents(): void {
+    const seconds = this.elapsedSeconds;
+    while (this.nextEventIndex < this.events.length) {
+      const event = this.events[this.nextEventIndex];
+      if (!event || event.at > seconds) break;
+      this.onEvent?.(event);
+      this.nextEventIndex += 1;
     }
   }
 }

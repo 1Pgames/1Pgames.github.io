@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { PALETTE, TUNING } from '../config';
 import { TEXTURE } from '../data/art';
+import type { Enemy } from './enemy';
 
 /**
  * Pooled projectile for auto-attacks and enemy shots. Carries its own damage
@@ -17,6 +18,10 @@ export class Projectile extends Phaser.Physics.Arcade.Sprite {
   /** true when fired by an enemy: it damages the player instead of enemies. */
   hostile = false;
   lifeMs = 0;
+  /** Remaining enemies this shot can still pass through after a hit (rail weapon). 0 = normal bolt. */
+  pierceRemaining = 0;
+  /** Enemies already hit this flight, so a piercing shot never double-hits the same target. */
+  readonly hitTargets: Set<Enemy> = new Set();
 
   constructor(scene: Phaser.Scene) {
     super(scene, 0, 0, TEXTURE.bullet);
@@ -38,11 +43,14 @@ export class Projectile extends Phaser.Physics.Arcade.Sprite {
     crit: boolean,
     hostile: boolean,
     area = 1,
+    pierce = 0,
   ): void {
     this.damage = damage;
     this.crit = crit;
     this.hostile = hostile;
     this.lifeMs = 1600;
+    this.pierceRemaining = pierce;
+    this.hitTargets.clear();
 
     const size = TUNING.player.projectileSize * (crit ? 1.6 : 1) * (hostile ? 1.3 : 1) * area;
     this.hitRadius = size;
@@ -65,5 +73,7 @@ export class Projectile extends Phaser.Physics.Arcade.Sprite {
     this.setActive(false).setVisible(false);
     this.setVelocity(0, 0);
     this.disableBody();
+    this.hitTargets.clear();
+    this.pierceRemaining = 0;
   }
 }

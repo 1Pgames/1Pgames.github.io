@@ -19,7 +19,6 @@ export const EVENTS = {
   resumed: 'run:resumed',
   levelUp: 'run:levelup',
   phaseChanged: 'run:phase',
-  metaChanged: 'meta:changed',
 } as const;
 
 /** Procedural textures registered in Preload. See core/textures.ts. */
@@ -34,8 +33,6 @@ export const TEX = {
 } as const;
 
 export const STORE = {
-  best: 'best',
-  runs: 'runs',
   muted: 'muted',
   settings: 'settings',
 } as const;

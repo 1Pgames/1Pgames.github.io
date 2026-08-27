@@ -79,12 +79,12 @@ export const TUNING = {
   graceSeconds: 4,
 
   player: {
-    maxHp: 100,
+    maxHp: 110,
     moveSpeed: 330,
     /** Drag-follow easing: fraction of the remaining distance per 16ms. */
     followLerp: 0.22,
     size: 96,
-    damage: 10,
+    damage: 12,
     attackMs: 620,
     /** Auto-attack range in px. Keep under ~45% of VIEW.width so kills happen on-screen. */
     range: 300,
@@ -93,15 +93,52 @@ export const TUNING = {
     projectileSize: 18,
     critChance: 0.05,
     critMul: 2,
-    regenPerSecond: 0,
+    regenPerSecond: 0.4,
     pickupRadius: 150,
     invulnMs: 700,
+    /** Impulse (px/s) applied to an enemy on contact with the player; `bulwark` doubles it. */
+    contactKnockback: 70,
+    contactKnockbackMs: 160,
+  },
+
+  /** Weapon patterns (see `data/weapons.ts`). `bolt` reads `player.*` above unchanged. */
+  weapons: {
+    /** Max simultaneously-equipped weapons. */
+    maxSlots: 3,
+    /** Boost cards per weapon before it evolves. */
+    maxBoosts: 3,
+    bolt: { boostDamageMul: 0.15, boostCooldownMul: 0.07 },
+    orbit: {
+      /** Fraction of the `damage` stat one blade hit deals. */
+      damageMul: 0.6,
+      hitCooldownMs: 380,
+      radius: 150,
+      blades: 1,
+      boostDamageMul: 0.2,
+      boostRadiusMul: 0.12,
+    },
+    nova: {
+      damageMul: 1.6,
+      cooldownMs: 2200,
+      radius: 260,
+      /** Fraction of radius at which falloff starts reducing damage toward 0 at the edge. */
+      falloffStart: 0.4,
+      boostDamageMul: 0.2,
+      boostCooldownMul: 0.1,
+    },
+    rail: {
+      damageMul: 1.9,
+      cooldownMs: 1900,
+      pierceCount: 4,
+      boostDamageMul: 0.2,
+      boostPierceAdd: 1,
+    },
   },
 
   /** XP thresholds: needed(level) = round(base * growth^(level-1)). */
   xp: {
-    base: 6,
-    growth: 1.28,
+    base: 15,
+    growth: 1.5,
     /** Orb magnetism speed once inside pickupRadius. */
     orbSpeed: 560,
     /** Speed multiplier while the orb is still outside pickupRadius. */
@@ -117,6 +154,43 @@ export const TUNING = {
     hpScaleCap: 3.2,
     /** Hard cap on live enemies — protects 60fps. */
     maxAlive: 220,
+    /** `healAura` enemies pulse a heal to allies within this radius, this often, for this much HP. */
+    healAuraRadius: 220,
+    healAuraIntervalMs: 2000,
+    healAuraAmount: 8,
+    /** `charge` enemies flash + telegraph a thin line before dashing. */
+    chargeTelegraphMs: 400,
+  },
+
+  boss: {
+    /** HP ratio thresholds below which phase 2 / phase 3 begin. */
+    phase2At: 0.66,
+    phase3At: 0.33,
+    /** Phase 1: spread-shot volley cadence and shot count. */
+    volleyCooldownMs: 2200,
+    volleyShots: 5,
+    /** Phase 2: swarm summon count and shield damage reduction while adds live. */
+    summonMin: 6,
+    summonMax: 10,
+    shieldDamageMul: 0.35,
+    /** Phase 3: enrage speed/cadence multipliers and the bullet-ring cadence. */
+    enrageSpeedMul: 1.4,
+    enrageCadenceMul: 0.65,
+    ringCooldownMs: 3000,
+    ringTelegraphMs: 500,
+    ringShots: 14,
+  },
+
+  /** Elites drop pooled coin pickups splitting `economy.currencyPerElite`. */
+  elite: {
+    coinDropMin: 3,
+    coinDropMax: 5,
+  },
+
+  /** Legendary `effect` cards (see `core/effects.ts`) — the numbers the hooks read. */
+  effects: {
+    glassCannon: { damageMul: 0.8, hpCapRatio: 0.4, killIframesMs: 200 },
+    bulwark: { maxHpAdd: 60, regenPerSecondAdd: 1.5, moveSpeedMul: -0.25, knockbackMul: 2 },
   },
 
   economy: {
@@ -176,6 +250,15 @@ export const TUNING = {
   draft: {
     choices: 3,
     rerollCost: 0,
+  },
+
+  /** Scripted timeline events (see `data/waves.ts` `TIMELINE_EVENTS`). */
+  events: {
+    /** `breather` silences ordinary spawns for this long and heals this fraction of max HP. */
+    breatherSilenceMs: 8000,
+    breatherHealRatio: 0.1,
+    /** `elite-rush` spawns this many elites in a tight arc facing one random direction. */
+    eliteRushCount: 2,
   },
 
   /** Performance and feel caps from the design heuristics. */

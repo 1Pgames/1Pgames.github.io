@@ -8,9 +8,15 @@ export interface RunMetrics {
   /** Seconds into the run the first upgrade card was taken, or null if none was. */
   firstUpgradeS: number | null;
   levelUps: number;
+  /** Draft decisions actually made: level-up drafts + chest bonus drafts. */
+  choiceEvents: number;
+  /** Choice events made in the first 120s — the pacing window that survives early deaths. */
+  choicesBy120S: number;
   kills: number;
   /** Seconds into the run the player died, or null if the run was survived. */
   deathS: number | null;
+  /** Seconds the run actually lasted: death time, boss-kill time, or the full run length. */
+  endS: number;
   survived: boolean;
   /** Lowest player HP ratio (0..1) reached at any point in the run. */
   hpMinPct: number;
@@ -23,8 +29,10 @@ export interface LaneAggregate {
   runs: number;
   winrate: number;
   medianDeathS: number | null;
-  /** Level-ups per minute of run time survived — the draft "cadence" the design targets. */
-  cadence: number;
+  /** Choice events normalized to the 480s reference run: `choices * 480 / max(endS, 60)`, averaged per lane. */
+  cadencePer480: number;
+  /** Mean choice events inside the first 120s (design lands 3-4 there: first draft ~45s, then a slowing curve). */
+  choicesBy120S: number;
 }
 
 function median(values: readonly number[]): number | null {
@@ -43,23 +51,25 @@ export function medianFirstUpgradeS(runs: readonly RunMetrics[]): number | null 
   return median(values);
 }
 
-export function aggregateLane(lane: LanePolicy, runs: readonly RunMetrics[], runSeconds: number): LaneAggregate {
+export function aggregateLane(lane: LanePolicy, runs: readonly RunMetrics[]): LaneAggregate {
   const laneRuns = runs.filter((run) => run.lane === lane);
   const wins = laneRuns.filter((run) => run.survived).length;
   const deathSeconds: number[] = [];
-  let totalLevelUps = 0;
+  let totalChoices = 0;
+  let totalBy120 = 0;
+  let totalRefRuns = 0; // each run's share of a 480s reference run
   for (const run of laneRuns) {
     if (run.deathS !== null) deathSeconds.push(run.deathS);
-    totalLevelUps += run.levelUps;
+    totalChoices += run.choiceEvents;
+    totalBy120 += run.choicesBy120S;
+    totalRefRuns += Math.max(run.endS, 60) / 480;
   }
-  // Cadence denominator: every run's own elapsed minutes — death time if it
-  // died, the full run length if it survived to the end.
-  const totalSurvivedMinutes = laneRuns.reduce((sum, run) => sum + (run.deathS ?? runSeconds) / 60, 0);
   return {
     lane,
     runs: laneRuns.length,
     winrate: laneRuns.length > 0 ? wins / laneRuns.length : 0,
     medianDeathS: median(deathSeconds),
-    cadence: totalSurvivedMinutes > 0 ? totalLevelUps / totalSurvivedMinutes : 0,
+    cadencePer480: totalRefRuns > 0 ? totalChoices / totalRefRuns : 0,
+    choicesBy120S: laneRuns.length > 0 ? totalBy120 / laneRuns.length : 0,
   };
 }

@@ -15,6 +15,8 @@ export interface GameOverData {
   score: number;
   currencyEarned: number;
   level: number;
+  /** Run seed, replayed by RETRY (`GameScene.init` reruns the same run when given a seed). */
+  seed: string;
 }
 
 /** mm:ss clock for the survived-time readout. */
@@ -41,6 +43,7 @@ export class GameOverScene extends Phaser.Scene {
     score: 0,
     currencyEarned: 0,
     level: 1,
+    seed: '',
   };
 
   private settled = false;
@@ -57,6 +60,7 @@ export class GameOverScene extends Phaser.Scene {
       score: data.score ?? 0,
       currencyEarned: data.currencyEarned ?? 0,
       level: data.level ?? 1,
+      seed: data.seed ?? '',
     };
     this.settled = false;
   }
@@ -114,6 +118,10 @@ export class GameOverScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
+    const seedText = this.add
+      .text(VIEW.centerX, VIEW.centerY + 70, `seed ${this.result.seed}`, { ...TEXT.label, color: CSS.inkSoft })
+      .setOrigin(0.5);
+
     const buttonWidth = VIEW.width - SAFE.side * 2;
     const retryY = VIEW.height - SAFE.bottom - 220;
     const upgradesY = VIEW.height - SAFE.bottom - 100;
@@ -144,6 +152,7 @@ export class GameOverScene extends Phaser.Scene {
     enterFromBottom(this, bestBadge, 80);
     enterFromBottom(this, stats, 120);
     enterFromBottom(this, currencyText, 160);
+    enterFromBottom(this, seedText, 180);
     enterFromBottom(this, retry, 200);
     enterFromBottom(this, upgrades, 240);
     enterFromBottom(this, menu, 280);

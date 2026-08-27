@@ -48,7 +48,15 @@ export class Health {
 
   /** Duration of post-hit invulnerability, in ms. 0 disables i-frames. */
   invulnMs = 0;
+  /**
+   * Optional cap on `heal()`/`setMax()` as a fraction of `max` — set by the
+   * `glass-cannon` effect hook (`core/effects.ts`) so regen and orb-driven
+   * heals can never climb back above the locked ratio. `null` means no cap.
+   */
+  capRatio: number | null = null;
   private lastHitAt = -Infinity;
+  /** Extra guaranteed-invuln window on top of `lastHitAt`/`invulnMs` — set by `Health.grantIframes`. */
+  private bonusIframesUntil = -Infinity;
   private dead = false;
 
   constructor(max: number) {
@@ -64,6 +72,7 @@ export class Health {
   apply(ev: DamageEvent): boolean {
     if (this.dead) return false;
     const now = damageNow();
+    if (now < this.bonusIframesUntil) return false;
     if (this.invulnMs > 0 && now - this.lastHitAt < this.invulnMs) return false;
     this.lastHitAt = now;
     this.hp = Math.max(0, this.hp - ev.amount);
@@ -76,14 +85,27 @@ export class Health {
 
   heal(n: number): void {
     if (this.dead) return;
-    this.hp = Math.min(this.max, this.hp + n);
+    const cap = this.capRatio !== null ? this.max * this.capRatio : this.max;
+    this.hp = Math.min(cap, this.hp + n);
+  }
+
+  /**
+   * Grants at least `ms` of additional invulnerability from now, without
+   * disturbing the normal `invulnMs`/`lastHitAt` post-hit window. Used by the
+   * `glass-cannon` effect: every kill refreshes a short guaranteed i-frame.
+   */
+  grantIframes(ms: number): void {
+    if (this.dead) return;
+    const now = damageNow();
+    this.bonusIframesUntil = Math.max(this.bonusIframesUntil, now + ms);
   }
 
   /** Raises/lowers the cap. `keepRatio` rescales current hp to match the new cap. */
   setMax(n: number, keepRatio = true): void {
     const ratio = keepRatio && this.max > 0 ? this.hp / this.max : 1;
     this.max = n;
-    this.hp = this.dead ? 0 : Math.min(n, n * ratio);
+    const cap = this.capRatio !== null ? n * this.capRatio : n;
+    this.hp = this.dead ? 0 : Math.min(cap, n * ratio);
   }
 
   get ratio(): number {

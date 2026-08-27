@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { VIEW } from '../config';
+import { PALETTE, TUNING, VIEW } from '../config';
 import { TEX } from '../core/keys';
 import { Health } from '../core/damage';
 import { scaleEnemy, type EnemyDef } from '../data/enemies';
@@ -16,8 +16,21 @@ import { artFacesRight, artScale } from '../data/art';
  * Do NOT use for: the player, or entities needing bespoke multi-phase logic —
  * give those their own class and let this one handle the crowd.
  *
- * Allocation-free in `tickAi`: no vectors, no closures, no arrays.
+ * Allocation-free in `tickAi` for the steady-state path: telegraphs and boss
+ * phase transitions create a handful of one-shot display objects, but only
+ * once per event, never per frame.
  */
+
+/** Mirrored by `src/sim/model.ts` — keep both in sync when tuning. */
+const CHARGE_WINDUP_MS = 1600;
+const CHARGE_DASH_MS = 400;
+const CHARGE_DASH_MUL = 2.6;
+const CHARGE_WINDUP_MUL = 0.6;
+const SHOOT_STANDOFF_PX = 320;
+const BOSS_STANDOFF_PX = 380;
+
+export type BossPhase = 1 | 2 | 3;
+
 export class Enemy extends Phaser.Physics.Arcade.Sprite {
   def!: EnemyDef;
   health!: Health;
@@ -27,12 +40,33 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   lastContactAt = 0;
   /** Ranged archetypes fire through this callback, owned by the combat system. */
   onShoot: ((enemy: Enemy) => void) | null = null;
+  /** `healAura` archetypes pulse through this callback; combat system heals nearby enemies and paints the ring. */
+  onHealPulse: ((enemy: Enemy) => void) | null = null;
+  /** Boss-only: fired on a volley/ring attack tick, or on a phase transition (2 = summon, 3 = enrage). */
+  onBossAttack: ((enemy: Enemy, kind: 'volley' | 'ring' | 'phase2' | 'phase3') => void) | null = null;
+
+  /** Boss-only: true while summoned adds are alive, set/cleared by the combat system. Halves incoming damage. */
+  shielded = false;
+  /** Current boss phase (1..3), read by the combat system for UI/telegraph decisions. */
+  bossPhase: BossPhase = 1;
 
   private speed = 0;
   private stateMs = 0;
   private dashMs = 0;
   private orbitAngle = 0;
   private bar: Bar | null = null;
+
+  /** Charge telegraph: windup -> 400ms telegraph (flash + line) -> dash. */
+  private telegraphMs = 0;
+  private telegraphLine: Phaser.GameObjects.Rectangle | null = null;
+
+  /** Heal-aura pulse cadence. */
+  private healAuraMs = 0;
+
+  /** Boss attack cadence + ring telegraph. */
+  private bossAttackMs = 0;
+  private ringTelegraphMs = 0;
+  private ringTelegraphRing: Phaser.GameObjects.Image | null = null;
 
   constructor(scene: Phaser.Scene) {
     super(scene, 0, 0, TEX.disc);
@@ -52,7 +86,15 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.lastContactAt = 0;
     this.stateMs = 0;
     this.dashMs = 0;
+    this.telegraphMs = 0;
+    this.healAuraMs = TUNING.enemy.healAuraIntervalMs;
+    this.bossAttackMs = TUNING.boss.volleyCooldownMs;
+    this.ringTelegraphMs = 0;
+    this.bossPhase = 1;
+    this.shielded = false;
     this.orbitAngle = Math.atan2(y - VIEW.centerY, x - VIEW.centerX);
+    this.clearTelegraph();
+    this.clearRingTelegraph();
 
     this.setTexture(def.texture);
     this.setPosition(x, y);
@@ -93,6 +135,8 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
       this.bar.stopFollow();
       this.bar.setVisible(false);
     }
+    this.clearTelegraph();
+    this.clearRingTelegraph();
   }
 
   /** Refreshes the elite/boss HP bar after damage. No-op for swarm enemies. */
@@ -108,26 +152,19 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     // Mirror toward the target, honouring which way the art was drawn.
     this.setFlipX(artFacesRight(this.def.texture) ? dx < 0 : dx > 0);
 
+    if (this.def.healAura === true) this.tickHealAura(deltaMs);
+
     switch (this.def.behaviour) {
       case 'chase':
         this.setVelocity((dx / dist) * this.speed, (dy / dist) * this.speed);
         break;
 
-      case 'charge': {
-        // Wind up, then dash at 2.6x speed for 400ms.
-        this.dashMs -= deltaMs;
-        if (this.dashMs <= 0 && this.stateMs > 1600) {
-          this.dashMs = 400;
-          this.stateMs = 0;
-        }
-        const mul = this.dashMs > 0 ? 2.6 : 0.6;
-        this.setVelocity((dx / dist) * this.speed * mul, (dy / dist) * this.speed * mul);
+      case 'charge':
+        this.tickCharge(deltaMs, dx, dy, dist);
         break;
-      }
 
       case 'shoot': {
-        const standOff = 320;
-        const approach = dist > standOff ? 1 : -0.5;
+        const approach = dist > SHOOT_STANDOFF_PX ? 1 : -0.5;
         this.setVelocity((dx / dist) * this.speed * approach, (dy / dist) * this.speed * approach);
         if (this.stateMs >= 1500) {
           this.stateMs = 0;
@@ -153,6 +190,122 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
         this.setVelocity((dx / dist) * this.speed, (dy / dist) * this.speed);
         this.setAngle(this.angle + deltaMs * 0.18);
         break;
+
+      case 'boss':
+        this.tickBoss(deltaMs, dx, dy, dist);
+        break;
+    }
+  }
+
+  /** Windup (0.6x) -> 400ms telegraph (flash + line, stationary) -> dash (2.6x) -> repeat. */
+  private tickCharge(deltaMs: number, dx: number, dy: number, dist: number): void {
+    if (this.telegraphMs > 0) {
+      this.telegraphMs -= deltaMs;
+      this.setVelocity(0, 0);
+      if (this.telegraphMs <= 0) {
+        this.clearTelegraph();
+        this.dashMs = CHARGE_DASH_MS;
+        this.stateMs = 0;
+      }
+      return;
+    }
+
+    this.dashMs -= deltaMs;
+    if (this.dashMs <= 0 && this.stateMs > CHARGE_WINDUP_MS) {
+      this.startTelegraph(dx, dy, dist);
+      return;
+    }
+    const mul = this.dashMs > 0 ? CHARGE_DASH_MUL : CHARGE_WINDUP_MUL;
+    this.setVelocity((dx / dist) * this.speed * mul, (dy / dist) * this.speed * mul);
+  }
+
+  private startTelegraph(dx: number, dy: number, dist: number): void {
+    this.telegraphMs = TUNING.enemy.chargeTelegraphMs;
+    this.setTint(PALETTE.bad);
+    const angle = Math.atan2(dy, dx);
+    this.telegraphLine = this.scene.add
+      .rectangle(this.x + (dx / dist) * (dist / 2), this.y + (dy / dist) * (dist / 2), dist, 6, PALETTE.bad, 0.5)
+      .setRotation(angle)
+      .setDepth(9);
+  }
+
+  private clearTelegraph(): void {
+    this.telegraphMs = 0;
+    this.clearTint();
+    if (this.telegraphLine !== null) {
+      this.telegraphLine.destroy();
+      this.telegraphLine = null;
+    }
+  }
+
+  private tickHealAura(deltaMs: number): void {
+    this.healAuraMs -= deltaMs;
+    if (this.healAuraMs > 0) return;
+    this.healAuraMs = TUNING.enemy.healAuraIntervalMs;
+    this.onHealPulse?.(this);
+  }
+
+  /** Standoff dance (like `shoot`) plus phase-gated volley/summon/ring attacks. */
+  private tickBoss(deltaMs: number, dx: number, dy: number, dist: number): void {
+    const ratio = this.health.ratio;
+    const nextPhase: BossPhase = ratio <= TUNING.boss.phase3At ? 3 : ratio <= TUNING.boss.phase2At ? 2 : 1;
+    if (nextPhase !== this.bossPhase) {
+      this.bossPhase = nextPhase;
+      if (nextPhase === 2) this.onBossAttack?.(this, 'phase2');
+      if (nextPhase === 3) this.onBossAttack?.(this, 'phase3');
+    }
+
+    const enrageMul = this.bossPhase === 3 ? TUNING.boss.enrageSpeedMul : 1;
+    const approach = dist > BOSS_STANDOFF_PX ? 1 : -0.5;
+    this.setVelocity((dx / dist) * this.speed * approach * enrageMul, (dy / dist) * this.speed * approach * enrageMul);
+
+    if (this.bossPhase === 3) {
+      this.tickBossRing(deltaMs);
+      return;
+    }
+
+    this.bossAttackMs -= deltaMs;
+    if (this.bossAttackMs <= 0) {
+      this.bossAttackMs = TUNING.boss.volleyCooldownMs;
+      this.onBossAttack?.(this, 'volley');
+    }
+  }
+
+  private tickBossRing(deltaMs: number): void {
+    if (this.ringTelegraphMs > 0) {
+      this.ringTelegraphMs -= deltaMs;
+      if (this.ringTelegraphMs <= 0) {
+        this.clearRingTelegraph();
+        this.onBossAttack?.(this, 'ring');
+        this.bossAttackMs = TUNING.boss.ringCooldownMs;
+      }
+      return;
+    }
+    this.bossAttackMs -= deltaMs;
+    if (this.bossAttackMs <= 0) {
+      this.ringTelegraphMs = TUNING.boss.ringTelegraphMs;
+      this.ringTelegraphRing = this.scene.add
+        .image(this.x, this.y, TEX.ring)
+        .setTint(PALETTE.bad)
+        .setDisplaySize(this.def.size * 0.6, this.def.size * 0.6)
+        .setAlpha(0.7)
+        .setDepth(9);
+      this.scene.tweens.add({
+        targets: this.ringTelegraphRing,
+        displayWidth: this.def.size * 2.4,
+        displayHeight: this.def.size * 2.4,
+        alpha: 0.15,
+        duration: TUNING.boss.ringTelegraphMs,
+        ease: 'Cubic.easeOut',
+      });
+    }
+  }
+
+  private clearRingTelegraph(): void {
+    this.ringTelegraphMs = 0;
+    if (this.ringTelegraphRing !== null) {
+      this.ringTelegraphRing.destroy();
+      this.ringTelegraphRing = null;
     }
   }
 }

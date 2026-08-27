@@ -1,22 +1,26 @@
 import Phaser from 'phaser';
-import { PALETTE, TUNING, VIEW } from '../config';
+import { PALETTE, SAFE, TUNING, VIEW } from '../config';
 import { EVENTS, SCENES } from '../core/keys';
 import { Controls } from '../core/controls';
 import { Joystick } from '../ui/joystick';
 import { Rng } from '../core/rng';
 import { setDamageClock } from '../core/damage';
-import { RunDirector } from '../core/run';
+import { RunDirector, type EventSpec } from '../core/run';
 import { metaModifiers } from '../core/progression';
-import { rollUpgradeChoices, type UpgradeDef } from '../data/upgrades';
-import { PHASES, WAVES } from '../data/waves';
+import { rollUpgradeChoices, type UpgradeDef, type UpgradeRollContext } from '../data/upgrades';
+import { PHASES, WAVES, TIMELINE_EVENTS } from '../data/waves';
 import { ANIM } from '../data/art';
 import type { EnemyDef } from '../data/enemies';
+import { applyEffect } from '../core/effects';
 import { sfx } from '../core/audio';
+import { startMusic, setMusicIntensity, setMusicLayer } from '../core/music';
 import { burst, flash, floatText, hitstop, playFx, shake } from '../core/juice';
 import { Arena } from '../systems/arena';
 import { CombatSystem } from '../systems/combat';
 import { Hud, type HudModel } from '../ui/hud';
 import { showUpgradeCards, type UpgradeCardsHandle } from '../ui/cards';
+import { showPauseOverlay, type PauseOverlayHandle } from '../ui/pauseOverlay';
+import { Button } from '../ui/button';
 
 /**
  * Integrator scene: owns nothing gameplay-specific itself, wires the systems
@@ -36,6 +40,7 @@ export class GameScene extends Phaser.Scene {
   private combat!: CombatSystem;
   private director!: RunDirector;
   private hud!: Hud;
+  private pauseButton!: Button;
 
   private kills = 0;
   private score = 0;
@@ -43,8 +48,12 @@ export class GameScene extends Phaser.Scene {
   private currency = 0;
   private taken: string[] = [];
   private drafting = false;
+  private paused = false;
   private ended = false;
   private cards: UpgradeCardsHandle | null = null;
+  private pauseOverlay: PauseOverlayHandle | null = null;
+  private rerollUsedThisDraft = false;
+  private bossActive = false;
   private floatBudget = TUNING.caps.floatTextPerSecond;
   private floatWindowMs = 0;
   private readonly model: HudModel = {
@@ -76,8 +85,12 @@ export class GameScene extends Phaser.Scene {
     this.currency = 0;
     this.taken = [];
     this.drafting = false;
+    this.paused = false;
     this.ended = false;
     this.cards = null;
+    this.pauseOverlay = null;
+    this.rerollUsedThisDraft = false;
+    this.bossActive = false;
     this.simTimeMs = 0;
 
     // One seed drives the entire run — arena layout, spawns and upgrade rolls —
@@ -91,6 +104,7 @@ export class GameScene extends Phaser.Scene {
     // The arena owns the field: floor, walls, props and the world/camera bounds.
     this.arena = new Arena(this, this.seed);
 
+    // === BEGIN replaceable gameplay ===
     this.combat = new CombatSystem(
       this,
       this.rng,
@@ -101,6 +115,10 @@ export class GameScene extends Phaser.Scene {
         onPlayerDied: () => this.finish(false),
         onLevelUp: (level, gained) => this.onLevelUp(level, gained),
         onPlayerAttack: () => sfx('tap', { volume: 0.25 }),
+        onBossSpawned: () => this.onBossSpawned(),
+        onBossKilled: () => this.finish(true),
+        onWeaponEvolved: (name) => this.onWeaponEvolved(name),
+        onCoinCollected: (value) => this.onCoinCollected(value),
       },
       metaModifiers(),
     );
@@ -121,7 +139,7 @@ export class GameScene extends Phaser.Scene {
       this,
       WAVES,
       PHASES,
-      (id) => this.combat.spawn(id, this.director.difficulty),
+      (id, _index, _total, pattern) => this.combat.spawn(id, this.director.difficulty, pattern),
       {
         durationSeconds: TUNING.runSeconds,
         onPhaseChange: (phase) => {
@@ -129,21 +147,37 @@ export class GameScene extends Phaser.Scene {
           this.game.events.emit(EVENTS.phaseChanged, phase);
           sfx('whoosh', { volume: 0.5 });
         },
+        onEvent: (event) => this.onScriptedEvent(event),
+        events: TIMELINE_EVENTS,
       },
     );
     // Grace window: the director starts immediately, but data/waves.ts keeps the
     // first wave after TUNING.graceSeconds so the player can learn the verb.
+    // === END replaceable gameplay ===
 
     // Movement is the joystick; `Controls` stays for keyboard parity and for
     // any tap/swipe actions a game adds on top.
     this.joystick = new Joystick(this);
     this.controls = new Controls(this);
 
+    this.pauseButton = new Button(this, VIEW.width - SAFE.side - 44, SAFE.top / 2, 'II', () => this.togglePause(), {
+      width: 88,
+      height: 88,
+      fill: PALETTE.bgTop,
+      stroke: PALETTE.primary,
+      textColor: '#e8ecf6',
+      fontSize: '36px',
+    });
+    this.pauseButton.setDepth(1500);
+
     this.input.keyboard?.on('keydown-ESC', () => this.togglePause());
     this.input.keyboard?.on('keydown-P', () => this.togglePause());
 
     this.game.events.emit(EVENTS.runStarted);
     this.cameras.main.fadeIn(220, 0, 0, 0);
+
+    startMusic('run');
+    setMusicIntensity(0.25);
   }
 
   update(_time: number, delta: number): void {
@@ -158,7 +192,7 @@ export class GameScene extends Phaser.Scene {
       player.setAxis(this.joystick.vector.x, this.joystick.vector.y);
     }
 
-    if (!this.drafting) {
+    if (!this.drafting && !this.paused) {
       this.director.update(delta);
       this.combat.update(delta, this.director.difficulty);
 
@@ -169,6 +203,8 @@ export class GameScene extends Phaser.Scene {
         this.score += whole;
       }
 
+      setMusicIntensity(0.25 + 0.75 * Math.min(1, this.director.difficulty / 2.6));
+
       if ((this.director.remainingSeconds ?? 1) <= 0) {
         this.finish(true);
         return;
@@ -177,7 +213,7 @@ export class GameScene extends Phaser.Scene {
 
     // Sim time backs the damage clock's i-frames: it must not advance while
     // paused or drafting, or a pause/draft would silently expire i-frames.
-    if (!this.drafting && !this.director.isPaused) {
+    if (!this.drafting && !this.paused && !this.director.isPaused) {
       this.simTimeMs += delta;
     }
 
@@ -204,7 +240,9 @@ export class GameScene extends Phaser.Scene {
     this.score += TUNING.economy.scorePerKill;
 
     if (def.id === 'boss') this.currency += TUNING.economy.currencyPerBoss;
-    else if (def.id === 'elite') this.currency += TUNING.economy.currencyPerElite;
+    // Elites drop `TUNING.economy.currencyPerElite` as pooled coin pickups
+    // (see `CombatSystem.dropCoins`) instead of a lump instant grant, so this
+    // tally only adds the small flat per-kill bonus every kill gets.
     else this.currency += TUNING.economy.currencyPerKill;
 
     const big = def.id === 'boss' || def.id === 'elite';
@@ -217,6 +255,11 @@ export class GameScene extends Phaser.Scene {
       this.floatBudget -= 1;
       floatText(this, x, y, `+${TUNING.economy.scorePerKill}`, '#8fa1c7', 34);
     }
+  }
+
+  private onCoinCollected(value: number): void {
+    this.currency += value;
+    sfx('pickup', { volume: 0.35 });
   }
 
   private onPlayerHit(ratio: number): void {
@@ -242,58 +285,147 @@ export class GameScene extends Phaser.Scene {
     this.openDraft(gained);
   }
 
+  private onBossSpawned(): void {
+    this.bossActive = true;
+    setMusicLayer('boss', true);
+  }
+
+  private onWeaponEvolved(name: string): void {
+    sfx('levelup', { volume: 0.8 });
+    floatText(this, this.combat.player.x, this.combat.player.y - 80, `${name.toUpperCase()}!`, '#ffd166', 46);
+  }
+
+  /** Chest/breather/elite-rush timeline events, wired into `RunDirector.onEvent`. */
+  private onScriptedEvent(event: EventSpec): void {
+    switch (event.kind) {
+      case 'chest':
+        sfx('pickup', { volume: 0.6 });
+        floatText(this, this.combat.player.x, this.combat.player.y - 100, 'CHEST!', '#ffd166', 48);
+        this.openDraft(1);
+        break;
+      case 'breather':
+        sfx('whoosh', { volume: 0.4 });
+        floatText(this, this.combat.player.x, this.combat.player.y - 100, 'BREATHER', '#8fe3a5', 40);
+        this.combat.player.health.heal(this.combat.player.health.max * TUNING.events.breatherHealRatio);
+        this.combat.silenceSpawns(TUNING.events.breatherSilenceMs);
+        break;
+      case 'elite-rush': {
+        sfx('die', { volume: 0.3 });
+        floatText(this, this.combat.player.x, this.combat.player.y - 100, 'ELITE RUSH', '#ff6b6b', 44);
+        const baseAngle = this.rng.float(0, Math.PI * 2);
+        const count = TUNING.events.eliteRushCount;
+        for (let i = 0; i < count; i += 1) {
+          const angle = baseAngle + (i - (count - 1) / 2) * 0.5;
+          const dist = VIEW.width / 2 + TUNING.enemy.spawnMargin + 60;
+          this.combat.spawnAtPosition(
+            'elite',
+            this.combat.player.x + Math.cos(angle) * dist,
+            this.combat.player.y + Math.sin(angle) * dist,
+            this.director.difficulty,
+          );
+        }
+        break;
+      }
+    }
+  }
+
   /** Pauses the run (not the scene) and shows the pick-1-of-N overlay. */
   private openDraft(pendingLevels: number): void {
-    const choices = rollUpgradeChoices(this.rng, this.taken, TUNING.draft.choices);
+    const context: UpgradeRollContext = {
+      ownedWeapons: this.combat.equippedWeapons().map((w) => w.id),
+      hasFreeWeaponSlot: this.combat.hasFreeWeaponSlot(),
+    };
+    const choices = rollUpgradeChoices(this.rng, this.taken, TUNING.draft.choices, context);
     if (choices.length === 0) return;
 
     this.drafting = true;
+    this.rerollUsedThisDraft = false;
     this.combat.setPaused(true);
     this.director.pause();
     this.joystick.setEnabled(false);
 
-    this.cards = showUpgradeCards(this, choices, (choice: UpgradeDef) => {
-      this.applyUpgrade(choice);
-      this.cards?.destroy();
-      this.cards = null;
-      if (pendingLevels > 1) {
-        this.openDraft(pendingLevels - 1);
-        return;
-      }
-      this.drafting = false;
-      this.combat.setPaused(false);
-      this.director.resume();
-      this.joystick.setEnabled(true);
-    });
+    this.cards = showUpgradeCards(
+      this,
+      choices,
+      (choice: UpgradeDef) => {
+        this.applyUpgrade(choice);
+        this.cards?.destroy();
+        this.cards = null;
+        if (pendingLevels > 1) {
+          this.openDraft(pendingLevels - 1);
+          return;
+        }
+        this.drafting = false;
+        this.combat.setPaused(false);
+        this.director.resume();
+        this.joystick.setEnabled(true);
+      },
+      {
+        rerollCost: TUNING.draft.rerollCost,
+        canReroll: () => !this.rerollUsedThisDraft && this.currency >= TUNING.draft.rerollCost,
+        onReroll: () => {
+          this.rerollUsedThisDraft = true;
+          this.currency -= TUNING.draft.rerollCost;
+          const excluded = [...this.taken, ...choices.map((c) => c.id)];
+          return rollUpgradeChoices(this.rng, excluded, TUNING.draft.choices, context);
+        },
+      },
+    );
   }
 
   private applyUpgrade(choice: UpgradeDef): void {
     this.taken.push(choice.id);
+    if (choice.kind === 'weapon-unlock' && choice.weapon !== undefined) {
+      this.combat.unlockWeapon(choice.weapon);
+    } else if (choice.kind === 'weapon-boost' && choice.weapon !== undefined) {
+      this.combat.boostWeapon(choice.weapon);
+    }
     for (const mod of choice.modifiers) {
       this.combat.player.applyModifier({ ...mod, source: `card:${choice.id}:${this.taken.length}` });
+    }
+    if (choice.effect !== undefined) {
+      applyEffect(choice.effect, { player: this.combat.player }, this.combat.effects);
     }
     burst(this, VIEW.centerX, VIEW.centerY, PALETTE.accent, 18, 340);
   }
 
   private togglePause(): void {
     if (this.ended || this.drafting) return;
-    if (this.director.isPaused) {
-      this.director.resume();
-      this.combat.setPaused(false);
-      this.joystick.setEnabled(true);
-      this.game.events.emit(EVENTS.resumed);
+    if (this.paused) {
+      this.resumeFromPause();
     } else {
+      this.paused = true;
       this.director.pause();
       this.combat.setPaused(true);
       this.joystick.setEnabled(false);
       this.game.events.emit(EVENTS.paused);
+      this.pauseOverlay = showPauseOverlay(
+        this,
+        () => this.resumeFromPause(),
+        () => {
+          this.pauseOverlay?.destroy();
+          this.pauseOverlay = null;
+          this.scene.start(SCENES.game);
+        },
+      );
     }
+  }
+
+  private resumeFromPause(): void {
+    this.paused = false;
+    this.pauseOverlay?.destroy();
+    this.pauseOverlay = null;
+    this.director.resume();
+    this.combat.setPaused(false);
+    this.joystick.setEnabled(true);
+    this.game.events.emit(EVENTS.resumed);
   }
 
   private finish(won: boolean): void {
     if (this.ended) return;
     this.ended = true;
     this.cards?.destroy();
+    this.pauseOverlay?.destroy();
     this.combat.setPaused(true);
     this.director.pause();
     this.joystick.setEnabled(false);
@@ -301,6 +433,9 @@ export class GameScene extends Phaser.Scene {
     sfx(won ? 'levelup' : 'die');
     flash(this, won ? PALETTE.good : PALETTE.bad, 260);
     shake(this, 0.02, 300);
+
+    if (this.bossActive) setMusicLayer('boss', false);
+    setMusicIntensity(0.2);
 
     const timeMs = this.director.elapsedSeconds * 1000;
     const currencyEarned = this.currency + (won ? TUNING.economy.winBonus : 0);
@@ -315,6 +450,7 @@ export class GameScene extends Phaser.Scene {
         score: this.score,
         currencyEarned,
         level: this.combat.player.level,
+        seed: this.seed,
       });
     });
   }

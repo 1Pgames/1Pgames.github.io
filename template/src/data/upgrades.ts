@@ -1,5 +1,7 @@
+import { TUNING } from '../config';
 import type { Modifier } from '../core/stats';
 import type { Rng } from '../core/rng';
+import { WEAPONS, weaponDef, type WeaponPattern } from './weapons';
 
 /**
  * Data-driven upgrade catalog: the "pick 1 of 3" in-run cards handed out on
@@ -8,6 +10,16 @@ import type { Rng } from '../core/rng';
  * `ui/cards.ts` and `core/progression.ts` never hardcode a single number —
  * add a build by adding an entry here, not by branching in scene code.
  *
+ * Three `kind`s of in-run card:
+ * - `'stat'`: a plain `StatBlock` modifier (and, for the two legendaries, an
+ *   `effect` hook consumed by `core/effects.ts`).
+ * - `'weapon-unlock'`: no modifiers; `GameScene.applyUpgrade` calls
+ *   `combat.unlockWeapon(card.weapon)`. Only offered while a slot is free
+ *   (see the `context` param on `rollUpgradeChoices`).
+ * - `'weapon-boost'`: no modifiers; `GameScene.applyUpgrade` calls
+ *   `combat.boostWeapon(card.weapon)`, which evolves the weapon once its
+ *   boosts reach `TUNING.weapons.maxBoosts`. Only offered for owned weapons.
+ *
  * Use for: roguelike / survivor-like / tower-defense games with in-run stat
  * builds and a between-run economy.
  * Do NOT use for: games with no meta progression or no run-time leveling —
@@ -15,6 +27,7 @@ import type { Rng } from '../core/rng';
  */
 
 export type Rarity = 'common' | 'uncommon' | 'rare' | 'legendary';
+export type UpgradeKind = 'stat' | 'weapon-unlock' | 'weapon-boost';
 
 /** Draw weight per rarity — common is 20x more likely than legendary. */
 const RARITY_WEIGHT: Record<Rarity, number> = {
@@ -29,23 +42,54 @@ export interface UpgradeDef {
   name: string;
   description: string;
   rarity: Rarity;
-  /** Stat changes this card grants; source is always `upgrade:<id>`. */
+  /** Stat changes this card grants; source is always `upgrade:<id>`. Empty for weapon cards. */
   modifiers: Array<Omit<Modifier, 'source'>>;
   /**
-   * Behavioral hook for cards that are more than a stat tweak (e.g. lifesteal
-   * on hit, chain explosions on crit). The scene's upgrade-effect switch
-   * looks this up; pure stat cards leave it undefined.
+   * Behavioral hook for cards that are more than a stat tweak (lifesteal on
+   * hit, chain explosions on crit, the two legendary synergies). The scene's
+   * `core/effects.ts` registry looks this up; pure stat cards leave it
+   * undefined.
    */
   effect?: string;
   /** How many times this card can be taken in one run. */
   maxStacks: number;
+  kind: UpgradeKind;
+  /** Set for `kind !== 'stat'` — the weapon this card unlocks or boosts. */
+  weapon?: WeaponPattern;
 }
 
+const weaponUnlockCard = (weapon: WeaponPattern, rarity: Rarity): UpgradeDef => {
+  const def = weaponDef(weapon);
+  return {
+    id: `unlock_${weapon}`,
+    name: `Unlock: ${def.name}`,
+    description: def.description,
+    rarity,
+    modifiers: [],
+    maxStacks: 1,
+    kind: 'weapon-unlock',
+    weapon,
+  };
+};
+
+const weaponBoostCard = (weapon: WeaponPattern): UpgradeDef => {
+  const def = weaponDef(weapon);
+  return {
+    id: `boost_${weapon}`,
+    name: `Upgrade: ${def.name}`,
+    description: `Strengthens ${def.name}. Maxing this out evolves it into ${def.evolvedName}.`,
+    rarity: 'uncommon',
+    modifiers: [],
+    maxStacks: TUNING.weapons.maxBoosts,
+    kind: 'weapon-boost',
+    weapon,
+  };
+};
+
 /**
- * 14 category cards (damage, attack speed, projectile count, area, move
- * speed, max HP, regen, crit chance/mult, pickup radius, XP gain) plus 2
- * build-defining synergy cards. Common cards are broad and safe; legendary
- * cards trade one stat for another so a run develops a real identity.
+ * 8 strongest generic stat cards (damage, attack speed, area, max HP, regen,
+ * pickup radius, XP gain) plus the weapon unlock/boost cards (see above) and
+ * 2 build-defining legendary synergy cards.
  */
 export const UPGRADE_CARDS: readonly UpgradeDef[] = [
   // --- damage ---------------------------------------------------------
@@ -56,6 +100,7 @@ export const UPGRADE_CARDS: readonly UpgradeDef[] = [
     rarity: 'common',
     modifiers: [{ stat: 'damage', add: 6 }],
     maxStacks: 6,
+    kind: 'stat',
   },
   {
     id: 'dmg_mul',
@@ -64,14 +109,7 @@ export const UPGRADE_CARDS: readonly UpgradeDef[] = [
     rarity: 'uncommon',
     modifiers: [{ stat: 'damage', mul: 0.15 }],
     maxStacks: 5,
-  },
-  {
-    id: 'dmg_mul_big',
-    name: 'Overwhelming Force',
-    description: '+30% damage.',
-    rarity: 'rare',
-    modifiers: [{ stat: 'damage', mul: 0.3 }],
-    maxStacks: 3,
+    kind: 'stat',
   },
   // --- attack speed ----------------------------------------------------
   {
@@ -81,23 +119,7 @@ export const UPGRADE_CARDS: readonly UpgradeDef[] = [
     rarity: 'common',
     modifiers: [{ stat: 'attackSpeed', mul: 0.12 }],
     maxStacks: 6,
-  },
-  {
-    id: 'atk_speed_big',
-    name: 'Blur of Motion',
-    description: '+25% attack speed.',
-    rarity: 'rare',
-    modifiers: [{ stat: 'attackSpeed', mul: 0.25 }],
-    maxStacks: 3,
-  },
-  // --- projectile count -------------------------------------------------
-  {
-    id: 'projectile_count',
-    name: 'Split Shot',
-    description: '+1 projectile per attack.',
-    rarity: 'uncommon',
-    modifiers: [{ stat: 'projectiles', add: 1 }],
-    maxStacks: 4,
+    kind: 'stat',
   },
   // --- area ------------------------------------------------------------
   {
@@ -107,50 +129,27 @@ export const UPGRADE_CARDS: readonly UpgradeDef[] = [
     rarity: 'uncommon',
     modifiers: [{ stat: 'areaMul', mul: 0.2 }],
     maxStacks: 5,
-  },
-  // --- move speed --------------------------------------------------------
-  {
-    id: 'move_speed',
-    name: 'Light Footwork',
-    description: '+8% move speed.',
-    rarity: 'common',
-    modifiers: [{ stat: 'moveSpeed', mul: 0.08 }],
-    maxStacks: 5,
+    kind: 'stat',
   },
   // --- max hp ------------------------------------------------------------
   {
     id: 'max_hp',
     name: 'Thicker Hide',
-    description: '+20 max HP.',
+    description: '+25 max HP.',
     rarity: 'common',
-    modifiers: [{ stat: 'maxHp', add: 20 }],
+    modifiers: [{ stat: 'maxHp', add: 25 }],
     maxStacks: 8,
+    kind: 'stat',
   },
   // --- regen ---------------------------------------------------------
   {
     id: 'regen',
     name: 'Steady Pulse',
-    description: '+0.5 HP regenerated per second.',
+    description: '+0.75 HP regenerated per second.',
     rarity: 'uncommon',
-    modifiers: [{ stat: 'regenPerSecond', add: 0.5 }],
+    modifiers: [{ stat: 'regenPerSecond', add: 0.75 }],
     maxStacks: 6,
-  },
-  // --- crit ------------------------------------------------------------
-  {
-    id: 'crit_chance',
-    name: 'Weak Point Sense',
-    description: '+8% critical hit chance.',
-    rarity: 'uncommon',
-    modifiers: [{ stat: 'critChance', add: 0.08 }],
-    maxStacks: 5,
-  },
-  {
-    id: 'crit_mul',
-    name: 'Executioner',
-    description: '+50% critical damage.',
-    rarity: 'rare',
-    modifiers: [{ stat: 'critMul', mul: 0.5 }],
-    maxStacks: 3,
+    kind: 'stat',
   },
   // --- pickup radius ---------------------------------------------------
   {
@@ -160,6 +159,7 @@ export const UPGRADE_CARDS: readonly UpgradeDef[] = [
     rarity: 'common',
     modifiers: [{ stat: 'pickupRadius', mul: 0.25 }],
     maxStacks: 4,
+    kind: 'stat',
   },
   // --- xp gain ---------------------------------------------------------
   {
@@ -169,50 +169,87 @@ export const UPGRADE_CARDS: readonly UpgradeDef[] = [
     rarity: 'common',
     modifiers: [{ stat: 'xpGain', mul: 0.15 }],
     maxStacks: 5,
+    kind: 'stat',
   },
-  // --- synergy (build-defining, legendary) ------------------------------
+
+  // --- weapon unlocks (only offered while a slot is free) --------------
+  weaponUnlockCard('orbit', 'uncommon'),
+  weaponUnlockCard('nova', 'rare'),
+  weaponUnlockCard('rail', 'rare'),
+
+  // --- weapon boosts (only offered for owned weapons) -------------------
+  weaponBoostCard('bolt'),
+  weaponBoostCard('orbit'),
+  weaponBoostCard('nova'),
+  weaponBoostCard('rail'),
+
+  // --- synergy (build-defining, legendary, real `effect` hooks) --------
   {
     id: 'synergy_glass_cannon',
     name: 'Glass Cannon',
-    description: '+50% damage, -20% max HP. Every hit becomes a threat.',
+    description: `+${Math.round(TUNING.effects.glassCannon.damageMul * 100)}% damage. Max HP locks to ${Math.round(TUNING.effects.glassCannon.hpCapRatio * 100)}% (heals cap there); every kill grants a brief i-frame.`,
     rarity: 'legendary',
-    modifiers: [
-      { stat: 'damage', mul: 0.5 },
-      { stat: 'maxHp', mul: -0.2 },
-    ],
+    modifiers: [{ stat: 'damage', mul: TUNING.effects.glassCannon.damageMul }],
     effect: 'glass-cannon',
     maxStacks: 1,
+    kind: 'stat',
   },
   {
     id: 'synergy_bulwark',
     name: 'Bulwark',
-    description: '+40% max HP, +30% area, -15% move speed. Stand and clear the room.',
+    description: `+${TUNING.effects.bulwark.maxHpAdd} max HP, +${TUNING.effects.bulwark.regenPerSecondAdd} HP regen/s, ${Math.round(TUNING.effects.bulwark.moveSpeedMul * 100)}% move speed. Contact knockback doubles.`,
     rarity: 'legendary',
     modifiers: [
-      { stat: 'maxHp', mul: 0.4 },
-      { stat: 'areaMul', mul: 0.3 },
-      { stat: 'moveSpeed', mul: -0.15 },
+      { stat: 'maxHp', add: TUNING.effects.bulwark.maxHpAdd },
+      { stat: 'regenPerSecond', add: TUNING.effects.bulwark.regenPerSecondAdd },
+      { stat: 'moveSpeed', mul: TUNING.effects.bulwark.moveSpeedMul },
     ],
     effect: 'bulwark',
     maxStacks: 1,
+    kind: 'stat',
   },
 ] as const;
+
+/** Names every weapon id that has a dedicated unlock card (`bolt` starts owned, so it has none). */
+const UNLOCKABLE_WEAPONS: ReadonlySet<WeaponPattern> = new Set(
+  WEAPONS.filter((w) => w.id !== 'bolt').map((w) => w.id),
+);
+
+/** Gating context `rollUpgradeChoices` needs to decide which weapon cards are on the table. */
+export interface UpgradeRollContext {
+  ownedWeapons: readonly WeaponPattern[];
+  hasFreeWeaponSlot: boolean;
+}
+
+function weaponCardEligible(card: UpgradeDef, ctx: UpgradeRollContext | undefined): boolean {
+  if (card.kind === 'stat') return true;
+  const weapon = card.weapon;
+  if (weapon === undefined) return true;
+  if (ctx === undefined) return card.kind !== 'weapon-unlock' && card.kind !== 'weapon-boost';
+  const owned = ctx.ownedWeapons.includes(weapon);
+  if (card.kind === 'weapon-unlock') return !owned && ctx.hasFreeWeaponSlot && UNLOCKABLE_WEAPONS.has(weapon);
+  return owned; // weapon-boost
+}
 
 /**
  * Weighted, duplicate-free draw of `count` cards. `taken` is every card id
  * already picked this run (with repeats); a card drops out of the pool once
  * its pick count reaches `maxStacks`, and a single roll never offers the
- * same card twice.
+ * same card twice. `context` additionally gates weapon-unlock/boost cards on
+ * the equipped-weapon state (see `UpgradeRollContext`).
  */
 export function rollUpgradeChoices(
   rng: Rng,
   taken: readonly string[],
   count: number,
+  context?: UpgradeRollContext,
 ): UpgradeDef[] {
   const pickedCounts = new Map<string, number>();
   for (const id of taken) pickedCounts.set(id, (pickedCounts.get(id) ?? 0) + 1);
 
-  let pool = UPGRADE_CARDS.filter((card) => (pickedCounts.get(card.id) ?? 0) < card.maxStacks);
+  let pool = UPGRADE_CARDS.filter(
+    (card) => (pickedCounts.get(card.id) ?? 0) < card.maxStacks && weaponCardEligible(card, context),
+  );
   const choices: UpgradeDef[] = [];
   for (let i = 0; i < count && pool.length > 0; i += 1) {
     const weights = pool.map((card) => RARITY_WEIGHT[card.rarity]);

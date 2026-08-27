@@ -52,7 +52,7 @@ npm run build     # typecheck + production bundle
 | `src/core/progression.ts` | versioned `MetaSave`: currency, unlocks, purchased upgrades, `metaModifiers()` |
 | `src/core/state.ts` | `RunState`: score, lives, combo, elapsed, run-ended events |
 | `src/core/rng.ts` | seeded `Rng` (`float/int/chance/pick/pickWeighted/shuffle`), `dailySeed()` |
-| `src/core/storage.ts` | namespaced, throw-safe localStorage; `submitScore()` |
+| `src/core/storage.ts` | namespaced, throw-safe localStorage |
 | `src/data/enemies.ts` | enemy archetypes + `scaleEnemy(def, difficultyMul)` |
 | `src/data/upgrades.ts` | in-run upgrade pool + meta upgrades + `rollUpgradeChoices()` |
 | `src/data/waves.ts` | reference 480s run: phases and waves |

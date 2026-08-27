@@ -1,4 +1,3 @@
-import { STORE } from './keys';
 
 /**
  * localStorage wrapper that never throws (private mode, quota, embedded webviews)
@@ -25,11 +24,3 @@ export function save(key: string, value: unknown): void {
   }
 }
 
-/** Persists the score if it beats the record. Returns true when it is a new best. */
-export function submitScore(score: number): boolean {
-  const best = load<number>(STORE.best, 0);
-  save(STORE.runs, load<number>(STORE.runs, 0) + 1);
-  if (score <= best) return false;
-  save(STORE.best, score);
-  return true;
-}

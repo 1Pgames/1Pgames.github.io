@@ -12,7 +12,7 @@ import { PALETTE } from '../config';
  * as a one-off entity instead of forcing it into this table.
  */
 
-export type EnemyBehaviour = 'chase' | 'orbit' | 'shoot' | 'charge' | 'split';
+export type EnemyBehaviour = 'chase' | 'orbit' | 'shoot' | 'charge' | 'split' | 'boss';
 
 export interface EnemyBaseStats {
   maxHp: number;
@@ -34,6 +34,10 @@ export interface EnemyDef {
   tint: number;
   /** Only set for `behaviour: 'split'` — ids spawned on death. */
   splitInto?: readonly string[];
+  /** Periodically heals nearby enemies (see `TUNING.enemy.healAura*`). Only `healer` sets this. */
+  healAura?: boolean;
+  /** Only set for `id: 'elite'` — drops pooled coin pickups on death. */
+  eliteDrop?: boolean;
 }
 
 /**
@@ -54,7 +58,7 @@ export const ENEMIES: readonly EnemyDef[] = [
     id: 'runner',
     texture: 'runner-move',
     size: 74,
-    base: { maxHp: 14, damage: 5, moveSpeed: 260, xp: 2, currency: 2 },
+    base: { maxHp: 14, damage: 4, moveSpeed: 260, xp: 2, currency: 2 },
     behaviour: 'charge',
     tint: PALETTE.secondary,
   },
@@ -90,21 +94,23 @@ export const ENEMIES: readonly EnemyDef[] = [
     base: { maxHp: 26, damage: 2, moveSpeed: 120, xp: 6, currency: 5 },
     behaviour: 'orbit',
     tint: PALETTE.good,
+    healAura: true,
   },
   {
     id: 'elite',
     texture: 'elite-move',
     size: 150,
-    base: { maxHp: 300, damage: 16, moveSpeed: 150, xp: 25, currency: 20 },
+    base: { maxHp: 300, damage: 13, moveSpeed: 150, xp: 25, currency: 20 },
     behaviour: 'charge',
     tint: PALETTE.secondary,
+    eliteDrop: true,
   },
   {
     id: 'boss',
     texture: 'boss-idle',
     size: 280,
     base: { maxHp: 4000, damage: 30, moveSpeed: 90, xp: 200, currency: 150 },
-    behaviour: 'shoot',
+    behaviour: 'boss',
     tint: PALETTE.bad,
   },
 ] as const;
