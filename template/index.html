@@ -28,11 +28,12 @@
         -webkit-tap-highlight-color: transparent;
         user-select: none;
       }
+      /* Full-viewport mount. Centering belongs to Phaser alone
+         (Scale.CENTER_BOTH sets canvas margins); a CSS grid center here would
+         re-center the margin-box and shift the canvas by half the leftover. */
       #app {
         position: fixed;
         inset: 0;
-        display: grid;
-        place-items: center;
       }
       canvas {
         display: block;
