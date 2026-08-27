@@ -1,0 +1,133 @@
+/**
+ * Health pool and damage resolution shared by anything that can take damage:
+ * player, enemies (survivor-like swarms, roguelike rooms), towers/base HP in
+ * tower defense, units in tactics. Pairs with `core/stats.ts` — `rollDamage`
+ * reads the attacker's `damage` / `critChance` / `critMul` stat keys so a
+ * build's crit stacking "just works" without bespoke combat code per game.
+ *
+ * Do NOT use this for pure UI health bars with no gameplay consequence (a
+ * cosmetic loading bar) — this is specifically damage/death/heal state.
+ *
+ * Pure TypeScript, no Phaser import.
+ */
+
+import type { StatBlock } from './stats';
+import type { Rng } from './rng';
+
+/**
+ * Damage-clock indirection: `Health.apply` needs a monotonic clock for
+ * i-frames, but `performance.now()` is wall-clock time — it keeps advancing
+ * while the run is paused or a draft overlay is open, so an enemy's contact
+ * cooldown can silently expire mid-pause and the player eats a hit the
+ * instant the run resumes. The scene owns the real clock: it accumulates
+ * `deltaMs` only while the run is actually ticking and calls
+ * `setDamageClock` once in `create()`. Defaults to `performance.now` (or
+ * `Date.now` where `performance` is absent, e.g. this file under Node) so
+ * anything that never calls `setDamageClock` — tests, the headless sim
+ * before it installs its own clock — still works.
+ */
+let damageClock: () => number =
+  typeof performance !== 'undefined' ? () => performance.now() : () => Date.now();
+
+export function setDamageClock(fn: () => number): void {
+  damageClock = fn;
+}
+
+export function damageNow(): number {
+  return damageClock();
+}
+export interface DamageEvent {
+  amount: number;
+  crit: boolean;
+  source: string;
+}
+
+export class Health {
+  hp: number;
+  max: number;
+
+  /** Duration of post-hit invulnerability, in ms. 0 disables i-frames. */
+  invulnMs = 0;
+  /**
+   * Optional cap on `heal()`/`setMax()` as a fraction of `max` — set by the
+   * `glass-cannon` effect hook (`core/effects.ts`) so regen and orb-driven
+   * heals can never climb back above the locked ratio. `null` means no cap.
+   */
+  capRatio: number | null = null;
+  private lastHitAt = -Infinity;
+  /** Extra guaranteed-invuln window on top of `lastHitAt`/`invulnMs` — set by `Health.grantIframes`. */
+  private bonusIframesUntil = -Infinity;
+  private dead = false;
+
+  constructor(max: number) {
+    this.max = max;
+    this.hp = max;
+  }
+
+  /**
+   * Applies damage. Returns true the call that brings hp to 0 (death), false
+   * otherwise — including every call after death, so it is safe to call again
+   * on an already-dead entity without side effects.
+   */
+  apply(ev: DamageEvent): boolean {
+    if (this.dead) return false;
+    const now = damageNow();
+    if (now < this.bonusIframesUntil) return false;
+    if (this.invulnMs > 0 && now - this.lastHitAt < this.invulnMs) return false;
+    this.lastHitAt = now;
+    this.hp = Math.max(0, this.hp - ev.amount);
+    if (this.hp === 0) {
+      this.dead = true;
+      return true;
+    }
+    return false;
+  }
+
+  heal(n: number): void {
+    if (this.dead) return;
+    const cap = this.capRatio !== null ? this.max * this.capRatio : this.max;
+    this.hp = Math.min(cap, this.hp + n);
+  }
+
+  /**
+   * Grants at least `ms` of additional invulnerability from now, without
+   * disturbing the normal `invulnMs`/`lastHitAt` post-hit window. Used by the
+   * `glass-cannon` effect: every kill refreshes a short guaranteed i-frame.
+   */
+  grantIframes(ms: number): void {
+    if (this.dead) return;
+    const now = damageNow();
+    this.bonusIframesUntil = Math.max(this.bonusIframesUntil, now + ms);
+  }
+
+  /** Raises/lowers the cap. `keepRatio` rescales current hp to match the new cap. */
+  setMax(n: number, keepRatio = true): void {
+    const ratio = keepRatio && this.max > 0 ? this.hp / this.max : 1;
+    this.max = n;
+    const cap = this.capRatio !== null ? n * this.capRatio : n;
+    this.hp = this.dead ? 0 : Math.min(cap, n * ratio);
+  }
+
+  get ratio(): number {
+    return this.max > 0 ? this.hp / this.max : 0;
+  }
+}
+
+/**
+ * Rolls one hit from an attacker's stats: base `damage`, then `critChance`
+ * (0..1) to double-or-multiply by `critMul` (default 2x if the stat is absent).
+ */
+export function rollDamage(stats: StatBlock, rng: Rng, source: string): DamageEvent {
+  const base = stats.get('damage');
+  const critChance = stats.get('critChance');
+  const crit = rng.chance(critChance);
+  const critMul = stats.get('critMul') || 2;
+  const amount = crit ? base * critMul : base;
+  return { amount, crit, source };
+}
+
+/** Applies one damage-over-time tick scaled to elapsed time (poison, burn, bleed). */
+export function applyDot(health: Health, dps: number, deltaMs: number, source: string): boolean {
+  const amount = dps * (deltaMs / 1000);
+  return health.apply({ amount, crit: false, source });
+}

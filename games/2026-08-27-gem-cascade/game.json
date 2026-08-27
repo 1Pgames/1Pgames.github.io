@@ -1,0 +1,17 @@
+{
+  "slug": "2026-08-27-gem-cascade",
+  "title": "Gem Cascade",
+  "family": "board",
+  "genre": "match-3 puzzle",
+  "description": "Swap gems to hit every level goal before the moves run out. Four-in-a-row forges line pieces; five makes a bomb.",
+  "prompt": "match-3 про самоцветы с каскадами, спецфишками и целями за ограниченные ходы",
+  "date": "2026-08-27",
+  "tags": [
+    "board"
+  ],
+  "cover": "cover.svg",
+  "screenshots": [
+    "shots/01-menu.png",
+    "shots/02-board.png"
+  ]
+}

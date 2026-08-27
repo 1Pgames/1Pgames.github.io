@@ -1,0 +1,23 @@
+{
+  "name": "2026-08-27-neon-hop",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Neon Hop \u2014 daily generated Phaser 4 game",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "sim": "node --import ./scripts/ts-resolve.mjs src/sim/cli.ts",
+    "verify": "bash scripts/verify.sh"
+  },
+  "dependencies": {
+    "phaser": "^4.2.1"
+  },
+  "devDependencies": {
+    "@types/node": "^26.3.0",
+    "typescript": "^5.9.3",
+    "vite": "^8.2.2"
+  }
+}

@@ -55,10 +55,50 @@
       #splash.hidden {
         opacity: 0;
       }
+      /* Catalog back-link + prompt chip; filled by new-game.sh, empty in the template. */
+      #pagebar {
+        position: fixed;
+        top: max(10px, env(safe-area-inset-top));
+        left: 10px;
+        z-index: 10;
+        display: flex;
+        gap: 8px;
+        align-items: flex-start;
+        font: 500 12px/1.45 system-ui, -apple-system, sans-serif;
+      }
+      #pagebar .pill {
+        display: inline-block;
+        padding: 6px 12px;
+        border-radius: 999px;
+        color: #8fa1c7;
+        background: rgba(10, 16, 30, 0.72);
+        border: 1px solid rgba(143, 161, 199, 0.25);
+        text-decoration: none;
+        backdrop-filter: blur(6px);
+      }
+      #pagebar a.pill:hover {
+        color: #f2f6ff;
+        border-color: rgba(77, 225, 255, 0.6);
+      }
+      #pagebar details.pill {
+        max-width: min(72vw, 420px);
+        cursor: pointer;
+      }
+      #pagebar details.pill summary {
+        list-style: none;
+        outline: none;
+      }
+      #pagebar details.pill p {
+        margin-top: 8px;
+        color: #c7d3ee;
+        font-style: italic;
+        user-select: text;
+      }
     </style>
   </head>
   <body>
     <div id="app"></div>
+    <div id="pagebar"><!-- GAME_PAGE_LINKS --></div>
     <div id="splash">loading</div>
     <script type="module" src="/src/main.ts"></script>
   </body>

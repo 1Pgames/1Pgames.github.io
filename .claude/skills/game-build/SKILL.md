@@ -234,12 +234,26 @@ Drive the actual running game; this is not optional and not simulated.
    from the failing state — never skip a state or claim success without its
    screenshot.
 
-### Step 6 — Record
+### Step 6 — Store listing + publish
 
-Capture a short clip of the canvas (screenshots at each beat from Step 5 are
-the minimum bar; a screen recording of one full run through the highlight
-beats in `design-heuristics.md` §13 is the stretch goal when the recording
-tool is available). Attach whichever was captured to the final report.
+1. **Store data.** The scaffold already wrote `games/<slug>/game.json` with the
+   verbatim `prompt`; fill `description` (1-2 sentences from PRD §1, player-
+   facing, no jargon) and `genre`. Copy the 3-5 best Step-5 screenshots into
+   `games/<slug>/shots/` (menu, the decision surface, a payoff moment, results)
+   and list them in `game.json.screenshots`. If `game-art` produced a cover,
+   save it as `public/cover.png` and set `game.json.cover`; otherwise the
+   scaffold's gradient `cover.svg` stands.
+2. **Preview.** `node scripts/build-site.mjs && python3 -m http.server 5321 -d
+   _site` — check the catalog card, the store page (prompt block, gallery) and
+   `/play/<slug>/` (the `← Games` pill must return to the catalog).
+3. **Publish.** Commit and push to `master`. `.github/workflows/pages.yml`
+   rebuilds every game plus the catalog and deploys to
+   https://1pgames.github.io/ ; watch the run with `gh run watch`. The `verify`
+   job (sims + selftests) runs alongside — a red verify is a bug to fix even
+   though it does not block the deploy.
+4. **Record.** Capture a short clip of the canvas (screenshots at each beat
+   from Step 5 are the minimum bar; a full-run recording of the
+   `design-heuristics.md` §13 highlight beats is the stretch goal).
 
 ### Step 7 — Final report
 

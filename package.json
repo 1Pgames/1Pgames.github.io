@@ -1,0 +1,12 @@
+{
+  "name": "1pgames",
+  "private": true,
+  "description": "Daily generated browser games: one prompt, one game, one folder",
+  "workspaces": [
+    "template",
+    "games/*"
+  ],
+  "scripts": {
+    "build:site": "node scripts/build-site.mjs"
+  }
+}

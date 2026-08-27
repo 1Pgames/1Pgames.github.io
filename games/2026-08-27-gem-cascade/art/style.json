@@ -1,0 +1,54 @@
+{
+  "schema": "sprite-forge.style.v1",
+  "name": "vibrant-chibi",
+  "artStyle": "Vibrant 2D chibi game art: two-heads-tall proportions, oversized round head, huge expressive eyes with a single bright specular dot, tiny stubby limbs, no visible neck. Clean vector-like cel shading with exactly two shadow steps and one hard highlight, thick dark navy outline of even weight around every silhouette, and a soft inner rim light on the upper-left. Saturated candy colours on near-black backgrounds, glossy plastic-toy finish, chunky readable shapes with no fine linework or texture noise. Consistent 3/4 front-facing camera, no perspective distortion, no photographic detail, no gradients larger than a single body part.",
+  "palette": [
+    "#05070d",
+    "#121a2e",
+    "#f2f6ff",
+    "#8fa1c7",
+    "#4de1ff",
+    "#1f8fd6",
+    "#ff5da2",
+    "#c0246a",
+    "#ffd166",
+    "#e39b1c",
+    "#5df2a0",
+    "#22a86a",
+    "#ff4d5e",
+    "#b02233",
+    "#ffd7bd",
+    "#8a5a3b"
+  ],
+  "camera": "Straight-on 3/4 front view, subject centred, constant camera distance and constant standing-equivalent scale across every frame and every asset in the set.",
+  "lighting": "Single cool key light from the upper left, one warm bounce fill from the lower right, one hard specular dot per glossy surface, ambient occlusion only where two shapes meet. No cast shadow, no ground contact shading, no ground plane.",
+  "outline": "Uniform 3px dark navy (#05070d) outline on the outer silhouette, thinner internal separation lines only between overlapping body parts. Never a light or coloured outline.",
+  "maxPaletteDistance": 52,
+  "plan": {
+    "valuePlan": { "dark": 0.42, "mid": 0.4, "light": 0.18 },
+    "temperature": "Cool cyan-to-navy for allies, armour, glass and UI chrome; warm magenta-through-red for every threat; gold reserved for rewards and progression. Warm and cool never share the same value tier, so a threat always reads against an ally at thumbnail size.",
+    "saturationHierarchy": [
+      "reward and progression gold",
+      "threat magenta and red",
+      "hero cyan",
+      "skin and material neutrals",
+      "background navy"
+    ],
+    "focal": {
+      "primary": "the face and eyes of the character, or the single icon glyph on a UI element",
+      "secondary": "the silhouette-defining prop: weapon, horn, crown, spike, gem",
+      "rest": "large unbroken areas of mid-value navy body mass and flat UI fill"
+    },
+    "materials": {
+      "skin": "matte soft-toy vinyl, no pores, no subsurface detail, warm mid value",
+      "metal": "polished chrome with one sharp specular streak and a dark reflected core",
+      "cloth": "thick felt with rounded folds, only two value steps, never woven texture",
+      "energy": "glowing translucent gel with a bright core and a soft additive fringe",
+      "chitin": "hard glossy shell with a single wide highlight band, faceted not organic",
+      "glass": "clear panel with a diagonal highlight streak and darker rim",
+      "wood": "smooth painted toy wood, chunky bevel, no grain lines"
+    },
+    "renderScale": 96
+  },
+  "references": []
+}

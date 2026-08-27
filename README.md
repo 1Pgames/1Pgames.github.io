@@ -5,7 +5,7 @@ Pipeline for producing one complete vertical (9:16) browser game per day from a
 
 ```
 prompt → family classification → scaffold --family → parallel build + art
-       → verify (family sim gates + browser loop) → balance loop → record
+       → verify (family sim gates + browser loop) → balance loop → publish
 ```
 
 ```
@@ -13,8 +13,11 @@ prompt → family classification → scaffold --family → parallel build + art
 .claude/skills/game-prd/   family classifier (Step 0) + auto-mode PRD (interview only on request)
 .claude/skills/game-art/   style lock → map-forge geometry → parallel assets → generated registry
 template/                  Phaser 4 + Vite + TS portrait template (runs as-is)
-scripts/new-game.sh        template → games/<slug>, renames identity, wires --family
-games/<slug>/              one generated game per folder, PRD.md included
+scripts/new-game.sh        template → games/<slug>: identity, --family slice, game.json manifest
+scripts/build-site.mjs     games/*/game.json → _site/ (catalog + store pages + built games)
+site/                      store-front assets (styles, filter, lightbox)
+.github/workflows/pages.yml  push to master → build catalog + games → GitHub Pages
+games/<slug>/              one generated game per folder: PRD.md, game.json, shots/
 ```
 
 Games span ten gameplay families — mid-core indie genres (survivor-like,
@@ -75,7 +78,9 @@ wraiths") and the `game-build` skill runs the whole chain:
    results (with the family's stat rows) → retry, with screenshots.
 5. **Balance loop.** Sim report → `TUNING`/slice `tuning.ts` edits → re-sim, max
    3 iterations.
-6. **Record.** `npm run dev`, capture the 720x1280 canvas.
+6. **Publish.** Commit and push to `master`: the Pages workflow builds every
+   game plus the catalog and deploys to https://1pgames.github.io/. Capture the
+   720x1280 canvas for the daily clip while the workflow runs.
 
 ## Verification model
 
@@ -91,10 +96,37 @@ spread. `npm run sim -- --family <code>` picks the family explicitly; a bare
 `--runs 20 --lane all` prints the per-lane table and `--strict` promotes soft
 warnings to failures.
 
+## Catalog on GitHub Pages
+
+The repo is the deployable monorepo: `scripts/build-site.mjs` assembles
+`_site/` from every `games/<slug>/game.json` —
+
+- `/` — the store-front: hero with the latest release, family filter chips,
+  search, one card per game (cover, badges, and the **original prompt** as the
+  card's quote);
+- `/game/<slug>/` — the game's store page: cover, description, the original
+  prompt block, screenshots gallery with a lightbox, play button;
+- `/play/<slug>/` — the built game itself, with a `← Games` pill and an
+  `ⓘ prompt` chip injected into its shell.
+
+`game.json` is the single catalog source of truth, written at scaffold time:
+`{slug, title, family, genre, description, prompt, date, tags, cover,
+screenshots}`. The `prompt` field records the verbatim pitch the game was
+generated from; `game-build` fills `description` from PRD §1 and appends its
+verification screenshots to `shots/` + `screenshots`. Covers default to a
+deterministic gradient `public/cover.svg`; `game-art` may replace them with a
+generated `cover.png` (update `game.json.cover`).
+
+Deploys run from `.github/workflows/pages.yml` on push to `master`
+(build+typecheck gate the deploy; the slow sim/selftest `verify` job runs in
+parallel without blocking it). Local preview: `node scripts/build-site.mjs &&
+python3 -m http.server 5321 -d _site`.
+
 ## Manual scaffold
 
 ```bash
-scripts/new-game.sh 2026-08-27-star-catcher "Star Catcher" --family hyper
+scripts/new-game.sh 2026-08-27-star-catcher "Star Catcher" --family hyper \
+  --prompt "игра про ловлю падающих звёзд" --genre "tap-timing arcade"
 cd games/2026-08-27-star-catcher && npm run dev
 ```
 
