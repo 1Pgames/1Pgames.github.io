@@ -6,6 +6,7 @@ import { sfx } from '../core/audio';
 import { grantCurrency, loadMeta, recordRunResult } from '../core/progression';
 import { Button } from '../ui/button';
 import { addBackground } from '../ui/background';
+import type { ResultStat } from '../core/session';
 
 /** Data `GameScene` passes via `scene.start(SCENES.gameOver, data)`. */
 export interface GameOverData {
@@ -17,6 +18,12 @@ export interface GameOverData {
   level: number;
   /** Run seed, replayed by RETRY (`GameScene.init` reruns the same run when given a seed). */
   seed: string;
+  /**
+   * Family-specific stat rows. When present they replace the arena default
+   * "LEVEL n  KILLS n" line, so non-arena slices reuse this scene untouched
+   * (e.g. [{label:'STARS', value:'3'}, {label:'MOVES LEFT', value:'4'}]).
+   */
+  stats?: readonly ResultStat[];
 }
 
 /** mm:ss clock for the survived-time readout. */
@@ -61,6 +68,7 @@ export class GameOverScene extends Phaser.Scene {
       currencyEarned: data.currencyEarned ?? 0,
       level: data.level ?? 1,
       seed: data.seed ?? '',
+      stats: data.stats,
     };
     this.settled = false;
   }
@@ -99,12 +107,15 @@ export class GameOverScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
+    const detailLine =
+      this.result.stats !== undefined
+        ? this.result.stats.map((row) => `${row.label} ${row.value}`).join('   ')
+        : `LEVEL ${this.result.level}   KILLS ${this.result.kills}`;
     const stats = this.add
       .text(
         VIEW.centerX,
         VIEW.centerY - 90,
-        `SURVIVED ${formatClock(this.result.timeMs)}${wasBestTime ? '  (NEW BEST)' : ''}\n` +
-          `LEVEL ${this.result.level}   KILLS ${this.result.kills}`,
+        `SURVIVED ${formatClock(this.result.timeMs)}${wasBestTime ? '  (NEW BEST)' : ''}\n` + detailLine,
         { ...TEXT.body, align: 'center' },
       )
       .setOrigin(0.5)

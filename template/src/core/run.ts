@@ -22,6 +22,8 @@
  * casual games (a plain `time.addEvent` is simpler there).
  */
 
+import type { SessionDirector, SessionOutcome } from './session';
+
 /** Minimal event-host contract `RunDirector` needs from its scene. */
 export interface RunDirectorHost {
   events: {
@@ -93,7 +95,7 @@ const FALLBACK_PHASE: RunPhase = { name: 'default', fromSeconds: 0, difficultyMu
  * call `update(delta)` from the scene's `update`, and never re-implement the
  * spawn scheduling elsewhere — a second timer source is how waves double-fire.
  */
-export class RunDirector {
+export class RunDirector implements SessionDirector {
   private readonly waves: readonly WaveSpec[];
   private readonly phases: readonly RunPhase[];
   private readonly onSpawn: (id: string, index: number, total: number, pattern: WaveSpec['pattern']) => void;
@@ -151,6 +153,21 @@ export class RunDirector {
 
   get isPaused(): boolean {
     return this.paused;
+  }
+
+  /** SessionDirector: a timed run resolves as a win when the clock runs out. */
+  get ended(): boolean {
+    const remaining = this.remainingSeconds;
+    return remaining !== null && remaining <= 0;
+  }
+
+  get outcome(): SessionOutcome | null {
+    return this.ended ? { won: true, reason: 'survived' } : null;
+  }
+
+  get progress(): number | null {
+    if (this.durationSeconds === null || this.durationSeconds <= 0) return null;
+    return Math.min(1, this.elapsedSeconds / this.durationSeconds);
   }
 
   pause(): void {
