@@ -1,11 +1,13 @@
 # Build instructions for the agent
 
-Portrait **720×1280 (9:16) Phaser 4 + Vite + TypeScript** template for **complex
-indie-genre games** — survivor-like, action roguelike, tower defense, survival,
-tactics, deckbuilder, auto-battler — with **5-10 minute runs** and meta
-progression between runs. The spec for the game you are building is `PRD.md` in
-this folder. Implement it **inside this structure**; do not restructure the
-project.
+Portrait **720×1280 (9:16) Phaser 4 + Vite + TypeScript** template covering ten
+gameplay families — from mid-core indie genres (survivor-like, tower defense,
+deckbuilder, racing) to casual ones (board puzzle, idle tycoon, table/dice,
+word, hypercasual) — with 5-10 minute sittings and meta progression between
+sessions. The spec for the game you are building is `PRD.md` in this folder,
+and its header names the **family code** that decides the session director, the
+slice you start from and the sim gate you must pass. Implement it **inside this
+structure**; do not restructure the project.
 
 ## Commands
 
@@ -14,12 +16,84 @@ npm install       # once
 npm run dev       # http://localhost:5173
 npm run typecheck # tsc --noEmit — must be clean
 npm run build     # typecheck + production bundle
-npm run sim       # headless 480s balance sim + gates (--runs N --lane all --strict)
+npm run sim       # headless balance sim + gates for THIS game's family
+npm run sim -- --family board   # gates of a specific family (arena adds --runs N --lane all --strict)
 npm run verify    # typecheck + sim gates + art-registry check + kit selftests
 ```
 
 `?debug` in the URL enables Arcade physics debug bodies in dev. Headless TS
 runs through Node 24 type stripping: `node --import ./scripts/ts-resolve.mjs <file.ts>`.
+
+## Gameplay families and slices
+
+Ten families, one shared systems layer. The family code comes from the PRD
+header (`game-prd` Step 0); everything below is a lookup on it. `--family`
+takes the slice/gate name in the last column, not the letter.
+
+| Code | Genres | Session director | Slice | Sim gate |
+| --- | --- | --- | --- | --- |
+| A | survivor-like, action roguelike, tower defense, horde arena | `RunDirector` (`src/core/run.ts`) | `src/slices/arena/` | `npm run sim -- --family arena` |
+| B | match/blast, merge, sort, block-fit | `LevelDirector` (`src/core/level.ts`) | `src/slices/board/` | `npm run sim -- --family board` |
+| C | platformer, endless runner, physics launch/hill-climb | `LevelDirector` (levels) or `RampDirector` (endless) | `src/slices/side/` | `npm run sim -- --family side` |
+| D | deckbuilder, tactics, auto-battler | `RunDirector`, `progress` indexed by fight/node | **no slice — compose from the genre kits** | none yet |
+| E | racing, karts, drift circuits | `LapDirector` (`src/core/lap.ts`) | `src/slices/track/` | `npm run sim -- --family track` |
+| F | idle, incremental, tycoon, clicker | `Economy` (`src/core/economy.ts`) — no `SessionDirector`: the session ends only when the player ascends; `LevelDirector` only if the PRD adds milestone chapters | `src/slices/idle/` | `npm run sim -- --family idle` |
+| G | solitaire, dice, roll-and-move, tile draw | `LevelDirector` for a deal/goal loop; the shipped table slice instead resolves `SessionOutcome` from its own roll-budget `DiceLoop` (`slices/table/board.ts`) | `src/slices/table/` | `npm run sim -- --family table` |
+| H | word, anagram, trivia, quiz | `LevelDirector` | `src/slices/word/` | `npm run sim -- --family word` |
+| J | hypercasual: one mechanic, endless score chase, instant retry | `RampDirector` (`src/core/ramp.ts`) | `src/slices/hyper/` | `npm run sim -- --family hyper` |
+| I | hybrid **composition pattern**, not a family: a casual core from J/B/F wrapped in 2-3 meta-kit layers | the core's director | the core's slice | the core's family gate |
+
+**Family D has kits but no slice.** `core/{turns,deck,autobattle}.ts`,
+`systems/{placement,board}.ts` and `ui/{hand,shopTray}.ts` are shipped, and the
+pure-logic ones are guarded by the `turns`, `deck`, `autobattle` and
+`boardmath` selftests in `src/sim/kits/` — but there is no D slice dir and no
+`src/sim/families/` module for it. A D game authors its own
+`src/slices/<code>/{game,tuning}.ts` from those kits per the PRD's playbook,
+points the `src/scenes/game.ts` re-export at it, and writes its own
+`src/sim/families/<code>.ts` gate — do not claim a family gate that does not
+exist.
+
+### The slice re-export
+
+`src/scenes/game.ts` is a one-line re-export of the active slice, nothing else:
+
+```ts
+export { GameScene } from '../slices/arena/game';
+```
+
+`scripts/new-game.sh <slug> "Title" --family <code>` does three things at
+scaffold time: deletes every `src/slices/*` dir except the chosen one, rewrites
+that re-export line, and writes `src/sim/family.ts`
+(`export const SIM_FAMILY = '<code>'`) so a bare `npm run sim` runs the right
+family's gates and the pruned `src/sim/families/*` modules are never imported.
+The template default is `arena`.
+
+### Slice authoring rules
+
+- **A slice owns its directory and nothing else.** `src/slices/<code>/` may
+  contain `game.ts` (required) plus family data modules — the shipped ones are
+  `levels.ts` (board, side), `gen.ts` (side), `content.ts` (idle), `stack.ts`
+  (hyper), `board.ts` (table), `math.ts` (track). Everything outside the dir is
+  imported read-only from `src/{core,ui,systems,data}`; a slice never edits a
+  shared module to suit itself.
+- **`tuning.ts` is local and mandatory.** Every slice except `arena` keeps its
+  balance numbers in `src/slices/<code>/tuning.ts` (`BOARD_TUNING`,
+  `SIDE_TUNING`, `TRACK_TUNING`, …); the arena slice uses `TUNING` in
+  `src/config.ts`. The family sim imports the same module, so a number the sim
+  cannot see is a number that is not gated.
+- **Full loop or nothing.** A slice must reach `SCENES.GAMEOVER` on every
+  outcome its family has — both a win and a loss where the family has both,
+  resolved by its director's `SessionOutcome {won, reason}` (family F is the
+  one exception: the idle economy has no fail state and ends only when the
+  player ascends). It hands over `GameOverData.stats` — `readonly ResultStat[]`
+  of `{label, value}` rows from `src/core/session.ts` — instead of the
+  arena-specific kills/level fields. `GameOverScene` awards currency and writes
+  the meta save itself; the slice must not.
+- **Headless-safe logic.** Directors and family maths stay Phaser-free so
+  `src/sim/families/*` can tick them in Node; `Rng` (never `Math.random`) for
+  anything a seed must reproduce.
+- **One pause path.** `showPauseOverlay` + `director.pause()/resume()`; the
+  director's clock is the session clock, not `scene.time`.
 
 ## What already exists (use it, never reinvent)
 
@@ -41,6 +115,8 @@ runs through Node 24 type stripping: `node --import ./scripts/ts-resolve.mjs <fi
 | `src/ui/bars.ts` | `Bar` — HP / XP / progress bars: primitive housing + texture-scaled fill |
 | `src/ui/cards.ts` | `showUpgradeCards(scene, choices, onPick, opts)` — pick-1-of-N overlay with rarity chips and an optional one-per-draft reroll (`TUNING.draft.rerollCost`) |
 | `src/ui/pauseOverlay.ts` | `showPauseOverlay(scene, onResume, onRestart)` — dim + Resume/Restart/Mute; pairs with the on-screen pause button in `GameScene` |
+| `src/ui/sagaMap.ts` | `showSagaMap(scene, opts)` — scrolling level path with star ratings and lock states; the meta shape for B/C/H |
+| `src/ui/boosterBar.ts` | `showBoosterPicker(scene, opts)` — pre-level booster offers spent against `MetaSave.boosters` |
 | `src/ui/background.ts` | `addBackground(scene)` — parallax `bg-layer-0/1/2` (cover-fit, camera scrollFactors) → single `bg-arena` → procedural gradient+starfield fallback |
 | `src/core/music.ts` | zero-asset generative music: `startMusic('menu'\|'run')`, `setMusicIntensity(0..1)`, `setMusicLayer('boss', on)`, `stopMusic()`; muted together with sfx |
 
@@ -54,8 +130,15 @@ runs through Node 24 type stripping: `node --import ./scripts/ts-resolve.mjs <fi
 | `src/core/spritePool.ts` | `SpritePool` for pooled arcade sprites (the Phaser half of pooling) |
 | `src/core/spatial.ts` | `SpatialHash` broad phase — mandatory above ~150 entities |
 | `src/core/grid.ts` | `NavGrid` BFS flow field — tower-defense/dungeon pathing |
+| `src/core/session.ts` | `SessionDirector` (`update(deltaMs)`, `elapsedSeconds`, `pause/resume`, `ended`, `outcome`, `progress`), `SessionOutcome`, `ResultStat` — the one interface scenes, HUD, music and the sim drive every family through |
 | `src/core/run.ts` | `RunDirector`: declarative `WaveSpec[]` (spawn `pattern`: ring/arc/line/cluster) + `RunPhase[]` + scripted `EventSpec[]` (chest/breather/elite-rush) via `onEvent`; delta-driven, structural host (no Phaser import — headless-safe) |
-| `src/core/progression.ts` | versioned `MetaSave`: currency, unlocks, purchased upgrades, `metaModifiers()` |
+| `src/core/level.ts` | `LevelDirector`: `LevelGoal[]` + move/time budget → win/lose; families B/C/G/H |
+| `src/core/ramp.ts` | `RampDirector`: endless score-chase with a difficulty ramp (`RampSpec`), `progress === null`; family J and C-endless |
+| `src/core/lap.ts` | `LapDirector`: laps + checkpoints (`LapSpec`); family E |
+| `src/core/board/*` | headless board engine: `types` (cells/specials), `grid` (`Board`), `resolve` (match-swap/blast cascades), `merge` (merge chains), `sort` (sort puzzles), `block` (block-fit) — all seeded, all Phaser-free |
+| `src/core/economy.ts` | `Economy`: generators, managers, prestige, offline accrual, `EconomySnapshot` save/restore — family F's whole loop |
+| `src/core/progression.ts` | versioned `MetaSave` (v2: currency, unlocks, upgrades, **stars**, daily **streak**, **collections**, **boosters**) + `metaModifiers()`; migrations are per-version steps — bump `version` and add one |
+| `src/core/collections.ts` | `CollectionSetDef` / `collectionProgress` / `rollMissingPiece` — the collect-a-set meta layer |
 | `src/core/rng.ts` | seeded `Rng` (`float/int/chance/pick/pickWeighted/shuffle`), `dailySeed()` |
 | `src/core/storage.ts` | namespaced, throw-safe localStorage |
 | `src/data/enemies.ts` | archetypes as `{ base, behaviour, ... }` incl. `healer` aura, telegraphed `charge`, 3-phase `boss` (`TUNING.boss`: volley → summon+shield → enrage ring), `eliteDrop` coins; `scaleEnemy(def, difficultyMul)` |
@@ -64,7 +147,7 @@ runs through Node 24 type stripping: `node --import ./scripts/ts-resolve.mjs <fi
 | `src/core/effects.ts` | `EFFECT_HOOKS` registry consuming `UpgradeDef.effect` (`glass-cannon`, `bulwark`) — behaviour cards, not stat tweaks |
 | `src/data/waves.ts` | reference 480s run: phases, waves, `TIMELINE_EVENTS` (2 chests, breather, elite-rush) |
 | `src/objects/coin.ts`, `src/objects/blade.ts` | pooled elite-drop currency pickup; pooled orbit blade |
-| `src/sim/*` | headless balance simulator over the REAL data (weapons, boss phases, events, lane bots incl. weapon builds); `src/sim/kits/*.selftest.ts` guard the genre kits |
+| `src/sim/*` | headless balance sim over the REAL data. `families/<code>.ts` holds one family's bots/solvers and gates (`board` greedy-vs-random solver ladder, `hyper` skill-parameterised session length, `idle` economy curves and prestige floor, `table` dice win-rate band, `word` bank integrity + accuracy bots, `side` generator validation + hop bot, `track` lap completion + bot spread); `arena` is `cli.ts`'s own lane pipeline; `family.ts` holds the scaffolded default; `kits/*.selftest.ts` guard the shared kits |
 | `src/scenes/*` | `boot → preload → menu → meta → game → gameover` wired with fades |
 
 ### Genre kits (dormant until a PRD needs them)
@@ -78,6 +161,12 @@ runs through Node 24 type stripping: `node --import ./scripts/ts-resolve.mjs <fi
 | `src/systems/board.ts` + `src/systems/boardMath.ts` | drag-drop bench/board with cell snap, swap, sell zone; pure cell math lives in `boardMath.ts` (headless-testable) |
 | `src/ui/hand.ts` | `HandView`: bottom-docked card fan, tap-select/tap-target or drag-up-to-play |
 | `src/ui/shopTray.ts` | `ShopTray`: docked offer slots with reroll cost and lock toggle — auto-battler |
+
+These are the kits family **D** is built from (`turns` + `deck` for a
+deckbuilder, `autobattle` + `board` + `shopTray` for an auto-battler,
+`turns` + `placement` for tactics) — D is the one family with no starter slice,
+so a D game wires them into its own `src/slices/<code>/game.ts` and gets a new
+`src/sim/families/<code>.ts` gate.
 
 ### Generated art (vibrant 2D chibi)
 
@@ -119,8 +208,10 @@ Regenerating or adding art is the `game-art` skill's job, not hand-drawing:
 1. **Contracts first.** If several agents build in parallel, the PRD's §16.1
    interface types are law. Never renegotiate them mid-flight; never edit a file
    another workstream owns.
-2. **`TUNING` in `src/config.ts`** gets every number from the PRD's balance
-   table. Nothing balance-related is hardcoded anywhere else.
+2. **Balance numbers live in one place per family**: `TUNING` in
+   `src/config.ts` for the arena slice, `src/slices/<code>/tuning.ts` for every
+   other family. Nothing balance-related is hardcoded anywhere else, and the
+   family sim must import the same module.
 3. **Content lives in `src/data/`** as plain data records (enemies, upgrades,
    waves, towers, items) — never as `if` chains in scenes.
 4. **Systems live in `src/systems/`** (create it) as classes taking their
@@ -129,12 +220,14 @@ Regenerating or adding art is the `game-art` skill's job, not hand-drawing:
 5. **Entities live in `src/objects/`**, one class per file, extending
    `Phaser.Physics.Arcade.Sprite` or `Phaser.GameObjects.Container`, each owning a
    `StatBlock` and a `Health` where applicable.
-6. **`GameScene` is the integrator**: it wires director → spawner → combat → UI.
-   Keep the block marked `BEGIN/END replaceable gameplay` as the seam.
-7. **Balance loop is the sim.** After every `TUNING`/`data/waves.ts` change run
-   `npm run sim -- --runs 20 --lane all`; hard gates (winnable at high skill,
-   losable at low skill, first-upgrade timing) must stay green. Tune data, never
-   the sim's bot constants.
+6. **The slice's `GameScene` is the integrator**: it wires session director →
+   gameplay → UI → `GameOverData.stats`, and `src/scenes/game.ts` only
+   re-exports it. In the arena slice keep the block marked `BEGIN/END
+   replaceable gameplay` as the seam.
+7. **Balance loop is the sim.** After every change to `TUNING` or the slice's
+   `tuning.ts`/level data, run this family's gate:
+   `npm run sim -- --family <code>` (arena also takes `--runs 20 --lane all`).
+   Hard gates must stay green. Tune data, never the sim's bot constants.
 8. **Music is two lines:** `startMusic('run')` + `setMusicIntensity(...)` from
    the difficulty curve, `setMusicLayer('boss', on)` around the boss. Internals
    live in `core/music.ts` — do not touch them per game.
@@ -170,8 +263,9 @@ Regenerating or adding art is the `game-art` skill's job, not hand-drawing:
 - **Every gameplay event gets feedback:** one of `shake / pop / flash / burst /
   floatText / hitstop` plus one `sfx()`, respecting the PRD's spam caps (damage
   numbers per second, no shake at very high entity counts).
-- **A run must be completable** in the PRD's target window, with win and loss both
-  reachable, and one-tap retry.
+- **A session must be completable** in the PRD's target window, with win and
+  loss both reachable through the director's `SessionOutcome`, and one-tap
+  retry.
 - **Upgrade stat keys are a contract.** `PLAYER_BASE_STATS` in `src/config.ts`
   is the only list of stats the game reads; every modifier in `src/data/*` must
   use one of those keys. A typo is silent — the modifier applies to a key nobody
@@ -182,10 +276,13 @@ Regenerating or adding art is the `game-art` skill's job, not hand-drawing:
 - **Determinism where it matters:** anything that must be reproducible uses `Rng`,
   never `Math.random`.
 - **No new dependency** without a reason the template cannot cover.
-- **`npm run verify` must pass** (typecheck, sim hard gates, art-registry check,
-  kit selftests), and you must play the full loop in a browser (menu → run →
-  upgrade draft with reroll → pause/resume → finale → results with seed → retry)
-  before claiming done.
+- **`npm run verify` must pass** (typecheck, this family's sim hard gates,
+  art-registry check, kit selftests), and you must play the full loop of your
+  family in a browser before claiming done — menu → session → the family's
+  mid-session decision surface (arena upgrade draft with reroll, board
+  goal/moves budget, hyper instant retry, idle buy/automate, table roll, word
+  answer, side level clear, track lap) → pause/resume → win **and** loss →
+  results with the family's `ResultStat` rows → retry.
 
 ## Common Phaser 4 traps (this is v4, not v3)
 

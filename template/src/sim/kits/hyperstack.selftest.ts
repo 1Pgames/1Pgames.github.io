@@ -136,11 +136,15 @@ const spec: StackSpec = HYPER_TUNING.stack;
 // --- speed ramp and travel bounds ---
 {
   const { baseSpeed, speedPerDifficulty } = HYPER_TUNING;
-  assert.equal(slabSpeed(baseSpeed, speedPerDifficulty, 1), 260, 'difficulty 1 is the base speed');
-  assert.equal(slabSpeed(baseSpeed, speedPerDifficulty, 2), 350, 'each difficulty point adds 90px/s');
+  assert.equal(slabSpeed(baseSpeed, speedPerDifficulty, 1), baseSpeed, 'difficulty 1 is the base speed');
+  assert.equal(
+    slabSpeed(baseSpeed, speedPerDifficulty, 2),
+    baseSpeed + speedPerDifficulty,
+    'each difficulty point adds speedPerDifficulty px/s',
+  );
   assert.equal(
     slabSpeed(baseSpeed, speedPerDifficulty, HYPER_TUNING.ramp.maxDifficulty),
-    260 + 2.5 * 90,
+    baseSpeed + (HYPER_TUNING.ramp.maxDifficulty - 1) * speedPerDifficulty,
     'the ramp ceiling caps the slide speed',
   );
 

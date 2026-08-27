@@ -12,18 +12,18 @@ export const HYPER_TUNING = {
   /** Slab geometry + perfect-drop economy (see `stack.ts`). */
   stack: {
     startWidth: 420,
-    minWidth: 40,
-    perfectEpsilon: 8,
-    widthBonusOnPerfect: 12,
+    minWidth: 36,
+    perfectEpsilon: 10,
+    widthBonusOnPerfect: 18,
   } satisfies StackSpec,
   /** Slide speed at difficulty 1, and the px/s added per difficulty point. */
-  baseSpeed: 260,
-  speedPerDifficulty: 90,
+  baseSpeed: 185,
+  speedPerDifficulty: 55,
   /** Endless score-chase ramp: difficulty climbs with score, never with time. */
   ramp: {
-    scorePerStep: 5,
-    difficultyPerStep: 0.12,
-    maxDifficulty: 3.5,
+    scorePerStep: 6,
+    difficultyPerStep: 0.1,
+    maxDifficulty: 3.2,
   } satisfies RampSpec,
   /** Score awarded per landed drop, and the bonus on top for a perfect one. */
   scorePerDrop: 1,

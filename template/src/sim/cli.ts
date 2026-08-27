@@ -1,5 +1,7 @@
 import { simulateRun } from './model';
 import { LANES, type LanePolicy } from './bots';
+import { SIM_FAMILY } from './family';
+import type { FamilySim } from './families/types';
 import { aggregateLane, medianFirstUpgradeS, type RunMetrics } from './metrics';
 import { Rng } from '../core/rng';
 
@@ -10,16 +12,42 @@ import { Rng } from '../core/rng';
  * comment in `template/scripts/verify.sh`). Run via `npm run sim`.
  */
 
+/**
+ * Family codes `--family` accepts. `arena` is this file's own lane pipeline;
+ * every other code is a `src/sim/families/<code>.ts` module, imported
+ * DYNAMICALLY so a scaffold that pruned the other families still runs its own.
+ */
+const ARENA_FAMILY = 'arena';
+const FAMILY_CODES: readonly string[] = [
+  ARENA_FAMILY,
+  'board',
+  'hyper',
+  'idle',
+  'side',
+  'table',
+  'track',
+  'word',
+];
+
 interface CliOptions {
   runs: number;
   seed: string;
   lane: 'all' | LanePolicy;
   json: boolean;
   strict: boolean;
+  /** Slice family whose gates run; defaults to the scaffolded `SIM_FAMILY`. */
+  family: string;
 }
 
 function parseArgs(argv: readonly string[]): CliOptions {
-  const options: CliOptions = { runs: 20, seed: 'balance', lane: 'all', json: false, strict: false };
+  const options: CliOptions = {
+    runs: 20,
+    seed: 'balance',
+    lane: 'all',
+    json: false,
+    strict: false,
+    family: SIM_FAMILY,
+  };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     switch (arg) {
@@ -35,6 +63,9 @@ function parseArgs(argv: readonly string[]): CliOptions {
         else throw new Error(`Unknown --lane "${value}". Expected one of: all, ${LANES.join(', ')}`);
         break;
       }
+      case '--family':
+        options.family = argv[(i += 1)] ?? options.family;
+        break;
       case '--json':
         options.json = true;
         break;
@@ -182,8 +213,56 @@ function printTable(results: readonly RunMetrics[]): void {
   }
 }
 
+/**
+ * Hands the run to `src/sim/families/<code>.ts`, which prints its own table
+ * and gate lines and returns the exit code. Both failure modes (a code this
+ * build never had, and a code whose module the scaffold pruned) exit 2 with
+ * the list of families that ARE available.
+ */
+async function runFamily(options: CliOptions): Promise<number> {
+  if (!FAMILY_CODES.includes(options.family)) {
+    console.error(`Unknown --family "${options.family}". Expected one of: ${FAMILY_CODES.join(', ')}`);
+    return 2;
+  }
+  let sim: FamilySim;
+  try {
+    // Runtime-selected specifier, and deliberately not static: `new-game.sh`
+    // deletes the families a scaffold does not ship, and a static import of
+    // all six would then break `npm run sim` for the one family that remains.
+    const mod = (await import(`./families/${options.family}.ts`)) as { default: FamilySim };
+    sim = mod.default;
+  } catch {
+    console.error(
+      `Family "${options.family}" is not part of this scaffold: ` +
+        `src/sim/families/${options.family}.ts is missing (pruned at scaffold time). ` +
+        `Run without --family for this game's own family ("${SIM_FAMILY}").`,
+    );
+    return 2;
+  }
+  return await sim({
+    // `--runs banana` parses to NaN; a family sim would then silently measure
+    // nothing, so the default is restored here.
+    runs: Number.isFinite(options.runs) ? options.runs : 20,
+    seed: options.seed,
+    strict: options.strict,
+    json: options.json,
+  });
+}
+
 function main(): void {
   const options = parseArgs(process.argv.slice(2));
+  if (options.family !== ARENA_FAMILY) {
+    // Kept off the arena path entirely: that flow stays synchronous, so its
+    // output and its `--lane`/flag error behaviour are unchanged.
+    runFamily(options).then(
+      (code) => process.exit(code),
+      (error: unknown) => {
+        console.error(error instanceof Error ? error.message : String(error));
+        process.exit(1);
+      },
+    );
+    return;
+  }
   const results = runBatch(options);
   const gates = evaluateGates(results, options.strict);
   const hardFailures = gates.filter((gate) => gate.level === 'hard' && !gate.ok);

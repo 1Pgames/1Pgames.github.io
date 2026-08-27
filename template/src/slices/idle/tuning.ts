@@ -34,7 +34,7 @@ export const IDLE_TUNING = {
 
   prestige: {
     /** Earn this much in one cycle to unlock ASCEND. */
-    unlockAtTotalEarned: 100_000,
+    unlockAtTotalEarned: 210_000,
     /** +0.02 multiplier per `earningsPerStep` earned — see `Economy.prestigeGain`. */
     multiplierPerReset: 0.02,
     earningsPerStep: 1000,
