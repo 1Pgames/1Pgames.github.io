@@ -14,9 +14,12 @@ npm install       # once
 npm run dev       # http://localhost:5173
 npm run typecheck # tsc --noEmit — must be clean
 npm run build     # typecheck + production bundle
+npm run sim       # headless 480s balance sim + gates (--runs N --lane all --strict)
+npm run verify    # typecheck + sim gates + art-registry check + kit selftests
 ```
 
-`?debug` in the URL enables Arcade physics debug bodies in dev.
+`?debug` in the URL enables Arcade physics debug bodies in dev. Headless TS
+runs through Node 24 type stripping: `node --import ./scripts/ts-resolve.mjs <file.ts>`.
 
 ## What already exists (use it, never reinvent)
 
@@ -34,29 +37,47 @@ npm run build     # typecheck + production bundle
 | `src/core/textures.ts` | procedural `disc / ring / square / spike / star / particle / panel`; `buildGradient` |
 | `src/ui/primitives.ts` | `drawPanel` / `drawPill` / `paintPanel` / `paintPill` — all UI chrome, palette-driven |
 | `src/ui/button.ts` | `Button` — primitive capsule, ≥88px tap target, pressed repaint, plays `sfx('ui')` |
-| `src/ui/hud.ts` | `Hud` — score / combo / lives, driven by `RunState` events |
+| `src/ui/hud.ts` | `Hud` — hp/xp bars, level, run timer, currency, kills, phase label; fed a diffed `HudModel` via `set(model)` each frame |
 | `src/ui/bars.ts` | `Bar` — HP / XP / progress bars: primitive housing + texture-scaled fill |
-| `src/ui/cards.ts` | `showUpgradeCards(scene, choices, onPick)` — pick-1-of-3 overlay |
-| `src/ui/background.ts` | `addBackground(scene)` — gradient + drifting dots |
+| `src/ui/cards.ts` | `showUpgradeCards(scene, choices, onPick, opts)` — pick-1-of-N overlay with rarity chips and an optional one-per-draft reroll (`TUNING.draft.rerollCost`) |
+| `src/ui/pauseOverlay.ts` | `showPauseOverlay(scene, onResume, onRestart)` — dim + Resume/Restart/Mute; pairs with the on-screen pause button in `GameScene` |
+| `src/ui/background.ts` | `addBackground(scene)` — parallax `bg-layer-0/1/2` (cover-fit, camera scrollFactors) → single `bg-arena` → procedural gradient+starfield fallback |
+| `src/core/music.ts` | zero-asset generative music: `startMusic('menu'\|'run')`, `setMusicIntensity(0..1)`, `setMusicLayer('boss', on)`, `stopMusic()`; muted together with sfx |
 
 ### Systems (the reason this template exists)
 
 | File | Role |
 | --- | --- |
 | `src/core/stats.ts` | `StatBlock` + `Modifier`: `(base + Σadd) * Π(1+mul)`, memoised — the backbone of upgrade builds |
-| `src/core/damage.ts` | `Health` (i-frames, idempotent death), `rollDamage` (crit), `applyDot` |
-| `src/core/pool.ts` | `Pool<T>` (zero-allocation free list), `SpritePool` for arcade sprites |
+| `src/core/damage.ts` | `Health` (i-frames, heal cap, `grantIframes`, idempotent death), `rollDamage` (crit), `applyDot`; `setDamageClock()` makes i-frames tick on sim time, not wall clock |
+| `src/core/pool.ts` | `Pool<T>` (zero-allocation free list, live-set tracked `releaseAll`) — pure TS |
+| `src/core/spritePool.ts` | `SpritePool` for pooled arcade sprites (the Phaser half of pooling) |
 | `src/core/spatial.ts` | `SpatialHash` broad phase — mandatory above ~150 entities |
 | `src/core/grid.ts` | `NavGrid` BFS flow field — tower-defense/dungeon pathing |
-| `src/core/run.ts` | `RunDirector`: declarative `WaveSpec[]` + `RunPhase[]`, difficulty multiplier, delta-driven (pause-safe) |
+| `src/core/run.ts` | `RunDirector`: declarative `WaveSpec[]` (spawn `pattern`: ring/arc/line/cluster) + `RunPhase[]` + scripted `EventSpec[]` (chest/breather/elite-rush) via `onEvent`; delta-driven, structural host (no Phaser import — headless-safe) |
 | `src/core/progression.ts` | versioned `MetaSave`: currency, unlocks, purchased upgrades, `metaModifiers()` |
-| `src/core/state.ts` | `RunState`: score, lives, combo, elapsed, run-ended events |
 | `src/core/rng.ts` | seeded `Rng` (`float/int/chance/pick/pickWeighted/shuffle`), `dailySeed()` |
 | `src/core/storage.ts` | namespaced, throw-safe localStorage |
-| `src/data/enemies.ts` | enemy archetypes + `scaleEnemy(def, difficultyMul)` |
-| `src/data/upgrades.ts` | in-run upgrade pool + meta upgrades + `rollUpgradeChoices()` |
-| `src/data/waves.ts` | reference 480s run: phases and waves |
+| `src/data/enemies.ts` | archetypes as `{ base, behaviour, ... }` incl. `healer` aura, telegraphed `charge`, 3-phase `boss` (`TUNING.boss`: volley → summon+shield → enrage ring), `eliteDrop` coins; `scaleEnemy(def, difficultyMul)` |
+| `src/data/weapons.ts` | `WeaponDef` catalog: `bolt / orbit / nova / rail` + evolutions; per-weapon numbers in `TUNING.weapons`; patterns implemented in `systems/combat.ts` |
+| `src/data/upgrades.ts` | card pool with `kind: 'stat' \| 'weapon-unlock' \| 'weapon-boost'`, slot/ownership gating via `UpgradeRollContext`, 2 legendary `effect` cards, meta upgrades, `rollUpgradeChoices()`, boot-time `validateUpgradeStats` |
+| `src/core/effects.ts` | `EFFECT_HOOKS` registry consuming `UpgradeDef.effect` (`glass-cannon`, `bulwark`) — behaviour cards, not stat tweaks |
+| `src/data/waves.ts` | reference 480s run: phases, waves, `TIMELINE_EVENTS` (2 chests, breather, elite-rush) |
+| `src/objects/coin.ts`, `src/objects/blade.ts` | pooled elite-drop currency pickup; pooled orbit blade |
+| `src/sim/*` | headless balance simulator over the REAL data (weapons, boss phases, events, lane bots incl. weapon builds); `src/sim/kits/*.selftest.ts` guard the genre kits |
 | `src/scenes/*` | `boot → preload → menu → meta → game → gameover` wired with fades |
+
+### Genre kits (dormant until a PRD needs them)
+
+| File | Role |
+| --- | --- |
+| `src/core/turns.ts` | `TurnManager`: synchronous phase/round state machine with per-side action points — tactics/deckbuilder |
+| `src/core/deck.ts` | `Deck<TCard>`: draw/discard/exhaust with seeded shuffle + energy tracker; one-zone invariant |
+| `src/core/autobattle.ts` | `resolveCombat(playerBoard, enemyBoard, rng)`: deterministic fixed-dt resolver returning a full `CombatEvent` log for replay |
+| `src/systems/placement.ts` | `PlacementSystem`: tap-to-place with ghost preview + `NavGrid` reachability validation — tower defense / base builder |
+| `src/systems/board.ts` + `src/systems/boardMath.ts` | drag-drop bench/board with cell snap, swap, sell zone; pure cell math lives in `boardMath.ts` (headless-testable) |
+| `src/ui/hand.ts` | `HandView`: bottom-docked card fan, tap-select/tap-target or drag-up-to-play |
+| `src/ui/shopTray.ts` | `ShopTray`: docked offer slots with reroll cost and lock toggle — auto-battler |
 
 ### Generated art (vibrant 2D chibi)
 
@@ -65,7 +86,7 @@ npm run build     # typecheck + production bundle
 | `art/style.json` | the project's `sprite-forge.style.v1` contract — every asset is generated against it |
 | `art/manifest.json` | asset plan per group (hero, enemies, FX, UI, backdrop) |
 | `public/assets/generated/**` | exported sheets, frames, GIFs, `sprite-metadata.json` |
-| `src/data/art.ts` | registry: texture keys, frame geometry, animation keys, `ICON` frames, `CHROME` nine-slice geometry |
+| `src/data/art.ts` | **GENERATED** registry (`node scripts/gen-art-registry.mjs`, `--check` guards drift in `npm run verify`) — texture keys, frame geometry, per-action `scale`, `facesRight`, `ICON` frames. Never hand-edit; edit `art/manifest.json` and regenerate |
 | `src/scenes/preload.ts` | loads every registry row and creates one animation per animated sheet |
 
 Regenerating or adding art is the `game-art` skill's job, not hand-drawing:
@@ -76,8 +97,9 @@ Regenerating or adding art is the `game-art` skill's job, not hand-drawing:
 - Generated actions of one character do NOT fill their cell to the same height
   (measured hero subject heights: idle 171, run 146, attack 162, hurt 165 in a
   256px cell). Every animated asset therefore carries `scale` in
-  `src/data/art.ts` (`idleHeight / thisHeight`), re-applied on each animation
-  switch — otherwise the character visibly shrinks when it starts running.
+  `src/data/art.ts`, computed by the generator from `sprite-metadata.json`
+  subject heights and re-applied on each animation switch — otherwise the
+  character visibly shrinks when it starts running.
 - Facing is per-asset too (`facesRight`): this hero's art reads as moving LEFT,
   so a blanket `setFlipX(vx < 0)` made it run backwards. Mirror through
   `artFacesRight(key)`.
@@ -109,9 +131,16 @@ Regenerating or adding art is the `game-art` skill's job, not hand-drawing:
    `StatBlock` and a `Health` where applicable.
 6. **`GameScene` is the integrator**: it wires director → spawner → combat → UI.
    Keep the block marked `BEGIN/END replaceable gameplay` as the seam.
-7. **Meta layer**: read/write only through `core/progression.ts`; bump `version`
+7. **Balance loop is the sim.** After every `TUNING`/`data/waves.ts` change run
+   `npm run sim -- --runs 20 --lane all`; hard gates (winnable at high skill,
+   losable at low skill, first-upgrade timing) must stay green. Tune data, never
+   the sim's bot constants.
+8. **Music is two lines:** `startMusic('run')` + `setMusicIntensity(...)` from
+   the difficulty curve, `setMusicLayer('boss', on)` around the boss. Internals
+   live in `core/music.ts` — do not touch them per game.
+9. **Meta layer**: read/write only through `core/progression.ts`; bump `version`
    and add a migration when the schema changes.
-8. **Repaint** `PALETTE`/`CSS` and `index.html`'s `<title>`, and update the menu
+10. **Repaint** `PALETTE`/`CSS` and `index.html`'s `<title>`, and update the menu
    copy so the how-to-play matches the real verb.
 
 ## Non-negotiable rules
@@ -153,8 +182,9 @@ Regenerating or adding art is the `game-art` skill's job, not hand-drawing:
 - **Determinism where it matters:** anything that must be reproducible uses `Rng`,
   never `Math.random`.
 - **No new dependency** without a reason the template cannot cover.
-- **`npm run build` must pass** with zero TypeScript errors, and you must play the
-  full loop in a browser (menu → run → upgrade draft → finale → results → retry)
+- **`npm run verify` must pass** (typecheck, sim hard gates, art-registry check,
+  kit selftests), and you must play the full loop in a browser (menu → run →
+  upgrade draft with reroll → pause/resume → finale → results with seed → retry)
   before claiming done.
 
 ## Common Phaser 4 traps (this is v4, not v3)
