@@ -77,6 +77,8 @@ let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
 let muted = load<boolean>(STORE.muted, false);
 let noiseBuffer: AudioBuffer | null = null;
+type MuteListener = (muted: boolean) => void;
+const muteListeners = new Set<MuteListener>();
 
 /** Browsers require a user gesture; call once from a pointer/key handler. */
 export function unlockAudio(): void {
@@ -95,6 +97,24 @@ export function unlockAudio(): void {
   if (ctx.state === 'suspended') void ctx.resume();
 }
 
+/**
+ * Shared AudioContext accessor for other synthesised-audio modules (e.g.
+ * `core/music.ts`). Returns `null` until `unlockAudio()` has created it —
+ * callers should invoke `unlockAudio()` first if they need one guaranteed.
+ */
+export function getAudioContext(): AudioContext | null {
+  return ctx;
+}
+
+/**
+ * Subscribe to mute toggles so other audio buses (music) can silence
+ * themselves in lockstep with sfx. Returns an unsubscribe function.
+ */
+export function onMuteChange(listener: MuteListener): () => void {
+  muteListeners.add(listener);
+  return () => muteListeners.delete(listener);
+}
+
 export function isMuted(): boolean {
   return muted;
 }
@@ -103,6 +123,7 @@ export function toggleMute(): boolean {
   muted = !muted;
   save(STORE.muted, muted);
   if (master && ctx) master.gain.setTargetAtTime(muted ? 0 : 0.9, ctx.currentTime, 0.02);
+  muteListeners.forEach((listener) => listener(muted));
   return muted;
 }
 

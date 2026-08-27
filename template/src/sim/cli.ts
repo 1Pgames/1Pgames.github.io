@@ -1,0 +1,193 @@
+import { TUNING } from '../config';
+import { simulateRun } from './model';
+import { LANES, type LanePolicy } from './bots';
+import { aggregateLane, medianFirstUpgradeS, type RunMetrics } from './metrics';
+import { Rng } from '../core/rng';
+
+/**
+ * Headless balance CLI: replays the current template balance data against a
+ * bot for every lane at a spread of skill levels, then checks it against a
+ * small set of gates the design doc calls non-negotiable (see the header
+ * comment in `template/scripts/verify.sh`). Run via `npm run sim`.
+ */
+
+interface CliOptions {
+  runs: number;
+  seed: string;
+  lane: 'all' | LanePolicy;
+  json: boolean;
+  strict: boolean;
+}
+
+function parseArgs(argv: readonly string[]): CliOptions {
+  const options: CliOptions = { runs: 20, seed: 'balance', lane: 'all', json: false, strict: false };
+  for (let i = 0; i < argv.length; i += 1) {
+    const arg = argv[i];
+    switch (arg) {
+      case '--runs':
+        options.runs = Number(argv[(i += 1)] ?? options.runs);
+        break;
+      case '--seed':
+        options.seed = argv[(i += 1)] ?? options.seed;
+        break;
+      case '--lane': {
+        const value = argv[(i += 1)] ?? 'all';
+        if (value === 'all' || LANES.includes(value as LanePolicy)) options.lane = value as CliOptions['lane'];
+        else throw new Error(`Unknown --lane "${value}". Expected one of: all, ${LANES.join(', ')}`);
+        break;
+      }
+      case '--json':
+        options.json = true;
+        break;
+      case '--strict':
+        options.strict = true;
+        break;
+      default:
+        throw new Error(`Unknown flag "${arg}"`);
+    }
+  }
+  return options;
+}
+
+/** Skill spread the gates are evaluated against — a novice, a median, and an expert player. */
+const SKILL_LEVELS: readonly number[] = [0.1, 0.5, 0.9];
+
+function runBatch(options: CliOptions): RunMetrics[] {
+  const lanes = options.lane === 'all' ? LANES : [options.lane];
+  const results: RunMetrics[] = [];
+  const seeder = new Rng(`${options.seed}:dispatch`);
+  for (const lane of lanes) {
+    for (const skill of SKILL_LEVELS) {
+      for (let i = 0; i < options.runs; i += 1) {
+        // Each (lane, skill, index) gets its own deterministic child seed —
+        // stable across repeats of the same --seed, distinct across lanes/skills
+        // so lanes don't all replay the identical enemy-spawn coin flips.
+        const runSeed = `${options.seed}:${lane}:${skill}:${i}:${seeder.int(0, 0x7fffffff)}`;
+        results.push(simulateRun({ seed: runSeed, lane, skill }));
+      }
+    }
+  }
+  return results;
+}
+
+interface GateResult {
+  ok: boolean;
+  level: 'hard' | 'soft';
+  message: string;
+}
+
+/**
+ * Hard gates fail the run (exit 1); soft gates only warn unless `--strict`.
+ * Gates read the ALREADY-COLLECTED results — they never re-tune `TUNING` to
+ * force a pass. A failing hard gate here is the template balance itself
+ * being broken, not a sim bug to paper over.
+ */
+function evaluateGates(results: readonly RunMetrics[], strict: boolean): GateResult[] {
+  const gates: GateResult[] = [];
+
+  const balancedAt = (skill: number) => results.filter((r) => r.lane === 'balanced' && r.skill === skill);
+
+  const veteran = balancedAt(0.9);
+  const veteranWins = veteran.filter((r) => r.survived).length;
+  gates.push({
+    ok: veteran.length === 0 || veteranWins > 0,
+    level: 'hard',
+    message: `'balanced' lane at skill 0.9 won ${veteranWins}/${veteran.length} runs (unwinnable if 0)`,
+  });
+
+  const novice = balancedAt(0.1);
+  const noviceWins = novice.filter((r) => r.survived).length;
+  gates.push({
+    ok: novice.length === 0 || noviceWins < novice.length,
+    level: 'hard',
+    message: `'balanced' lane at skill 0.1 won ${noviceWins}/${novice.length} runs (un-losable if all)`,
+  });
+
+  const firstUpgradeMedian = medianFirstUpgradeS(results);
+  gates.push({
+    ok: firstUpgradeMedian === null || (firstUpgradeMedian >= 20 && firstUpgradeMedian <= 90),
+    level: 'hard',
+    message: `median firstUpgradeS = ${firstUpgradeMedian?.toFixed(1) ?? 'n/a'} (must be within [20, 90])`,
+  });
+
+  const midSkillRuns = results.filter((r) => r.skill === 0.5);
+  const laneWinrates = LANES.map((lane) => aggregateLane(lane, midSkillRuns, TUNING.runSeconds).winrate).filter(
+    (_, index) => midSkillRuns.some((r) => r.lane === LANES[index]),
+  );
+  const dominance = laneWinrates.length > 0 ? Math.max(...laneWinrates) - Math.min(...laneWinrates) : 0;
+  gates.push({
+    ok: dominance <= 0.35,
+    level: 'soft',
+    message: `lane winrate spread at skill 0.5 = ${dominance.toFixed(2)} (dominance warning above 0.35)`,
+  });
+
+  const cadences = LANES.map((lane) => aggregateLane(lane, midSkillRuns, TUNING.runSeconds).cadence).filter(
+    (_, index) => midSkillRuns.some((r) => r.lane === LANES[index]),
+  );
+  const cadenceOk = cadences.every((c) => c >= 10 && c <= 14);
+  gates.push({
+    ok: cadenceOk,
+    level: 'soft',
+    message: `draft cadence per lane at skill 0.5 = [${cadences.map((c) => c.toFixed(1)).join(', ')}] (target 10-14/min)`,
+  });
+
+  const everDroppedBelow30 = results.some((r) => r.hpMinPct < 0.3);
+  gates.push({
+    ok: everDroppedBelow30,
+    level: 'soft',
+    message: everDroppedBelow30
+      ? 'hpMinPct dropped below 30% in at least one run (tension present)'
+      : 'hpMinPct never dropped below 30% across any run (no tension warning)',
+  });
+
+  if (strict) return gates.map((gate) => ({ ...gate, level: 'hard' as const }));
+  return gates;
+}
+
+function printTable(results: readonly RunMetrics[]): void {
+  const lanes = [...new Set(results.map((r) => r.lane))];
+  const skills = [...new Set(results.map((r) => r.skill))].sort((a, b) => a - b);
+  console.log('lane       skill  runs  winrate  medianDeathS  cadence/min');
+  console.log('---------------------------------------------------------');
+  for (const lane of lanes) {
+    for (const skill of skills) {
+      const subset = results.filter((r) => r.lane === lane && r.skill === skill);
+      if (subset.length === 0) continue;
+      const agg = aggregateLane(lane, subset, TUNING.runSeconds);
+      console.log(
+        `${lane.padEnd(10)} ${skill.toFixed(1).padStart(5)}  ${String(agg.runs).padStart(4)}  ` +
+          `${agg.winrate.toFixed(2).padStart(7)}  ${(agg.medianDeathS?.toFixed(1) ?? 'n/a').padStart(12)}  ` +
+          `${agg.cadence.toFixed(1).padStart(11)}`,
+      );
+    }
+  }
+}
+
+function main(): void {
+  const options = parseArgs(process.argv.slice(2));
+  const results = runBatch(options);
+  const gates = evaluateGates(results, options.strict);
+  const hardFailures = gates.filter((gate) => gate.level === 'hard' && !gate.ok);
+  const softWarnings = gates.filter((gate) => gate.level === 'soft' && !gate.ok);
+
+  if (options.json) {
+    console.log(JSON.stringify({ results, gates }, null, 2));
+  } else {
+    printTable(results);
+    console.log('');
+    for (const gate of gates) {
+      const tag = gate.ok ? 'PASS' : gate.level === 'hard' ? 'FAIL' : 'WARN';
+      console.log(`[${tag}] ${gate.message}`);
+    }
+  }
+
+  if (hardFailures.length > 0) {
+    console.error(`\n${hardFailures.length} hard gate(s) failed.`);
+    process.exit(1);
+  }
+  if (softWarnings.length > 0 && !options.json) {
+    console.error(`\n${softWarnings.length} soft warning(s) (non-fatal; pass --strict to fail on these).`);
+  }
+}
+
+main();

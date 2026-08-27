@@ -14,6 +14,28 @@
 import type { StatBlock } from './stats';
 import type { Rng } from './rng';
 
+/**
+ * Damage-clock indirection: `Health.apply` needs a monotonic clock for
+ * i-frames, but `performance.now()` is wall-clock time — it keeps advancing
+ * while the run is paused or a draft overlay is open, so an enemy's contact
+ * cooldown can silently expire mid-pause and the player eats a hit the
+ * instant the run resumes. The scene owns the real clock: it accumulates
+ * `deltaMs` only while the run is actually ticking and calls
+ * `setDamageClock` once in `create()`. Defaults to `performance.now` (or
+ * `Date.now` where `performance` is absent, e.g. this file under Node) so
+ * anything that never calls `setDamageClock` — tests, the headless sim
+ * before it installs its own clock — still works.
+ */
+let damageClock: () => number =
+  typeof performance !== 'undefined' ? () => performance.now() : () => Date.now();
+
+export function setDamageClock(fn: () => number): void {
+  damageClock = fn;
+}
+
+export function damageNow(): number {
+  return damageClock();
+}
 export interface DamageEvent {
   amount: number;
   crit: boolean;
@@ -41,7 +63,7 @@ export class Health {
    */
   apply(ev: DamageEvent): boolean {
     if (this.dead) return false;
-    const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+    const now = damageNow();
     if (this.invulnMs > 0 && now - this.lastHitAt < this.invulnMs) return false;
     this.lastHitAt = now;
     this.hp = Math.max(0, this.hp - ev.amount);

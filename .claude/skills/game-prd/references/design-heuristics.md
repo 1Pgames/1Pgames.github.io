@@ -348,24 +348,45 @@ the filtered pool would drop below 3, fall back to offering duplicates of
 the player's strongest current upgrade at a diminished (recommended -40%)
 value rather than presenting fewer than 3 choices.
 
-### 5.5 Detecting a dominant strategy numerically
+### 5.5 Detecting a dominant strategy numerically — `npm run sim`
 
-Track, per build lane, across recent runs:
+This is no longer a manual playtest estimate: `npm run sim` (`src/sim/cli.ts`)
+runs every build lane named in the PRD's §8 Build variety headlessly and
+reports the numbers below directly. Invocation: `npm run sim -- --runs N
+--seed S --lane name|all [--json] [--strict]`; `--lane all` runs every named
+lane, `--strict` turns every gate into a hard failure (exit non-zero).
+
+Per lane, across `--runs N` seeded simulated runs, `npm run sim` reports:
 
 - **Win-rate proxy:** clears (win + extract) / total runs for that lane.
 - **Time-to-clear proxy:** median seconds from run start to boss defeat for
   that lane.
 
-Flag a lane as dominant if either:
+**Hard gates** (fail the run regardless of `--strict`): a lane must be
+winnable (win-rate > 0) and must be losable (loss-rate > 0) — a lane that
+always wins or always dies is not a lane, it is a broken sim; and the
+first-upgrade-choice timing (§1.2's ~45s landing point) must fall inside a
+tolerance band, not be skipped or arrive at t=0.
+
+**Soft gates** (advisory unless `--strict`): flag a lane as dominant if
+either
 
 - its win-rate exceeds the mean win-rate across all lanes by more than
   **2 standard deviations**, or
 - its median time-to-clear is **≥ 15% faster** than the average of every
-  other lane.
+  other lane —
 
-A flagged lane needs its strongest upgrade's `mul`/`add` values reduced in
-the next balance pass (§12's integration/balance layer), not a mid-run
-nerf.
+equivalently, the report's win-rate spread across lanes must stay within
+**≤ 0.35** (max minus min), and the median decision cadence (upgrade-choice
+events per run, §3.3) must land in **10-14**. A flagged lane needs its
+strongest upgrade's `mul`/`add` values reduced in the next balance pass, not
+a mid-run nerf.
+
+**The balance pass is a loop, not a one-shot:** run `npm run sim -- --lane
+all`, read the report, edit the offending values in `TUNING`
+(`src/config.ts`), re-run the sim. Repeat for a maximum of **3 iterations**;
+if gates still fail after 3, ship the best iteration and flag the remaining
+gate failures explicitly in the PRD/report rather than iterating unbounded.
 
 ---
 
@@ -700,13 +721,24 @@ Every cross-layer type — `StatKey` names, `WaveSpec`/`RunPhase` shapes,
 upgrade ids, `Modifier.source` tags — is frozen in the PRD **before** any
 layer starts building. A layer that discovers it needs a new shared type
 mid-build raises it to the integrator rather than renegotiating with a
-sibling layer directly; contracts do not change after the batch starts.
+sibling layer directly; contracts do not change after the batch starts. The
+full frozen-contract surface a PRD must lock before the batch starts: the
+`TUNING` key list (§7 of the PRD template), the `StatKey` union, every event
+name in `core/keys.ts`, and every content id set (enemy/upgrade/wave/unit
+ids) — these four are the drift surface the integrator alone may edit
+(§12.3). `src/data/art.ts` is a **generated** artifact
+(`scripts/gen-art-registry.mjs`, owned by the art pipeline's output step) and
+is never a workstream deliverable to hand-author or freeze as a contract.
 
 ### 12.3 File ownership
 
 One file, one owning layer, stated explicitly in the PRD. Shared files
 (`src/config.ts`, `core/keys.ts`) are edited only by the integration layer,
 after the other four have landed — never mid-flight by two layers at once.
+The integrator is the **only** editor of the frozen-contract surface named in
+§12.2 (`TUNING` keys, `StatKey` union, `core/keys.ts` event names, content id
+sets) once the batch starts; a layer that needs an addition there requests it
+through the integrator, never edits it directly.
 
 ### 12.4 Why every layer skips build/lint/test until integration
 
@@ -726,8 +758,13 @@ isolation) and defers the project-wide build to integration.
   `RunDirector` config and the content layer's `WaveSpec` scaling.
 - [ ] Upgrade pool size (§5.2) matches what the content layer actually
   shipped, not just what the PRD specified.
-- [ ] §5.5's win-rate/time-to-clear check run at least once against a
-  scripted playthrough of each build lane.
+- [ ] `npm run sim -- --lane all --strict` passes every hard gate (§5.5) and
+  reports the soft-gate numbers (win-rate spread ≤ 0.35, decision cadence
+  10-14) for every named build lane — run at least once before claiming the
+  build balanced, and re-run through the sim→TUNING→re-sim loop (§5.5, max 3
+  iterations) if any gate fails.
+- [ ] `node scripts/gen-art-registry.mjs --check` passes (art.ts matches the
+  generated asset manifest).
 - [ ] Full menu → run → (win/lose/extract) → retry loop played once in a
   browser end to end.
 

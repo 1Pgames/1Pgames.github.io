@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { CSS, PALETTE, SAFE, TEXT, VIEW } from '../config';
 import { SCENES } from '../core/keys';
 import { isMuted, sfx, toggleMute, unlockAudio } from '../core/audio';
+import { startMusic } from '../core/music';
 import { enterFromBottom, idleBob } from '../core/juice';
 import { loadMeta } from '../core/progression';
 import { Button } from '../ui/button';
@@ -118,5 +119,7 @@ export class MenuScene extends Phaser.Scene {
     });
 
     this.cameras.main.fadeIn(240, 0, 0, 0);
+
+    startMusic('menu');
   }
 }

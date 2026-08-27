@@ -50,7 +50,14 @@ Every prompt states, explicitly:
 | body | `hd-body` | 256 | feet anchor; scale-profile gates on multi-action characters |
 | fx | `hd-fx` | 128 | centred fit; all components retained |
 | ui | `hd-fx` | 256 | icons/emblems only; centred, symmetric, transparent margin, no character content |
-| bg | `hd-fx` | native | only asset allowed a non-square canvas |
+| bg | `hd-fx` | native | only kind allowed a non-square canvas: request a **portrait target aspect (9:16)**; a provider returning a source width/height ratio of **0.5-0.75** (i.e. taller than wide, close to 9:16 = 0.5625) is acceptable — MEASURE the returned `sprite-metadata.json` `source.width`/`source.height`, don't eyeball it, and regenerate if the ratio falls outside that band |
+
+The runtime policy for every `bg` asset is **uniform cover-fit crop**
+(`scale = max(viewWidth / sourceWidth, viewHeight / sourceHeight)`, centred,
+overflow cropped symmetrically) — never a non-uniform stretch. A source
+outside the 0.5-0.75 band either crops too aggressively (near-square source)
+or leaves letterboxing impossible to fill (very tall/narrow source); staying
+in-band is what makes the crop forgiving instead of surgical.
 
 ## Multi-action characters
 

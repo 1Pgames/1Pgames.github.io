@@ -3,10 +3,11 @@
 The integrator wires generated assets into the project. Generation agents never
 touch source files; this step is serial and owned by one agent.
 
-## 1. Asset registry (`src/data/art.ts`)
+## 1. Asset registry (`src/data/art.ts`, generated)
 
-One record per generated asset. It is the only place that knows file paths and
-frame geometry, so a re-generated asset changes one line.
+`src/data/art.ts` is **generated**, never hand-transcribed. One record per
+generated asset, produced by `scripts/gen-art-registry.mjs` from
+`art/manifest.json` plus every asset's `sprite-metadata.json`:
 
 ```ts
 export interface SpriteAsset {
@@ -20,24 +21,36 @@ export interface SpriteAsset {
   /** ms per frame; ignored when `frames === 1`. */
   duration: number;
   loop: boolean;
+  /** Per-action display-size compensation; see `baseAction` below. */
+  scale?: number;
+  /** Whether the unflipped art faces right; default true. */
+  facesRight?: boolean;
 }
 
-export const SPRITES: readonly SpriteAsset[] = [
-  { key: 'hero-idle', path: 'assets/generated/hero/hero-idle/sprite-sheet.png',
-    frameWidth: 256, frameHeight: 256, frames: 4, duration: 140, loop: true },
-  // …
-] as const;
-
-/** Single-frame UI textures: no animation is created for these. */
-export const UI_TEXTURES: readonly SpriteAsset[] = [ /* … */ ] as const;
+export const SPRITES: readonly SpriteAsset[] = [ /* multi-frame, animated */ ] as const;
+export const IMAGES: readonly SpriteAsset[] = [ /* single-frame, static */ ] as const;
 ```
 
-Frame geometry comes from each asset's `sprite-metadata.json` — never guessed.
+To add or change an asset: edit `art/manifest.json` (id, grid, `facesRight`,
+`baseAction`, `textureAlias`/`animAlias`, `icons`), export or re-export the
+sheet, then regenerate from `template/`:
+
+```bash
+node scripts/gen-art-registry.mjs         # writes src/data/art.ts
+node scripts/gen-art-registry.mjs --check # verifies it matches the manifest; exits 1 on drift
+```
+
+Frame geometry comes from the PNG itself and the manifest's `rows`/`cols` —
+never guessed. Per-action `scale` comes from the `baseAction` asset's
+`outputSubjectHeightMean` in `sprite-metadata.json` versus every sibling's —
+never hand-baked. `npm run verify` (`scripts/verify.sh`) runs `--check` as a
+build gate, so a manifest edit without a regeneration fails CI, not just
+review.
 
 ## 2. Loading (`src/scenes/preload.ts`)
 
 ```ts
-for (const asset of [...SPRITES, ...UI_TEXTURES]) {
+for (const asset of [...SPRITES, ...IMAGES]) {
   if (asset.frames > 1) {
     this.load.spritesheet(asset.key, asset.path, {
       frameWidth: asset.frameWidth,
@@ -74,7 +87,8 @@ Animations live on the global anim manager, so every scene can play them.
   sizes are much smaller.
 - Physics bodies stay circles sized from `TUNING`, never from the art: art has
   transparent margin and would inflate hitboxes.
-- Direction: flip with `setFlipX(velocity.x < 0)`; never generate mirrored sheets.
+- Direction: flip with `setFlipX(artFacesRight(key) ? vx < 0 : vx > 0)`; never
+  generate mirrored sheets.
 - Action switching belongs in the entity, one line per state:
   `run` while moving, `idle` when stopped, `attack` on fire, `hurt` on damage —
   and back to the locomotion animation on `ANIMATION_COMPLETE`.
@@ -127,3 +141,4 @@ only on a state change.
 | UI stutters | `paint*` called every frame | repaint only on state change |
 | Black screen after a scene transition | a `SHUTDOWN` listener touched `this.scene` on an already-destroyed object | hold your own scene ref + `destroyed` flag, unsubscribe in `destroy()` |
 | A button/card fires when the player lets go of a drag | `POINTER_UP` goes to whatever is under the pointer | arm on the object's own `POINTER_DOWN`, disarm on `POINTER_OUT` |
+| `src/data/art.ts` no longer matches `art/manifest.json` (stale registry after regeneration) | a manifest edit or asset re-export happened without re-running the generator | `node scripts/gen-art-registry.mjs`, then `node scripts/gen-art-registry.mjs --check` (also gated by `npm run verify`) |

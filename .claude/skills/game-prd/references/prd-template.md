@@ -26,6 +26,13 @@ different from the last one>.
 reference game for feel, one for systems, and one thing this game deliberately
 does differently.
 
+**Naming lexicon:** 10-15 theme words/morphemes drawn from the fantasy above
+(e.g. for a volcanic-forge setting: `ember, cinder, forge, slag, brand, coal,
+kiln, ash, molten, temper, anvil, quench`). Every named entity in §5's content
+tables (enemies, upgrades, units, items) draws its name from this lexicon —
+this is what keeps 40+ generated names feeling like one game's vocabulary
+instead of a random word generator.
+
 ## 2. Run architecture
 
 Beat sheet for the reference run, one row per phase:
@@ -87,21 +94,27 @@ One row per system. `Module` must be a real template module or
 
 ### 5.2 Enemies / units / towers
 
-Every entry complete. `Texture` from `core/keys.ts` or `NEW`.
+Every entry complete. `Texture` from `core/keys.ts` or `NEW`. `Flavor name`
+and `Flavor desc` are mandatory: an evocative name (≤18 chars, drawn from
+§1's naming lexicon) and a one-line description tying the entry to the
+fantasy — never the raw stat-block id.
 
-| id | Texture | Size px | HP | Damage | Speed px/s | Behaviour | XP | Currency | Tint | First seen |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| swarm | disc | 34 | 12 | 6 | 120 | chase | 1 | 1 | `PALETTE.bad` | 0s |
-| … | | | | | | | | | | |
+| id | Flavor name | Flavor desc | Texture | Size px | HP | Damage | Speed px/s | Behaviour | XP | Currency | Tint | First seen |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| swarm | Cinder Mote | A drifting ember that swarms toward warmth and light | disc | 34 | 12 | 6 | 120 | chase | 1 | 1 | `PALETTE.bad` | 0s |
+| … | | | | | | | | | | | | |
 
 Minimum roster size for this genre: <N> (from the playbook).
 
 ### 5.3 Upgrades / items / cards
 
-| id | Name | Rarity | Effect (modifiers) | Stack limit | Synergy tag |
-| --- | --- | --- | --- | --- | --- |
-| dmg_up | Sharpened | common | `damage +4` | 5 | offense |
-| … | | | | | |
+`Flavor name` and `Flavor desc` are mandatory, same rule as §5.2 — no raw
+stat-block id or generic label ("dmg_up", "Sharpened") stands in for a name.
+
+| id | Flavor name | Flavor desc | Rarity | Effect (modifiers) | Stack limit | Synergy tag |
+| --- | --- | --- | --- | --- | --- | --- |
+| dmg_up | Quenched Edge | A blade cooled in forge-oil, biting deeper on every swing | common | `damage +4` | 5 | offense |
+| … | | | | | | |
 
 Pool size: <N> (must be ≥ 4x the number of choices offered in one run).
 Choices offered per run: <N>. Rarity weights: common <x> / rare <y> / epic <z>.
@@ -238,6 +251,16 @@ export interface CombatApi { damageEnemy(id: number, amount: number, crit: boole
   damagePlayer(amount: number): void; }
 ```
 
+These contracts **must also freeze the design-heuristics §12.2 drift surface**:
+the full `TUNING` key list (§7), the `StatKey` union, every event name in
+`core/keys.ts`, and every content id set (enemy/upgrade/wave/unit ids). The
+integrator (Integration/balance workstream above) is the **only** editor of
+that surface once the batch starts — every other workstream requests an
+addition through the integrator rather than editing `src/config.ts` or
+`core/keys.ts` directly (§12.3). `src/data/art.ts` is a **generated**
+artifact (`scripts/gen-art-registry.mjs`, produced by the art pipeline's
+integration step) and is never a workstream deliverable to hand-author.
+
 Integration order: contracts → data + core systems in parallel → integrator wires
 `GameScene` → balance pass.
 
@@ -257,20 +280,29 @@ unbounded — do not ship the PRD.
 
 ## 18. Assumptions
 
-Every deferred decision with the value chosen. One line each.
+Every deferred decision with the value chosen. One line each (interactive
+mode); in `auto` mode every axis's `Auto rule:` outcome, one line each in
+`axis → chosen value — one-line rationale` form.
 
 ## 19. Acceptance criteria
 
-- [ ] `npm run build` passes with zero TypeScript errors.
+- [ ] `npm run verify` passes (typecheck + `npm run sim` hard/soft gates +
+  `node scripts/gen-art-registry.mjs --check` + every `src/sim/kits/*.selftest.ts`).
+- [ ] Sim report attached: per-lane winrates, `firstUpgradeS`, decision
+  cadence, for every named build lane (§8).
+- [ ] Browser-bot loop completed with a screenshot at each state: menu → run
+  → draft → pause → death/win → retry.
 - [ ] A full 480s run is completable; win and loss both reachable.
 - [ ] Primary verb works with touch and keyboard.
-- [ ] Roster and upgrade pool match the content tables exactly.
+- [ ] Roster and upgrade pool match the content tables exactly, every entry
+  carries a Flavor name and description (§5).
 - [ ] At least 3 named strategies are playable and none trivially dominates.
 - [ ] Meta save persists, migrates, and visibly changes the next run.
 - [ ] 60fps at <N> entities; no unpooled hot spawns.
 - [ ] Every juice-table event produces its visual and sound.
 - [ ] Nothing interactive under the bottom 220px except full-width controls.
-- [ ] A muted 30s clip of the run reads as a game with escalating stakes.
+- Advisory only, not a gate: a muted 30s clip of the run should read as a
+  game with escalating stakes.
 ```
 
 ---
@@ -291,3 +323,6 @@ Refuse to hand off until all hold:
 10. Cut list ≥ 5 entries; Assumptions lists every deferred decision.
 11. All module/texture/sfx names exist in the template or are marked
     `NEW: <path> — <spec>`.
+12. Every §5 content-table entry has a Flavor name (≤18 chars, drawn from
+    §1's naming lexicon) and one-line description — no bare stat-block id or
+    placeholder label (`dmg_up`, `Sharpened`, `enemy_02`) stands in for a name.

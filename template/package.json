@@ -8,7 +8,9 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "sim": "node --import ./scripts/ts-resolve.mjs src/sim/cli.ts",
+    "verify": "bash scripts/verify.sh"
   },
   "dependencies": {
     "phaser": "^4.2.1"

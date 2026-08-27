@@ -105,7 +105,7 @@ interface MetaUpgradeDef { /* persistent shop entry */ }
 function rollUpgradeChoices(rng: Rng, taken: string[], count: number): UpgradeDef[];
 const META_UPGRADES: MetaUpgradeDef[];
 const UPGRADE_CARDS: UpgradeDef[];
-const WAVES: WaveSpec[]; // NEW confirm authoring convention per game — see per-genre notes
+const WAVES: WaveSpec[]; // authoring convention: WaveSpec/RunPhase in core/run.ts, per-genre composition documented below
 
 // ui/cards.ts, ui/bars.ts
 function showUpgradeCards(scene: Phaser.Scene, choices: UpgradeDef[], onPick: (choice: UpgradeDef) => void): { destroy(): void };
@@ -2241,6 +2241,31 @@ revealed arena and fight, 55-60s the killing blow. Payoff moment: the
 boss-floor fog reveal — the single biggest "wow" moment when a large room
 opens up all at once via `FogOfWar.reveal`.
 
+## Audio guidance
+
+No licensed/streamed audio in any genre (see Red flags). `core/audio.ts`
+covers one-shot `sfx()` events; `core/music.ts` covers the generative
+background layer (`startMusic(mood: 'menu' | 'run')`,
+`setMusicIntensity(v: number /* 0..1 */)`, `setMusicLayer('boss', on)`,
+`stopMusic(fadeMs?)`). Every PRD's §12 Audio names a default `{menu, run,
+boss}` intensity mapping; the table below is the per-genre default so a PRD
+does not have to re-derive it:
+
+| Genre | `{menu, run, boss}` `setMusicIntensity` default |
+| --- | --- |
+| Survivor-like | `{0.2, ramps 0.3→0.9 by phase, 1.0 + setMusicLayer('boss', true)}` |
+| Action roguelike | `{0.2, 0.5 per room / 0.7 in a vault room, 1.0 + boss layer}` |
+| Tower defense | `{0.2, ramps 0.3→0.8 by wave, 1.0 + boss layer on the final wave}` |
+| Roguelike deckbuilder | `{0.15, 0.4 per fight / 0.6 on an elite fight, 0.9 + boss layer}` |
+| Auto-battler | `{0.2, 0.3 during placement / 0.6 during combat, 0.9 on the final round}` |
+| Survival crafting | `{0.15, 0.3 by day / 0.7 by night, 1.0 + boss layer on the final night}` |
+| Base builder / defend-core | `{0.2, 0.3 build phase / 0.7 under attack, 1.0 on the final wave}` |
+| Bullet hell | `{0.2, 0.6 flat (near-constant boss presence), 1.0 + boss layer, scales with `phaseIndex`}` |
+| Turn-based tactics | `{0.15, 0.4 per battle, 0.8 on the final battle, no boss layer (turn-based has no continuous threat)}` |
+| Idle/incremental | `{0.15, 0.2 flat, ramps to 0.5 only at a prestige moment}` |
+| Extraction run | `{0.2, tracks the danger meter 0.3→0.9, 1.0 + boss layer only in a vault room}` |
+| Dungeon crawler | `{0.15, 0.3 while exploring / 0.5 in combat, 1.0 + boss layer on the boss floor}` |
+
 ## Cross-genre system reuse matrix
 
 `M` mandatory, `O` optional/low-value, `-` unused, `NEW` needs a new module
@@ -2278,8 +2303,8 @@ regardless of genre pitch:
 | Real-time networking of any kind | Same constraint — no server component exists or is planned; even leaderboards use client-side `submitScore()` against local storage, not a network call. |
 | Procedural/branching narrative (dialogue trees, story state machines) | No dialogue/text-authoring pipeline or localization system exists; narrative complexity does not fit a 480s run or a 1-2 session build. |
 | 3D rendering or physics | The template is Arcade Physics (2D) on a fixed portrait canvas; 3D requires a different renderer/physics engine entirely, violating "no new dependency without a reason the template cannot cover." |
-| Hand-authored illustrated art dependencies (character art, environment art, sprite sheets from an external artist) | The pipeline is procedural-texture-first (`disc ring square spike star particle panel`); illustrated art adds an asset-generation step per `AGENTS.md` that most genres above do not require and that breaks the zero-asset build contract. |
+| Hand-authored illustrated art with no generation pipeline (importing external artist files directly into the repo, bypassing `game-art`) | Illustrated art is supported via the `game-art` skill's `generate_image` → sprite-forge pipeline, not by hand-importing files; procedural primitives (`disc ring square spike star particle panel`) remain the always-available fallback and stay mandatory for particles, chrome, and debug visuals regardless of the art pipeline chosen. |
 | Save-scumming-dependent designs (permadeath value that assumes the player cannot reload a save to retry) | `storage.ts` persistence is local and player-controlled; any design relying on the player being unable to undo a bad outcome (e.g. permanent multiplayer consequences, server-authoritative loss) does not hold in a client-only, single-player context. |
 | Persistent server-side economy or anti-cheat | No backend exists; all currency/progression is `localStorage`-backed `MetaSave`, trivially editable client-side — designs must not assume tamper-resistance. |
-| Voice acting, licensed music, or streamed audio assets | Audio is 100% synthesised WebAudio (`core/audio.ts`); adding audio files is an explicit escalation path in `AGENTS.md`, not a default, and voice/licensed music is out of scope entirely. |
+| Voice acting, licensed music, or streamed audio assets | Audio stays 100% synthesised: `core/audio.ts` (`sfx` names, effects) plus the generative music layer `core/music.ts` (`startMusic`, `setMusicIntensity`, `setMusicLayer`, `stopMusic` — see §Audio guidance below); adding audio *files* (voice, licensed tracks, streamed music) is an explicit escalation path in `AGENTS.md`, not a default, and is out of scope entirely. |
 

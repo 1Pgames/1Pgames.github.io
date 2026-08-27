@@ -1,4 +1,4 @@
-import Phaser from 'phaser';
+import type Phaser from 'phaser';
 /**
  * Single source of truth for presentation + balance.
  *

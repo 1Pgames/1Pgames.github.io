@@ -1,5 +1,3 @@
-import Phaser from 'phaser';
-
 /**
  * Run/wave/phase director for a single roguelike-survivor run: ticks off a
  * declarative wave timeline, tells the scene when to spawn, and tracks which
@@ -9,15 +7,27 @@ import Phaser from 'phaser';
  * scene's own `update(time, delta)` hands to `update()` — never by
  * `time.addEvent`/`this.time`, so pausing the scene (or the whole game)
  * simply means "don't call `update`": there is no drift to correct and no
- * orphaned timer firing after a scene shuts down. `scene` is only held to
- * auto-detach on `Phaser.Scenes.Events.SHUTDOWN` so a restarted scene never
- * keeps ticking a stale director.
+ * orphaned timer firing after a scene shuts down. The constructor only needs
+ * a minimal `{ events: { once } }` host (a `Phaser.Scene` satisfies it
+ * structurally) to auto-detach on the scene's `'shutdown'` event — the
+ * literal Phaser dispatches for `Phaser.Scenes.Events.SHUTDOWN` — so a
+ * restarted scene never keeps ticking a stale director. Keeping this
+ * structural (no `import Phaser` value dependency) is what lets a headless
+ * balance simulator (`src/sim/`) construct a `RunDirector` in plain Node
+ * without a DOM.
  *
  * Use for: survivor-like / roguelike / tower-defense runs with a fixed or
  * escalating spawn timeline and named difficulty phases.
  * Do NOT use for: turn-based/tactics (no continuous clock) or one-shot
  * casual games (a plain `time.addEvent` is simpler there).
  */
+
+/** Minimal event-host contract `RunDirector` needs from its scene. */
+export interface RunDirectorHost {
+  events: {
+    once(event: 'shutdown', callback: () => void): unknown;
+  };
+}
 
 export interface WaveSpec {
   /** Seconds into the run this wave fires. */
@@ -78,7 +88,7 @@ export class RunDirector {
   private readonly pending: PendingSpawn[] = [];
 
   constructor(
-    scene: Phaser.Scene,
+    host: RunDirectorHost,
     waves: readonly WaveSpec[],
     phases: readonly RunPhase[],
     onSpawn: (id: string, index: number, total: number) => void,
@@ -92,7 +102,7 @@ export class RunDirector {
     this.durationSeconds = options.durationSeconds ?? null;
     this.onPhaseChange = options.onPhaseChange;
     this.currentPhase = this.phases[0] ?? FALLBACK_PHASE;
-    scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+    host.events.once('shutdown', () => {
       this.stopped = true;
     });
   }

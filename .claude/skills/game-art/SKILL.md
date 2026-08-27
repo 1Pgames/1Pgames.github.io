@@ -96,6 +96,28 @@ Enumerate every asset before generating: id, group, owner agent, kind
 `writeScaleProfile`/`scaleProfile` link. Volume targets and grid choices per
 asset class are in `references/asset-plan.md`.
 
+### Step 2b — World geometry (`skill://map-forge`)
+
+When the genre needs authored space instead of a seeded scatter — tower
+defense paths, rooms, tactics grids, or a parallax stage — run
+`skill://map-forge` before generation, not after: the map bundle's props and
+terrain drive part of the manifest.
+
+- Output lands under `public/assets/generated/map/`, alongside the entity
+  groups, so one `gen-art-registry.mjs` pass sees everything.
+- Map bundle → `ArenaLayout` (`src/systems/arena.ts`) field mapping: bundle
+  `width`/`height` → `ArenaLayout.width`/`height`; the floor/terrain layer's
+  texture key → `floorKey`; placed prop instances → `ArenaLayout.props[]`
+  (`id` matches a `PropDef.id` from `data/props.ts`, unmatched ids fall back to
+  a tinted square); static decoration → `ArenaLayout.decals[]`; the bundle's
+  walkable rectangle → `ArenaLayout.walkable`.
+- Collision comes from `xd://map_trace_geometry` measurement on the generated
+  terrain layer, never estimated coordinates — the same "measure, don't guess"
+  rule as sprite frame geometry.
+- Parallax backgrounds register as `bg-layer-0` (back) through `bg-layer-2`
+  (front) in `art/manifest.json`'s `bg` group; `ui/background.ts` picks them up
+  automatically ahead of the single `bg-arena` fallback.
+
 ### Step 3 — Parallel generation
 
 One `task` agent per group (typically hero, light enemies, heavy enemies,
@@ -115,12 +137,32 @@ drift, clipped limbs, welded ground strip, scale/anchor drift, collapsed
 lightness range, duplicate silhouettes. Change one thing per regeneration and
 use `qc.retryHints`.
 
+**Retry budget: at most 2 regenerations per asset per symptom.** If the third
+attempt still fails, stop regenerating and keep the current export for that
+slot — a slightly imperfect asset the pipeline finished beats a slot that
+burns the whole run chasing one QC line. Record the exception as
+`{ id, reason }` in the manifest's top-level `qcExceptions[]`, with a one-line
+visual justification (not "QC failed", but why the failure is acceptable or
+unfixable). A `strict: false` export that ships with `qc.passed: false` (e.g.
+a full-bleed backdrop or a seamless tile touching its canvas edge on purpose)
+REQUIRES the same one-line `qcExceptions` entry, even on the first attempt:
+the template itself ships `arena/floor` and `bg/arena` this way — cite them as
+the motivating case for when `strict:false` is the correct call versus a QC
+dodge.
+
 ### Step 5 — Engine wiring (the integrator)
 
-Follow `references/phaser-integration.md`:
+`src/data/art.ts` is generated, not hand-edited. Follow
+`references/phaser-integration.md`:
 
-- A generated `src/data/art.ts` registry: texture key → sheet path, frame size,
-  frame count, animation key, duration, loop flag.
+- Run `node scripts/gen-art-registry.mjs` from `template/` after every export
+  or manifest edit; it reads `art/manifest.json` plus every asset's
+  `sprite-metadata.json` and writes the registry — texture key, sheet path,
+  frame geometry, animation key, duration, loop flag, per-action `scale` and
+  `facesRight`. Never hand-edit `src/data/art.ts`; a manual edit is silently
+  overwritten by the next regeneration and `verify.sh`'s
+  `gen-art-registry.mjs --check` step fails the build the moment it drifts
+  from the manifest.
 - `PreloadScene` loads every sheet with `this.load.spritesheet(...)` from the
   registry and creates animations in one loop; the loading bar already exists.
 - Entities switch from tinted primitives to `sprite.play(ANIM.x)`; keep

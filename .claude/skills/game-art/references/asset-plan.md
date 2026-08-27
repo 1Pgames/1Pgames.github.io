@@ -12,7 +12,7 @@ accept `2x4` and hold consistency with `maxBodyScaleCv: 0.08`,
 frame, or spend a `4x4` canvas. Exported sheets are always normalised to square
 `cellSize` frames, so the engine side is unaffected.
 
-## Core set (any action game, 20-26 calls)
+## Core set (any action game, 28-30 calls)
 
 | Group | Asset | Kind | Grid | Frames | Duration | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -20,14 +20,20 @@ frame, or spend a `4x4` canvas. Exported sheets are always normalised to square
 | hero | run | body | 2x4 | 8 | 110 | non-square source cells: anchor guide + CV gates, NOT `scaleProfile` |
 | hero | attack | body | 2x2 | 4 | 90 | effect stays attached and inside the cell |
 | hero | hurt | body | 2x2 | 4 | 90 | brightest frame = the damage flash |
+| hero | death | body | 2x2 | 4-6 | 90-110 | non-looping; last frame is the held "defeated" pose |
 | enemies-light | 4 archetypes | body | 2x2 | 4 | 110-140 | distinct silhouette mass each |
+| enemies-light | ranged archetype attack/telegraph | body | 2x2 | 4 | 90-120 | wind-up frame must read before the shot fires |
+| enemies-light | 2 archetype deaths | body | 2x2 | 4 | 90-110 | non-looping; covers the weight classes players see most |
 | enemies-heavy | 3 archetypes + boss | body | 2x2 | 4 | 110-150 | boss = largest silhouette in the game |
+| enemies-heavy | elite archetype attack/telegraph | body | 2x2 | 4 | 90-120 | same telegraph contract as the light ranged unit |
+| enemies-heavy | boss phase 2 (+ attack action) | body | 2x2 | 4 | 90-150 | reuses the boss's `scaleProfile`; visibly distinct palette/damage state, not a recolour tint |
 | pickups-fx | xp orb, coin | fx | 2x2 | 4 | 90 | spin loops, one edge-on frame |
 | pickups-fx | hit spark, level-up burst | fx | 2x2 | 4 | 60-90 | no character content |
 | pickups-fx | projectile | fx | 1x1 | 1 | — | drawn pointing right; engine rotates |
 | ui | 2 icon sheets | ui | 2x2 | 4 | — | same optical size and stroke weight |
 | ui | title emblem | ui | 1x1 | 1 | — | wordless crest; the engine draws text |
-| bg | backdrop | bg | 1x1 | 1 | — | only asset allowed a non-square canvas |
+| ui | victory / defeat splash pair | ui | 1x1 | 1 each | — | full-bleed results-screen art, distinct compositions, not palette-swapped |
+| bg | backdrop (or 2-3 parallax layers) | bg | 1x1 | 1 each | — | only asset(s) allowed a non-square canvas; see parallax bg below |
 
 ## Genre additions
 
@@ -35,22 +41,28 @@ frame, or spend a `4x4` canvas. Exported sheets are always normalised to square
 | --- | --- |
 | Tower defense | 3-5 tower bodies (2x2 idle + 1x1 muzzle FX each), build-slot marker, path tile set |
 | Roguelike / crawler | door, chest, room floor tiles, 2 trap FX, minimap icons |
-| Deckbuilder | card back, 8-12 ability icons (2x2 sheets) — card frames are primitives |
+| Deckbuilder | card back, 8-12 ability icons (2x2 sheets) — card frames are primitives; **≥8 illustrated card-art images (1x1)** — the card IS the content, not an icon riding a primitive frame |
 | Auto-battler | unit bodies (2x2 idle each), bench slot, tier badge icons |
 | Survival crafting | 6-10 resource icons, 4 tool sprites, campfire FX (2x2), day/night overlay |
 | Bullet hell | 4-6 bullet shapes (1x1), 2 charge FX (2x2), boss part sprites |
 | Tactics | unit tokens (1x1 each), tile highlight set, ability range marker |
+| Deckbuilder / tactics (optional) | portrait per named unit/character (1x1), used in dialogue or unit-detail panels — skip for genres with no named-character screen |
 
 ## Volume budgets
 
 | Content | Minimum viable | Comfortable | Cost |
 | --- | --- | --- | --- |
-| Hero actions | 2 (idle, run) | 4-5 (+ attack, hurt, cast) | S each |
+| Hero actions | 2 (idle, run) | 5-6 (+ attack, hurt, death, cast) | S each |
 | Enemy archetypes | 4 | 8 | S each |
-| Bosses | 1 | 2 (+ attack action) | M |
+| Enemy attack/telegraph anims | 0 | 1 per ranged/elite archetype | S each |
+| Death anims | hero only | hero + 2 enemy weight classes | S each |
+| Bosses | 1 (idle only) | 2 (+ attack action, +1 phase-2 variant) | M |
 | FX | 3 | 6 | S each |
 | UI icons + emblem | 4 icons + emblem | 8-10 icons + badges | S each |
-| Backgrounds | 1 | 3 parallax layers | M |
+| Victory/defeat splash | 0 (reuse backdrop) | 1 pair, distinct compositions | S |
+| Deckbuilder card art | — | 8-12 illustrated cards | S each |
+| Portraits | 0 | 1 per named unit (deckbuilder/tactics) | S each |
+| Backgrounds | 1 | 3 parallax layers (`bg-layer-0/1/2`) | M |
 
 Below minimum the game reads as a prototype; above comfortable, generation time
 starts dominating the build with no visible gain per asset.

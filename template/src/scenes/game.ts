@@ -3,7 +3,8 @@ import { PALETTE, TUNING, VIEW } from '../config';
 import { EVENTS, SCENES } from '../core/keys';
 import { Controls } from '../core/controls';
 import { Joystick } from '../ui/joystick';
-import { Rng, dailySeed } from '../core/rng';
+import { Rng } from '../core/rng';
+import { setDamageClock } from '../core/damage';
 import { RunDirector } from '../core/run';
 import { metaModifiers } from '../core/progression';
 import { rollUpgradeChoices, type UpgradeDef } from '../data/upgrades';
@@ -28,6 +29,7 @@ import { showUpgradeCards, type UpgradeCardsHandle } from '../ui/cards';
 export class GameScene extends Phaser.Scene {
   private rng!: Rng;
   private seed = '';
+  private simTimeMs = 0;
   private arena!: Arena;
   private controls!: Controls;
   private joystick!: Joystick;
@@ -62,6 +64,11 @@ export class GameScene extends Phaser.Scene {
     super(SCENES.game);
   }
 
+  /** `scene.start(SCENES.game, { seed })` reruns the exact same run; omit for a fresh one. */
+  init(data: { seed?: string } = {}): void {
+    this.seed = data.seed ?? Date.now().toString(36);
+  }
+
   create(): void {
     this.kills = 0;
     this.score = 0;
@@ -71,9 +78,15 @@ export class GameScene extends Phaser.Scene {
     this.drafting = false;
     this.ended = false;
     this.cards = null;
+    this.simTimeMs = 0;
 
-    this.rng = new Rng();
-    this.seed = dailySeed();
+    // One seed drives the entire run — arena layout, spawns and upgrade rolls —
+    // so the same seed always replays identically.
+    this.rng = new Rng(this.seed);
+    // The damage clock ticks only while the run is actually advancing (see
+    // `update`), so i-frames can't be swallowed by wall-clock time passing
+    // during a paused run or an upgrade draft.
+    setDamageClock(() => this.simTimeMs);
 
     // The arena owns the field: floor, walls, props and the world/camera bounds.
     this.arena = new Arena(this, this.seed);
@@ -160,6 +173,12 @@ export class GameScene extends Phaser.Scene {
         this.finish(true);
         return;
       }
+    }
+
+    // Sim time backs the damage clock's i-frames: it must not advance while
+    // paused or drafting, or a pause/draft would silently expire i-frames.
+    if (!this.drafting && !this.director.isPaused) {
+      this.simTimeMs += delta;
     }
 
     this.floatWindowMs += delta;
