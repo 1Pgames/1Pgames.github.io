@@ -40,8 +40,9 @@ Fixed project decisions — never ask about these:
 | Build method | parallel agents against interface contracts, one integrator |
 | Slice home | `src/slices/<family>/` — the family's starter scene + data |
 
-Everything the old single-archetype version fixed globally (480s run, meta shop,
-follow camera, joystick) is now **per family** — see §Family fixed decisions.
+Session length, director, camera, input profile and meta shape are **not**
+global decisions — they are fixed per family in §Step 0b. A 480s run with a
+joystick and a meta shop is family A's row, not the project default.
 
 ## Modes
 
@@ -109,9 +110,26 @@ playbook, or a heuristic default can already answer.
 
 ### Step 0 — Two-tier classification (no user contact yet in `auto`)
 
-**Tier 1 — family.** Score the pitch against the keyword column below and take
-the highest-scoring row. Ties and zero-match pitches go to the HYBRID DEFAULT
-rule beneath the table.
+**Tier 1 — family.** Score the pitch against the keyword column below (count
+one point per distinct keyword the pitch contains; prefix matches count, so
+"deckbuilding" matches `deck`) and take the highest-scoring row. Break a tie in
+this order, and only fall through to the HYBRID DEFAULT rule when the pitch
+scores **zero** against A-J or matches **only** I's keywords:
+
+1. **Anchor beats modifier.** Modifier keywords describe run structure or vibe
+   rather than a family, and never win a tie on their own — the full set is:
+   `roguelike` `roguelite` `arcade` `endless` `puzzle` `casual` `dodge`
+   `waves` `grow` `story`. Everything else in the table is an anchor, and a row
+   matching only modifiers loses to any row matching an anchor. Worked:
+   "roguelike deckbuilder" and "deckbuilding roguelike" both resolve to **D**
+   (D's anchor `deck` beats the modifier `roguelike`); "zombie roguelike with
+   swarms" stays **A** (A's anchor `swarm`).
+2. **Specificity wins.** Both rows anchored → the longer, more compound
+   keyword takes it: `tower defense` over `waves`, `top-down racing` over
+   `race`, `endless runner` over `run`.
+3. **Earliest mention, then mechanic over setting.** Still tied → the row whose
+   keyword appears first in the pitch; a keyword naming what the player does
+   outranks one naming where it happens.
 
 | Code | Family | One-line identifier | Keyword hints |
 | --- | --- | --- | --- |
@@ -172,21 +190,25 @@ Step 1.
 
 ### Step 0b — Family fixed decisions
 
-Once the family is known, these are decided; never ask, never re-derive. All
-directors implement `SessionDirector` (`core/session.ts`:
-`update(deltaMs)`, `elapsedMs`, `ended`, `outcome {won, reason}`,
-`progress` 0..1, `pause()`/`resume()`).
+Once the family is known, these are decided; never ask, never re-derive. Every
+director implements `SessionDirector` (`core/session.ts`: `update(deltaMs)`,
+`elapsedMs`, `ended`, `outcome {won, reason}`, `progress` 0..1,
+`pause()`/`resume()`) and lives in its own module: `RunDirector`
+(`core/run.ts`), `LevelDirector` (`core/level.ts`), `RampDirector`
+(`core/ramp.ts`), `LapDirector` (`core/lap.ts`). The session-shape numbers
+below are the same ones in `references/casual-playbooks.md` §Family frame and
+`references/genre-playbooks.md` — a "session" is one 5-10 minute sitting.
 
 | Code | Session shape | Input profile | Camera | Director | Meta shape |
 | --- | --- | --- | --- | --- | --- |
 | A | 480s run, 6 phases (§1.1), boss at 420s | joystick (drag/axis) + tap for abilities | follow-arena (`static-board` for place-defense subgenres: tower defense, base builder) | `RunDirector` | shop (currency + upgrade tree) |
-| B | 1-3 min levels; 10-25 levels per session; move- or timer-limited | tap (swap/blast), drag (merge/sort/screw) | static-board | `LevelDirector` | saga-map + stars (+ collections) |
-| C | levels (2-4 min each, 12-25 per session) **or** endless; pick one, never both | tap (jump), swipe (dash/flip), drag (steer) | side-follow | `LevelDirector` (levels) / `RampDirector` (endless) | saga-map (levels) / shop + collections (endless) |
+| B | 45-120s levels, 4-8 per sitting (10-25 across a longer session); move- or timer-limited | tap + swipe (drag for merge/sort/screw) | static-board | `LevelDirector` | saga-map + stars (+ collections) |
+| C | levels (20-45s each, 8-20 per sitting) **or** endless (45-150s runs, 4-10 per sitting); pick one, never both | tap (jump), swipe (dash/flip), drag (steer) | side-follow | `LevelDirector` (levels) / `RampDirector` (endless) | saga-map (levels) / shop + collections (endless) |
 | D | 5-10 min match, fight/round-indexed rather than wall-clock | tap (card/tile/target), drag-to-play as the video-legible alternative | static-board | `RunDirector`, `progress` indexed by fight/node, not seconds | shop (currency + unlocks) |
-| E | 3-5 lap races, 60-150s per race, 8-15 races per session | drag (steer) + tap (drift/boost) | track | `LapDirector` | shop (vehicle upgrades) + collections (vehicles) |
-| F | continuous economy, no session end; prestige cycle every 15-30 min; offline progress on return | tap | static-board | `RampDirector`, `progress` = fraction of the way to the next prestige threshold, `outcome.won` when prestige unlocks | prestige tree (+ collections for managers) |
-| G | 1-3 min deals/matches; 10-25 per session | tap (+ drag for card moves) | static-board | `LevelDirector` | collections (+ saga-map for the dice-board loop) |
-| H | 1-3 min puzzles/quizzes; 10-25 per session | tap (+ swipe for letter-connect drag) | static-board | `LevelDirector` | saga-map + collections |
+| E | 3-5 lap races, 120-200s per race, 2-4 races per sitting | drag (steer) + tap (drift/boost) | track | `LapDirector` | shop (vehicle upgrades) + collections (vehicles) |
+| F | continuous economy, no session end; 6-10 min first sitting then 60-180s check-ins; first prestige after 15-30 min of active play; offline progress on return | tap | static-board (static UI) | none in the core loop — the economy runs continuously; `LevelDirector` for milestone chapters | prestige tree (+ collections for managers) |
+| G | 60-150s deals/matches, 3-6 per sitting (or one 5-10 min energy bar of rolls) | tap (+ drag for card moves) | static-board | `LevelDirector` | collections (+ saga-map for the dice-board loop) |
+| H | 30-90s puzzles/quizzes, 5-12 per sitting | tap (+ swipe for letter-connect drag) | static-board | `LevelDirector` | saga-map + collections |
 | J | 30-120s endless score-chase; retry in under 2s from death to playable | exactly one of tap \| swipe \| drag — never two | side-follow or static-board per mechanic | `RampDirector` | collections (skins) + light prestige |
 | I | the chosen core's row above, unchanged | core's row | core's row | core's row | meta-kit: 2-3 of saga-map / stars / streaks-daily / boosters / collections / decor-renovation / reward track |
 
@@ -206,14 +228,16 @@ family-first.
 
 ### Step 2 — Resolve systems and content
 
-`auto`: apply the `Auto rule:` for 4-6 Round 2 questions, prioritising
-whatever the family playbook flags as critical — roster/piece-set shape,
-player power or progression sources, economy, difficulty curve (level-curve
-band for B/C-levels/G/H, ramp for J/C-endless, phase-step for A/D/E, cost
-growth for F), UI density plan, finale/goal shape, juice level, and for the
-casual families the **level count + curve preference**. No `ask` call.
+`auto`: apply the `Auto rule:` for every Round 2 question — roster/piece-set
+shape, in-session progression source, economy, difficulty curve (level-curve
+band for B/C-levels/G/H, score ramp for J/C-endless, phase-step for A/D/E,
+cost growth for F), UI density plan, finale/goal shape, juice level, the
+casual families' **level count + curve preference** (Q14), and the
+**session-length target** (Q15). A question the family marks `n/a` is logged
+as `n/a — <family reason>` rather than answered. No `ask` call.
 
-`interactive`: second `ask` call, the same 4-6 questions.
+`interactive`: second `ask` call, 4-6 questions from the same pool, chosen by
+what the family playbook flags as critical.
 
 ### Step 3 — Structural blockers
 

@@ -89,6 +89,145 @@ entities: soft edges disappear under 96px.
 Good for: bullet hell, arcade shooters, rhythm. Watch readability: glow eats
 silhouettes when many entities overlap.
 
+## Profile: candy-gloss (default for B / G / J casual)
+
+Not shipped as a file: copy the block into `art/style.json`. Built for pieces,
+tiles, dice and skins that must stay separable on a bright board at 96-128px.
+
+```json
+{
+  "schema": "sprite-forge.style.v1",
+  "name": "candy-gloss",
+  "artStyle": "Bright glossy casual-puzzle art: chunky rounded shapes with generous corner radii, every piece inscribed in the same square box and filling 80-90% of it. Exactly two flat shadow steps plus one hard elliptical specular in the upper-left third of each shape and one warm bounce along the lower-right rim; no gradient may span more than a third of a shape. Thick uniform dark-grape outline around every silhouette, internal lines only where the central glyph meets the body. Saturated candy colours at high contrast against a light board, wet-hard-candy finish, shapes readable in pure silhouette. Straight-on orthographic front view with no perspective, no tilt and no foreshortening. Forbidden: texture noise, painterly or feathered edges, drop shadows onto the board, fine internal detail, embossed or beveled chrome, any lettering.",
+  "palette": [
+    "#1b1033",
+    "#3d2a63",
+    "#ffffff",
+    "#fff3d6",
+    "#ffd54a",
+    "#ff9f1c",
+    "#ff5470",
+    "#d02a53",
+    "#7c4dff",
+    "#4dd0ff",
+    "#1a9be0",
+    "#47e08a",
+    "#17a86a",
+    "#ff7ad9",
+    "#b8c6e8",
+    "#6f7dab"
+  ],
+  "camera": "Orthographic straight-on front view, subject centred, every asset drawn at the same box size and the same optical weight; no perspective, no rotation, no scale drift between cells.",
+  "lighting": "Single key light from the upper left, one hard elliptical specular per glossy surface placed in the upper-left third, one warm bounce along the lower-right rim, ambient occlusion only where two shapes overlap. No cast shadow onto the board, no ground contact shading, no ground plane.",
+  "outline": "Uniform 4px dark grape (#1b1033) outline on the outer silhouette, thinner internal separation only between the central glyph and the piece body. Never a light, coloured or glowing outline.",
+  "maxPaletteDistance": 50,
+  "plan": {
+    "valuePlan": { "dark": 0.22, "mid": 0.45, "light": 0.33 },
+    "temperature": "Hue is identity, not threat: each piece hue is locked to exactly one silhouette and never reused by a second piece. Gold is reserved for rewards, boosters and specials; warm cream for neutral chrome and empty slots; deep grape and violet for negatives — locks, ice, blockers, jail; mint for progress and goal completion.",
+    "saturationHierarchy": [
+      "booster and special-piece gold",
+      "the active or selected piece hue",
+      "standard piece hues",
+      "chrome and slot neutrals",
+      "board field and backdrop"
+    ],
+    "focal": {
+      "primary": "the central glyph of the piece or icon plus its single specular",
+      "secondary": "the outer silhouette edge that separates this piece from its neighbours",
+      "rest": "the flat board field, gutters and panel fill"
+    },
+    "materials": {
+      "candy": "wet hard-boiled sweet, one hard specular oval, deep saturated core, no interior detail",
+      "jelly": "soft translucent gel with a lighter core and a slightly darker rim, holds a rounded blob shape",
+      "foil": "reflective metallic wrapper with one sharp streak and a dark reflected band, used only for specials",
+      "ice": "frosted translucent block with straight facet edges and a pale desaturated interior, used for blockers",
+      "crate": "smooth painted toy wood with a chunky bevel, no grain lines, used for breakable chrome",
+      "paper": "matte flat label with a crisp edge, used for goal and counter plates",
+      "bubble": "clear glass sphere with a diagonal highlight streak and a darker lower rim"
+    },
+    "renderScale": 128
+  },
+  "references": []
+}
+```
+
+Good for: B board-puzzle (piece sets), G table-dice (dice, board tiles,
+collection badges), J hypercasual (object skins), and I hybrids built on those
+cores. The high `light` share is deliberate: these families play on a light
+board, so a value plan tuned for a dark arena returns pieces that look muddy.
+Watch the specular — a provider that drifts to two or three highlights per shape
+destroys the "same material" read across the set.
+
+## Profile: cozy-paper (default for F / H, alternative for G)
+
+Not shipped as a file: copy the block into `art/style.json`. Built for
+icon-dominated, text-heavy screens read at 64-96px.
+
+```json
+{
+  "schema": "sprite-forge.style.v1",
+  "name": "cozy-paper",
+  "artStyle": "Soft cut-paper illustration: flat matte shapes with a fine uniform paper tooth, one flat fill plus exactly one darker shade per shape, and no highlight. Depth comes from value steps and a 2px offset shadow kept inside the shape, as if one paper layer sits on another. Edges are clean and slightly hand-torn rather than mechanically sharp; no outline by default, and where two shapes of the same value meet, a soft dry-brush ink edge only. Warm muted kraft-and-ink palette with a single saturated accent per asset, straight-on flat camera, every icon inscribed in the same square with equal optical weight. Forbidden: gloss, speculars, neon, glow, gradients larger than a shape, digital sharpness, photographic texture, lettering.",
+  "palette": [
+    "#2f2a24",
+    "#5c5347",
+    "#8a7f6d",
+    "#a8a29a",
+    "#d9c9a8",
+    "#efe6d4",
+    "#fdf8ec",
+    "#c9a227",
+    "#e08a4f",
+    "#b8563f",
+    "#7e9b6a",
+    "#4f7360",
+    "#6e8fa8",
+    "#3f5a72",
+    "#b9788f"
+  ],
+  "camera": "Flat straight-on view, no perspective and no tilt; every icon inscribed in the same square, subject centred, with equal optical weight and identical stroke mass across sheets.",
+  "lighting": "No directional light source. Depth is value steps plus a 2px darker offset inside the shape, reading as stacked paper layers. No speculars, no cast shadows, no glow, no rim light.",
+  "outline": "None by default; shapes separate by value. Where two same-value shapes meet, a 2px soft dry-brush edge in ink brown (#2f2a24) only — never a hard uniform stroke around the whole silhouette.",
+  "maxPaletteDistance": 40,
+  "plan": {
+    "valuePlan": { "dark": 0.28, "mid": 0.52, "light": 0.2 },
+    "temperature": "Warm kraft and mustard for owned things, currency and positive progress; sage and pine for growth, production and income; dusty blue and slate for neutral information and locked content; terracotta and brick for cost, spend and warnings; dusty rose reserved for premium and limited offers.",
+    "saturationHierarchy": [
+      "currency and reward mustard",
+      "cost and warning terracotta",
+      "production and progress sage",
+      "informational dusty blue",
+      "paper and kraft neutrals",
+      "stone UI greys"
+    ],
+    "focal": {
+      "primary": "the icon glyph silhouette — the object or symbol the row is about",
+      "secondary": "the single saturated accent inside the glyph that codes its category",
+      "rest": "the paper field, the label band and the list background"
+    },
+    "materials": {
+      "paper": "visible fine tooth, matte, hand-torn edge, flat single-value fill",
+      "kraft": "warm card stock with a slightly coarser tooth and a fibrous edge",
+      "wood": "unfinished sanded timber, two value steps, sparse straight grain marks only",
+      "ceramic": "matte unglazed clay with a soft chalky value falloff and no highlight",
+      "brass": "brushed warm metal with a broad soft value band, never mirror chrome",
+      "linen": "woven cloth with a soft irregular edge and two value steps, no folds",
+      "ink": "opaque dry-brush stroke, slightly ragged, used for glyph detail and separation"
+    },
+    "renderScale": 96
+  },
+  "references": []
+}
+```
+
+Good for: F idle-tycoon (generator and upgrade icon lists), H word-trivia
+(category icons over a primitive letter grid), G table-dice in its solitaire and
+ludo form. Weakest choice for anything with fast motion or many overlapping
+entities: with no outline and no highlight, a moving shape loses its edge. The
+tight `maxPaletteDistance` of 40 is the point of this profile — the muted band is
+narrow, so a provider drifting into saturation is caught by palette QC rather
+than by eye.
+
 ## Choosing
 
 | Game trait | Profile |
@@ -98,6 +237,24 @@ silhouettes when many entities overlap.
 | Heavy UI, cards, numbers | flat vector |
 | Few large characters, cinematic moments | painterly |
 | Recorded for vertical video | vibrant chibi (highest thumbnail contrast) |
+
+By family (defaults; the alternative is a deliberate choice, not a fallback):
+
+| Family | Default profile | Alternative |
+| --- | --- | --- |
+| A real-time-arena | vibrant chibi | neon retro (bullet hell), gritty pixel (crawler) |
+| B board-puzzle | candy-gloss | flat vector (sort, block — UI-dominant boards) |
+| C side-view-physics | vibrant chibi | gritty pixel (platformer), neon retro (arcade runner) |
+| D turn-based-cards-tactics | flat vector | painterly for card art only if the whole set follows, gritty pixel (tactics) |
+| E track-vehicle | flat vector | vibrant chibi (toy racers), neon retro (arcade) |
+| F idle-tycoon | cozy-paper | flat vector (number-dominant screens) |
+| G table-dice | candy-gloss (dice-board loop) | cozy-paper (solitaire, ludo) |
+| H word-trivia | cozy-paper | flat vector |
+| J hypercasual | candy-gloss | flat vector (minimal-shape mechanics) |
+| I hybrid composition | the core family's profile, unchanged | none — two profiles in one build is a bug, not a style |
+
+Painterly stays out of B/F/H/J entirely: soft edges vanish under 96px and these
+families draw nothing larger.
 
 ## Verification
 

@@ -21,7 +21,7 @@ finish. Pick the family first, then generate only its table.
 
 | Code | Family | Art weight | Section |
 | --- | --- | --- | --- |
-| A | real-time-arena | heavy, 28-30 calls | Core set below, unchanged |
+| A | real-time-arena | heavy, 22-30 calls | Core set below, unchanged |
 | B | board-puzzle | medium, 10-16 | B |
 | C | side-view-physics | medium, 14-20 | C |
 | D | turn-based-cards-tactics | medium-heavy, 18-26 | D |
@@ -104,10 +104,12 @@ backdrop reads as a static photograph and destroys the sense of speed — the on
 thing a runner sells. The pipeline already exists: layers register as
 `bg-layer-0` (back) through `bg-layer-2` (front) in the `bg` group and
 `ui/background.ts` picks them up ahead of the single-backdrop fallback, so the
-wiring cost is zero. Scroll factors: layer 0 at 0.1-0.2x camera, layer 1 at
-0.4-0.5x, layer 2 at 0.8-1.0x. Each layer is drawn with its own value tier —
-layer 0 lightest and lowest contrast, layer 2 darkest — or the parallax reads as
-smearing instead of depth.
+wiring cost is zero. A side-follow camera needs camera-relative scroll factors —
+layer 0 at 0.1-0.2x, layer 1 at 0.4-0.5x, layer 2 at 0.8-1.0x — not the ambient
+drift constants `ui/background.ts` ships for the static arena camera
+(`LAYER_SCROLL_FACTORS` = 0 / 0.05 / 0.12). Each layer is drawn with its own
+value tier — layer 0 lightest and lowest contrast, layer 2 darkest — or the
+parallax reads as smearing instead of depth.
 
 ### D — turn-based-cards-tactics (deckbuilder, tactics, auto-battler)
 

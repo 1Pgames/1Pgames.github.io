@@ -1,5 +1,10 @@
 # Genre playbooks
 
+Families **A** (real-time-arena) and **D** (turn-based-cards-tactics) only; for
+**B** board-puzzle, **C** side-view-physics, **E** track-vehicle, **F**
+idle-tycoon, **G** table-dice, **H** word-trivia, **J** hypercasual and hybrid
+pattern **I**, see `references/casual-playbooks.md` (same 13-section format).
+
 Reference for the `game-prd` skill. All numbers below assume the fixed frame:
 portrait 720x1280, `SAFE` top 140px / bottom 220px / side 40px, and a 480s
 (8-minute) reference run — the midpoint of the mandated 5-10 minute run length.

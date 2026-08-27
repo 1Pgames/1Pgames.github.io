@@ -1,25 +1,39 @@
-# Design heuristics — complex portrait games, 5-10 minute runs
+# Design heuristics — portrait browser games, ten gameplay families
 
-Numeric defaults for the interview agent. Every number here is a **default to
+Numeric defaults for the PRD agent. Every number here is a **default to
 recommend**, not a fact to re-derive; only deviate when the user's pitch or a
-genre playbook overrides it, and record the override in the PRD's
+family playbook overrides it, and record the override in the PRD's
 Assumptions. All helper/module names are verified against `template/` as of
 this writing; anything not yet in the template is marked `NEW: needs <file>`.
 
-Shared contract with `references/genre-playbooks.md`: portrait **720x1280**;
-`SAFE` top **140px** / bottom **220px** / side **40px**; reference run
-**480s** (8 min, inside the 5-10 min / 300-600s band); entity budget **300
-live sprites at 60fps**; build split into **5 parallel layers** (combat core,
-content/data, UI/meta, level/systems, integration/balance).
+Scope map — read the section your family needs, not all of them:
+
+| Sections | Apply to |
+| --- | --- |
+| §1-§5, §6 | Families A, D, E (timed/fight/lap sessions with in-session power growth) |
+| §15 | Families B, G, H and C-levels (level curves, win-rate bands, move budgets) |
+| §16 | Family J and C-endless (score ramps, session length, near misses) |
+| §17 | Family F (cost growth, prestige sizing, offline progress) |
+| §7-§14, §18 | All families (UI density, input, feel, performance, meta, parallel build, verification map) |
+
+Shared contract with `references/genre-playbooks.md` and
+`references/casual-playbooks.md`: portrait **720x1280**; `SAFE` top **140px** /
+bottom **220px** / side **40px**; reference run for families A/D **480s**
+(8 min, inside the 5-10 min / 300-600s band) while every other family's session
+window is fixed in `SKILL.md` §Step 0b; entity budget **300 live sprites at
+60fps**; every session driven by a `SessionDirector` (`core/session.ts`);
+build split into **5 parallel layers** (core mechanic, content/data, UI/meta,
+director/generation, integration/balance) plus the sim/verification layer of
+§12.1 where the family's gate is a generator validator.
 
 ---
 
-## 1. Run architecture
+## 1. Run architecture (families A and D; E per race index)
 
-A "complex" run is not one escalating variable — it has named phases, each
-with its own pressure target, so the build agent can drive
-`core/run.ts`'s `RunDirector` (`WaveSpec[]` per `RunPhase`) instead of a
-single ramp timer.
+A timed run is not one escalating variable — it has named phases, each with its
+own pressure target, so the build agent can drive `core/run.ts`'s
+`RunDirector` (`WaveSpec[]` per `RunPhase`) instead of a single ramp timer.
+Level-based families use §15 instead, endless families §16, idle §17.
 
 ### 1.1 Reference run: 480s (8 min), 6 phases
 
@@ -392,8 +406,11 @@ gate failures explicitly in the PRD/report rather than iterating unbounded.
 
 ## 6. Content volume budgets
 
-Baseline for a 480s run (scale counts by the §1.4 ratio for other run
-lengths; genre-specific overrides live in `genre-playbooks.md`).
+Baseline for a family-A/D 480s run (scale counts by the §1.4 ratio for other
+run lengths; subgenre overrides live in `genre-playbooks.md`). **Per-family
+content volumes — including the B/C/F/G/H/J minimums — are the gate table in
+`prd-template.md` §5.0**; this section is the A/D detail behind that table's
+first row.
 
 | Content type | Minimum viable | Comfortable | Per-item build effort | Home |
 | --- | --- | --- | --- | --- |
@@ -715,6 +732,15 @@ full talent-tree UI does not.
 | Level/systems | `core/run.ts` `RunDirector`, `core/grid.ts` `NavGrid` (if pathing is needed), phase/wave sequencing (§1, §2) | Interface contract only | Phase clock driving waves from the content layer |
 | Integration/balance | Wires all four layers into `src/scenes/game.ts`, runs the §5.5 dominant-strategy check, tunes `TUNING` | All four above | The playable, balanced build |
 
+Layer files live where the family puts them: the core-mechanic layer owns
+`src/slices/<family>/` (the starter scene + data the `--family <code>`
+scaffold copied in) plus `src/objects/*`, and the verification layer owns
+`src/sim/families/<family>.ts` — the family's bot/solver and its gate (§18).
+A sixth layer (sim/verification) is added whenever the family's gate is a
+generator validator rather than a play bot (B, G, H, and E track generation):
+the generator and its validator are one ownership unit, because a generator
+whose output nobody proved solvable is not content.
+
 ### 12.2 Interface-contract rule
 
 Every cross-layer type — `StatKey` names, `WaveSpec`/`RunPhase` shapes,
@@ -758,11 +784,12 @@ isolation) and defers the project-wide build to integration.
   `RunDirector` config and the content layer's `WaveSpec` scaling.
 - [ ] Upgrade pool size (§5.2) matches what the content layer actually
   shipped, not just what the PRD specified.
-- [ ] `npm run sim -- --lane all --strict` passes every hard gate (§5.5) and
-  reports the soft-gate numbers (win-rate spread ≤ 0.35, decision cadence
-  10-14) for every named build lane — run at least once before claiming the
-  build balanced, and re-run through the sim→TUNING→re-sim loop (§5.5, max 3
-  iterations) if any gate fails.
+- [ ] `npm run sim -- --family <code>` passes every hard gate for the family
+  (§18) and reports its soft-gate numbers — for A/D the per-lane win-rate
+  spread ≤ 0.35 and decision cadence 10-14 (§5.5); for the other families the
+  numbers named in that family's §18 row. Run at least once before claiming
+  the build balanced, and re-run through the sim→TUNING→re-sim loop (§5.5, max
+  3 iterations) if any gate fails.
 - [ ] `node scripts/gen-art-registry.mjs --check` passes (art.ts matches the
   generated asset manifest).
 - [ ] Full menu → run → (win/lose/extract) → retry loop played once in a
@@ -770,7 +797,7 @@ isolation) and defers the project-wide build to integration.
 
 ---
 
-## 13. Vertical video framing for long runs
+## 13. Vertical video framing for long runs (families A, D, E)
 
 ### 13.1 What stays visible in the top third
 
@@ -834,3 +861,249 @@ four is missing, the clip is unwatchable muted — the exact failure mode
 | 16 | Content volume below the minimum viable count for the chosen run length | Hit §6's minimum-viable counts before shipping; scale by the §1.4 ratio for non-480s runs |
 | 17 | Two parallel build agents editing `config.ts`/`keys.ts` simultaneously | One owner per file; other layers request additions through the integrator, not by editing directly (§12.3) |
 | 18 | Run length outside the 5-10 minute band without rescaling phases/content | Scale phase boundaries (§1.4) and content volume (§6) by `targetRunSeconds/480` rather than reusing the 480s table unmodified |
+| 19 | A 480s beat sheet written for a board, table, word or idle game | Use the family's §2 variant in `prd-template.md` (level curve / ramp table / economy curve), never the run beat sheet (§15, §16, §17) |
+| 20 | Level difficulty tuned by rebuilding the board content instead of the move budget | Moves are the exponential dial; retune `k` moves over par first, content second (§15.2) |
+| 21 | Generated levels shipped without a solver verdict | 100% solvability and the win-rate band are hard gates, not soft ones (§15.5, §18) |
+| 22 | A family-J spec with two input verbs, a second HUD widget, or a retry longer than 2s | One mechanic, one verb, minimal HUD, sub-2s retry — that is the family's definition (§16.4) |
+| 23 | Idle economy whose income growth matches or beats its cost growth | Keep `rate growth / cost growth` in 0.55-0.75 so the prestige offer is what breaks the wall (§17.2) |
+| 24 | A ramp band easier than the band before it | All three ramp dials monotone; the ramp bot fails on any inversion (§16.1, §16.4) |
+| 25 | A vague or brand-less casual pitch defaulted to match-3 swap | HYBRID DEFAULT (`SKILL.md` §Step 0): compose pattern I over a sort/block/merge/screw or J/F core; new match-swap titles succeed at ~0.8% |
+| 26 | `npm run sim` run without `--family <code>` and called a balance proof | The family gate is the proof; a sim run with the wrong family's bot measures nothing (§18) |
+
+---
+
+## 15. Level-curve math (families B, G, H, and C-levels)
+
+### 15.1 Win-rate is the difficulty currency
+
+For a level-based family, difficulty is not a threat multiplier — it is the
+probability that a competent player clears the level on the current attempt.
+That number is the design surface, and every other dial exists to hit it.
+
+| Level band | Target win-rate | Role |
+| --- | --- | --- |
+| L1-L3 | 95-99% | Onboarding; failure here is a defect, not difficulty |
+| L4-L9 | 88-97% | Teaching band: one new element every 2-3 levels |
+| L10 | 82-86% | First spike; first level where a special is required |
+| L11-L19 | 74-88% | Main body |
+| L20 | 66-72% | Second spike; booster-solvable gate |
+| L21-L50 | slide 72% → 62-68%, spike every 10th | Long ramp |
+
+- **Floor:** never below **55%** for a generated level. Below that the level
+  reads as broken rather than hard and the retry loop stops converting.
+- **Ceiling:** never above **99%** after L3. A level nobody can fail is not
+  content.
+
+### 15.2 Moves as the exponential dial
+
+Each extra move above the solver's par reduces effective difficulty
+exponentially — the Playrix-style practice this document standardises on:
+
+`winRate(par + k) = 1 - (1 - w0) * d^k`, recommended `d = 0.62`, where `w0` is
+the measured win-rate at par moves.
+
+Worked at `w0 = 0.35` (a par-move board):
+
+| k (moves over par) | 0 | 1 | 2 | 3 | 4 | 6 | 8 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| winRate | 0.35 | 0.60 | 0.75 | 0.85 | 0.91 | 0.96 | 0.985 |
+
+The entire 66%-99% design band is **six moves wide**. Two consequences:
+
+- Tune by moves first, content second. Changing `k` is a one-number edit that
+  needs no re-solve; changing the board re-runs the generator and the solver.
+- Inverse form, for hitting a target win-rate `w` from a measured `w0`:
+  `k = ceil( log((1 - w) / (1 - w0)) / log d )`.
+
+Time-limited variant (G's dice/deal timers, H's quiz timers): the same formula
+with `k` = (seconds granted over par-time) / 5s.
+
+### 15.3 Spike placement and the booster valve
+
+- One spike every 10th level, its win-rate **8-14 points** below the
+  neighbouring band.
+- A spike must be **booster-solvable**: one booster from the PRD's booster set
+  raises its win-rate by **≥ 15 points**. That is what makes a spike a valve
+  instead of a wall.
+- Never two spikes in a row; never a spike inside L1-L9.
+
+### 15.4 Star thresholds
+
+1 star = clear; 2 stars = ≥25% of the budget unspent; 3 stars = ≥45% unspent.
+On the §15.2 curve a par+4 board yields 3-star rates around 20-30% — enough
+headroom for saga-map star gates to pace unlocks without forcing replay
+grinding.
+
+### 15.5 Generation + solver loop
+
+Levels are generated, then curve-fit:
+
+1. Generate from the piece set with the band's element list.
+2. Solve for par (the solver's minimum move count on that seed).
+3. Set the budget to `par + k`, with `k` from §15.2 for the band's target
+   win-rate.
+4. Verify with the bot: solvability, then measured win-rate inside the band.
+
+**100% solvability is a hard gate. The win-rate band is a hard gate.** Content
+variety (elements per band, silhouette spread) is a soft gate.
+
+---
+
+## 16. Ramp math (family J and C-endless)
+
+### 16.1 Dials and growth per score
+
+Three dials, all monotone in score `s`:
+
+- `speed(s) = min(speedCap, 1 + ks * s)`, recommended `ks = 0.009 /point`,
+  `speedCap = 1.70`.
+- `gap(s) = max(gapFloor, 1 - kg * s)`, recommended `kg = 0.0045 /point`,
+  `gapFloor = 0.70` (gap scales spacing, window size and reaction time
+  together).
+- `spawnMs(s) = max(260, spawnBase * gap(s))` — the 260ms floor is the same
+  readability floor as §2.5; below it, failure reads as RNG.
+
+| s | 0 | 10 | 25 | 50 | 80 | 120 |
+| --- | --- | --- | --- | --- | --- | --- |
+| speed | 1.00 | 1.09 | 1.23 | 1.45 | 1.70 (cap) | 1.70 |
+| gap | 1.00 | 0.96 | 0.89 | 0.78 | 0.70 (floor) | 0.70 |
+
+Only these three dials ramp. Adding a fourth (new obstacle types on a timer,
+layered modifiers) is what turns a 45s arcade loop into an unreadable one; new
+content enters as the **twists** in §16.5, gated on score bands, not as a
+continuous dial.
+
+### 16.2 Median session length falls out of the hazard rate
+
+Model: one obstacle every ~1.2s; per-obstacle death probability
+`q(s) = min(0.10, q0 + kq * s)` with `q0 = 0.008`. Cumulative hazard to score
+`n` is `H(n) = q0*n + kq*n²/2`; the median score solves `H(n) = ln 2 = 0.693`.
+
+| `kq` | Median score | Median session (at 1.2s/obstacle) |
+| --- | --- | --- |
+| 0.0008 | 33 | 39s |
+| 0.0011 (recommended) | 29 | 35s |
+| 0.0016 | 25 | 30s |
+
+Target the family window — **30-120s** for J, **45-150s** for C-endless — with
+a median of **40-50s** (J) or **80-100s** (C-endless): long enough that a run
+has a shape, short enough that "one more" costs nothing. `kq` is the
+single knob for it — do not chase the median by editing `ks`/`kg`, which change
+what the game feels like rather than how long it lasts.
+
+### 16.3 Near-miss frequency
+
+A near miss is clearing an obstacle within the fail margin (recommended: 12px
+or 120ms of the fail condition). It is this family's entire tension signal, so
+it is instrumented and juiced, not merely logged.
+
+| Band (from the PRD's §2C ramp table) | Target near-misses |
+| --- | --- |
+| Learn | ~0 per 10s |
+| Flow | 1 per 10s |
+| Pressure | 2-3 per 10s |
+| Edge | 4-5 per 10s |
+
+Cap near-miss feedback at **1 per 400ms** (§9's spam discipline); above that
+the signal stops meaning "that was close".
+
+### 16.4 Monotonicity and retry latency
+
+- **Monotonicity:** every dial moves in one direction only, and no band is
+  easier than the band before it. The ramp bot fails the build on any
+  inversion.
+- **Retry:** fail → playable again in **under 2s**. Recommended budget: 350ms
+  fail juice, 250ms fade, restart on the next tap. No interstitial, no
+  confirmation, no menu round-trip — the retry loop *is* the retention
+  mechanic for a 35s session.
+
+### 16.5 One mechanic, one verb, two twists
+
+The family's content budget is **1 mechanic + 1-2 twists + 10-15 skins**.
+A twist enters at a fixed score band (see §2C's Pressure and Edge bands),
+changes one rule (moving obstacle, mirrored input, shrinking window), and never
+adds an input verb. A J spec with two input verbs is a defect (§14 #22).
+
+---
+
+## 17. Idle economy math (family F)
+
+### 17.1 Cost growth
+
+`cost(n) = base * growth^n`. The classic band is `growth` **1.07-1.15**:
+1.07 generous, **1.10 recommended default**, 1.15 grindy. Cumulative cost at
+`base = 10`:
+
+| growth | to level 10 | to level 25 | to level 50 |
+| --- | --- | --- | --- |
+| 1.07 | 138 | 632 | 4,066 |
+| 1.10 | 159 | 983 | 11,640 |
+| 1.15 | 203 | 2,128 | 72,180 |
+
+Growth above 1.15 pushes the late levels of a single generator past what one
+prestige cycle can fund, which reads as a broken wall rather than a goal.
+
+### 17.2 Rate growth vs cost growth
+
+Income per generator level must grow **slower** than its cost, or the economy
+solves itself and the prestige offer has nothing to fix:
+`rate(n) = baseRate * n` (linear) against exponential cost.
+
+Ratio rule: `rate growth per purchase / cost growth per purchase` in
+**0.55-0.75**. Under 0.55 the game stalls before the prestige window; over 0.75
+the player never needs to prestige.
+
+### 17.3 Time-to-next-purchase and the dead-air rule
+
+`ttnp(n) = cost(n) / income(n)`. Design targets (the PRD's §2D curve): 3-8s in
+the first minute, 15-45s at 1-5 min, 45-90s at 5-12 min.
+
+**Dead-air rule: no gap over 90s between affordable purchases in the first 10
+minutes.** This is a hard gate in the family's economy sim — a 3-minute stare
+at a filling bar in the first session is the single most common idle-game
+failure mode.
+
+### 17.4 Prestige multiplier sizing
+
+`mult(p) = 1 + kp * sqrt(totalEarned(p) / T)`, sized so that cycle `p+1`
+reaches cycle `p`'s endpoint in **20-35%** of the time — i.e. **2.5-4x**
+effective income per prestige.
+
+| Cycle | Target duration |
+| --- | --- |
+| 1 (first prestige) | 15-30 min |
+| 2 | 6-10 min |
+| 3 | 4-6 min |
+| 4+ | flattens — add a **second prestige layer** rather than inflating the first |
+
+A first prestige later than 30 min loses the player before the mechanic that
+makes the family work is ever seen; earlier than 15 min and the reset feels
+like it cost nothing.
+
+### 17.5 Offline progress
+
+- Rate: **40-60%** of active income (never 100% — full-rate offline removes the
+  reason to open the game).
+- Cap: **8 hours** recommended.
+- Return screen: one `countTo` payout, one tap to collect, no modal chain.
+
+---
+
+## 18. Family → verification map
+
+Every family's balance proof is `npm run sim -- --family <code>`, driven by the
+bot in `src/sim/families/<code>.ts`. The hard gates below fail the build; the
+soft gates are reported and reviewed.
+
+| Code | Director | Sim bot | Hard gates | Soft gates |
+| --- | --- | --- | --- | --- |
+| A | `RunDirector` | arena bot | Run completable; win and loss both reachable; 300-entity budget held at 60fps | Per-lane win-rate spread ≤ 0.35; decision cadence 10-14 (§5.5); `firstUpgradeS` ≈ 45 |
+| B | `LevelDirector` | board solver | 100% of generated levels solvable; every level's win-rate inside its §15.1 band; spikes booster-solvable (+≥15 points) | 3-star rate 20-30%; element variety per band |
+| C | `LevelDirector` / `RampDirector` | level bot / ramp bot | Levels: as B (20-45s each). Endless: median session inside 45-150s, monotone dials | Near-miss rate per band (§16.3) |
+| D | `RunDirector` (fight-indexed) | fight bot | Every fight in the chain winnable from a legal deck/board; final fight loseable | Win-rate spread ≤ 0.35 across named routes |
+| E | `LapDirector` | lap bot | Every track completed inside the target lap time; every checkpoint reachable; no geometry trap | Rival-tier finish spread; drift-line usage |
+| F | none in the core loop (`LevelDirector` for milestone chapters) | economy sim | First prestige 15-30 min; no dead-air gap > 90s in the first 10 min; cycle 2 at 20-35% of cycle 1 | `ttnp` curve matching §17.3; offline payout sanity |
+| G | `LevelDirector` | deal/board validator | Every generated deal solvable; dice-board loop terminates; tile-event payouts inside the economy budget | Deal-length distribution; collection completion pace |
+| H | `LevelDirector` | content validator | Every question/word entry validated against its answer key; no duplicates; no unanswerable entry | Category balance; difficulty-tier spread |
+| J | `RampDirector` | ramp bot | Median session 30-120s; monotone difficulty (no band inversion); retry latency < 2s | Near-miss rate per band; skin coverage 10-15 |
+| I | the core's director | the core's bot | the core family's hard gates, unchanged | plus meta-kit pacing: star/collection gates reachable in the sessions §11.3 predicts |
