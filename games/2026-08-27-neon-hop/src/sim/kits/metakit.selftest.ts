@@ -17,6 +17,7 @@ import {
   touchDailyStreak,
 } from '../../core/progression';
 import { collectionProgress, rollMissingPiece } from '../../core/collections';
+import { save } from '../../core/storage';
 import type { CollectionSetDef } from '../../core/collections';
 import { Rng } from '../../core/rng';
 
@@ -45,7 +46,20 @@ Reflect.set(globalThis, 'localStorage', {
   clear: (): void => store.clear(),
 });
 
-const META_SLOT = 'gt:meta'; // storage.ts namespace + progression's META_KEY
+/**
+ * The meta save's real storage slot, PROBED through core/storage.ts instead of
+ * hardcoding the namespace: new-game.sh rewrites `NS = 'gt:'` to the game's
+ * slug at scaffold time, and a hardcoded 'gt:meta' broke every scaffolded
+ * game's verify while passing in the template.
+ */
+const META_SLOT = ((): string => {
+  store.clear();
+  save('meta-slot-probe', 1);
+  const probed = [...store.keys()].find((k) => k.endsWith('meta-slot-probe'));
+  store.clear();
+  if (probed === undefined) throw new Error('storage probe failed');
+  return probed.slice(0, -'meta-slot-probe'.length) + 'meta';
+})();
 
 function dayKey(date: Date): string {
   const month = `${date.getMonth() + 1}`.padStart(2, '0');
