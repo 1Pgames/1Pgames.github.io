@@ -72,12 +72,12 @@ driven identically by the scene: `update(deltaMs)` each frame, then read
 
 Scaffold and gates, identical for every playbook here:
 
-- `scripts/new-game.sh <slug> --family <code>` scaffolds the slice as
+- `scripts/new-game.sh <slug> --family <slice>` scaffolds the slice as
   `src/slices/<family>/game.ts` plus its starter data files. Slice directory
   names: `arena` (A), `board` (B), `side` (C), `track` (E), `idle` (F),
   `table` (G), `word` (H), `hyper` (J).
 - `npm run verify` — typecheck, lint, headless boot, asset manifest.
-- `npm run sim -- --family <code>` — runs `src/sim/families/<family>.ts`. B:
+- `npm run sim -- --family <slice>` — runs `src/sim/families/<family>.ts`. B:
   board solver win-rate curve per level. C/J: ramp session-length bot. E: lap
   bot. F: economy curve check. G: deal solvability + roll distribution. H:
   wordlist and answer-key validation.
@@ -118,11 +118,11 @@ authored in `data/levels.ts`, loaded by the slice scene, executed by
 `core/board/grid.ts` + `core/board/resolve.ts`, scored against the goal set in
 `core/board/types.ts`, and adjudicated by `LevelDirector` (`core/level.ts`).
 
-**Slice + gates.** `scripts/new-game.sh <slug> --family B` scaffolds
-`src/slices/board/game.ts`; `npm run sim -- --family B` runs
+**Slice + gates.** `scripts/new-game.sh <slug> --family board` scaffolds
+`src/slices/board/game.ts`; `npm run sim -- --family board` runs
 `src/sim/families/board.ts` (board solver + policy bots).
 
-**Level-curve table (shared B target).** `npm run sim -- --family B` runs the
+**Level-curve table (shared B target).** `npm run sim -- --family board` runs the
 board solver 500 times per level and fails the gate if the measured first-try
 win rate leaves its band by more than 8 points.
 
@@ -333,7 +333,7 @@ per second.
 | Level content | `data/levels.ts` (50 specs), goal mix, star thresholds | `interface LevelSpec { id: number; seed: number; cols: number; rows: number; layout: string[]; goals: GoalSpec[]; moveBudget: number; starThresholds: [number, number, number] }` |
 | Board view | `objects/tile.ts`, cascade animation timeline, juice | `function playSteps(steps: BoardStep[]): Promise<void>` |
 | Meta / UI | saga map scene, star deposit, booster shop, fail panel | `function onLevelEnd(outcome: { won: boolean; reason: string }, stars: number): Promise<'retry' \| 'map'>` |
-| Balance (integrator) | move budgets, star thresholds, runs `npm run sim -- --family B` until every band is met | consumes all contracts above |
+| Balance (integrator) | move budgets, star thresholds, runs `npm run sim -- --family board` until every band is met | consumes all contracts above |
 
 ### Pitfalls
 
@@ -551,7 +551,7 @@ thousands of simulated sessions headlessly.
 | Economy | `core/economy.ts` wiring: energy accrual, generator charges, rewards, expansion costs | `function accrueEnergy(save: MetaSave, nowMs: number): number` |
 | View + juice | `objects/mergeItem.ts`, drag ghost, merge burst, charge rings | `function playMerge(item: MergeItem, resultTier: number): Promise<void>` |
 | Meta / decor | order rail, decor room scene, album, reward track | `function onOrderDelivered(orderId: string, coins: number): Promise<void>` |
-| Balance (integrator) | tier growth, energy budget, order cadence; runs `npm run sim -- --family B` (merge mode: 200 simulated sessions; asserts tier 7 reachable in 6-10 min and jam rate < 5%) | consumes all contracts above |
+| Balance (integrator) | tier growth, energy budget, order cadence; runs `npm run sim -- --family board` (merge mode: 200 simulated sessions; asserts tier 7 reachable in 6-10 min and jam rate < 5%) | consumes all contracts above |
 
 ### Pitfalls
 
@@ -759,7 +759,7 @@ solve rate > 0%, and win-rate band compliance.
 | Generator + content | `core/board/sortgen.ts`, `data/levels.ts` (50 specs), specials schedule | `function generateSortLevel(rng: Rng, spec: SortLevelSpec): SortState` |
 | View + juice | `objects/container.ts`, pour/seat animation, seal, peek overlay | `function playTransfer(from: Container, to: Container, count: number): Promise<void>` |
 | Meta / UI | saga map, booster tray, fail panel, star deposit | `function onLevelEnd(outcome: { won: boolean; reason: string }, movesUsed: number, par: number): Promise<'retry' \| 'map'>` |
-| Balance (integrator) | shuffle depth curve, move multipliers, free-container schedule; runs `npm run sim -- --family B` | consumes all contracts above |
+| Balance (integrator) | shuffle depth curve, move multipliers, free-container schedule; runs `npm run sim -- --family board` | consumes all contracts above |
 
 ### Pitfalls
 
@@ -965,7 +965,7 @@ so the policy bots in the sim gate run whole campaigns headlessly.
 | Shapes + levels content | `data/shapes.ts` (9-14 shapes with weights), `data/levels.ts` (50 specs), specials schedule | `interface ShapeSpec { id: string; cells: Array<[number, number]>; weight: number; minLevel: number }` |
 | View + juice | `objects/blockPiece.ts`, drag ghost, clear sweep, combo indicator | `function playClears(cleared: Array<{ kind: string; index: number }>, combo: number): Promise<void>` |
 | Meta / UI | saga map, booster row, fail panel, star deposit | `function onLevelEnd(outcome: { won: boolean; reason: string }, score: number, par: number): Promise<'retry' \| 'map'>` |
-| Balance (integrator) | pre-fill curve, tray weights, star pars; runs `npm run sim -- --family B` with all three policy bots | consumes all contracts above |
+| Balance (integrator) | pre-fill curve, tray weights, star pars; runs `npm run sim -- --family board` with all three policy bots | consumes all contracts above |
 
 ### Pitfalls
 
@@ -1020,11 +1020,11 @@ no rotation except cosmetic. Shared tuning (both playbooks):
 
 Coyote time and jump buffer are **not** polish; without both, a portrait
 one-button platformer measures as unfair in the first 30 seconds of play. Both
-are asserted by the C sim gate (`npm run sim -- --family C`): a bot that
+are asserted by the C sim gate (`npm run sim -- --family side`): a bot that
 presses jump 60ms late must still clear a standard gap.
 
-**Slice + gates.** `scripts/new-game.sh <slug> --family C` scaffolds
-`src/slices/side/game.ts`. `npm run sim -- --family C` runs
+**Slice + gates.** `scripts/new-game.sh <slug> --family side` scaffolds
+`src/slices/side/game.ts`. `npm run sim -- --family side` runs
 `src/sim/families/side.ts`: for levels it bot-plays each level and reports
 deaths-to-clear; for the runner it measures session length distribution
 against the ramp table.
@@ -1149,7 +1149,7 @@ Difficulty is the beat budget, one dial:
 | 20 | 13000 | 11 | 30 | all | 5 |
 
 A level whose measured median deaths exceed the target by more than 3 fails
-the gate: `npm run sim -- --family C` bot-plays each level 200 times with a
+the gate: `npm run sim -- --family side` bot-plays each level 200 times with a
 ±60ms input-jitter model and reports the death distribution.
 
 ### Meta progression
@@ -1215,7 +1215,7 @@ a frame spike, which is the family's classic crash bug.
 | Level content | `data/beats.ts` (40 beats), `core/levelgen.ts` assembler, biome tilesets | `function assembleLevel(rng: Rng, spec: { lengthPx: number; difficultyBudget: number; mechanics: string[] }): TileMap` |
 | Camera + streaming | side-follow camera, tile pool streaming, parallax layers | `function streamTiles(cameraX: number, map: TileMap): void` |
 | Meta / UI | saga map, level-end panel, star deposit, skin album | `function onLevelEnd(outcome: { won: boolean; reason: string }, timeMs: number, deaths: number): Promise<'retry' \| 'next'>` |
-| Balance (integrator) | beat difficulty ratings, par times, death targets; runs `npm run sim -- --family C` with all three style bots | consumes all contracts above |
+| Balance (integrator) | beat difficulty ratings, par times, death targets; runs `npm run sim -- --family side` with all three style bots | consumes all contracts above |
 
 ### Pitfalls
 
@@ -1356,7 +1356,7 @@ step s is `s * ramp.stepMeters`. Density rises linearly from `densityStart` to
 | 7 | 1750-2000m | 819 | 0.51 | hard 8 | 16% |
 | 8+ | 2000m+ | 900 (cap) | 0.55 | hard 10, forced-lane seams | 8% and falling |
 
-That curve is what the sim gate measures: `npm run sim -- --family C` runs a
+That curve is what the sim gate measures: `npm run sim -- --family side` runs a
 bot with a 220ms reaction time and ±60ms jitter for 2000 runs and asserts a
 **median session of 45-90s** and a p90 under 180s. Session length is the
 tuning target, not "difficulty" in the abstract — a runner whose median is 20s
@@ -1432,7 +1432,7 @@ the runner is the strictest zero-allocation loop in this file.
 | Chunk content + streaming | `data/chunks.ts` (16 chunks), `core/chunkStream.ts`, seam survivability rule | `function nextChunk(rng: Rng, rampStep: number, lastChunkId: string): ChunkSpec` |
 | Ramp + scoring | `RampDirector` wiring, speed/density curves, score and near-miss detection | `function rampAt(distanceMeters: number): { step: number; speedPx: number; density: number }` |
 | Meta / UI | missions, character album, reward track, death panel, revive flow | `function onRunEnd(score: number, coins: number, meters: number): Promise<'retry' \| 'menu'>` |
-| Balance (integrator) | tunes the ramp until the bot median lands in 45-90s; runs `npm run sim -- --family C` | consumes all contracts above |
+| Balance (integrator) | tunes the ramp until the bot median lands in 45-90s; runs `npm run sim -- --family side` | consumes all contracts above |
 
 ### Pitfalls
 
@@ -1461,9 +1461,9 @@ speed, ending on the sub-2-second retry.
 One playbook, one director. `LapDirector` (`core/lap.ts`) owns laps,
 checkpoints, per-lap splits and finishing position; the camera profile is
 **track** (follow + velocity lookahead + optional rotation lock); input is
-drag to steer plus tap to drift. Slice: `scripts/new-game.sh <slug> --family E`
+drag to steer plus tap to drift. Slice: `scripts/new-game.sh <slug> --family track`
 scaffolds `src/slices/track/game.ts`; the gate is
-`npm run sim -- --family E` (`src/sim/families/track.ts`), which drives a lap
+`npm run sim -- --family track` (`src/sim/families/track.ts`), which drives a lap
 bot around every track and asserts clean-lap times, checkpoint reachability
 and finishing-position distribution.
 
@@ -1668,7 +1668,7 @@ tweened, never set per frame, to avoid re-culling the whole display list.
 | Tracks + content | `data/tracks.ts` (6 tracks), centerlines, checkpoints, surfaces, `parLapMs` | `interface TrackSpec { id: string; laps: number; widthPx: number; centerline: Array<[number, number]>; checkpoints: number; surface: 'asphalt' \| 'dirt' \| 'ice'; parLapMs: number }` |
 | Bots + race director | `objects/racerAi.ts`, `LapDirector` wiring, positions, rubber-banding | `function racingLine(track: TrackSpec, skill: number): RacingLine` and `class RacerAi { update(deltaMs: number, line: RacingLine, skill: number): CarInput }` |
 | Meta / UI | championship map, upgrade shop, car select, results panel, missions | `function onRaceEnd(position: number, bestLapMs: number, driftMs: number): Promise<'retry' \| 'next'>` |
-| Balance (integrator) | par laps, bot spread, rubber-band limits, drift gap; runs `npm run sim -- --family E` for all builds x all tracks | consumes all contracts above |
+| Balance (integrator) | par laps, bot spread, rubber-band limits, drift gap; runs `npm run sim -- --family track` for all builds x all tracks | consumes all contracts above |
 
 ### Pitfalls
 
@@ -1700,8 +1700,8 @@ session boundary, and forcing one is the genre's most common design error.
 ("reach $1M/s", "unlock generator 8"), where its goal set and stars drive the
 saga map. Camera: static-board (a fixed UI screen with a scrolling generator
 list; no world camera at all). Input: tap only. Slice:
-`scripts/new-game.sh <slug> --family F` scaffolds `src/slices/idle/game.ts`;
-the gate is `npm run sim -- --family F` (`src/sim/families/idle.ts`), which
+`scripts/new-game.sh <slug> --family idle` scaffolds `src/slices/idle/game.ts`;
+the gate is `npm run sim -- --family idle` (`src/sim/families/idle.ts`), which
 fast-forwards the economy and asserts the milestone-time and prestige-time
 curves below.
 
@@ -1909,7 +1909,7 @@ freeze on resume).
 | Content | `data/generators.ts` (10), `data/idleUpgrades.ts` (40), milestone chapters, prestige perks | `interface GeneratorSpec { id: string; baseCost: number; costGrowth: number; baseOutput: number; tickMs: number; managerCost: number; unlockAt: number }` |
 | UI shell | `objects/generatorRow.ts`, tabs, buy-mode control, count-up formatting | `function formatBig(v: BigNum): string` and `class GeneratorRow { setState(count: number, cost: BigNum, affordable: boolean, outputPerS: BigNum): void }` |
 | Meta / world | chapter map, building art tiers, album, daily goals, offline panel | `function onMilestone(chapterId: string, stars: number): Promise<void>` |
-| Balance (integrator) | growth constants, milestone times, prestige band; runs `npm run sim -- --family F` for all three spend policies | consumes all contracts above |
+| Balance (integrator) | growth constants, milestone times, prestige band; runs `npm run sim -- --family idle` for all three spend policies | consumes all contracts above |
 
 ### Pitfalls
 
@@ -1942,8 +1942,8 @@ surface is on screen at once and never scrolls (the dice-board pans between
 board *sections*, which is a tween, not a camera follow). Input: tap primary,
 drag for card moves. Director: `LevelDirector` (`core/level.ts`) — deals and
 board chapters both express as a goal set plus a budget (moves for solitaire,
-dice for the board). Slice: `scripts/new-game.sh <slug> --family G` scaffolds
-`src/slices/table/game.ts`. Gate: `npm run sim -- --family G`
+dice for the board). Slice: `scripts/new-game.sh <slug> --family table` scaffolds
+`src/slices/table/game.ts`. Gate: `npm run sim -- --family table`
 (`src/sim/families/table.ts`) — deal solvability for solitaire, roll and
 reward distribution for the dice-board.
 
@@ -2073,7 +2073,7 @@ roll at board 1 with no landmarks.
 
 At `dice.sessionSpend = 34` rolls per session, a 6-landmark board is ~40
 sessions ≈ 2-3 weeks of daily play — the correct pace for a board that must
-carry a sticker season. The gate asserts this: `npm run sim -- --family G`
+carry a sticker season. The gate asserts this: `npm run sim -- --family table`
 rolls 100k seeded dice and checks that the measured rolls-to-complete per board
 lands within 20% of the table, that no tile kind's realized frequency deviates
 more than 2% from its weight, and that the expected value of a x10 roll equals
@@ -2151,7 +2151,7 @@ each roll; allocating a new timeline per roll leaks across a 40-roll session.
 | Economy + persistence | `core/economy.ts` wiring: dice regen + offline cap, landmark investment, cash curves, save schema | `function accrueDice(save: MetaSave, nowMs: number): number` |
 | Collections meta | album, packs, duplicates, trades, set rewards, reward track | `function openPack(rng: Rng, setId: string): Array<{ stickerId: string; duplicate: boolean }>` |
 | View + juice | `objects/boardToken.ts`, pan tween, coin burst, landmark build animation, pack reveal | `function walkAndResolve(steps: number): Promise<TileEvent[]>` |
-| Balance (integrator) | tile weights, landmark curve, dice budget, multiplier linearity; runs `npm run sim -- --family G` | consumes all contracts above |
+| Balance (integrator) | tile weights, landmark curve, dice budget, multiplier linearity; runs `npm run sim -- --family table` | consumes all contracts above |
 
 ### Pitfalls
 
@@ -2295,7 +2295,7 @@ ladder built this way produces a monotonic curve with zero designer guesswork.
 | 31-45 | 4 | 165-190 | 2 | 64% |
 | 46-50+ | 5 | 190-220 | 1 | 52% |
 
-The gate (`npm run sim -- --family G`) re-solves every shipped deal id at build
+The gate (`npm run sim -- --family table`) re-solves every shipped deal id at build
 time, asserts `winnable == true` for >= 98% of them, recomputes
 `solverParMoves` (failing on drift), and runs a greedy-player bot — "always
 play to foundation, else the move that flips a card, else draw" — to measure
@@ -2371,7 +2371,7 @@ main thread; the in-game hint uses `bestHint` (a 1-ply lookahead over
 | Solver + deal authoring | `core/solitaireSolver.ts`, `data/deals.ts` (50+ verified deals per variant), difficulty bucketing | `function solve(state: SolitaireState, budgetNodes: number): { winnable: boolean; moves: number }` |
 | Card view + juice | pooled card views, deal cascade, drag ghost, foundation chime ladder, win fireworks | `function dealCascade(order: string[]): Promise<void>` and `function autoPlayToFoundations(): Promise<number>` |
 | Meta / UI | daily-deal calendar, saga ladder, booster bar, album, fail panel | `function onDealEnd(outcome: { won: boolean; reason: string }, moves: number, par: number): Promise<'retry' \| 'map'>` |
-| Balance (integrator) | difficulty tiers, star ratios, cycle budgets; runs `npm run sim -- --family G` (re-solve every deal + 3 policy bots) | consumes all contracts above |
+| Balance (integrator) | difficulty tiers, star ratios, cycle budgets; runs `npm run sim -- --family table` (re-solve every deal + 3 policy bots) | consumes all contracts above |
 
 ### Pitfalls
 
@@ -2405,8 +2405,8 @@ choice from a generated question bank). Director: `LevelDirector`
 (`core/level.ts`) — every shape is a goal set (find all words / fill all cells
 / answer N questions) with a budget (hints, time, or lives). Camera:
 static-board. Input: tap + drag-connect. Slice:
-`scripts/new-game.sh <slug> --family H` scaffolds `src/slices/word/game.ts`;
-the gate is `npm run sim -- --family H` (`src/sim/families/word.ts`), which
+`scripts/new-game.sh <slug> --family word` scaffolds `src/slices/word/game.ts`;
+the gate is `npm run sim -- --family word` (`src/sim/families/word.ts`), which
 validates the wordlist and the answer keys — for this family the gate is a
 **content-correctness** gate, not a balance gate, and it is the difference
 between a shippable word game and an embarrassing one.
@@ -2542,7 +2542,7 @@ per session, must not see a repeat inside a week of daily play: `10 * 6 * 7 =
 minimum (repeats after ~2 days). LLM generation makes 400 cheap; validation is
 the cost, not authoring.
 
-**The gate is content validation.** `npm run sim -- --family H` must assert:
+**The gate is content validation.** `npm run sim -- --family word` must assert:
 every grid answer of every shipped puzzle is in `ANSWERS`; every bonus word is
 in the dictionary; every puzzle is solvable using only its wheel letters
 (multiset containment, no letter reuse beyond multiplicity); no puzzle has zero
@@ -2623,7 +2623,7 @@ active category's array is kept hot.
 | Word view | `objects/letterWheel.ts`, trace rendering, grid lock animation, shuffle | `class LetterWheel { setLetters(l: string[]): void; onTrace(cb: (indices: number[]) => void): void; shuffle(): Promise<void> }` |
 | Quiz view + rules | question card, answer cards, timer, lives, streak multiplier, reveal flow | `function answer(state: QuizState, index: number): { correct: boolean; points: number; livesLeft: number }` |
 | Meta / UI | saga/category map, dictionary album, badges, daily puzzle, booster row | `function onPuzzleEnd(outcome: { won: boolean; reason: string }, hintsUsed: number, bonusFound: number): Promise<'retry' \| 'map'>` |
-| Content validation (integrator) | writes and runs the `npm run sim -- --family H` assertions over wordlist, puzzles and question bank | consumes all contracts above |
+| Content validation (integrator) | writes and runs the `npm run sim -- --family word` assertions over wordlist, puzzles and question bank | consumes all contracts above |
 
 ### Pitfalls
 
@@ -2654,9 +2654,9 @@ moment: the full-wheel long word completing the grid in one trace.
 One playbook. Director: `RampDirector` (`core/ramp.ts`) — no win condition, no
 levels, one fail state, difficulty as a monotonic function of time or distance.
 Camera: side-follow or static-board, depending on the mechanic. Input:
-**one finger, one verb**. Slice: `scripts/new-game.sh <slug> --family J`
+**one finger, one verb**. Slice: `scripts/new-game.sh <slug> --family hyper`
 scaffolds `src/slices/hyper/game.ts`; the gate is
-`npm run sim -- --family J` (`src/sim/families/hyper.ts`), a reaction-time bot
+`npm run sim -- --family hyper` (`src/sim/families/hyper.ts`), a reaction-time bot
 that measures the **session-length distribution** — the only number that
 matters in this family.
 
@@ -2816,7 +2816,7 @@ at an average combo of 2.4 scores `28 * 10 * 2.4 = 672`. A first-week personal
 best should land at 2.5-3.5x the median, which the combo cap of x5 delivers
 naturally.
 
-The gate: `npm run sim -- --family J` runs 5000 bot sessions with a 220ms
+The gate: `npm run sim -- --family hyper` runs 5000 bot sessions with a 220ms
 reaction time and ±60ms jitter and asserts median 45-75s, p95 under 210s,
 `firstInputByMs <= 2500`, and that no ramp step drops survival by more than 18
 points (a cliff reads as unfair even when the median is correct).
@@ -2914,7 +2914,7 @@ mechanic needing `SpatialHash`, at 80-160 entities with all-pairs proximity.
 | Ramp + scoring | `RampDirector` wiring, `data/rampSteps.ts`, combo and score | `function rampAt(elapsedMs: number): { step: number; params: Record<string, number> }` |
 | Juice | hitstop, shake, particles, chromatic combo flash, death freeze, count-up | `function onSuccess(perfect: boolean, combo: number): void` and `function onDeath(reason: string): Promise<void>` |
 | Meta / UI | skins, missions, reward track, daily challenge, death panel, coins | `function onRunEnd(score: number, combo: number, ms: number): Promise<'retry' \| 'skins'>` |
-| Balance (integrator) | per-step survival rates until the bot median lands in 45-75s; runs `npm run sim -- --family J` | consumes all contracts above |
+| Balance (integrator) | per-step survival rates until the bot median lands in 45-75s; runs `npm run sim -- --family hyper` | consumes all contracts above |
 
 ### Pitfalls
 

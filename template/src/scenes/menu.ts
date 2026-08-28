@@ -8,6 +8,7 @@ import { loadMeta } from '../core/progression';
 import { Button } from '../ui/button';
 import { addBackground } from '../ui/background';
 import { ICON, TEXTURE } from '../data/art';
+import { drawPanel } from '../ui/primitives';
 
 /** mm:ss clock for the best-run readout. */
 function formatClock(ms: number): string {
@@ -58,6 +59,29 @@ export class MenuScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setLineSpacing(8);
 
+    // Daily-streak chip, only once a streak exists — a "DAY 0" pill would be
+    // noise. Read-only here: the streak is advanced by
+    // `progression.touchDailyStreak` where a run actually starts.
+    let streakChip: Phaser.GameObjects.Container | undefined;
+    if (meta.streak.days >= 1) {
+      const pip = this.add.image(0, 0, ICON.star.key, ICON.star.frame).setDisplaySize(28, 28);
+      const label = this.add
+        .text(0, 0, `DAY ${meta.streak.days}`, { ...TEXT.label, color: CSS.accent })
+        .setOrigin(0, 0.5);
+      const contentWidth = 28 + 10 + label.width;
+      pip.setX(-contentWidth / 2 + 14);
+      label.setX(-contentWidth / 2 + 38);
+      const pill = drawPanel(this, contentWidth + 44, 52, {
+        fill: PALETTE.bgTop,
+        fillAlpha: 0.92,
+        stroke: PALETTE.accent,
+        strokeAlpha: 0.55,
+        strokeWidth: 2,
+        radius: 26,
+      });
+      streakChip = this.add.container(VIEW.centerX, VIEW.centerY - 30, [pill, pip, label]);
+    }
+
     const currencyIcon = this.add
       .image(VIEW.centerX - 46, VIEW.centerY + 30, ICON.coin.key, ICON.coin.frame)
       .setDisplaySize(38, 38);
@@ -104,6 +128,7 @@ export class MenuScene extends Phaser.Scene {
     );
 
     enterFromBottom(this, bestText, 40);
+    if (streakChip !== undefined) enterFromBottom(this, streakChip, 60);
     enterFromBottom(this, currencyIcon, 80);
     enterFromBottom(this, currencyText, 80);
     enterFromBottom(this, howTo, 120);

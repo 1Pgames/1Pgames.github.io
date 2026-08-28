@@ -335,8 +335,13 @@ export const META_UPGRADES: readonly MetaUpgradeDef[] = [
   },
 ] as const;
 
-/** `cost(level) = round(baseCost * costGrowth ^ level)` — `level` is the level about to be bought (0-indexed). */
-export function upgradeCost(def: MetaUpgradeDef, level: number): number {
+/**
+ * `cost(level) = round(baseCost * costGrowth ^ level)` — `level` is the level
+ * about to be bought (0-indexed). Typed on the two cost fields rather than on
+ * `MetaUpgradeDef` so `data/metaCatalog.ts`'s `MetaEntry` (booster and perk
+ * rows, which have no stat modifier) prices through the same formula.
+ */
+export function upgradeCost(def: { baseCost: number; costGrowth: number }, level: number): number {
   return Math.round(def.baseCost * def.costGrowth ** level);
 }
 

@@ -17,6 +17,9 @@ One-sentence pitch: <what the player does, what threatens or constrains them,
 what makes one session different from the last>.
 
 - Slug: `<slug>`
+- Original pitch: `<the user's pitch, verbatim, in its original language>`
+- English prompt: `<game.json.prompt — identical to the original when the pitch
+  was already English, a faithful translation otherwise>`
 - Family: `<A|B|C|D|E|F|G|H|J>` <family name> (+ `I` composition pattern if used)
 - Subgenre: <subgenre from the family's playbook>
 - Session shape: <e.g. "90s goal levels, 4-8 per sitting" | "480s run" | "45s endless run">
@@ -78,7 +81,7 @@ a deliberate booster-pull moment, not an accident.
 | L20 | boss-board (all objectives) | par | 66-72% | **spike** | booster-solvable gate |
 | L21-L50 | rotate the L11-L20 shape | par +0..+3 | slide 72% → 62-68% | every 10th | 1 new element per 5 levels |
 
-- Solver par: the move count the `npm run sim -- --family <code>` board solver
+- Solver par: the move count the `npm run sim -- --family <slice>` board solver
   needs on the level's seed; every budget in the table is stated as an offset
   from it, never as a raw number pulled from nowhere.
 - Fail state: moves/time exhausted with the goal unmet. Retry cost, lives and
@@ -167,7 +170,7 @@ family slice, or `NEW: <path> — <one-line spec>`.
 | System | Module | Responsibility | Notes |
 | --- | --- | --- | --- |
 | Session driver | `core/session.ts` | `SessionDirector`: `update/elapsedMs/ended/outcome/progress/pause/resume` | family director named in the header |
-| Family slice | `src/slices/<family>/` | starter scene + data for this family | scaffolded by `--family <code>` |
+| Family slice | `src/slices/<family>/` | starter scene + data for this family | scaffolded by `--family <slice>` |
 | Stats & modifiers | `core/stats.ts` | player/enemy/unit stat resolution | keys listed in §7 |
 | Damage & health | `core/damage.ts` | hits, crits, DoT, i-frames | A/D/E only |
 | Pooling | `core/pool.ts` | bullets, enemies, pieces, particles | mandatory above 50 spawns/min |
@@ -472,7 +475,7 @@ first two entries.
 
 ## 19. Acceptance criteria
 
-- [ ] `npm run verify` passes: typecheck + `npm run sim -- --family <code>`
+- [ ] `npm run verify` passes: typecheck + `npm run sim -- --family <slice>`
   gates + `node scripts/gen-art-registry.mjs --check` + every
   `src/sim/kits/*.selftest.ts`.
 - [ ] The family gate passes (`src/sim/families/<family>.ts`):
@@ -504,6 +507,30 @@ first two entries.
 - [ ] Retry latency measured: J/C-endless under 2s from fail to playable.
 - Advisory only, not a gate: a muted 30s clip of the session should read as a
   game with escalating stakes.
+
+## 20. Store listing
+
+What ships on the storefront. **Every field here is English** — the release gate
+(`node scripts/release-check.mjs <slug>`) rejects non-Latin (Cyrillic) text in
+`game.json`'s `title`, `genre`, `description` and `prompt`.
+
+| Field | Value | Where it lives |
+| --- | --- | --- |
+| Title | `<English title, ≤ 28 chars>` | `game.json.title` |
+| Genre | `<English genre line, e.g. "tap-timing arcade">` | `game.json.genre` |
+| Description | `<1-2 player-facing English sentences from §1, no jargon, ≥ 40 chars>` | `game.json.description` |
+| Prompt | `<the English prompt — the header's "English prompt" line>` | `game.json.prompt` |
+| Cover | `public/cover.png` (600x800) from the `game-art` cover step — **required for release**; the scaffold's `cover.svg` gradient is draft-only | `game.json.cover` |
+| Social image | `shots/og.png` (1200x630) — used for `og:image`; without it the first screenshot is used | `games/<slug>/shots/` |
+| Screenshots | **≥ 3**: menu, the decision surface, a payoff moment (results is the 4th) | `game.json.screenshots` + `shots/` |
+| Preview loop | optional `shots/preview.webm` — a short muted gameplay loop on the store page | `games/<slug>/shots/` |
+| Status | starts `draft`; flips to `released` only after the release gate passes | `game.json.status` |
+
+- [ ] All four text fields written and English.
+- [ ] `cover.png` present and referenced; `cover.svg` no longer referenced.
+- [ ] ≥ 3 screenshots, each from the Step-5 browser loop (real gameplay, not
+      mock-ups).
+- [ ] `node scripts/release-check.mjs <slug>` passes, then `status: "released"`.
 ```
 
 ---
@@ -512,8 +539,9 @@ first two entries.
 
 Refuse to hand off until all hold:
 
-1. Sections 1-19 present, no placeholder text; the header names family,
-   subgenre, director, input profile, camera, meta shape and slice.
+1. Sections 1-20 present, no placeholder text; the header names the original
+   pitch, the English prompt, family, subgenre, director, input profile, camera,
+   meta shape and slice.
 2. §2 contains exactly one variant (2A-2E), the one the family selects — a PRD
    with a 480s beat sheet for a board or idle game is a defect.
 3. Content tables meet §5.0's minimum column for the family.
@@ -537,3 +565,10 @@ Refuse to hand off until all hold:
     placeholder label (`dmg_up`, `Sharpened`, `enemy_02`) stands in for a name.
 14. §19 names the family's sim gate with its numeric thresholds, not a generic
     "sim passes".
+15. §20 Store listing is filled: English title, genre, 1-2 sentence description
+    and English prompt; `public/cover.png` as the cover (never the scaffold's
+    `cover.svg`); ≥ 3 real screenshots; `preview.webm` listed only if it was
+    actually captured; `status` starting at `draft` with the release gate named.
+16. The header's `Original pitch` line reproduces the user's pitch verbatim in
+    its original language, and no non-English text appears in any §20 field —
+    the PRD is the only home for the original wording.

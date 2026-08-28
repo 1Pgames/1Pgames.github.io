@@ -47,7 +47,9 @@ to the pitch's own words.
 verbatim as the recommended option (still offer 2-3 nearby variants for the
 record, but the pitch's own words win). If the pitch is a bare one-word or
 generic theme with no setting detail (e.g. "make a space game", "a game about
-cats", "zombie game"), fall back to the nearest cluster below by keyword match,
+cats", "zombie game"), pick the closest cluster below **by meaning** — the
+trigger words are illustrative English examples, and a pitch in another language
+maps to a cluster just as well —
 then add exactly one flavor twist drawn from the pitch's specific noun (e.g.
 "cats" → the fallback setting plus "the swarm are stray cats, not monsters").
 
@@ -84,24 +86,26 @@ does; the subgenre is a follow-up line inside the chosen option's
 | One-mechanic arcade | J | One mechanic learned in 10 seconds, 30-120s runs, instant retry. Subgenres: tap-timing, stacking, swerve, rise/drop, io-lite (offline bots). |
 | Casual + meta (hybrid) | I | A casual core (J, B or F) wrapped in a saga map, collections and a reward track — the 2026 default when the pitch names a fantasy but no verb. |
 
-Offer the 3 highest-scoring families plus, whenever the pitch is casual and
-verb-less, **I**. Recommended: the highest scorer.
+Offer the 3 families that plausibly describe the pitch's loop plus, whenever the
+pitch is casual and verb-less, **I**. Recommended: the closest reading.
 
-**Auto rule:** score the pitch against the keyword column of `SKILL.md` §Step 0
-Tier 1 and take the highest-scoring row; then read the family's playbook
-(`genre-playbooks.md` for A/D/E, `casual-playbooks.md` for B/C/F/G/H/J) and
-pick the subgenre whose keywords match. Break a tie with `SKILL.md` §Step 0
-Tier 1's order — specificity, then earliest mention, then mechanic-over-setting
-(so "deckbuilding roguelike about vampires" → **D**, not a hybrid). Only a
-pitch scoring **zero** against A-J, or matching **only** I's keywords
-(brand-less, verb-less, "cozy"/"relaxing"/"collect"), goes to the **HYBRID
-DEFAULT** rule (`SKILL.md` §Step 0): compose pattern **I** with its casual core
-chosen as F (pitch names a place/business) / B (pitch names objects to
-organise) / J (pitch names a single motion), never mid-core-by-default and
-never pure match-swap. A pitch that
-names "match 3" resolves to **B** but with the subgenre swapped to sort, block,
-merge or screw and the swap logged with its numbers (match-swap new-title
-success ~0.8%; sort +170-229%, block +176%, merge +65-74% YoY) — keep
+**Auto rule:** read the pitch in its original language and decide semantically
+which family's loop it describes, per `SKILL.md` §Step 0 Tier 1 — what the
+player does second to second and what resolves the session. No keyword count, no
+points: the `Keyword hints` column there is illustrative English vocabulary and
+a tiebreak aid only. Then read the family's playbook
+(`genre-playbooks.md` for A/D/E, `casual-playbooks.md` for B/C/F/G/H/J) and pick
+the subgenre that matches the pitch's loop. Break a genuine tie with `SKILL.md`
+§Step 0 Tier 1's order — anchor over modifier, then specificity, then earliest
+mention, then mechanic-over-setting (so "deckbuilding roguelike about vampires"
+→ **D**, not a hybrid). Only a pitch that names **no loop at all** — brand-less,
+verb-less, "cozy"/"relaxing"/"collect" — goes to the **HYBRID DEFAULT** rule
+(`SKILL.md` §Step 0): compose pattern **I** with its casual core chosen as F
+(pitch names a place/business) / B (pitch names objects to organise) / J (pitch
+names a single motion), never mid-core-by-default and never pure match-swap. A
+pitch that names "match 3" resolves to **B** but with the subgenre swapped to
+sort, block, merge or screw and the swap logged with its numbers (match-swap
+new-title success ~0.8%; sort +170-229%, block +176%, merge +65-74% YoY) — keep
 match-swap only when the user names it twice or names a specific competitor.
 Out-of-scope pitches (real-time multiplayer, gacha LiveOps, social
 casino/real-money) are refused with a counter-proposal; "io" resolves to
@@ -377,7 +381,7 @@ spam reads as noise rather than impact.
 
 **Auto rule:** **Generated + curve-fit at 20 levels minimum, 50 comfortable**,
 with a long ramp and spikes every 10th level. Generation plus the
-`npm run sim -- --family <code>` board-solver gate is what makes 50 levels
+`npm run sim -- --family <slice>` board-solver gate is what makes 50 levels
 affordable in one build; hand-authoring 50 levels is not. Switch to **short
 spikes** only when the pitch explicitly asks for a hard/punishing game, and
 record that it raises early churn. Levels beyond the shipped set are a Cut-list

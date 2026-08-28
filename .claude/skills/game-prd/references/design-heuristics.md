@@ -733,7 +733,7 @@ full talent-tree UI does not.
 | Integration/balance | Wires all four layers into `src/scenes/game.ts`, runs the §5.5 dominant-strategy check, tunes `TUNING` | All four above | The playable, balanced build |
 
 Layer files live where the family puts them: the core-mechanic layer owns
-`src/slices/<family>/` (the starter scene + data the `--family <code>`
+`src/slices/<family>/` (the starter scene + data the `--family <slice>`
 scaffold copied in) plus `src/objects/*`, and the verification layer owns
 `src/sim/families/<family>.ts` — the family's bot/solver and its gate (§18).
 A sixth layer (sim/verification) is added whenever the family's gate is a
@@ -784,7 +784,7 @@ isolation) and defers the project-wide build to integration.
   `RunDirector` config and the content layer's `WaveSpec` scaling.
 - [ ] Upgrade pool size (§5.2) matches what the content layer actually
   shipped, not just what the PRD specified.
-- [ ] `npm run sim -- --family <code>` passes every hard gate for the family
+- [ ] `npm run sim -- --family <slice>` passes every hard gate for the family
   (§18) and reports its soft-gate numbers — for A/D the per-lane win-rate
   spread ≤ 0.35 and decision cadence 10-14 (§5.5); for the other families the
   numbers named in that family's §18 row. Run at least once before claiming
@@ -868,7 +868,7 @@ four is missing, the clip is unwatchable muted — the exact failure mode
 | 23 | Idle economy whose income growth matches or beats its cost growth | Keep `rate growth / cost growth` in 0.55-0.75 so the prestige offer is what breaks the wall (§17.2) |
 | 24 | A ramp band easier than the band before it | All three ramp dials monotone; the ramp bot fails on any inversion (§16.1, §16.4) |
 | 25 | A vague or brand-less casual pitch defaulted to match-3 swap | HYBRID DEFAULT (`SKILL.md` §Step 0): compose pattern I over a sort/block/merge/screw or J/F core; new match-swap titles succeed at ~0.8% |
-| 26 | `npm run sim` run without `--family <code>` and called a balance proof | The family gate is the proof; a sim run with the wrong family's bot measures nothing (§18) |
+| 26 | `npm run sim` run without `--family <slice>` and called a balance proof | The family gate is the proof; a sim run with the wrong family's bot measures nothing (§18) |
 
 ---
 
@@ -1091,8 +1091,8 @@ like it cost nothing.
 
 ## 18. Family → verification map
 
-Every family's balance proof is `npm run sim -- --family <code>`, driven by the
-bot in `src/sim/families/<code>.ts`. The hard gates below fail the build; the
+Every family's balance proof is `npm run sim -- --family <slice>`, driven by the
+bot in `src/sim/families/<slice>.ts`. The hard gates below fail the build; the
 soft gates are reported and reviewed.
 
 | Code | Director | Sim bot | Hard gates | Soft gates |

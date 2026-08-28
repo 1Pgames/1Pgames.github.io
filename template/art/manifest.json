@@ -14,6 +14,7 @@
     "note": "Measured rule: on a square canvas only NxN grids (1x1, 2x2, 3x3, 4x4) have square cells. A 2x4 grid has 256x512 cells and cannot be locked to a 2x2 scale profile - hold its consistency with maxBodyScaleCv/maxAnchorYStd plus a sprite_anchor_guide instead. Exported sheets are normalised to square cellSize frames regardless."
   },
   "assetSchema": {
+    "groupNote": "Each entry of `groups[]` has a `group` name that is both the directory under outputRoot and the `group` field emitted on every registry row. src/scenes/preload.ts loads a row only when its group is listed in the active slice's ART_GROUPS (re-exported by src/scenes/game.ts), and scripts/new-game.sh deletes the outputRoot directories of groups the chosen family does not list, then re-runs the generator. Adding art for a slice therefore means: a group here, exported sheets, AND the group name in that slice's ART_GROUPS. A group directory that is absent is treated as pruned on purpose (no rows emitted, aliases kept and flagged); a missing asset inside a present group stays a hard error.",
     "note": "Per-asset fields consumed by scripts/gen-art-registry.mjs. Everything the engine needs comes from either sprite-metadata.json (measured) or these fields (curated) - nothing is hand-baked in src/data/art.ts.",
     "id": "Directory name under outputRoot/<group>/<id>/. Also the default texture/animation key.",
     "key": "Optional. Overrides the emitted Phaser texture key when it differs from `id` (e.g. props are namespaced 'prop-<id>').",

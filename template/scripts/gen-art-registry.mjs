@@ -45,6 +45,14 @@
  *   icons        string[]?On an icon sheet: index = frame number, each name
  *                          adds `ICON.<name> = { key: '<key>', frame: <i> }`.
  *
+ * Every emitted row carries its manifest `group`. `src/scenes/preload.ts` loads
+ * a row only when its group is in the active slice's `ART_GROUPS`, and
+ * `scripts/new-game.sh` deletes the `public/assets/generated/<group>/`
+ * directories the chosen family does not list before re-running this script. A
+ * group whose directory is gone is therefore "pruned on purpose": no rows, but
+ * its aliases stay (flagged) so another family's modules still compile. A
+ * missing asset INSIDE a present group remains a hard error.
+ *
  * A group's `note` (if present) becomes the doc-comment above that group's
  * block in the generated file, so `art/manifest.json` stays the single place
  * that explains what an asset is for.
@@ -104,9 +112,23 @@ function round3(n) {
 function main() {
   const manifest = readJson(MANIFEST_PATH);
 
+  // A group whose directory under `public/assets/generated/` is gone was
+  // pruned on purpose: `scripts/new-game.sh` deletes every group the chosen
+  // family does not use, so a game only ships the art its slice loads. Those
+  // groups emit no registry rows (nothing to load) but keep their alias
+  // constants, so shared modules that belong to another family still compile.
+  // A MISSING ASSET INSIDE AN EXPORTED GROUP stays a hard error — that is a
+  // broken export, not a prune.
+  const pruned = new Set(
+    manifest.groups
+      .map((g) => g.group)
+      .filter((g) => !existsSync(resolve(ROOT, 'public/assets/generated', g))),
+  );
+
   /** @type {Map<string, number>} group name -> base outputSubjectHeightMean */
   const baseHeights = new Map();
   for (const group of manifest.groups) {
+    if (pruned.has(group.group)) continue;
     const base = group.assets.find((a) => a.baseAction);
     if (!base) continue;
     const meta = loadMetadata(group.group, base.id);
@@ -122,8 +144,19 @@ function main() {
   for (const group of manifest.groups) {
     const spriteLines = [];
     const imageLines = [];
+    const groupPruned = pruned.has(group.group);
 
     for (const asset of group.assets) {
+      if (groupPruned) {
+        const key = asset.key ?? asset.id;
+        if (asset.textureAlias) textureAliases.push([asset.textureAlias, key, group.group]);
+        if (asset.animAlias) animAliases.push([asset.animAlias, key, group.group]);
+        if (asset.icons) {
+          asset.icons.forEach((name, frame) => iconEntries.push([name, key, frame, group.group]));
+        }
+        continue;
+      }
+
       const meta = loadMetadata(group.group, asset.id);
       if (meta.grid.rows !== asset.rows || meta.grid.cols !== asset.cols) {
         throw new Error(
@@ -166,6 +199,7 @@ function main() {
 
       const fields = [
         ['key', key],
+        ['group', group.group],
         ['path', path],
         ['frameWidth', frameWidth],
         ['frameHeight', frameHeight],
@@ -207,10 +241,21 @@ function main() {
     }
   }
 
-  const textureEntries = textureAliases.map(([alias, key]) => `  ${alias}: '${key}',`).join('\n');
-  const animEntries = animAliases.map(([alias, key]) => `  ${alias}: '${key}',`).join('\n');
+  // A pruned group's aliases stay in the constant maps (dead code from another
+  // family still has to compile) but are flagged: nothing loads them, so using
+  // one would render a missing texture.
+  const notShipped = (group) => (group ? ` // not shipped: group '${group}' pruned` : '');
+  const textureEntries = textureAliases
+    .map(([alias, key, group]) => `  ${alias}: '${key}',${notShipped(group)}`)
+    .join('\n');
+  const animEntries = animAliases
+    .map(([alias, key, group]) => `  ${alias}: '${key}',${notShipped(group)}`)
+    .join('\n');
   const iconLines = iconEntries
-    .map(([name, key, frame]) => `  ${name}: { key: '${key}', frame: ${frame} },`)
+    .map(
+      ([name, key, frame, group]) =>
+        `  ${name}: { key: '${key}', frame: ${frame} },${notShipped(group)}`,
+    )
     .join('\n');
 
   const output = `${HEADER}/**
@@ -230,6 +275,12 @@ function main() {
 export interface SpriteAsset {
   /** Phaser texture key; also the animation key when \`frames > 1\`. */
   key: string;
+  /**
+   * \`art/manifest.json\` group this asset belongs to. \`PreloadScene\` loads a
+   * row only when its group is listed in the active slice's \`ART_GROUPS\`, so a
+   * game downloads the art its gameplay actually uses and nothing else.
+   */
+  group: string;
   /** Path under \`public/\`. */
   path: string;
   frameWidth: number;

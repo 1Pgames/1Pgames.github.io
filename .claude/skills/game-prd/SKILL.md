@@ -15,10 +15,15 @@ description: >-
   clarifying questions (family and every axis resolved from playbook/heuristic
   lookups and logged in Assumptions); switches to an `interactive` mode with a
   structured `ask`-tool interview in 2-3 batched rounds only on explicit request
-  or a genuinely contradictory pitch. Either mode scaffolds games/<slug>/ from
-  template/ (Phaser 4 + Vite) and writes PRD.md including a parallel build plan
-  with interface contracts for concurrent agents. Use for "make a game about X",
-  "make a game about X end to end", "new game idea", "write a game PRD",
+  or a genuinely contradictory pitch. Classifies the pitch semantically in
+  whatever language it arrives in, then scaffolds games/<slug>/ from template/
+  (Phaser 4 + Vite) with a full `--family <slice> --prompt/--genre/--desc`
+  command whose store fields are English (non-English pitches are translated for
+  the listing; the verbatim original stays in the PRD header) and a game.json
+  that starts as `status: draft`, and writes PRD.md including a parallel build
+  plan with interface contracts for concurrent agents. Use for "make a game
+  about X", "make a game about X end to end", "new game idea",
+  "write a game PRD",
   "today's game", daily generated-game channel work, or turning a rough concept
   into a buildable spec.
 ---
@@ -105,31 +110,51 @@ playbook, or a heuristic default can already answer.
 11. **Record assumptions.** Anything the user defers (interactive) or anything
     decided deterministically (auto) is listed in the PRD's Assumptions section
     with the chosen value and, in auto mode, the one-line rationale.
+12. **Classify in any language, ship the storefront in English.** The pitch is
+    classified semantically in its original language (Step 0 — no keyword
+    scoring, no pre-translation). Everything player-facing is English:
+    `game.json`'s `title`, `genre`, `description`, `prompt`, and all in-game
+    copy. A non-English pitch is translated for `--prompt` at scaffold time
+    (Step 4) and the verbatim original lives in the PRD header
+    (`Original pitch:`) and nowhere else.
 
 ## Workflow
 
 ### Step 0 — Two-tier classification (no user contact yet in `auto`)
 
-**Tier 1 — family.** Score the pitch against the keyword column below (count
-one point per distinct keyword the pitch contains; prefix matches count, so
-"deckbuilding" matches `deck`) and take the highest-scoring row. Break a tie in
-this order, and only fall through to the HYBRID DEFAULT rule when the pitch
-scores **zero** against A-J or matches **only** I's keywords:
+**Tier 1 — family.** Read the pitch and decide, by MEANING, which single family
+it is. You are a language model: classify **semantically, in whatever language
+the pitch arrives in** — Russian, Spanish, Japanese, emoji shorthand, a two-word
+fragment. There is no scoring pass and no keyword tally. Answer the only
+question that matters — *what does the player physically do, second to second,
+and what resolves the session?* — then take the row below whose one-line
+identifier describes that loop. A non-English pitch is classified exactly like
+an English one; never translate it in order to make words match (translation
+happens later, at scaffold time, and only for the store listing — Step 4).
 
-1. **Anchor beats modifier.** Modifier keywords describe run structure or vibe
-   rather than a family, and never win a tie on their own — the full set is:
-   `roguelike` `roguelite` `arcade` `endless` `puzzle` `casual` `dodge`
-   `waves` `grow` `story`. Everything else in the table is an anchor, and a row
-   matching only modifiers loses to any row matching an anchor. Worked:
-   "roguelike deckbuilder" and "deckbuilding roguelike" both resolve to **D**
-   (D's anchor `deck` beats the modifier `roguelike`); "zombie roguelike with
-   swarms" stays **A** (A's anchor `swarm`).
-2. **Specificity wins.** Both rows anchored → the longer, more compound
-   keyword takes it: `tower defense` over `waves`, `top-down racing` over
-   `race`, `endless runner` over `run`.
-3. **Earliest mention, then mechanic over setting.** Still tied → the row whose
-   keyword appears first in the pitch; a keyword naming what the player does
-   outranks one naming where it happens.
+The `Keyword hints` column is an **illustrative English vocabulary** per family:
+a tiebreak aid and a sanity check on a reading you already made, never a scoring
+algorithm. Do not count matches, do not sum points, and never let a stray noun
+outvote the loop the pitch actually describes.
+
+Tiebreaks, for when two families both genuinely describe the pitch:
+
+1. **Anchor beats modifier.** Words describing run structure or vibe rather than
+   a loop never decide a family on their own — `roguelike` `roguelite` `arcade`
+   `endless` `puzzle` `casual` `dodge` `waves` `grow` `story`, and their
+   equivalents in any language. Worked: "roguelike deckbuilder" and
+   "deckbuilding roguelike" are both **D** (committing a turn is the loop;
+   `roguelike` only describes the run), while "zombie roguelike with swarms" is
+   **A** (the loop is real-time avoidance of a horde).
+2. **Specificity wins.** Both readings are loops → take the narrower one: tower
+   defense over "waves of enemies", top-down racing over "a race", endless
+   runner over "running".
+3. **Mechanic over setting, then earliest mention.** A phrase naming what the
+   player does outranks one naming where it happens; still tied → the loop the
+   pitch names first.
+
+Fall through to the HYBRID DEFAULT rule only when the pitch names **no loop at
+all** — a fantasy, a place, a mood or a bare noun.
 
 | Code | Family | One-line identifier | Keyword hints |
 | --- | --- | --- | --- |
@@ -149,15 +174,15 @@ Out of scope — reject and counter-propose, never spec: real-time multiplayer
 real-money gambling. An "io" pitch is in scope only as **J io-lite**: offline
 bots, no netcode.
 
-**HYBRID DEFAULT rule.** When the pitch is ambiguous, brand-less, or names a
-fantasy without a verb ("a cozy game about a bakery", "something with cats",
-"a relaxing game"), do **not** fall back to a mid-core family and do not fall
-back to match-3 swap. Compose pattern **I**: pick the casual core whose keyword
-score is highest among **J** (one mechanic), **B** (board), **F** (economy) —
-default **F** when the pitch names a place or business, **B** when it names
-objects to organise, **J** when it names a single motion — and wrap it in 2-3
-meta-kit layers (saga map, stars, collections, decor/renovation tasks, reward
-track, streaks/daily). Rationale to log in Assumptions, with numbers:
+**HYBRID DEFAULT rule.** When the pitch names no loop — it is ambiguous,
+brand-less, or names a fantasy without a verb ("a cozy game about a bakery",
+"something with cats", "a relaxing game") — do **not** fall back to a mid-core
+family and do not fall back to match-3 swap. Compose pattern **I**: read what
+the pitch *is about* and pick the casual core that fits it — **F** (economy)
+when it names a place or a business, **B** (board) when it names objects to
+organise, **J** (one mechanic) when it names a single motion — and wrap it in
+2-3 meta-kit layers (saga map, stars, collections, decor/renovation tasks,
+reward track, streaks/daily). Rationale to log in Assumptions, with numbers:
 hybrid-casual is the only growing segment in 2026 (+20-23% YoY) and the
 formula is "mechanic learned in 10s + meta", worth 5-20x the LTV of a pure
 hypercasual title; the Last War / Whiteout pattern (casual minigame onboarding
@@ -167,6 +192,31 @@ match-swap**: new match-swap titles succeed at ~0.8%. If the pitch does say
 (+170-229% YoY), **block** (+176%), **merge** (+65-74%), **screw/pin** — and
 keep match-swap only when the user names it twice or names a specific
 competitor.
+
+**Tier 1 result — the canonical family table.** This is the one source of truth
+for the code → slice → director → gate mapping; every other document
+(`skill://game-build`, the playbooks, `README.md`) points here instead of
+repeating it. The `--family` flag takes the **slice name**, never the letter:
+
+| Code | Family | `--family <slice>` | Slice dir | Director | Sim gate |
+| --- | --- | --- | --- | --- | --- |
+| A | real-time arena | `arena` | `src/slices/arena/` | `RunDirector` | `npm run sim -- --family arena` |
+| B | board puzzle | `board` | `src/slices/board/` | `LevelDirector` | `npm run sim -- --family board` |
+| C | side-view physics | `side` | `src/slices/side/` | `LevelDirector` (levels) / `RampDirector` (endless) | `npm run sim -- --family side` |
+| D | cards & tactics | *(none — compose kits)* | authored: `src/slices/<slice>/` | `RunDirector`, fight/node-indexed | authored: `src/sim/families/<slice>.ts` |
+| E | track vehicle | `track` | `src/slices/track/` | `LapDirector` | `npm run sim -- --family track` |
+| F | idle tycoon | `idle` | `src/slices/idle/` | `Economy` (no session end until ascend) | `npm run sim -- --family idle` |
+| G | table & dice | `table` | `src/slices/table/` | `LevelDirector` (or the slice's `DiceLoop` roll budget) | `npm run sim -- --family table` |
+| H | word & trivia | `word` | `src/slices/word/` | `LevelDirector` | `npm run sim -- --family word` |
+| J | hypercasual | `hyper` | `src/slices/hyper/` | `RampDirector` | `npm run sim -- --family hyper` |
+| I | hybrid pattern (not a family) | the casual core's slice | the core's dir | the core's | the core's gate |
+
+Placeholders in this repo's docs: `<slice>` is the column-3 value above; the
+older path spellings `src/slices/<family>/` and `src/sim/families/<family>.ts`
+mean the same value. A letter code never appears on a command line. Family **D**
+has no shipped slice — see `skill://game-build` §Failure policy for the authored
+slice + gate procedure; authored families register their family module in
+`src/sim/families/` and become routable by `--family <name>`.
 
 **Tier 2 — subgenre playbook.** Read the family's playbook section and lock the
 subgenre:
@@ -252,12 +302,39 @@ characters/vehicles/decks?). Otherwise skip and resolve into Assumptions.
 ### Step 4 — Scaffold, then write the PRD
 
 ```bash
-scripts/new-game.sh <slug> "Game Title" --family <code> --no-install
+scripts/new-game.sh <slug> "Title" \
+  --family <slice> \
+  --prompt "<english prompt>" \
+  --genre "<english genre>" \
+  --desc "<english one-liner>" \
+  --no-install
 ```
 
-`--family <code>` copies the family slice from `src/slices/<family>/` into the
-new game and wires its director; a scaffold without it lands the family-A
-starter and is wrong for every other family.
+Every flag is mandatory in this pipeline (`--no-install` too, so the root
+workspace install happens once later). Omitting `--family` lands the family-A
+arena slice and is wrong for every other family; omitting `--prompt`/`--genre`/
+`--desc` ships a storefront card with an empty quote and `genre: <slice>`, which
+the release gate rejects. `--family` takes the slice name from the Step 0
+canonical family table, never the letter code.
+
+**The storefront is English-only.** `title`, `genre`, `description` and `prompt`
+in `game.json` MUST be English:
+
+- Pitch already in English → pass it through verbatim as `--prompt`.
+- Pitch in any other language → **translate it to English** for `--prompt`, the
+  positional `"Title"` and `--desc`/`--genre` (a faithful translation, not a
+  rewrite or an expansion), and record the untouched original in `PRD.md` only,
+  as the header line `Original pitch: <verbatim original>`. The original never
+  reaches `game.json`.
+- Classification (Step 0) happens on the original wording, before any
+  translation — translating first is how a pitch loses its verb.
+
+The scaffold writes `game.json` with `"status": "draft"`. A draft is invisible on
+the storefront; it becomes `"released"` only after `node scripts/release-check.mjs
+<slug>` passes (`skill://game-build` Step 6). That gate fails on any Cyrillic
+character in `title`/`genre`/`description`/`prompt`, on a `description` shorter
+than 40 characters, on fewer than 3 screenshots and on a cover that is still the
+scaffold gradient — so write `--desc` as a real sentence, not a label.
 
 Slug: `YYYY-MM-DD-<short-name>` for daily channel games. Then write
 `games/<slug>/PRD.md` following `references/prd-template.md` section by section,
@@ -284,7 +361,7 @@ workstream list, and the verification contract the build must satisfy before it
 counts as done:
 
 - `npm run verify` (`template/scripts/verify.sh`): typecheck +
-  `npm run sim -- --family <code>` gates + `node scripts/gen-art-registry.mjs
+  `npm run sim -- --family <slice>` gates + `node scripts/gen-art-registry.mjs
   --check` + every `src/sim/kits/*.selftest.ts`.
 - The family's sim gate (bots in `src/sim/families/<family>.ts`, see
   `references/design-heuristics.md` §18): A/D arena and fight bots as today;

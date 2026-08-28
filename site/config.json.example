@@ -1,0 +1,4 @@
+{
+  "_comment": "Copy to site/config.json to enable optional site-wide extras. Absent file = nothing injected.",
+  "goatcounter": "https://YOURCODE.goatcounter.com/count"
+}

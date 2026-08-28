@@ -10,16 +10,45 @@ permissions:
   pages: write
   id-token: write
 
+# Never cancel an in-flight deploy: a half-uploaded Pages artifact is worse
+# than a queued run.
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      # Reuse per-game vite output across runs so build-site's dist/.buildhash
+      # check can actually skip unchanged games.
+      - name: Restore game dists
+        uses: actions/cache@v4
+        with:
+          path: games/*/dist
+          key: dists-${{ hashFiles('games/**', '!games/**/dist/**') }}
+          restore-keys: |
+            dists-
+      # Typecheck lives in `verify` only — one source of truth, and the build
+      # job stays a pure packaging step.
+      - name: Build catalog and games
+        run: node scripts/build-site.mjs
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  # Design/quality gates: typecheck, headless sims and selftests.
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 24
           cache: npm
@@ -31,33 +60,6 @@ jobs:
             echo "== typecheck $dir"
             (cd "$dir" && npx tsc --noEmit)
           done
-      - name: Build catalog and games
-        run: node scripts/build-site.mjs
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: _site
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
-
-  # Full design gates (headless sims + selftests) run out of the deploy path:
-  # a slow balance sim must never block shipping the catalog.
-  verify:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: npm
-      - run: npm ci
       - name: Verify template
         run: cd template && bash scripts/verify.sh
       - name: Verify games (family gates)
@@ -67,3 +69,17 @@ jobs:
             echo "== verify $dir"
             (cd "$dir" && bash scripts/verify.sh)
           done
+
+  # BY DESIGN: a red `verify` blocks the deploy. The storefront promises
+  # polished, playable games — shipping a build whose balance sims, selftests
+  # or types are broken would break that promise, so quality gates the release
+  # rather than trailing it.
+  deploy:
+    needs: [build, verify]
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

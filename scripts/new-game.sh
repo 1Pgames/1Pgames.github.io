@@ -92,10 +92,11 @@ store_path = dest / 'src' / 'core' / 'storage.ts'
 store_path.write_text(store_path.read_text().replace("const NS = 'gt:';", f"const NS = '{slug}:';"))
 PY
 
-# Keep only the chosen gameplay slice: point the scene re-export at it and
-# prune the other families (their sim counterparts too, when present).
+# Keep only the chosen gameplay slice: point the scene re-export at it, prune
+# the other families (their sim counterparts too, when present) and drop every
+# generated art group the slice does not load.
 python3 - "$dest" "$family" <<'PY'
-import pathlib, shutil, sys
+import pathlib, re, shutil, sys
 dest, family = pathlib.Path(sys.argv[1]), sys.argv[2]
 
 slices = dest / 'src' / 'slices'
@@ -103,11 +104,42 @@ for d in sorted(p for p in slices.iterdir() if p.is_dir()):
     if d.name != family:
         shutil.rmtree(d)
 
+# Art groups this game loads. The slice's own `ART_GROUPS` export is the source
+# of truth; a family that does not declare one yet ships chrome art only (UI
+# glyphs + backdrop), which is what its procedural visuals need.
+slice_src = (slices / family / 'game.ts').read_text()
+declared = re.search(r'export const ART_GROUPS = \[(.*?)\]', slice_src, re.S)
+groups = re.findall(r"'([^']+)'", declared.group(1)) if declared else ['ui', 'bg']
+
 game_path = dest / 'src' / 'scenes' / 'game.ts'
-game_path.write_text(
-    '/** Active gameplay slice (scaffolded with --family %s). */\n'
-    "export { GameScene } from '../slices/%s/game';\n" % (family, family)
-)
+if declared:
+    game_path.write_text(
+        '/** Active gameplay slice (scaffolded with --family %s). */\n'
+        "export { GameScene, ART_GROUPS } from '../slices/%s/game';\n" % (family, family)
+    )
+else:
+    game_path.write_text(
+        '/** Active gameplay slice (scaffolded with --family %s). */\n'
+        "export { GameScene } from '../slices/%s/game';\n"
+        '\n'
+        '/**\n'
+        ' * `art/manifest.json` groups this game loads (see `PreloadScene`). This\n'
+        " * family's visuals are procedural apart from chrome, so only the UI glyphs\n"
+        ' * and the backdrop ship. When the slice gains generated art, declare\n'
+        ' * `ART_GROUPS` in the slice and re-export it from here instead.\n'
+        ' */\n'
+        'export const ART_GROUPS = [%s] as const;\n'
+        % (family, family, ', '.join("'%s'" % g for g in groups))
+    )
+
+# Payload: an unloaded group is dead weight in the game's `dist/`. Deleting the
+# directories makes `gen-art-registry.mjs` (re-run right after this script's
+# python blocks) emit a registry that describes exactly what shipped.
+generated = dest / 'public' / 'assets' / 'generated'
+if generated.is_dir():
+    for d in sorted(p for p in generated.iterdir() if p.is_dir()):
+        if d.name not in groups:
+            shutil.rmtree(d)
 
 fams = dest / 'src' / 'sim' / 'families'
 if fams.is_dir():
@@ -119,7 +151,6 @@ if fams.is_dir():
 # break typecheck — drop any kit selftest importing a slice dir that is gone.
 kits = dest / 'src' / 'sim' / 'kits'
 if kits.is_dir():
-    import re
     for f in sorted(kits.glob('*.selftest.ts')):
         for m in re.finditer(r"slices/([a-z]+)/", f.read_text()):
             if not (slices / m.group(1)).is_dir():
@@ -149,6 +180,11 @@ if sim_dir.is_dir():
     )
 PY
 
+# The pruned asset set is this game's real art set: regenerate src/data/art.ts
+# so `node scripts/gen-art-registry.mjs --check` is green inside the game and
+# `PreloadScene` never requests a sheet that was deleted.
+(cd "$dest" && node scripts/gen-art-registry.mjs >/dev/null)
+
 # Game manifest + deterministic SVG cover + shell page-bar (catalog link and
 # the original prompt chip). The catalog is built by scanning game.json files.
 python3 - "$dest" "$slug" "$title" "$family" "$prompt" "$genre" "$desc" <<'PY'
@@ -166,6 +202,9 @@ manifest = {
     'tags': [family],
     'cover': 'cover.svg',
     'screenshots': [],
+    # Drafts are excluded from the published catalog until the game clears
+    # `node scripts/release-check.mjs <slug>`; flip to 'released' then.
+    'status': 'draft',
 }
 (dest / 'game.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n')
 

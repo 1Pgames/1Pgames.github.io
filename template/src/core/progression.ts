@@ -171,35 +171,73 @@ export function grantUnlock(id: string): MetaSave {
   return meta;
 }
 
+/**
+ * How `MetaSave.stats.bestTimeMs` is scored. Survivor-likes want the LONGEST
+ * run ever (`max`); a speedrun, a puzzle timer or a racer wants the FASTEST
+ * (`min`); a turn-based or untimed game wants the field left alone (`off`).
+ * The stored field is one number either way — its meaning is per game, which
+ * is why no save migration is involved.
+ */
+export type BestTimeMode = 'max' | 'min' | 'off';
+
 /** Folds a finished run's outcome into lifetime stats. Call once when a run ends. */
-export function recordRunResult(result: { won: boolean; score: number; timeMs: number }): MetaSave {
+export function recordRunResult(
+  result: { won: boolean; score: number; timeMs: number },
+  options: { bestTimeMode?: BestTimeMode } = {},
+): MetaSave {
   const meta = loadMeta();
   meta.stats.runs += 1;
   if (result.won) meta.stats.wins += 1;
   meta.stats.bestScore = Math.max(meta.stats.bestScore, result.score);
-  meta.stats.bestTimeMs = Math.max(meta.stats.bestTimeMs, result.timeMs);
+
+  const bestTimeMode = options.bestTimeMode ?? 'max';
+  if (bestTimeMode === 'max') {
+    meta.stats.bestTimeMs = Math.max(meta.stats.bestTimeMs, result.timeMs);
+  } else if (bestTimeMode === 'min' && result.timeMs > 0) {
+    // A stored 0 means "no time yet", not "instant": without this guard the
+    // default save would beat every real run forever.
+    meta.stats.bestTimeMs =
+      meta.stats.bestTimeMs === 0 ? result.timeMs : Math.min(meta.stats.bestTimeMs, result.timeMs);
+  }
+
   saveMeta(meta);
   return meta;
 }
 
 /**
- * Spends currency on the next level of a meta-upgrade defined in
- * `data/upgrades.ts`. Cost follows `cost(level) = round(baseCost *
+ * Spends currency on the next level of a purchasable defined by its cost
+ * curve — either a `MetaUpgradeDef` from `data/upgrades.ts` or a `MetaEntry`
+ * from `data/metaCatalog.ts`. Cost follows `cost(level) = round(baseCost *
  * growth^level)` (see `upgradeCost`), so each level is a flat percentage more
  * expensive than the last — cheap early, deliberate later.
+ *
+ * A successful purchase only ever bumps `upgrades[id]`. What that level MEANS
+ * is the caller's business: arena stat levels are read by `metaModifiers()`,
+ * booster levels are paired with a `grantBooster` call by the shop, perk
+ * levels are read straight out of the save by the slice.
  */
-export function buyUpgrade(id: string): { ok: boolean; meta: MetaSave; reason?: string } {
+export function buyMetaLevel(entry: {
+  id: string;
+  maxLevel: number;
+  baseCost: number;
+  costGrowth: number;
+}): { ok: boolean; meta: MetaSave; reason?: string } {
   const meta = loadMeta();
-  const def: MetaUpgradeDef | undefined = META_UPGRADES.find((u) => u.id === id);
-  if (!def) return { ok: false, meta, reason: 'unknown upgrade' };
-  const level = meta.upgrades[id] ?? 0;
-  if (level >= def.maxLevel) return { ok: false, meta, reason: 'max level reached' };
-  const cost = upgradeCost(def, level);
+  const level = meta.upgrades[entry.id] ?? 0;
+  if (level >= entry.maxLevel) return { ok: false, meta, reason: 'max level reached' };
+  const cost = upgradeCost(entry, level);
   if (meta.currency < cost) return { ok: false, meta, reason: 'not enough currency' };
   meta.currency -= cost;
-  meta.upgrades[id] = level + 1;
+  meta.upgrades[entry.id] = level + 1;
   saveMeta(meta);
   return { ok: true, meta };
+}
+
+/** `buyMetaLevel` for an id in `META_UPGRADES` — the arena stat-upgrade path. */
+export function buyUpgrade(id: string): { ok: boolean; meta: MetaSave; reason?: string } {
+  const def: MetaUpgradeDef | undefined = META_UPGRADES.find((u) => u.id === id);
+  if (!def) return { ok: false, meta: loadMeta(), reason: 'unknown upgrade' };
+  return buyMetaLevel(def);
 }
 
 /**

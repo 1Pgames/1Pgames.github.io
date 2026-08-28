@@ -16,6 +16,12 @@
 export interface SpriteAsset {
   /** Phaser texture key; also the animation key when `frames > 1`. */
   key: string;
+  /**
+   * `art/manifest.json` group this asset belongs to. `PreloadScene` loads a
+   * row only when its group is listed in the active slice's `ART_GROUPS`, so a
+   * game downloads the art its gameplay actually uses and nothing else.
+   */
+  group: string;
   /** Path under `public/`. */
   path: string;
   frameWidth: number;
@@ -43,53 +49,53 @@ export interface SpriteAsset {
 /** Animated sheets: loaded as spritesheets, one animation created per entry. */
 export const SPRITES: readonly SpriteAsset[] = [
   // Hero
-  { key: 'hero-idle', path: 'assets/generated/hero/hero-idle/sprite-sheet.png', frameWidth: 256, frameHeight: 256, frames: 4, duration: 140, loop: true, facesRight: false },
-  { key: 'hero-run', path: 'assets/generated/hero/hero-run/sprite-sheet.png', frameWidth: 256, frameHeight: 256, frames: 8, duration: 110, loop: true, scale: 1.17, facesRight: false },
-  { key: 'hero-attack', path: 'assets/generated/hero/hero-attack/sprite-sheet.png', frameWidth: 256, frameHeight: 256, frames: 4, duration: 90, loop: false, scale: 1.059, facesRight: false },
-  { key: 'hero-hurt', path: 'assets/generated/hero/hero-hurt/sprite-sheet.png', frameWidth: 256, frameHeight: 256, frames: 4, duration: 90, loop: false, scale: 1.038, facesRight: false },
+  { key: 'hero-idle', group: 'hero', path: 'assets/generated/hero/hero-idle/sprite-sheet.png', frameWidth: 256, frameHeight: 256, frames: 4, duration: 140, loop: true, facesRight: false },
+  { key: 'hero-run', group: 'hero', path: 'assets/generated/hero/hero-run/sprite-sheet.png', frameWidth: 256, frameHeight: 256, frames: 8, duration: 110, loop: true, scale: 1.17, facesRight: false },
+  { key: 'hero-attack', group: 'hero', path: 'assets/generated/hero/hero-attack/sprite-sheet.png', frameWidth: 256, frameHeight: 256, frames: 4, duration: 90, loop: false, scale: 1.059, facesRight: false },
+  { key: 'hero-hurt', group: 'hero', path: 'assets/generated/hero/hero-hurt/sprite-sheet.png', frameWidth: 256, frameHeight: 256, frames: 4, duration: 90, loop: false, scale: 1.038, facesRight: false },
 
   // Enemies Light
-  { key: 'swarm-move', path: 'assets/generated/enemies-light/swarm-move/sprite-sheet.png', frameWidth: 256, frameHeight: 256, frames: 4, duration: 110, loop: true },
-  { key: 'runner-move', path: 'assets/generated/enemies-light/runner-move/sprite-sheet.png', frameWidth: 256, frameHeight: 256, frames: 4, duration: 110, loop: true },
-  { key: 'shooter-idle', path: 'assets/generated/enemies-light/shooter-idle/sprite-sheet.png', frameWidth: 256, frameHeight: 256, frames: 4, duration: 140, loop: true },
-  { key: 'healer-idle', path: 'assets/generated/enemies-light/healer-idle/sprite-sheet.png', frameWidth: 256, frameHeight: 256, frames: 4, duration: 140, loop: true },
+  { key: 'swarm-move', group: 'enemies-light', path: 'assets/generated/enemies-light/swarm-move/sprite-sheet.png', frameWidth: 256, frameHeight: 256, frames: 4, duration: 110, loop: true },
+  { key: 'runner-move', group: 'enemies-light', path: 'assets/generated/enemies-light/runner-move/sprite-sheet.png', frameWidth: 256, frameHeight: 256, frames: 4, duration: 110, loop: true },
+  { key: 'shooter-idle', group: 'enemies-light', path: 'assets/generated/enemies-light/shooter-idle/sprite-sheet.png', frameWidth: 256, frameHeight: 256, frames: 4, duration: 140, loop: true },
+  { key: 'healer-idle', group: 'enemies-light', path: 'assets/generated/enemies-light/healer-idle/sprite-sheet.png', frameWidth: 256, frameHeight: 256, frames: 4, duration: 140, loop: true },
 
   // Enemies Heavy
-  { key: 'tank-move', path: 'assets/generated/enemies-heavy/tank-move/sprite-sheet.png', frameWidth: 256, frameHeight: 256, frames: 4, duration: 130, loop: true },
-  { key: 'splitter-move', path: 'assets/generated/enemies-heavy/splitter-move/sprite-sheet.png', frameWidth: 256, frameHeight: 256, frames: 4, duration: 120, loop: true },
-  { key: 'elite-move', path: 'assets/generated/enemies-heavy/elite-move/sprite-sheet.png', frameWidth: 256, frameHeight: 256, frames: 4, duration: 110, loop: true },
-  { key: 'boss-idle', path: 'assets/generated/enemies-heavy/boss-idle/sprite-sheet.png', frameWidth: 256, frameHeight: 256, frames: 4, duration: 150, loop: true },
+  { key: 'tank-move', group: 'enemies-heavy', path: 'assets/generated/enemies-heavy/tank-move/sprite-sheet.png', frameWidth: 256, frameHeight: 256, frames: 4, duration: 130, loop: true },
+  { key: 'splitter-move', group: 'enemies-heavy', path: 'assets/generated/enemies-heavy/splitter-move/sprite-sheet.png', frameWidth: 256, frameHeight: 256, frames: 4, duration: 120, loop: true },
+  { key: 'elite-move', group: 'enemies-heavy', path: 'assets/generated/enemies-heavy/elite-move/sprite-sheet.png', frameWidth: 256, frameHeight: 256, frames: 4, duration: 110, loop: true },
+  { key: 'boss-idle', group: 'enemies-heavy', path: 'assets/generated/enemies-heavy/boss-idle/sprite-sheet.png', frameWidth: 256, frameHeight: 256, frames: 4, duration: 150, loop: true },
 
   // Pickups Fx
-  { key: 'xp-orb', path: 'assets/generated/pickups-fx/xp-orb/sprite-sheet.png', frameWidth: 128, frameHeight: 128, frames: 4, duration: 90, loop: true },
-  { key: 'coin', path: 'assets/generated/pickups-fx/coin/sprite-sheet.png', frameWidth: 128, frameHeight: 128, frames: 4, duration: 90, loop: true },
-  { key: 'hit-spark', path: 'assets/generated/pickups-fx/hit-spark/sprite-sheet.png', frameWidth: 128, frameHeight: 128, frames: 4, duration: 60, loop: false },
-  { key: 'levelup-burst', path: 'assets/generated/pickups-fx/levelup-burst/sprite-sheet.png', frameWidth: 128, frameHeight: 128, frames: 4, duration: 90, loop: false },
+  { key: 'xp-orb', group: 'pickups-fx', path: 'assets/generated/pickups-fx/xp-orb/sprite-sheet.png', frameWidth: 128, frameHeight: 128, frames: 4, duration: 90, loop: true },
+  { key: 'coin', group: 'pickups-fx', path: 'assets/generated/pickups-fx/coin/sprite-sheet.png', frameWidth: 128, frameHeight: 128, frames: 4, duration: 90, loop: true },
+  { key: 'hit-spark', group: 'pickups-fx', path: 'assets/generated/pickups-fx/hit-spark/sprite-sheet.png', frameWidth: 128, frameHeight: 128, frames: 4, duration: 60, loop: false },
+  { key: 'levelup-burst', group: 'pickups-fx', path: 'assets/generated/pickups-fx/levelup-burst/sprite-sheet.png', frameWidth: 128, frameHeight: 128, frames: 4, duration: 90, loop: false },
 
   // Chrome (panels, buttons, bar housings) is drawn with src/ui/primitives.ts, not generated: geometry must fit any size and follow PALETTE. Only glyphs and emblems are generated here. Loaded as spritesheets so a frame index can be selected; no animation is created.
-  { key: 'icons', path: 'assets/generated/ui/icons/sprite-sheet.png', frameWidth: 256, frameHeight: 256, frames: 4, duration: 0, loop: false },
-  { key: 'icons-b', path: 'assets/generated/ui/icons-b/sprite-sheet.png', frameWidth: 256, frameHeight: 256, frames: 4, duration: 0, loop: false },
+  { key: 'icons', group: 'ui', path: 'assets/generated/ui/icons/sprite-sheet.png', frameWidth: 256, frameHeight: 256, frames: 4, duration: 0, loop: false },
+  { key: 'icons-b', group: 'ui', path: 'assets/generated/ui/icons-b/sprite-sheet.png', frameWidth: 256, frameHeight: 256, frames: 4, duration: 0, loop: false },
 ] as const;
 
 /** Single-image textures: no animation, no frame slicing. */
 export const IMAGES: readonly SpriteAsset[] = [
   // Pickups Fx
-  { key: 'bullet', path: 'assets/generated/pickups-fx/bullet/sprite.png', frameWidth: 128, frameHeight: 128, frames: 1, duration: 0, loop: false },
+  { key: 'bullet', group: 'pickups-fx', path: 'assets/generated/pickups-fx/bullet/sprite.png', frameWidth: 128, frameHeight: 128, frames: 1, duration: 0, loop: false },
 
   // Bounded field surface. `floor` is a seamless 512 tile drawn through a TileSprite; decals are flat, non-colliding and dimmed in data/props.ts.
-  { key: 'arena-floor', path: 'assets/generated/arena/floor/sprite.png', frameWidth: 512, frameHeight: 512, frames: 1, duration: 0, loop: false },
-  { key: 'arena-cracks', path: 'assets/generated/arena/decal-cracks/sprite.png', frameWidth: 256, frameHeight: 256, frames: 1, duration: 0, loop: false },
-  { key: 'arena-plate', path: 'assets/generated/arena/decal-plate/sprite.png', frameWidth: 256, frameHeight: 256, frames: 1, duration: 0, loop: false },
+  { key: 'arena-floor', group: 'arena', path: 'assets/generated/arena/floor/sprite.png', frameWidth: 512, frameHeight: 512, frames: 1, duration: 0, loop: false },
+  { key: 'arena-cracks', group: 'arena', path: 'assets/generated/arena/decal-cracks/sprite.png', frameWidth: 256, frameHeight: 256, frames: 1, duration: 0, loop: false },
+  { key: 'arena-plate', group: 'arena', path: 'assets/generated/arena/decal-plate/sprite.png', frameWidth: 256, frameHeight: 256, frames: 1, duration: 0, loop: false },
 
   // Impassable arena obstacles. Static 1x1 props, hd-fx, cellSize 256; collision is a circle sized by data/props.ts bodyScale.
-  { key: 'prop-rock', path: 'assets/generated/props/rock/sprite.png', frameWidth: 256, frameHeight: 256, frames: 1, duration: 0, loop: false },
-  { key: 'prop-crystal', path: 'assets/generated/props/crystal/sprite.png', frameWidth: 256, frameHeight: 256, frames: 1, duration: 0, loop: false },
-  { key: 'prop-pillar', path: 'assets/generated/props/pillar/sprite.png', frameWidth: 256, frameHeight: 256, frames: 1, duration: 0, loop: false },
-  { key: 'prop-stump', path: 'assets/generated/props/stump/sprite.png', frameWidth: 256, frameHeight: 256, frames: 1, duration: 0, loop: false },
+  { key: 'prop-rock', group: 'props', path: 'assets/generated/props/rock/sprite.png', frameWidth: 256, frameHeight: 256, frames: 1, duration: 0, loop: false },
+  { key: 'prop-crystal', group: 'props', path: 'assets/generated/props/crystal/sprite.png', frameWidth: 256, frameHeight: 256, frames: 1, duration: 0, loop: false },
+  { key: 'prop-pillar', group: 'props', path: 'assets/generated/props/pillar/sprite.png', frameWidth: 256, frameHeight: 256, frames: 1, duration: 0, loop: false },
+  { key: 'prop-stump', group: 'props', path: 'assets/generated/props/stump/sprite.png', frameWidth: 256, frameHeight: 256, frames: 1, duration: 0, loop: false },
 
   // Full-bleed backdrop plus the title emblem. `arena` ships at its raw provider aspect (2:3 portrait, close to the 9:16 frame); ui/background.ts uniform-cover-fits it so nothing stretches. Additional parallax layers for authored spaces (see skill://map-forge) are added here as bg-layer-0/1/2 with `textureAlias` set to that name.
-  { key: 'bg-arena', path: 'assets/generated/bg/arena/sprite.png', frameWidth: 1664, frameHeight: 2496, frames: 1, duration: 0, loop: false },
-  { key: 'logo', path: 'assets/generated/bg/logo/sprite.png', frameWidth: 1024, frameHeight: 1024, frames: 1, duration: 0, loop: false },
+  { key: 'bg-arena', group: 'bg', path: 'assets/generated/bg/arena/sprite.png', frameWidth: 1664, frameHeight: 2496, frames: 1, duration: 0, loop: false },
+  { key: 'logo', group: 'bg', path: 'assets/generated/bg/logo/sprite.png', frameWidth: 1024, frameHeight: 1024, frames: 1, duration: 0, loop: false },
 ] as const;
 
 const BY_KEY: Record<string, SpriteAsset> = {};

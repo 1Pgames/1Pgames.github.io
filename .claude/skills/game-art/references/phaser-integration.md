@@ -13,6 +13,8 @@ generated asset, produced by `scripts/gen-art-registry.mjs` from
 export interface SpriteAsset {
   /** Phaser texture key; also the animation key when `frames > 1`. */
   key: string;
+  /** `art/manifest.json` group; loaded only when the active slice lists it. */
+  group: string;
   /** Path under `public/`, loaded as-is by the loader. */
   path: string;
   frameWidth: number;
@@ -49,16 +51,25 @@ review.
 
 ## 2. Loading (`src/scenes/preload.ts`)
 
+A row is loaded only when its `group` is one the active slice asked for.
+`src/scenes/game.ts` re-exports both the scene and that list
+(`export { GameScene, ART_GROUPS } from '../slices/<family>/game';`), so a game
+downloads the art its gameplay uses and nothing else — see
+`references/slice-wiring.md` for the per-family group names.
+
 ```ts
-for (const asset of [...SPRITES, ...IMAGES]) {
-  if (asset.frames > 1) {
-    this.load.spritesheet(asset.key, asset.path, {
-      frameWidth: asset.frameWidth,
-      frameHeight: asset.frameHeight,
-    });
-  } else {
-    this.load.image(asset.key, asset.path);
-  }
+const LOADED_GROUPS: readonly string[] = ART_GROUPS;
+
+for (const asset of SPRITES) {
+  if (!LOADED_GROUPS.includes(asset.group)) continue;
+  this.load.spritesheet(asset.key, asset.path, {
+    frameWidth: asset.frameWidth,
+    frameHeight: asset.frameHeight,
+  });
+}
+for (const asset of IMAGES) {
+  if (!LOADED_GROUPS.includes(asset.group)) continue;
+  this.load.image(asset.key, asset.path);
 }
 ```
 
@@ -66,7 +77,8 @@ In `create`, register animations once for the whole project:
 
 ```ts
 for (const asset of SPRITES) {
-  if (asset.frames < 2 || this.anims.exists(asset.key)) continue;
+  if (!LOADED_GROUPS.includes(asset.group)) continue;
+  if (asset.duration <= 0 || asset.frames < 2 || this.anims.exists(asset.key)) continue;
   this.anims.create({
     key: asset.key,
     frames: this.anims.generateFrameNumbers(asset.key, { start: 0, end: asset.frames - 1 }),
@@ -142,3 +154,6 @@ only on a state change.
 | Black screen after a scene transition | a `SHUTDOWN` listener touched `this.scene` on an already-destroyed object | hold your own scene ref + `destroyed` flag, unsubscribe in `destroy()` |
 | A button/card fires when the player lets go of a drag | `POINTER_UP` goes to whatever is under the pointer | arm on the object's own `POINTER_DOWN`, disarm on `POINTER_OUT` |
 | `src/data/art.ts` no longer matches `art/manifest.json` (stale registry after regeneration) | a manifest edit or asset re-export happened without re-running the generator | `node scripts/gen-art-registry.mjs`, then `node scripts/gen-art-registry.mjs --check` (also gated by `npm run verify`) |
+| Whole group renders as green boxes although the registry lists it | the group is not in the active slice's `ART_GROUPS`, so `PreloadScene` skipped every row | add the group name to the slice's `ART_GROUPS` (see `references/slice-wiring.md`) |
+| A scaffolded game has no art for a group the template ships | `scripts/new-game.sh` prunes `public/assets/generated/<group>/` for groups the slice does not list, then regenerates the registry | list the group in the slice's `ART_GROUPS` before scaffolding; re-export into the game if it was already created |
+| Alias resolves but nothing draws (`// not shipped: group 'x' pruned` in `art.ts`) | code from another family references art this game does not ship | point the slot at a group this slice loads, or stop using that alias here |

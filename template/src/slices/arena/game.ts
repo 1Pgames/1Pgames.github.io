@@ -23,6 +23,23 @@ import { showPauseOverlay, type PauseOverlayHandle } from '../../ui/pauseOverlay
 import { Button } from '../../ui/button';
 
 /**
+ * `art/manifest.json` groups this slice loads. `PreloadScene` downloads only
+ * these, so a game never ships another family's art. Names must match the
+ * manifest `group` fields exactly; adding art for this slice means adding its
+ * group here too.
+ */
+export const ART_GROUPS = [
+  'hero',
+  'enemies-light',
+  'enemies-heavy',
+  'pickups-fx',
+  'ui',
+  'props',
+  'arena',
+  'bg',
+] as const;
+
+/**
  * Integrator scene: owns nothing gameplay-specific itself, wires the systems
  * together and translates their callbacks into feedback and UI.
  *

@@ -150,7 +150,64 @@ the template itself ships `arena/floor` and `bg/arena` this way — cite them as
 the motivating case for when `strict:false` is the correct call versus a QC
 dodge.
 
-### Step 5 — Engine wiring (the integrator)
+### Step 5 — Key art (required for release)
+
+A game with no cover is a grey card in the catalog, and the release gate
+(`node scripts/release-check.mjs <slug>`) treats the scaffolded placeholder
+`cover.svg` as unfinished. Every game therefore gets **one** generated cover
+illustration — not a screenshot, not a montage: the game's hero moment, in the
+project's own style profile.
+
+1. **Brief.** Portrait, `aspect_ratio: "3:4"`, `image_size: "1024x1536"`. The
+   player character (or the genre's signature object) mid-action, with the
+   game's threat and reward colours in frame. No text, no logo, no UI, no
+   border; a title treatment is allowed only if the game's own `logo` emblem is
+   composited later by the store page, never rendered into the illustration by
+   the provider.
+2. **Export.** One `generate_image` call, one export marker, single frame,
+   full-bleed like a backdrop:
+   `OMP_SPRITE_EXPORT:{"outputDir":"art/exports/cover","rows":1,"cols":1,"profile":"hd-fx","styleProfile":"art/style.json","strict":false}`.
+   `art/exports/` is reference material (the scaffold excludes it), so the cover
+   never enters `art/manifest.json` and `gen-art-registry.mjs` never sees it:
+   the cover is store media, not a game texture.
+3. **Measure, then place.** Read the export's `sprite-metadata.json`
+   `source.width`/`source.height`; accept a ratio of `0.66-0.80` (3:4 = 0.75)
+   and regenerate outside that band. Then:
+   - copy the exported single frame to `games/<slug>/public/cover.png`
+   - set `game.json` `"cover": "cover.png"` (replacing `cover.svg`) and delete
+     `public/cover.svg`
+4. **Open Graph variant.** The store page's `og:image` is
+   `games/<slug>/shots/og.png` when it exists. Produce it from the same hero
+   moment as a landscape call (`aspect_ratio: "16:9"`,
+   `image_size: "1536x1024"`) with `cover.png` passed as `input` (state in the
+   prompt that Image 1 fixes composition, palette and character identity), then
+   crop it to the Open Graph frame deterministically:
+
+   ```bash
+   python3 -c "import PIL" && python3 - <<'PY'
+   from PIL import Image
+   im = Image.open('shots/og.raw.png')
+   w, h = im.size
+   tw, th = 1200, 630
+   s = max(tw / w, th / h)
+   im = im.resize((round(w * s), round(h * s)), Image.LANCZOS)
+   w, h = im.size
+   im.crop(((w - tw) // 2, (h - th) // 2, (w - tw) // 2 + tw, (h - th) // 2 + th)).save('shots/og.png')
+   PY
+   ```
+
+   Without Pillow, ship the uncropped landscape as `shots/og.png`: Open Graph
+   consumers rescale, and a hand-guessed crop loses the subject. Never crop the
+   portrait cover into a landscape og — it decapitates the hero.
+5. **Look at it.** Open both files. A cover that does not read at catalog-card
+   size (≈300px wide) is a failed cover, regardless of QC numbers, and the
+   `qcExceptions[]` entry a `strict: false` export requires still applies.
+
+   Note the reserved store slot next to it: an optional looping
+   `games/<slug>/shots/preview.webm` becomes the store page's autoplaying
+   preview. It is captured from the running game, never generated.
+
+### Step 6 — Engine wiring (the integrator)
 
 `src/data/art.ts` is generated, not hand-edited. Follow
 `references/phaser-integration.md`:
@@ -163,8 +220,13 @@ dodge.
   overwritten by the next regeneration and `verify.sh`'s
   `gen-art-registry.mjs --check` step fails the build the moment it drifts
   from the manifest.
-- `PreloadScene` loads every sheet with `this.load.spritesheet(...)` from the
-  registry and creates animations in one loop; the loading bar already exists.
+- `PreloadScene` loads a registry row only when its `group` is listed in the
+  active slice's `ART_GROUPS` (re-exported through `src/scenes/game.ts`), and
+  creates animations in one loop; the loading bar already exists. **New art for
+  a slice means a new manifest group AND that group's name added to the slice's
+  `ART_GROUPS`** — otherwise the sheets export, the registry lists them, and
+  nothing ever loads them. Per-family group names and the art-slot contract are
+  in `references/slice-wiring.md`.
 - Entities switch from tinted primitives to `sprite.play(ANIM.x)`; keep
   `setDisplaySize` driven by `TUNING` so balance and art stay decoupled.
 - UI: `this.add.nineslice(...)` for panels/bars, idle/pressed textures for
@@ -172,7 +234,7 @@ dodge.
 - Verify: `npm run build` clean, then drive the running game in a browser and
   screenshot menu, run, level-up overlay and results.
 
-### Step 6 — Report
+### Step 7 — Report
 
 Per group: asset paths, frame counts, palette distances, art-review figures,
 accepted QC exceptions with justification. Then the integration diff summary and
@@ -186,5 +248,6 @@ the browser screenshots proving the game renders with the new art.
 | `references/asset-plan.md` | What a game needs, per genre: asset classes, counts, grids, durations |
 | `references/prompt-contract.md` | The exact prompt/marker contract each generation agent must follow |
 | `references/phaser-integration.md` | Registry, preload, animations, nine-slice UI, verification |
+| `references/slice-wiring.md` | Per-family art slots, manifest group names, `ART_GROUPS` rule |
 | `skill://sprite-forge` | The generation and export contract itself |
 | `skill://sprite-forge/references/art-direction.md` | How to write prompts that produce art, not diagrams |

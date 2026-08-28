@@ -1,16 +1,19 @@
 ---
 name: game-build
 description: >-
-  Turns ONE prompt into a finished, VERIFIED game end-to-end: family
-  classification → auto-PRD → scaffold with `--family` → parallel build → art
-  (including map-forge world geometry when the family needs it) → integration →
-  family sim gates + browser verification → balance loop → record. Orchestrates
-  `game-prd` (forced `auto` mode), the per-family build workstreams, and
-  `game-art` as parallel subagent batches, then drives `npm run verify` and a
-  live browser playthrough before declaring the game done. Use for "make a game
-  about X end to end", "today's game", "сделай игру про X", or any
-  single-prompt request for a complete playable game — as opposed to `game-prd`
-  alone, which only produces the spec.
+  Turns ONE prompt into a finished, VERIFIED, PUBLISHED game end-to-end: family
+  classification → auto-PRD → scaffold with `--family <slice>` → parallel build
+  → art (including map-forge world geometry when the family needs it) →
+  integration → family sim gates + browser verification → balance loop → store
+  listing → release gate → publish. Orchestrates `game-prd` (forced `auto`
+  mode), the per-family build workstreams, and `game-art` as parallel subagent
+  batches, checkpoints every wave so a dead subagent is reconciled rather than
+  ignored, then drives `npm run verify`, a live browser playthrough and
+  `scripts/release-check.mjs` before flipping the game from draft to released.
+  A pitch in any language is accepted; the storefront it produces is English.
+  Use for "make a game about X end to end", "today's game", "сделай игру про X",
+  or any single-prompt request for a complete playable game — as opposed to
+  `game-prd` alone, which only produces the spec.
 ---
 
 # Game Build (one prompt → verified game)
@@ -30,43 +33,41 @@ global — session length, director, camera, input verb, meta shape — is a
 
 ## Family routing (do this before anything else)
 
-`game-prd` Step 0 resolves exactly one family code from the pitch; every step
-below is keyed on it. The template ships eight starter slices, and the code
-chooses the slice, the session director and the sim gate:
+`game-prd` Step 0 resolves exactly one family from the pitch; every step below
+is keyed on it. **The canonical family table — letter code ↔ `--family` slice
+name ↔ director ↔ sim gate — lives in `skill://game-prd` §Step 0 ("Tier 1 result
+— the canonical family table") and is not repeated here.** Read it there; if this
+skill and that table ever disagree, that table wins.
 
-| Code | Family | Slice | Director | Verify gate |
-| --- | --- | --- | --- | --- |
-| A | real-time arena | `src/slices/arena/` | `RunDirector` | `npm run sim -- --family arena` |
-| B | board puzzle | `src/slices/board/` | `LevelDirector` | `npm run sim -- --family board` |
-| C | side-view physics | `src/slices/side/` | `LevelDirector` / `RampDirector` | `npm run sim -- --family side` |
-| D | cards & tactics | **none — compose kits** | `RunDirector`, fight-indexed | must be written (see §Failure policy) |
-| E | track vehicle | `src/slices/track/` | `LapDirector` | `npm run sim -- --family track` |
-| F | idle tycoon | `src/slices/idle/` | `Economy` (no session end until ascend) | `npm run sim -- --family idle` |
-| G | table & dice | `src/slices/table/` | `LevelDirector`, or the slice's `DiceLoop` roll budget | `npm run sim -- --family table` |
-| H | word & trivia | `src/slices/word/` | `LevelDirector` | `npm run sim -- --family word` |
-| J | hypercasual | `src/slices/hyper/` | `RampDirector` | `npm run sim -- --family hyper` |
-| I | hybrid pattern, not a family | the casual core's slice | the core's | the core's gate |
+Two consequences worth stating twice:
 
-`--family` takes the slice name in column 3, not the letter. A build that
-scaffolds without `--family` silently lands family A's arena slice and is wrong
-for every other family — that is the single most expensive mistake in this
-pipeline.
+- `--family` takes the **slice name** (`arena` `board` `side` `track` `idle`
+  `table` `word` `hyper`), never the letter code. A bare letter after the flag
+  is always a bug — the scaffold rejects it as an unknown family.
+- A build that scaffolds without `--family` silently lands family A's arena
+  slice and is wrong for every other family — the single most expensive mistake
+  in this pipeline. Confirm the landed slice (`src/slices/` holds exactly one
+  dir, `src/sim/family.ts` names it) before spawning anyone.
 
 ## Non-negotiable rules
 
 1. **Family first, and never interview unless the user asked to be
    interviewed.** `game-prd` is always invoked in `auto` mode from this skill
-   (see `skill://game-prd` §Modes) — zero `ask` calls, family resolved by the
-   Step 0 two-tier score, every other axis resolved from that family's
-   defaults, logged in PRD §18 Assumptions.
+   (see `skill://game-prd` §Modes) — zero `ask` calls, family read
+   semantically from the pitch in whatever language it arrived in (Step 0, no
+   keyword scoring), every other axis resolved from that family's defaults,
+   logged in PRD §18 Assumptions.
 2. **Real concurrency, not padding.** Build workstreams from PRD §16 run as
    one `task` batch with frozen interface contracts; `game-art` groups run
    as a second batch overlapping the build batch wherever their file
-   ownership is disjoint (art touches `art/`, `public/assets/generated/`,
-   and — at the end — `src/data/art.ts`; build workstreams touch
-   `src/objects/`, `src/systems/`, `src/data/{enemies,upgrades,waves}.ts`,
-   `src/ui/*`). Neither batch runs `npm run build`/`typecheck`/`verify`
-   mid-flight — that is the integrator's job, after both batches land.
+   ownership is disjoint — art owns `art/` and `public/assets/generated/`,
+   build workstreams own `src/objects/`, `src/systems/`,
+   `src/data/{enemies,upgrades,waves}.ts` and `src/ui/*`. `src/data/art.ts`
+   belongs to **nobody**: it is generated by
+   `node scripts/gen-art-registry.mjs` at integration time (Step 3) and is
+   never hand-written by an art group, a build workstream or the integrator.
+   Neither batch runs `npm run build`/`typecheck`/`verify` mid-flight — that is
+   the integrator's job, after both batches land.
 3. **One integrator, one verification pass.** This skill (or a single
    integrator subagent it spawns) wires the slice's `GameScene`, generates the
    art registry, and is the only step that runs `npm run verify`.
@@ -80,6 +81,16 @@ pipeline.
    loop proves the game actually renders and responds to input.
 6. **Failure degrades gracefully, never silently.** See §Failure policy —
    every fallback is reported in the final Assumptions/report, never hidden.
+7. **The storefront is English-only.** `game.json`'s `title`, `genre`,
+   `description`, `prompt` and every string a player reads are English. A
+   non-English pitch is classified as-is, then translated to English at scaffold
+   time; the verbatim original is preserved only in `PRD.md`'s
+   `Original pitch:` header line. `node scripts/release-check.mjs <slug>`
+   rejects Cyrillic in those manifest fields, so a Russian description does not
+   ship — it fails the release gate.
+8. **Nothing ships from an unknown state.** Every wave is checkpointed in
+   `games/<slug>/build-state.json` and a dead subagent is reconciled before
+   integration — see §Checkpoints and dead agents.
 
 ## Workflow
 
@@ -88,21 +99,42 @@ pipeline.
 Invoke `skill://game-prd` in `auto` mode (never interactive) with the user's
 pitch verbatim. It performs, in this order:
 
-1. **Step 0 two-tier classification** — Tier 1 scores the pitch's keywords
-   against the family table (anchor beats modifier, specificity wins, earliest
-   mention then mechanic over setting) and yields one code; a vague, brandless
-   or verb-less casual pitch takes the HYBRID DEFAULT (**I**: casual core from
-   J/B/F + 2-3 meta-kit layers), never a mid-core fallback and never plain
-   match-swap. Tier 2 locks the subgenre from that family's playbook —
+1. **Step 0 two-tier classification** — Tier 1 reads the pitch's actual loop
+   (semantic, language-independent; the keyword column is a tiebreak aid, not a
+   score) and yields one family; a vague, brandless or verb-less casual pitch
+   takes the HYBRID DEFAULT (**I**: casual core from J/B/F + 2-3 meta-kit
+   layers), never a mid-core fallback and never plain match-swap. Tier 2 locks
+   the subgenre from that family's playbook —
    `references/genre-playbooks.md` for A/D/E, `references/casual-playbooks.md`
    for B/C/F/G/H/J, both for I.
 2. **Step 0b fixed decisions** — session shape, input profile, camera,
-   director and meta shape, all looked up on the code.
-3. **Scaffold** — `scripts/new-game.sh <slug> "Title" --family <code> --no-install`,
-   which copies the template, prunes every other
-   `src/slices/*`, rewrites the `src/scenes/game.ts` re-export and writes
-   `src/sim/family.ts` (`SIM_FAMILY`) so a bare `npm run sim` runs the right
-   gates.
+   director and meta shape, all looked up on the family.
+3. **Scaffold** — the full command, every flag present:
+
+   ```bash
+   scripts/new-game.sh <slug> "Title" \
+     --family <slice> \
+     --prompt "<english prompt>" \
+     --genre "<english genre>" \
+     --desc "<english one-liner>" \
+     --no-install
+   ```
+
+   It copies the template, prunes every other `src/slices/*`, rewrites the
+   `src/scenes/game.ts` re-export, writes `src/sim/family.ts` (`SIM_FAMILY`) so
+   a bare `npm run sim` runs the right gates, prunes the
+   `public/assets/generated/<group>/` dirs outside the slice's `ART_GROUPS`,
+   re-runs `gen-art-registry` over what is left (so `--check` is green from the
+   first commit) and writes `games/<slug>/game.json` with `"status": "draft"`.
+
+   **Translation rule.** `--prompt`, the positional `"Title"`, `--genre` and
+   `--desc` are **English**. An English pitch goes into `--prompt` verbatim; a
+   non-English pitch is translated faithfully (translate, do not rewrite or
+   expand) and the untouched original is written into `PRD.md` as its
+   `Original pitch: <verbatim original>` header line — never into `game.json`.
+   Classification happens before translation, on the original wording.
+   Omitting `--prompt`/`--genre`/`--desc` ships an empty storefront card and
+   fails the release gate; `--family` takes the slice name, never a letter.
 
 The result is `games/<slug>/PRD.md` with the family code in its header, a
 complete §16 build plan, §18 Assumptions log and §19 acceptance criteria — the
@@ -127,7 +159,7 @@ PRD) in a single batch, each given:
   your own slice only (module instantiates, data table type-checks in
   isolation).
 - The family's own surfaces: gameplay work happens in
-  `src/slices/<code>/game.ts` and its local `tuning.ts`/level/content modules,
+  `src/slices/<slice>/game.ts` and its local `tuning.ts`/level/content modules,
   never by editing `src/scenes/game.ts` (a one-line re-export) and never by
   moving family numbers into `src/config.ts`. Shared modules —
   `core/{session,run,level,ramp,lap,economy,collections}.ts`,
@@ -152,16 +184,24 @@ build workstreams never touch `art/` or `public/assets/generated/`).
   alongside the sprite/UI generation groups; it produces engine-neutral
   geometry that the Level/systems build workstream consumes directly (never
   hand-estimate collision when `map_trace_geometry` can derive it).
+- **Key art is a required deliverable, not a nice-to-have.** `game-art`'s cover
+  step produces the store cover; the integrator saves it as
+  `public/cover.png` (600x800) and `games/<slug>/shots/og.png` (1200x630 social
+  crop) and points `game.json.cover` at `cover.png`. The scaffold's gradient
+  `public/cover.svg` is a **draft-only** placeholder — a release with it still
+  in `game.json.cover` fails Step 6's release gate.
 - The art registry generator (`scripts/gen-art-registry.mjs`, producing
   `src/data/art.ts`) is an **integration-time** step, not a Step 2
   deliverable — it runs once, in Step 3, after both the art assets and the
-  data tables they reference exist.
+  data tables they reference exist. No art group and no build workstream ever
+  edits `src/data/art.ts` by hand; the generator is the only writer, and
+  `--check` in `npm run verify` is what proves the file matches the manifest.
 
 ### Step 3 — Integration
 
 One integrator (this skill directly, or a single dedicated `task`):
 
-1. Wire the slice's `GameScene` (`src/slices/<code>/game.ts`, re-exported by
+1. Wire the slice's `GameScene` (`src/slices/<slice>/game.ts`, re-exported by
    `src/scenes/game.ts`): session director → gameplay systems → UI →
    `GameOverData.stats`, per `template/AGENTS.md` §"Gameplay families and
    slices" and §"How to implement a PRD", and the PRD's §16.1 contracts.
@@ -174,7 +214,7 @@ One integrator (this skill directly, or a single dedicated `task`):
 
 ### Step 4 — Balance loop
 
-1. `npm run sim -- --family <code>` — capture the family's gate table (arena
+1. `npm run sim -- --family <slice>` — capture the family's gate table (arena
    also takes `--lane all --json` for per-lane winrate, `firstUpgradeS` and
    decision cadence).
 2. Check that family's hard gates, per
@@ -187,7 +227,7 @@ One integrator (this skill directly, or a single dedicated `task`):
    accuracy-bot spread; side = every generated level analytically possible plus
    hop-bot completion; track = lap completion plus bot spread.
 3. If any gate fails: edit the offending numbers in the slice's
-   `src/slices/<code>/tuning.ts` (or `TUNING` in `src/config.ts` for arena) —
+   `src/slices/<slice>/tuning.ts` (or `TUNING` in `src/config.ts` for arena) —
    an integrator-only edit, per the frozen-contract rule — and re-run the sim.
 4. Repeat steps 1-3 for a maximum of **3 iterations**. After 3, stop, ship
    the best iteration, and flag the remaining gate failures explicitly in
@@ -236,22 +276,45 @@ Drive the actual running game; this is not optional and not simulated.
 
 ### Step 6 — Store listing + publish
 
-1. **Store data.** The scaffold already wrote `games/<slug>/game.json` with the
-   verbatim `prompt`; fill `description` (1-2 sentences from PRD §1, player-
-   facing, no jargon) and `genre`. Copy the 3-5 best Step-5 screenshots into
-   `games/<slug>/shots/` (menu, the decision surface, a payoff moment, results)
-   and list them in `game.json.screenshots`. If `game-art` produced a cover,
-   save it as `public/cover.png` and set `game.json.cover`; otherwise the
-   scaffold's gradient `cover.svg` stands.
-2. **Preview.** `node scripts/build-site.mjs && python3 -m http.server 5321 -d
-   _site` — check the catalog card, the store page (prompt block, gallery) and
-   `/play/<slug>/` (the `← Games` pill must return to the catalog).
-3. **Publish.** Commit and push to `master`. `.github/workflows/pages.yml`
-   rebuilds every game plus the catalog and deploys to
+1. **Store data — English, complete, cover included.** The scaffold already
+   wrote `games/<slug>/game.json` with `status: "draft"` and the English
+   `prompt`/`genre`/`description` from Step 0; tighten `description` to 1-2
+   player-facing sentences from PRD §1 (no jargon, no family jargon, English).
+   Then:
+   - **Cover (required).** Save `game-art`'s key art as `public/cover.png`
+     (600x800) and set `game.json.cover` to `cover.png`. Also export the social
+     crop to `games/<slug>/shots/og.png` (1200x630) — the site uses
+     `media/<slug>/og.png` for `og:image` when that file exists, otherwise the
+     first `.png` screenshot, otherwise no `og:image` at all. The gradient
+     `cover.svg` is draft-only and fails the release gate.
+   - **Screenshots (≥3).** Copy the 3-5 best Step-5 shots into
+     `games/<slug>/shots/` (menu, the decision surface, a payoff moment,
+     results) and list them in `game.json.screenshots`.
+   - **Preview clip (optional).** A short loop of real gameplay saved as
+     `games/<slug>/shots/preview.webm` becomes an autoplaying muted loop on the
+     store page. Skip it rather than ship a stuttering one.
+2. **Release gate.** `node scripts/release-check.mjs <slug>` (`--json` for a
+   machine-readable findings array). Hard checks: `status` valid; `title`,
+   `genre`, `description` (≥ 40 chars) and `prompt` present and free of
+   Cyrillic; ≥ 3 screenshots listed **and** on disk; `cover` = `cover.png` with
+   a real PNG behind it (never the scaffold gradient); no scaffold placeholder
+   strings left in `index.html`/`menu.ts`; generated art not a byte-copy of the
+   template set. Warnings (not blockers): missing `shots/og.png`, leftover
+   `cover.svg`, Cyrillic in `menu.ts`. Fix what it reports; when it exits 0, set
+   `game.json.status` to `"released"`. Games with
+   `status: "draft"` are **not published** — `scripts/build-site.mjs` skips
+   them unless run with `--include-drafts` (local preview only).
+3. **Preview.** `node scripts/build-site.mjs --include-drafts && python3 -m
+   http.server 5321 -d _site` — check the catalog card, the store page (prompt
+   block, gallery, preview loop) and `/play/<slug>/` (the `← Games` pill must
+   return to the catalog). Re-run without `--include-drafts` after flipping to
+   `released` and confirm the game is in the catalog.
+4. **Publish.** Commit and push to `master`. `.github/workflows/pages.yml`
+   rebuilds every released game plus the catalog and deploys to
    https://1pgames.github.io/ ; watch the run with `gh run watch`. The `verify`
    job (sims + selftests) runs alongside — a red verify is a bug to fix even
    though it does not block the deploy.
-4. **Record.** Capture a short clip of the canvas (screenshots at each beat
+5. **Record.** Capture a short clip of the canvas (screenshots at each beat
    from Step 5 are the minimum bar; a full-run recording of the
    `design-heuristics.md` §13 highlight beats is the stretch goal).
 
@@ -268,7 +331,61 @@ Report, in this order:
    with a one-line playability verdict each (renders correctly / input responds
    / matches PRD).
 5. Any fallback taken under §Failure policy, stated plainly, not buried.
-6. The exact next commands: `cd games/<slug> && npm install && npm run dev`.
+6. Release state: `game.json.status` (`draft` or `released`), the
+   `release-check.mjs` verdict, and — if any wave needed it — which subagents
+   died and were respawned or taken over (from `build-state.json`).
+7. The exact next commands: `cd games/<slug> && npm install && npm run dev`.
+
+## Checkpoints and dead agents
+
+Subagents die. The observed failure mode in this pipeline is a **provider stream
+death mid-write**: the agent stops with no result, having already created some
+files and half-written others. A wave that is not checkpointed cannot tell that
+state apart from success, and the integrator then wires a half-written slice.
+
+**Before each wave** (Step 1 build batch, Step 2 art batch, Step 3 integration),
+write `games/<slug>/build-state.json`:
+
+```json
+{
+  "wave": "build",
+  "tasks": [
+    { "name": "BoardEngine", "ownershipGlobs": ["src/slices/board/**", "src/data/levels.ts"], "status": "running" },
+    { "name": "MetaUI", "ownershipGlobs": ["src/ui/**"], "status": "running" }
+  ]
+}
+```
+
+`name` matches the `task` name, `ownershipGlobs` is that task's §16 "Owns files"
+column expanded to globs, `status` is one of `pending` | `running` | `done` |
+`dead` | `taken-over`. **After each wave**, update every row's status from the
+actual results before doing anything else.
+
+**When a subagent dies** (no result returned, provider/stream error, or a
+result that does not match its ownership globs):
+
+1. Mark it `dead` in `build-state.json`.
+2. Re-check its ownership globs against reality — `git status --short` plus a
+   read of the files it claimed — and decide:
+   - **nothing written** → respawn from scratch;
+   - **partial write** (files exist, incomplete or non-compiling) → respawn to
+     resume;
+   - **complete work, lost result** (all owned files present and coherent
+     against §16.1) → mark `done`, do not respawn.
+3. Respawn with the **same task text verbatim**, prefixed with:
+   *"A previous attempt at this task died mid-write. Its partial work is already
+   on disk in your owned files — read them first, reconcile against the
+   contracts below, and finish the task. Do not start over from scratch if the
+   existing code is usable, and do not duplicate what is already there."*
+   Frozen contracts and file ownership are unchanged — never widen a respawn's
+   ownership to cover a sibling's files.
+4. **Maximum 2 respawns per task.** After the second death, the orchestrator
+   takes the slice over itself, finishes it inline, marks the row `taken-over`,
+   and says so in the Step 7 report.
+
+**Never proceed to integration (Step 3) with any task in an unknown state.** A
+row that is neither `done` nor `taken-over` blocks the wave — reconcile it
+first. `build-state.json` stays in the game folder as the build's audit trail.
 
 ## Failure policy
 
@@ -281,17 +398,17 @@ Report, in this order:
   kits but no `src/slices/` dir and no `src/sim/families/` gate. Do not
   scaffold D as arena and do not pretend a gate passed. Instead: scaffold with
   the nearest slice only if the PRD's subgenre genuinely reuses it, otherwise
-  scaffold plain, author `src/slices/<code>/{game,tuning}.ts` by composing the
+  scaffold plain, author `src/slices/<slice>/{game,tuning}.ts` by composing the
   shipped kits per the playbook (`turns` + `deck` for a deckbuilder,
   `autobattle` + `systems/board` + `ui/shopTray` for an auto-battler, `turns` +
   `systems/placement` for tactics), point the `src/scenes/game.ts` re-export at
-  it, and write `src/sim/families/<code>.ts` with that family's hard gates
+  it, and write `src/sim/families/<slice>.ts` with that family's hard gates
   (match completable at high skill, losable at low skill, fight/node pacing)
   plus `SIM_FAMILY`. Report the authored gate explicitly.
-- **Pitch maps to no family at all** (nothing in the Step 0 table scores, or
-  the pitch is out of scope: real-time multiplayer, gacha LiveOps, social
+- **Pitch maps to no family at all** (the pitch names no loop the Step 0 table
+  describes, or it is out of scope: real-time multiplayer, gacha LiveOps, social
   casino) → out-of-scope pitches are rejected with a counter-proposal, never
-  specced; an unscored casual pitch takes the HYBRID DEFAULT (**I**) rather
+  specced; a loop-less casual pitch takes the HYBRID DEFAULT (**I**) rather
   than a mid-core fallback. State the substitution in the PRD Assumptions and
   in the final report.
 - **Sim hard gate still fails after 3 balance iterations** → ship the best
@@ -310,7 +427,10 @@ Report, in this order:
 | `skill://game-prd/references/casual-playbooks.md` | Subgenre playbooks for families B/C/F/G/H/J (and I's casual core) |
 | `skill://game-prd/references/genre-playbooks.md` | Subgenre playbooks for families A/D/E |
 | `template/src/slices/` | The eight starter slices; the one the scaffold kept is where gameplay work happens |
-| `scripts/new-game.sh` | Scaffold with `--family <code>` — prunes other slices, rewrites the `src/scenes/game.ts` re-export, writes `src/sim/family.ts` |
+| `scripts/new-game.sh` | Scaffold with `--family <slice> --prompt/--genre/--desc` — prunes other slices and off-family art groups, rewrites the `src/scenes/game.ts` re-export, writes `src/sim/family.ts` and a `status: "draft"` `game.json` |
+| `scripts/release-check.mjs` | Release gate: manifest completeness, English-only fields, ≥3 screenshots, real raster cover, no scaffold leftovers — pass it before setting `game.json.status` to `released` |
+| `scripts/build-site.mjs` | Catalog + store pages; publishes released games only (`--include-drafts` for local preview) |
+| `games/<slug>/build-state.json` | Per-wave checkpoint written by this skill — task names, ownership globs, statuses; the audit trail for dead-agent recovery |
 | `template/AGENTS.md` | The build contract every workstream and the integrator follow; Phaser 4 traps, UI semantics, pooling rules |
 | `template/scripts/verify.sh` (`npm run verify`) | Integration gate: typecheck + sim + art registry check + kit selftests |
 | `scripts/gen-art-registry.mjs` | Generates `src/data/art.ts` from the art pipeline's manifest — integration-time only, never hand-authored |

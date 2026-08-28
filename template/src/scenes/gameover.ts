@@ -3,7 +3,7 @@ import { CSS, PALETTE, SAFE, TEXT, VIEW } from '../config';
 import { SCENES } from '../core/keys';
 import { countTo, enterFromBottom } from '../core/juice';
 import { sfx } from '../core/audio';
-import { grantCurrency, loadMeta, recordRunResult } from '../core/progression';
+import { grantCurrency, loadMeta, recordRunResult, type BestTimeMode } from '../core/progression';
 import { Button } from '../ui/button';
 import { addBackground } from '../ui/background';
 import type { ResultStat } from '../core/session';
@@ -24,6 +24,24 @@ export interface GameOverData {
    * (e.g. [{label:'STARS', value:'3'}, {label:'MOVES LEFT', value:'4'}]).
    */
   stats?: readonly ResultStat[];
+  /**
+   * Replaces the WIN/LOSS heading ('RUN COMPLETE' / 'YOU DIED'). A board game
+   * ends in 'LEVEL CLEARED', a word game in 'OUT OF TIME' — the colour still
+   * follows `won`.
+   */
+  headline?: string;
+  /**
+   * Label in front of the mm:ss clock. `null` hides the whole time row, for
+   * families where elapsed time is not a result (turn-based, idle, puzzle).
+   * Defaults to the arena's 'SURVIVED'.
+   */
+  timeLabel?: string | null;
+  /**
+   * How this game scores its lifetime best time: `max` for survive-longest,
+   * `min` for fastest-clear, `off` to leave `bestTimeMs` alone and never show
+   * the NEW BEST tag. Defaults to `max`.
+   */
+  bestTimeMode?: BestTimeMode;
 }
 
 /** mm:ss clock for the survived-time readout. */
@@ -51,6 +69,8 @@ export class GameOverScene extends Phaser.Scene {
     currencyEarned: 0,
     level: 1,
     seed: '',
+    timeLabel: 'SURVIVED',
+    bestTimeMode: 'max',
   };
 
   private settled = false;
@@ -69,6 +89,11 @@ export class GameOverScene extends Phaser.Scene {
       level: data.level ?? 1,
       seed: data.seed ?? '',
       stats: data.stats,
+      headline: data.headline,
+      // `??` is wrong here: `null` is a meaningful value (hide the time row),
+      // so only an absent key falls back to the arena label.
+      timeLabel: data.timeLabel === undefined ? 'SURVIVED' : data.timeLabel,
+      bestTimeMode: data.bestTimeMode ?? 'max',
     };
     this.settled = false;
   }
@@ -80,19 +105,36 @@ export class GameOverScene extends Phaser.Scene {
     // is read for display (so "NEW BEST" reflects this run's outcome).
     const before = loadMeta();
     const wasBestScore = this.result.score > before.stats.bestScore;
-    const wasBestTime = this.result.timeMs > before.stats.bestTimeMs;
+    const bestTimeMode = this.result.bestTimeMode ?? 'max';
+    let wasBestTime = false;
+    if (bestTimeMode === 'max') {
+      wasBestTime = this.result.timeMs > before.stats.bestTimeMs;
+    } else if (bestTimeMode === 'min') {
+      // Stored 0 means "no time yet" (see `recordRunResult`).
+      wasBestTime =
+        this.result.timeMs > 0 &&
+        (before.stats.bestTimeMs === 0 || this.result.timeMs < before.stats.bestTimeMs);
+    }
 
     if (!this.settled) {
       this.settled = true;
-      recordRunResult({ won: this.result.won, score: this.result.score, timeMs: this.result.timeMs });
+      recordRunResult(
+        { won: this.result.won, score: this.result.score, timeMs: this.result.timeMs },
+        { bestTimeMode },
+      );
       if (this.result.currencyEarned > 0) grantCurrency(this.result.currencyEarned);
     }
 
     const heading = this.add
-      .text(VIEW.centerX, VIEW.centerY - 380, this.result.won ? 'RUN COMPLETE' : 'YOU DIED', {
-        ...TEXT.heading,
-        color: this.result.won ? CSS.accent : CSS.bad,
-      })
+      .text(
+        VIEW.centerX,
+        VIEW.centerY - 380,
+        this.result.headline ?? (this.result.won ? 'RUN COMPLETE' : 'YOU DIED'),
+        {
+          ...TEXT.heading,
+          color: this.result.won ? CSS.accent : CSS.bad,
+        },
+      )
       .setOrigin(0.5);
 
     const scoreText = this.add
@@ -111,13 +153,14 @@ export class GameOverScene extends Phaser.Scene {
       this.result.stats !== undefined
         ? this.result.stats.map((row) => `${row.label} ${row.value}`).join('   ')
         : `LEVEL ${this.result.level}   KILLS ${this.result.kills}`;
+    // `timeLabel: null` drops the clock line entirely, leaving the family's
+    // own stat row as the only detail line (same y, one line shorter).
+    const timeRow =
+      this.result.timeLabel === null
+        ? ''
+        : `${this.result.timeLabel} ${formatClock(this.result.timeMs)}${wasBestTime ? '  (NEW BEST)' : ''}\n`;
     const stats = this.add
-      .text(
-        VIEW.centerX,
-        VIEW.centerY - 90,
-        `SURVIVED ${formatClock(this.result.timeMs)}${wasBestTime ? '  (NEW BEST)' : ''}\n` + detailLine,
-        { ...TEXT.body, align: 'center' },
-      )
+      .text(VIEW.centerX, VIEW.centerY - 90, timeRow + detailLine, { ...TEXT.body, align: 'center' })
       .setOrigin(0.5)
       .setLineSpacing(10);
 
@@ -138,8 +181,11 @@ export class GameOverScene extends Phaser.Scene {
     const upgradesY = VIEW.height - SAFE.bottom - 100;
     const menuY = VIEW.height - SAFE.bottom;
 
+    // RETRY replays THIS run's seed (`GameScene.init` reruns a given seed),
+    // so "one more go at that layout" is one tap. The SPACE shortcut below
+    // must stay identical, or keyboard and touch would start different runs.
     const retry = new Button(this, VIEW.centerX, retryY, 'RETRY', () =>
-      this.scene.start(SCENES.game),
+      this.scene.start(SCENES.game, { seed: this.result.seed }),
       { width: buttonWidth, height: 112 },
     );
     const upgrades = new Button(
@@ -170,8 +216,10 @@ export class GameOverScene extends Phaser.Scene {
 
     sfx(this.result.won ? 'levelup' : 'die', { volume: 0.7 });
 
-    // Space / tap anywhere = retry.
-    this.input.keyboard?.once('keydown-SPACE', () => this.scene.start(SCENES.game));
+    // Space = retry, same seed as the button.
+    this.input.keyboard?.once('keydown-SPACE', () =>
+      this.scene.start(SCENES.game, { seed: this.result.seed }),
+    );
     this.cameras.main.fadeIn(240, 0, 0, 0);
   }
 }

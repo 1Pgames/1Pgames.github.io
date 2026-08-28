@@ -3,21 +3,28 @@ import { CSS, PALETTE, SAFE, TEXT, VIEW } from '../config';
 import { SCENES } from '../core/keys';
 import { sfx } from '../core/audio';
 import { floatText } from '../core/juice';
-import { buyUpgrade, loadMeta } from '../core/progression';
-import { META_UPGRADES, upgradeCost, type MetaUpgradeDef } from '../data/upgrades';
+import { boosterCount, buyMetaLevel, buyUpgrade, grantBooster, loadMeta } from '../core/progression';
+import { upgradeCost } from '../data/upgrades';
+import { metaCatalogFor, type MetaEntry } from '../data/metaCatalog';
+import { SIM_FAMILY } from '../sim/family';
 import { Button } from '../ui/button';
 import { addBackground } from '../ui/background';
 import { ICON } from '../data/art';
 import { drawPanel } from '../ui/primitives';
 
 /**
- * Between-run shop: spend meta currency on permanent `META_UPGRADES` levels
- * via `core/progression.ts`'s `buyUpgrade`. Rows are laid out in a single
- * scrolling column rather than paginated — six upgrades is a small, fixed
- * catalog that reads better as one continuous list you flick through than as
- * numbered pages, and a drag-clamped container is the smallest amount of
- * code that gets there without a plugin (Phaser ships `GeometryMask` and
- * pointer events natively; no scroll plugin needed).
+ * Between-run shop: spend meta currency on permanent levels of whatever
+ * `metaCatalogFor(SIM_FAMILY)` (see `data/metaCatalog.ts`) offers this
+ * family — arena stat upgrades, board boosters, idle perks. The scene is
+ * family-agnostic: it dispatches on `MetaEntry.kind` and never names a
+ * specific upgrade.
+ *
+ * Rows are laid out in a single scrolling column rather than paginated — a
+ * handful of purchasables is a small, fixed catalog that reads better as one
+ * continuous list you flick through than as numbered pages, and a
+ * drag-clamped container is the smallest amount of code that gets there
+ * without a plugin (Phaser ships `GeometryMask` and pointer events natively;
+ * no scroll plugin needed).
  *
  * Use for: the permanent meta-upgrade shop between runs.
  * Do NOT use for: the in-run "pick 1 of 3" draft — that is `ui/cards.ts`.
@@ -30,9 +37,11 @@ const BUY_WIDTH = 168;
 const BUY_HEIGHT = 76;
 
 interface Row {
-  def: MetaUpgradeDef;
+  def: MetaEntry;
   levelText: Phaser.GameObjects.Text;
   buyButton: Button;
+  /** Booster rows only: live count of the consumable in the player's inventory. */
+  ownedText?: Phaser.GameObjects.Text;
 }
 
 export class MetaScene extends Phaser.Scene {
@@ -74,18 +83,33 @@ export class MetaScene extends Phaser.Scene {
     this.viewportBottom = viewportBottom;
 
     // Phaser 4 removed GeometryMask/`setMask`: masks are Filters now, and a
-    // filter per scrolling list is not worth it for six rows. Rows outside the
-    // viewport are simply hidden on scroll (see `cullRows`).
+    // filter per scrolling list is not worth it for a handful of rows. Rows
+    // outside the viewport are simply hidden on scroll (see `cullRows`).
     this.content = this.add.container(VIEW.centerX, this.viewportTop);
 
-    META_UPGRADES.forEach((def, index) => {
+    const entries = metaCatalogFor(SIM_FAMILY);
+    entries.forEach((def, index) => {
       const y = index * (ROW_HEIGHT + ROW_GAP) + ROW_HEIGHT / 2;
       const row = this.buildRow(def, y);
       this.content.add(row);
       this.rowContainers.push(row);
     });
 
-    const contentHeight = META_UPGRADES.length * (ROW_HEIGHT + ROW_GAP) - ROW_GAP;
+    // A family that has not authored a catalog yet still gets a coherent
+    // screen instead of an empty scroll area.
+    if (entries.length === 0) {
+      this.add
+        .text(
+          VIEW.centerX,
+          this.viewportTop + 140,
+          'NOTHING TO BUY YET\n\nCoins keep piling up\nfor the next unlock.',
+          { ...TEXT.body, align: 'center', color: CSS.inkSoft },
+        )
+        .setOrigin(0.5)
+        .setLineSpacing(6);
+    }
+
+    const contentHeight = entries.length * (ROW_HEIGHT + ROW_GAP) - ROW_GAP;
     this.maxScroll = Math.max(0, contentHeight - viewportHeight);
 
     // Drag-scroll: a zone under the rows catches drags anywhere that isn't a
@@ -138,7 +162,7 @@ export class MetaScene extends Phaser.Scene {
     }
   }
 
-  private buildRow(def: MetaUpgradeDef, y: number): Phaser.GameObjects.Container {
+  private buildRow(def: MetaEntry, y: number): Phaser.GameObjects.Container {
     const row = this.add.container(0, y);
 
     const bg = drawPanel(this, ROW_WIDTH, ROW_HEIGHT, {
@@ -173,27 +197,44 @@ export class MetaScene extends Phaser.Scene {
     });
 
     row.add([bg, name, levelText, description, buyButton]);
-    this.rows.push({ def, levelText, buyButton });
+
+    // Boosters are stockpiled consumables, so the shop has to show the stock:
+    // "BOUGHT 3/10" alone cannot tell you whether you already spent them.
+    let ownedText: Phaser.GameObjects.Text | undefined;
+    if (def.kind === 'booster') {
+      ownedText = this.add
+        .text(ROW_WIDTH / 2 - 20, BUY_HEIGHT / 2 + 12, '', { ...TEXT.label, color: CSS.inkSoft })
+        .setOrigin(1, 0);
+      row.add(ownedText);
+    }
+
+    this.rows.push({ def, levelText, buyButton, ownedText });
     return row;
   }
 
-  private onBuy(def: MetaUpgradeDef): void {
+  private onBuy(def: MetaEntry): void {
     const before = loadMeta();
     const level = before.upgrades[def.id] ?? 0;
     const cost = upgradeCost(def, level);
-    const result = buyUpgrade(def.id);
+    // `stat` entries route through `buyUpgrade` so the id is checked against
+    // `META_UPGRADES` — a stat level nothing turns into a `Modifier` is an
+    // authoring bug, and it should read as UNAVAILABLE, not sell silently.
+    const result = def.kind === 'stat' ? buyUpgrade(def.id) : buyMetaLevel(def);
     if (result.ok) {
+      if (def.kind === 'booster' && def.boosterId !== undefined) {
+        grantBooster(def.boosterId, def.boosterPerLevel ?? 1);
+      }
       sfx('ui');
       floatText(this, VIEW.centerX, this.viewportTop - 40, `-${cost}`, CSS.accent);
     } else {
       sfx('hit');
-      floatText(
-        this,
-        VIEW.centerX,
-        this.viewportTop - 40,
-        result.reason === 'max level reached' ? 'MAXED' : 'NOT ENOUGH COINS',
-        CSS.bad,
-      );
+      const message =
+        result.reason === 'max level reached'
+          ? 'MAXED'
+          : result.reason === 'not enough currency'
+            ? 'NOT ENOUGH COINS'
+            : 'UNAVAILABLE';
+      floatText(this, VIEW.centerX, this.viewportTop - 40, message, CSS.bad);
     }
     this.refresh();
   }
@@ -206,7 +247,14 @@ export class MetaScene extends Phaser.Scene {
     for (const row of this.rows) {
       const level = meta.upgrades[row.def.id] ?? 0;
       const maxed = level >= row.def.maxLevel;
-      row.levelText.setText(`LEVEL ${level}/${row.def.maxLevel}`);
+      row.levelText.setText(
+        row.def.kind === 'booster'
+          ? `BOUGHT ${level}/${row.def.maxLevel}`
+          : `LEVEL ${level}/${row.def.maxLevel}`,
+      );
+      if (row.ownedText !== undefined && row.def.boosterId !== undefined) {
+        row.ownedText.setText(`OWNED ${boosterCount(row.def.boosterId)}`);
+      }
 
       if (maxed) {
         row.buyButton.setLabel('MAXED');
