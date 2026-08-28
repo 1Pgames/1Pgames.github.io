@@ -53,6 +53,12 @@ interface CliOptions {
   strict: boolean;
   /** Slice family whose gates run; defaults to the scaffolded `SIM_FAMILY`. */
   family: string;
+  /**
+   * `--trace <path>`: per-family sims dump their raw session records there.
+   * The arena lane has none, so pairing it with `--family arena` is an error
+   * rather than a silently ignored flag.
+   */
+  trace?: string;
 }
 
 function parseArgs(argv: readonly string[]): CliOptions {
@@ -88,9 +94,15 @@ function parseArgs(argv: readonly string[]): CliOptions {
       case '--strict':
         options.strict = true;
         break;
+      case '--trace':
+        options.trace = argv[(i += 1)] ?? options.trace;
+        break;
       default:
         throw new Error(`Unknown flag "${arg}"`);
     }
+  }
+  if (options.trace !== undefined && options.family === ARENA_FAMILY) {
+    throw new Error('--trace is a per-family sim flag; the arena lane writes no session trace.');
   }
   return options;
 }
@@ -288,6 +300,7 @@ async function runFamily(options: CliOptions): Promise<number> {
     seed: options.seed,
     strict: options.strict,
     json: options.json,
+    trace: options.trace,
   });
 }
 

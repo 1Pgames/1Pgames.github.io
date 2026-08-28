@@ -426,15 +426,15 @@ export class GameScene extends Phaser.Scene {
       this.director.pause();
       this.combat.setPaused(true);
       this.joystick.setEnabled(false);
-      this.pauseOverlay = showPauseOverlay(
-        this,
-        () => this.resumeFromPause(),
-        () => {
+      this.pauseOverlay = showPauseOverlay(this, {
+        onResume: () => this.resumeFromPause(),
+        onRestart: () => {
           this.pauseOverlay?.destroy();
           this.pauseOverlay = null;
           this.scene.start(SCENES.game);
         },
-      );
+        onMenu: () => this.quitToMenu(),
+      });
     }
   }
 
@@ -445,6 +445,30 @@ export class GameScene extends Phaser.Scene {
     this.director.resume();
     this.combat.setPaused(false);
     this.joystick.setEnabled(true);
+  }
+
+  /**
+   * Abandons the run for the menu — the exit the pause overlay's MENU row is.
+   *
+   * Everything still running has to be killed HERE rather than on the way out:
+   * a looping tween or a queued timer that fires after `scene.start` touches a
+   * scene that no longer exists, which is exactly the black-screen trap in
+   * AGENTS.md.
+   */
+  private quitToMenu(): void {
+    this.pauseOverlay?.destroy();
+    this.pauseOverlay = null;
+    this.cards?.destroy();
+    this.cards = null;
+    this.ended = true;
+    this.paused = false;
+    this.director.pause();
+    this.combat.setPaused(true);
+    this.tweens.killAll();
+    this.time.removeAllEvents();
+    setMusicIntensity(0.2);
+    sfx('ui', { volume: 0.4 });
+    this.scene.start(SCENES.menu);
   }
 
   private finish(won: boolean): void {

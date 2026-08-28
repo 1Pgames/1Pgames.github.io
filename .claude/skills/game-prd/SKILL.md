@@ -10,7 +10,12 @@ description: >-
   (generators, managers, prestige), table dice (solitaire, dice-board, ludo),
   word and trivia, hypercasual (tap-timing, stacking, swerve, rise/drop,
   io-lite), plus the hybrid composition pattern (casual core + meta layer) that
-  is the 2026 default for an ambiguous casual pitch. Defaults to a fully
+  is the 2026 default for an ambiguous casual pitch. Runs a MANDATORY live
+  market/mechanics research pass per game (Step 0c: reference titles, staple
+  mechanics incl. special-combo matrices and obstacle taxonomies, numbers,
+  retention surfaces) distilled into the PRD's §1b Genre dossier with an
+  adopt-by-default staples checklist, so every PRD is saturated with the
+  genre's real kit and games ship content-rich. Defaults to a fully
   autonomous `auto` mode that turns ONE pitch into a complete PRD with zero
   clarifying questions (family and every axis resolved from playbook/heuristic
   lookups and logged in Assumptions); switches to an `interactive` mode with a
@@ -81,36 +86,44 @@ playbook, or a heuristic default can already answer.
    → look them up in the family's playbook and
    `references/design-heuristics.md`. Ask only about decisions that change the
    design or the architecture, and only in `interactive` mode.
-5. **No adjective without a number.** "Deep", "juicy", "hard" are banned in the
+5. **Research before writing (Step 0c).** The playbooks are a cached
+   baseline, not the market: every PRD gets a live genre-research pass —
+   reference titles, mechanics inventory incl. special-combo matrices and
+   obstacle taxonomies, numbers, retention surfaces — distilled into the
+   PRD's §1b Genre dossier with a staples checklist where `adopt` is the
+   default and every `cut` is justified. A PRD without the dossier, or with
+   a sub-8-row staples checklist, is a defect. Games must be content-rich:
+   the dossier's floors override the playbook minimums upward, never down.
+6. **No adjective without a number.** "Deep", "juicy", "hard" are banned in the
    PRD. Everything becomes a value: HP, dps, px/s, ms, hex, formula, count,
    win-rate band, moves, cost growth.
-6. **Systems before content.** The PRD names which template modules each system
+7. **Systems before content.** The PRD names which template modules each system
    uses (`core/session.ts`, `core/stats.ts`, `core/damage.ts`, `core/pool.ts`,
    `core/spatial.ts`, `core/grid.ts`, `core/run.ts`, `core/progression.ts`,
    `ui/cards.ts`, `ui/bars.ts`, `data/*`) plus the family slice in
    `src/slices/<family>/`. Anything genuinely missing is specified as
    `NEW: <file> — <one-line spec>`, never assumed.
-7. **Content tables are mandatory.** Whatever the family's content atoms are
+8. **Content tables are mandatory.** Whatever the family's content atoms are
    (enemies/upgrades, piece types/specials/levels, generators/upgrades,
    questions/word lists, cars/tracks, tile events) each get a full stat row
    plus a Flavor name and description. Minimum volumes come from the family
    content-volume table in `references/prd-template.md` §5; a PRD below the
    "minimum" column is a defect.
-8. **Prove variety.** At least 3 viable strategies (A/D/E), or 3 distinct
+9. **Prove variety.** At least 3 viable strategies (A/D/E), or 3 distinct
    solve routes / board archetypes (B/G/H), or 3 economy routes (F), or 1
    mechanic + 2 twists (J) — each named, with what enables it and why it is
    not dominated.
-9. **Parallel build plan is part of the PRD.** 4-6 workstreams, one owner per
+10. **Parallel build plan is part of the PRD.** 4-6 workstreams, one owner per
    file, interface contracts written as real TypeScript signatures, plus the
    integration order and the integrator's checklist.
-10. **Portrait UI plan with pixel coordinates.** Dense UI must fit 720x1280
+11. **Portrait UI plan with pixel coordinates.** Dense UI must fit 720x1280
     inside SAFE, with nothing interactive under the thumb zone except
     full-width controls; minimum tap target 88px. Board families additionally
     fit the whole board inside the playfield band with no scrolling.
-11. **Record assumptions.** Anything the user defers (interactive) or anything
+12. **Record assumptions.** Anything the user defers (interactive) or anything
     decided deterministically (auto) is listed in the PRD's Assumptions section
     with the chosen value and, in auto mode, the one-line rationale.
-12. **Classify in any language, ship the storefront in English.** The pitch is
+13. **Classify in any language, ship the storefront in English.** The pitch is
     classified semantically in its original language (Step 0 — no keyword
     scoring, no pre-translation). Everything player-facing is English:
     `game.json`'s `title`, `genre`, `description`, `prompt`, and all in-game
@@ -265,6 +278,58 @@ below are the same ones in `references/casual-playbooks.md` §Family frame and
 The meta-kit is shared and family-agnostic: any family may take any subset, but
 a family's default meta shape above is the one to ship unless the pitch asks
 otherwise.
+
+### Step 0c — Market & mechanics research (mandatory, both modes)
+
+The playbooks are a CACHED baseline. Before a single PRD line is written, the
+subgenre gets a LIVE research pass so the spec carries the genre's real staple
+set and the game ships content-rich, not template-shaped. This step exists
+because a real playtest proved it: a match-3 built from the cached baseline
+alone was rejected by its first player as shallow, and every depth lever that
+fixed it (special-combo matrix, blocker taxonomy, move economy, mercy rule,
+attempt-tier pacing, 4-booster kit) came out of a Royal Match research dive
+that is now `casual-playbooks.md` §Royal-Match law.
+
+Procedure (budget: 3-6 `web_search` calls; timebox ~10 minutes):
+
+1. **Name the references.** 2-4 titles: the subgenre's revenue/design king(s)
+   plus one rising title from the last two years. The playbook names some;
+   verify they are still the benchmark and add what it misses.
+2. **Research four surfaces** (one focused search each, share calls where
+   sensible):
+   - **Mechanics inventory** — core verb(s), special/power-up systems AND
+     their combination matrix, obstacle/blocker taxonomy with counterplay,
+     booster kits (pre-run and in-run), goal/objective types, board/level
+     shape variety.
+   - **Numbers** — session/run lengths, resource budgets (moves/time/lives),
+     difficulty pacing (attempt tiers, spike placement, breathers), mercy /
+     rubber-banding mechanics, content volume at launch (levels, enemies,
+     items — scale to browser scope, do not copy raw).
+   - **Retention surfaces** — progression meta, collections, streaks, chapter
+     structure, FTUE shape (what is taught, when, how gated). Monetization
+     surfaces are read as REWARD-PACING signals (what the genre pays out and
+     when), never as purchases — these games are free.
+   - **Differentiators** — what the rising title changed; one axis where THIS
+     game can be distinct rather than a clone.
+3. **Write the dossier into the PRD** — new template section §1b (Genre
+   dossier): references table, the STAPLES CHECKLIST (staple → how the
+   reference does it → this game's take: `adopt` / `adapt <how>` /
+   `cut <why>`), the numbers table, and the derived content-volume floors.
+   **Default is `adopt`; every `cut` needs a reason.** A staple checklist with
+   fewer than 8 rows means the research was too shallow — the genre's kit is
+   never that small.
+4. **Feed it forward.** §5 content tables must cover every `adopt`/`adapt`
+   row; §16 build plan sizes workstreams from the dossier (a combo matrix or
+   a blocker taxonomy is its own workstream, not a footnote); content floors
+   in §5.0 become `max(playbook minimum, dossier-derived floor)`.
+5. **Route durable findings.** Numbers or staples that correct or extend the
+   cached playbook are merged back into it (merge-first, per
+   `../game-build/references/playtest-lessons.md`) — the next game starts
+   from a richer cache.
+
+Failure policy: no network / headless → use the playbook baseline verbatim,
+write the dossier from cache, and flag `dossier: playbook-cached (no live
+research)` in §18 Assumptions. Never silently skip the dossier section.
 
 ### Step 1 — Resolve the six axes
 

@@ -1,5 +1,13 @@
 # Casual family playbooks
 
+> **This playbook is a CACHE, not the market.** `game-prd` Step 0c runs a live
+> research pass per game (reference titles, mechanics/combos, obstacle
+> taxonomies, numbers, retention surfaces) and writes the PRD's §1b Genre
+> dossier; content floors become `max(this playbook, dossier)`. Durable
+> corrections discovered by research are merged back HERE (merge-first, see
+> `../../game-build/references/playtest-lessons.md`) so the cache keeps up.
+
+
 Companion to `references/genre-playbooks.md`, which covers family **A**
 (real-time-arena: survivor-like, action roguelike, bullet hell) and family **D**
 (turn-based-cards-tactics: deckbuilder, tactics, auto-battler). This file
@@ -157,6 +165,41 @@ pattern-**I** hybrid where the meta layer carries the product, or (b) blast
 rather than swap, which is cheaper to build and less saturated. For a
 standalone board-puzzle pitch, steer to `B2`/`B3`/`B4`, whose categories are
 growing 65-229% YoY.
+
+### Royal-Match law (playtest-derived; violating any row is a known user complaint)
+
+Measured from the genre reference (Dream Games' Royal Match: Gamigion move
+economy, Playliner difficulty study, Naavik near-miss analysis, RM booster
+wiki) after a shipped ladder failed a real playtest. The numbers, not the
+vibe, are the spec — `template/src/slices/board/` implements them:
+
+- **Move economy.** Levels 1-20: 30-38 moves; 21-60: 25-30; 61+: 22-27.
+  NEVER below 22. Difficulty comes from blockers/layout/goals — a starved
+  move budget is the one lever this playbook forbids.
+- **Attempt tiers.** Most levels are NORMAL (~1.2 attempts). Hard (~1.6) and
+  super-hard (~2.5) are PLACED spikes, not a rising floor; a 12-level ladder
+  carries one finale-grade level and at most 2-3 hard ones, with a breather
+  before the finale.
+- **Debut-easy.** Every new blocker/mechanic debuts on an EASY level that
+  features ONLY it; escalation (hp layers, mixes) starts on the next level.
+- **Human-anchored calibration.** The greedy solver is the skilled CEILING,
+  the random bot the weak-human FLOOR. Gate per-tier random-bot win bands
+  (tutorial ≥85%, normal 35-65%, hard 12-35%, finale 5-20%) plus greedy
+  minimums (100 / ≥95 / ≥85 / ≥70%). A greedy-only band once passed a ladder
+  a human could not clear.
+- **Near-miss.** Median loss shortfall ≤15% of the order (per-level gate) —
+  losses must end close by design.
+- **Mercy.** At ≤5 moves left, refills narrow to the 4 most goal-relevant
+  kinds; scene and sim share the same policy module (`core/board/mercy.ts`)
+  so tuned win rates stay honest.
+- **Board sizes.** 7x8 default, 6x7 tutorials, 8x8 finale; cells 77-96px.
+  9x9 walls of 64px pieces read as noise in portrait.
+- **Reference kit (table stakes).** Blockers with custom logic (jar-style
+  static hp blocker + vine-style piece anchor, minimum two types) AND the
+  four in-level boosters — tile / row / column / shuffle — none consuming a
+  move, in a tray panel, icon-first with tooltips. Pre-level boosters ride
+  the picker. A match game without this kit reads as empty next to any
+  genre reference the player knows.
 
 ### Core loop and run shape
 

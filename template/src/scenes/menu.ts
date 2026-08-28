@@ -101,19 +101,23 @@ export class MenuScene extends Phaser.Scene {
 
     const buttonWidth = VIEW.width - SAFE.side * 2;
     const playY = VIEW.height - SAFE.bottom - 220;
-    const upgradesY = VIEW.height - SAFE.bottom - 100;
+    const shopY = VIEW.height - SAFE.bottom - 100;
     const muteY = VIEW.height - SAFE.bottom;
 
     const play = new Button(this, VIEW.centerX, playY, 'PLAY', () => {
       this.cameras.main.fadeOut(180, 0, 0, 0);
-      this.time.delayedCall(190, () => this.scene.start(SCENES.game));
+      // EMPTY data object is load-bearing: Phaser keeps the PREVIOUS start's
+      // settings.data when none is passed, so a bare start after PLAY NEXT
+      // ({levelIndex}) or RETRY ({seed}) replays that payload and bypasses
+      // the level-select surface (cert finding flow:map-bypassed).
+      this.time.delayedCall(190, () => this.scene.start(SCENES.game, {}));
     }, { width: buttonWidth, height: 112 });
 
-    const upgrades = new Button(
+    const shop = new Button(
       this,
       VIEW.centerX,
-      upgradesY,
-      'UPGRADES',
+      shopY,
+      'SHOP',
       () => this.scene.start(SCENES.meta),
       { width: buttonWidth, height: 96, fill: PALETTE.bgTop, stroke: PALETTE.primary, textColor: CSS.ink },
     );
@@ -133,7 +137,7 @@ export class MenuScene extends Phaser.Scene {
     enterFromBottom(this, currencyText, 80);
     enterFromBottom(this, howTo, 120);
     enterFromBottom(this, play, 160);
-    enterFromBottom(this, upgrades, 200);
+    enterFromBottom(this, shop, 200);
     enterFromBottom(this, muteButton, 240);
 
     // Any key/tap also starts the game — fewer taps means better retention.

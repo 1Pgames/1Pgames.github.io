@@ -45,6 +45,41 @@ tables (enemies, upgrades, pieces, generators, vehicles, question categories)
 draws its name from this lexicon — this is what keeps 40+ generated names
 feeling like one game's vocabulary instead of a random word generator.
 
+## 1b. Genre dossier (market & mechanics research — `../SKILL.md` Step 0c)
+
+The live-research digest this PRD is built on. Playbook-cached fallback is
+allowed only offline and must be flagged in §18.
+
+**References** (2-4):
+
+| Title | Why it is the benchmark | What we take / reject |
+| --- | --- | --- |
+
+**Staples checklist** (≥8 rows; `adopt` is the default, every `cut` needs a
+reason; every `adopt`/`adapt` row MUST reappear in §5 content tables and §16
+workstreams):
+
+| Staple | Reference implementation | This game |
+| --- | --- | --- |
+| <special/power system + combo matrix> | <how the king does it> | adopt / adapt <how> / cut <why> |
+| <animated actors: hero/threat idle+action cycles, where the genre norm> | … | … |
+| <obstacle taxonomy + counterplay> | … | … |
+| <booster kit pre-run / in-run> | … | … |
+| <goal/objective variety> | … | … |
+| <difficulty pacing: tiers, spikes, mercy> | … | … |
+| <retention: streaks/collections/chapters> | … | … |
+| <FTUE shape> | … | … |
+| <session payoff moment> | … | … |
+
+**Numbers table:** resource budgets, session lengths, attempt tiers, launch
+content volumes (scaled to browser scope) — with the source title per row.
+
+**Differentiation:** one axis where this game deliberately diverges from the
+references, and why it stays fun rather than merely different.
+
+**Derived content floors:** the §5.0 floor for this game =
+`max(playbook minimum, dossier floor)` — list the final numbers here.
+
 ## 2. Session architecture — **variant** (write exactly one of 2A-2E)
 
 ### 2A. Timed run beat sheet — families A and D
@@ -301,7 +336,7 @@ every key that appears in code must appear here.
 
 ## 8. Variety proof
 
-At least three named routes, per the family's rule (`../SKILL.md` rule 8):
+At least three named routes, per the family's rule (`../SKILL.md` rule 9):
 
 | Route | What enables it | Playstyle | Why it is not dominated |
 | --- | --- | --- | --- |
@@ -376,7 +411,25 @@ Every gameplay event: at least one visual and one sound, with values and spam ca
 | Enemy death / piece pop | `burst` + `floatText` | 8 particles | `hit` | 8 floatTexts/s |
 | Player hit / level fail | `shake` + `flash` + `hitstop` | 0.012/180ms, 120ms, 60ms | `die` | no shake above 200 entities |
 
-## 14. UI and HUD (pixel plan)
+**Feel budgets** (this game's instantiation of `template/AGENTS.md`
+§Quality budgets — fx-artist implements, game-qa measures):
+
+| Budget | Value | Note |
+| --- | --- | --- |
+| Input acknowledgment | ≤100ms | first visible reaction per tap/drag |
+| Core-loop animation | 120-400ms | per action; ceremonies >700ms get tap-to-skip |
+| Scene transition | ≤400ms | fade/slide, never a hard cut |
+| Retry to playable | ≤2s | from decision to input accepted |
+| Payoff cadence | ≤20s | longest normal-play stretch without a reward beat |
+| Peak-fps beat | 60fps at <name the heaviest beat> | measured there, not the menu |
+
+## 14. UI and HUD (pixel plan; art-director revises after vision lock)
+
+At PRD time this is the game-designer's DRAFT. After the art vision lock
+(game-art Step 1b/1c) the art-director re-authors it — palette table
+(role, hex, source in the anchor image, contrast vs bgTop ≥4.5:1), HUD
+coordinates, chrome spec — and the revised section is the contract
+ui-engineer implements verbatim.
 
 - HUD inventory with coordinates in the 720x1280 frame, respecting SAFE.
 - Board families: the board's rect inside the playfield band, tile px at the
@@ -386,6 +439,19 @@ Every gameplay event: at least one visual and one sound, with values and spam ca
   dismissed. The level-complete overlay (goal, stars, next) is mandatory for
   saga-map families.
 - Menu, pause, results, saga-map and meta screens: copy and element list.
+
+## 14b. Flow map (ux-flow-designer owns; "the flow map is law")
+
+- Mermaid graph: every screen/overlay node, every transition edge with its
+  trigger (tap X / win / loss / close / ESC / shell back-link).
+- Tap-depth table: boot → core action (≤2 taps), core action → retry,
+  core action → each meta surface and back.
+- Interruption matrix: pause/close/back/reload × every state
+  (mid-animation, mid-ceremony, mid-purchase, mid-tutorial) — no undefined
+  cells.
+- Edge-state inventory: empty / zero / maxed / last-content per surface,
+  each with designed behavior.
+- Confirmation policy: which actions confirm, which never nag.
 
 ## 15. Performance plan
 
@@ -542,6 +608,11 @@ Refuse to hand off until all hold:
 1. Sections 1-20 present, no placeholder text; the header names the original
    pitch, the English prompt, family, subgenre, director, input profile, camera,
    meta shape and slice.
+1b. §1b Genre dossier present: 2-4 references, a ≥8-row staples checklist
+    where every `adopt`/`adapt` row reappears in §5 and §16 and every `cut`
+    carries a reason, a sourced numbers table, one differentiation axis, and
+    derived content floors (`max(playbook, dossier)`). A playbook-cached
+    dossier (offline fallback) is flagged in §18.
 2. §2 contains exactly one variant (2A-2E), the one the family selects — a PRD
    with a 480s beat sheet for a board or idle game is a defect.
 3. Content tables meet §5.0's minimum column for the family.
@@ -572,3 +643,9 @@ Refuse to hand off until all hold:
 16. The header's `Original pitch` line reproduces the user's pitch verbatim in
     its original language, and no non-English text appears in any §20 field —
     the PRD is the only home for the original wording.
+17. §13 carries the feel-budget table with this game's values (ack ≤100ms,
+    animation bands, transition ≤400ms, payoff cadence, the named peak-fps
+    beat) — fx-artist implements them, game-qa measures them.
+18. §14b Flow map present: mermaid scene graph, tap-depth table (boot →
+    core action ≤2 taps), a complete interruption matrix, edge-state
+    inventory and confirmation policy — no undefined cells.

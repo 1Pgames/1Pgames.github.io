@@ -6,6 +6,9 @@ import {
   addToCollection,
   bestStars,
   boosterCount,
+  boosterCounts,
+  boosterPrice,
+  buyBooster,
   grantBooster,
   grantCurrency,
   loadMeta,
@@ -17,6 +20,7 @@ import {
   touchDailyStreak,
 } from '../../core/progression';
 import { collectionProgress, rollMissingPiece } from '../../core/collections';
+import { UNLIMITED, metaCatalogFor } from '../../data/metaCatalog';
 import { save } from '../../core/storage';
 import type { CollectionSetDef } from '../../core/collections';
 import { Rng } from '../../core/rng';
@@ -211,6 +215,77 @@ function dayKey(date: Date): string {
   grantBooster('swap', -5);
   assert.equal(boosterCount('swap'), 0, 'a negative grant floors at zero instead of wrapping');
   assert.equal(boosterCount('bomb'), 0, 'booster ids are independent');
+}
+
+// --- buyBooster: unlimited, priced off the STOCKPILE, and it grants itself ---
+{
+  resetMeta();
+  const ladle = { id: 'meta_ladle', boosterId: 'ladle', baseCost: 70, costGrowth: 1.35, boosterPerLevel: 1 };
+  assert.equal(boosterPrice(ladle), 70, 'the first one costs base');
+
+  assert.equal(buyBooster(ladle).ok, false, 'a broke player buys nothing');
+  assert.equal(boosterCount('ladle'), 0, 'and nothing is written');
+
+  grantCurrency(1000);
+  const first = buyBooster(ladle);
+  assert.equal(first.ok, true);
+  assert.equal(first.cost, 70);
+  assert.equal(boosterCount('ladle'), 1, 'buyBooster grants the consumable itself');
+  assert.equal(first.meta.upgrades.meta_ladle, 1, 'and keeps the lifetime purchase counter');
+  assert.equal(first.meta.currency, 930);
+
+  assert.equal(boosterPrice(ladle), 95, 'the second costs 70 * 1.35');
+  assert.equal(buyBooster(ladle).cost, 95);
+  assert.equal(boosterCount('ladle'), 2);
+
+  // Spending brings the price back down: the curve prices HOARDING, not history.
+  assert.equal(spendBooster('ladle'), true);
+  assert.equal(spendBooster('ladle'), true);
+  assert.equal(boosterPrice(ladle), 70, 'an empty bag is cheap again');
+  assert.equal(loadMeta().upgrades.meta_ladle, 2, 'while lifetime purchases only ever grow');
+
+  // No cap: enough coins is the ONLY gate, however many have been bought.
+  resetMeta();
+  grantCurrency(100000);
+  for (let i = 0; i < 12; i += 1) {
+    assert.equal(buyBooster(ladle).ok, true, `purchase ${i + 1} must not hit a cap`);
+    assert.equal(spendBooster('ladle'), true);
+  }
+  assert.equal(loadMeta().upgrades.meta_ladle, 12, 'twelve bought, no ceiling');
+
+  grantBooster('broom', 3);
+  assert.deepEqual(
+    boosterCounts(['ladle', 'broom', 'extra-moves']),
+    { ladle: 0, broom: 3, 'extra-moves': 0 },
+    'a batched read defaults every unknown id to zero',
+  );
+}
+
+// --- the shipped board catalog really is uncapped, and every id is unique ---
+{
+  const board = metaCatalogFor('board');
+  const boosters = board.filter((entry) => entry.kind === 'booster');
+  assert.equal(boosters.length, 7, 'three pre-level and four in-level consumables');
+  for (const entry of boosters) {
+    assert.equal(entry.maxLevel, UNLIMITED, `${entry.id} must be uncapped`);
+    assert.notEqual(entry.boosterId, undefined, `${entry.id} must name an inventory id`);
+  }
+  for (const id of ['ladle', 'broom', 'pestle', 'whisk']) {
+    assert.ok(
+      boosters.some((entry) => entry.boosterId === id),
+      `the board shop must sell '${id}'`,
+    );
+  }
+  const ids = new Set(board.map((entry) => entry.id));
+  assert.equal(ids.size, board.length, 'catalog ids are save keys and must be unique');
+
+  // Every family's consumables, not just the board's: a capped shelf goes empty.
+  for (const family of ['arena', 'side', 'word', 'hyper', 'idle', 'table', 'track']) {
+    for (const entry of metaCatalogFor(family)) {
+      if (entry.kind !== 'booster') continue;
+      assert.equal(entry.maxLevel, UNLIMITED, `${family}/${entry.id} must be uncapped`);
+    }
+  }
 }
 
 // --- collections: progress, no duplicate grants, completion needs the set size ---

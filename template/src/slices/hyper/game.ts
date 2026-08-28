@@ -627,15 +627,15 @@ export class GameScene extends Phaser.Scene {
     }
     this.paused = true;
     this.director.pause();
-    this.pauseOverlay = showPauseOverlay(
-      this,
-      () => this.resumeRun(),
-      () => {
+    this.pauseOverlay = showPauseOverlay(this, {
+      onResume: () => this.resumeRun(),
+      onRestart: () => {
         this.pauseOverlay?.destroy();
         this.pauseOverlay = null;
         this.scene.start(SCENES.game);
       },
-    );
+      onMenu: () => this.quitToMenu(),
+    });
   }
 
   private resumeRun(): void {
@@ -643,5 +643,23 @@ export class GameScene extends Phaser.Scene {
     this.pauseOverlay?.destroy();
     this.pauseOverlay = null;
     this.director.resume();
+  }
+
+  /**
+   * Abandons the run for the menu — the exit the pause overlay's MENU row is.
+   * Loops and queued timers die HERE: one firing after `scene.start` touches a
+   * scene that no longer exists (the black-screen trap in AGENTS.md).
+   */
+  private quitToMenu(): void {
+    this.pauseOverlay?.destroy();
+    this.pauseOverlay = null;
+    this.ended = true;
+    this.paused = false;
+    this.director.pause();
+    this.tweens.killAll();
+    this.time.removeAllEvents();
+    setMusicIntensity(0.2);
+    sfx('ui', { volume: 0.4 });
+    this.scene.start(SCENES.menu);
   }
 }

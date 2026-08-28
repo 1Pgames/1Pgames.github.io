@@ -10,16 +10,35 @@ import { addBackground } from '../../ui/background';
 import { Button } from '../../ui/button';
 import { drawPanel } from '../../ui/primitives';
 import { showPauseOverlay, type PauseOverlayHandle } from '../../ui/pauseOverlay';
-import { showBoosterPicker, type BoosterPickerHandle } from '../../ui/boosterBar';
+import {
+  showBoosterPicker,
+  type BoosterGlyph,
+  type BoosterPickerHandle,
+} from '../../ui/boosterBar';
 import { boosterCount, loadMeta, spendBooster, touchDailyStreak } from '../../core/progression';
 import { metaCatalogFor } from '../../data/metaCatalog';
-import type { ArtSlot } from '../../data/art';
+import { ICON, type ArtSlot } from '../../data/art';
 import { DiceLoop, GOAL_SETS, PIECE_NAMES, buildRing, type RollEvent, type TileType } from './board';
 import { TABLE_TUNING } from './tuning';
 
 /** `extra-rolls` booster and `meta_loaded_dice` perk (`data/metaCatalog.ts`). */
 const BOOSTER_EXTRA_ROLLS = 'extra-rolls';
 const PERK_LOADED_DICE = 'meta_loaded_dice';
+
+/**
+ * Booster art by id, for the icon-only picker slots. `data/art.ts` only names
+ * icons that were actually drawn, so reading the registry through a loose
+ * index means a missing key is `undefined` and the slot falls back to its
+ * primitive instead of failing the build.
+ */
+const BOOSTER_ICON: Record<string, ArtSlot | undefined> = {
+  [BOOSTER_EXTRA_ROLLS]: ICON.star,
+};
+
+/** Primitive per booster id when its art slot has not resolved. */
+const BOOSTER_FALLBACK: Record<string, { texture: string; tint: number }> = {
+  [BOOSTER_EXTRA_ROLLS]: { texture: TEX.star, tint: PALETTE.accent },
+};
 
 /**
  * Art groups `PreloadScene` loads for this slice (see the slice-wiring guide):
@@ -139,6 +158,7 @@ export class GameScene extends Phaser.Scene {
         id: entry.boosterId as string,
         name: entry.name.toUpperCase(),
         count: boosterCount(entry.boosterId as string),
+        glyph: this.glyphFor(entry.boosterId as string),
       }));
 
     if (offers.every((offer) => offer.count === 0)) {
@@ -154,7 +174,24 @@ export class GameScene extends Phaser.Scene {
         this.boosterPicker = null;
         this.beginSession(selected);
       },
+      // The gate is a decision, not a commitment: this family has no map to
+      // walk back to, so closing it deals the session with nothing spent.
+      onClose: () => {
+        sfx('ui', { volume: 0.4 });
+        this.boosterPicker?.destroy();
+        this.boosterPicker = null;
+        this.beginSession([]);
+      },
     });
+  }
+
+  /**
+   * The icon a booster slot draws: generated art when its slot resolves, the
+   * tinted primitive otherwise.
+   */
+  private glyphFor(id: string): BoosterGlyph {
+    const fallback = BOOSTER_FALLBACK[id] ?? { texture: TEX.disc, tint: PALETTE.primary };
+    return { art: BOOSTER_ICON[id] ?? null, texture: fallback.texture, tint: fallback.tint };
   }
 
   /**
@@ -500,15 +537,15 @@ export class GameScene extends Phaser.Scene {
     this.paused = true;
     this.loop.level.pause();
     this.rollButton.setAlpha(TABLE_TUNING.roll.disabledAlpha);
-    this.pauseOverlay = showPauseOverlay(
-      this,
-      () => this.resumeFromPause(),
-      () => {
+    this.pauseOverlay = showPauseOverlay(this, {
+      onResume: () => this.resumeFromPause(),
+      onRestart: () => {
         this.pauseOverlay?.destroy();
         this.pauseOverlay = null;
         this.scene.restart({ seed: Date.now().toString(36) });
       },
-    );
+      onMenu: () => this.quitToMenu(),
+    });
   }
 
   private resumeFromPause(): void {
@@ -517,6 +554,28 @@ export class GameScene extends Phaser.Scene {
     this.pauseOverlay = null;
     this.loop.level.resume();
     this.rollButton.setAlpha(1);
+  }
+
+  /**
+   * Abandons the session for the menu — the exit the pause overlay's MENU row
+   * is. Loops and queued timers die HERE: one firing after `scene.start`
+   * touches a scene that no longer exists (the black-screen trap in
+   * AGENTS.md).
+   */
+  private quitToMenu(): void {
+    this.pauseOverlay?.destroy();
+    this.pauseOverlay = null;
+    this.boosterPicker?.destroy();
+    this.boosterPicker = null;
+    this.ended = true;
+    this.paused = false;
+    this.started = false;
+    this.loop.level.pause();
+    this.tweens.killAll();
+    this.time.removeAllEvents();
+    setMusicIntensity(0.2);
+    sfx('ui', { volume: 0.4 });
+    this.scene.start(SCENES.menu);
   }
 
   private finish(outcome: SessionOutcome): void {

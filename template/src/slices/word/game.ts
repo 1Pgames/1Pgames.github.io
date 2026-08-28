@@ -18,13 +18,17 @@ import {
   touchDailyStreak,
 } from '../../core/progression';
 import { metaCatalogFor } from '../../data/metaCatalog';
-import type { ArtSlot } from '../../data/art';
+import { ICON, type ArtSlot } from '../../data/art';
 import { addBackground } from '../../ui/background';
 import { Button } from '../../ui/button';
 import { drawPanel, paintPanel } from '../../ui/primitives';
 import { showPauseOverlay, type PauseOverlayHandle } from '../../ui/pauseOverlay';
 import { showSagaMap, type SagaMapHandle } from '../../ui/sagaMap';
-import { showBoosterPicker, type BoosterPickerHandle } from '../../ui/boosterBar';
+import {
+  showBoosterPicker,
+  type BoosterGlyph,
+  type BoosterPickerHandle,
+} from '../../ui/boosterBar';
 import { WORD_TUNING } from './tuning';
 import {
   GOAL_ANSWERS,
@@ -40,6 +44,23 @@ import {
 /** `fifty-fifty` and `time-plus` booster ids (see `data/metaCatalog.ts`). */
 const BOOSTER_FIFTY = 'fifty-fifty';
 const BOOSTER_TIME_PLUS = 'time-plus';
+
+/**
+ * Booster art by id, for the icon-only picker slots. `data/art.ts` only names
+ * icons that were actually drawn, so reading the registry through a loose
+ * index means a missing key is `undefined` and the slot falls back to its
+ * primitive instead of failing the build.
+ */
+const BOOSTER_ICON: Record<string, ArtSlot | undefined> = {
+  [BOOSTER_FIFTY]: ICON.bolt,
+  [BOOSTER_TIME_PLUS]: ICON.clock,
+};
+
+/** Primitive per booster id when its art slot has not resolved. */
+const BOOSTER_FALLBACK: Record<string, { texture: string; tint: number }> = {
+  [BOOSTER_FIFTY]: { texture: TEX.spike, tint: PALETTE.accent },
+  [BOOSTER_TIME_PLUS]: { texture: TEX.ring, tint: PALETTE.primary },
+};
 
 /**
  * Art groups `PreloadScene` loads for this slice (see the slice-wiring guide):
@@ -211,6 +232,7 @@ export class GameScene extends Phaser.Scene {
         id: entry.boosterId as string,
         name: entry.name.toUpperCase(),
         count: boosterCount(entry.boosterId as string),
+        glyph: this.glyphFor(entry.boosterId as string),
       }));
 
     if (offers.every((offer) => offer.count === 0)) {
@@ -225,7 +247,23 @@ export class GameScene extends Phaser.Scene {
         this.closeMetaOverlays();
         this.beginPack(index, selected);
       },
+      // The gate is a decision, not a commitment: closing it walks back to the
+      // pack pick with nothing spent.
+      onClose: () => {
+        sfx('ui', { volume: 0.4 });
+        this.closeMetaOverlays();
+        this.openSagaMap();
+      },
     });
+  }
+
+  /**
+   * The icon a booster slot draws: generated art when its slot resolves, the
+   * tinted primitive otherwise.
+   */
+  private glyphFor(id: string): BoosterGlyph {
+    const fallback = BOOSTER_FALLBACK[id] ?? { texture: TEX.disc, tint: PALETTE.primary };
+    return { art: BOOSTER_ICON[id] ?? null, texture: fallback.texture, tint: fallback.tint };
   }
 
   private closeMetaOverlays(): void {
@@ -631,17 +669,17 @@ export class GameScene extends Phaser.Scene {
     this.paused = true;
     this.level.pause();
     for (const button of this.options) button.setAlpha(0.35);
-    this.pauseOverlay = showPauseOverlay(
-      this,
-      () => this.resumeFromPause(),
-      () => {
+    this.pauseOverlay = showPauseOverlay(this, {
+      onResume: () => this.resumeFromPause(),
+      onRestart: () => {
         this.pauseOverlay?.destroy();
         this.pauseOverlay = null;
         // The same pack, a fresh draw: RESTART is "give me another go at this
         // difficulty", not a replay of the questions just seen.
         this.scene.restart({ seed: Date.now().toString(36), packIndex: this.packIndex });
       },
-    );
+      onMenu: () => this.quitToMenu(),
+    });
   }
 
   private resumeFromPause(): void {
@@ -650,6 +688,25 @@ export class GameScene extends Phaser.Scene {
     this.pauseOverlay = null;
     this.level.resume();
     for (const button of this.options) button.setAlpha(1);
+  }
+
+  /**
+   * Abandons the pack for the menu — the exit the pause overlay's MENU row is.
+   * Loops and queued timers die HERE: one firing after `scene.start` touches a
+   * scene that no longer exists (the black-screen trap in AGENTS.md).
+   */
+  private quitToMenu(): void {
+    this.pauseOverlay?.destroy();
+    this.pauseOverlay = null;
+    this.closeMetaOverlays();
+    this.ended = true;
+    this.paused = false;
+    this.level.pause();
+    this.tweens.killAll();
+    this.time.removeAllEvents();
+    setMusicIntensity(0.2);
+    sfx('ui', { volume: 0.4 });
+    this.scene.start(SCENES.menu);
   }
 
   private finish(outcome: SessionOutcome): void {
@@ -669,7 +726,14 @@ export class GameScene extends Phaser.Scene {
       // The clock LEFT is the rating (see `wordPackSpec`), so this is what the
       // pack map shows next time.
       recordStars(pack.id, stars);
-      save(WORD_PROGRESS_KEY, Math.min(this.packIndex + 1, WORD_PACK_COUNT - 1));
+      // Monotonic: replaying an early pack must never revoke the frontier.
+      save(
+        WORD_PROGRESS_KEY,
+        Math.max(
+          load<number>(WORD_PROGRESS_KEY, 0),
+          Math.min(this.packIndex + 1, WORD_PACK_COUNT - 1),
+        ),
+      );
     }
 
     this.cameras.main.fadeOut(340, 0, 0, 0);

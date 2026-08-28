@@ -233,6 +233,53 @@ export function buyMetaLevel(entry: {
   return { ok: true, meta };
 }
 
+/**
+ * A consumable's next price, escalating on the STOCKPILE the player is
+ * sitting on rather than on lifetime purchases.
+ *
+ * That distinction is the whole reason boosters are sold without a cap.
+ * Pricing off `upgrades[id]` (purchases ever made) is a soft cap wearing a
+ * different hat: the twentieth ladle costs `70 * 1.35^19`, so the shop
+ * eventually stops selling whether or not it says so. Pricing off
+ * `boosters[boosterId]` (what is in the bag right now) makes the curve mean
+ * something the player can act on — hoarding gets expensive, spending makes
+ * the next one cheap again — and it can never lock the shelf.
+ */
+export function boosterPrice(entry: {
+  boosterId: string;
+  baseCost: number;
+  costGrowth: number;
+}): number {
+  return upgradeCost(entry, loadMeta().boosters[entry.boosterId] ?? 0);
+}
+
+/**
+ * Buys one consumable: pays `boosterPrice`, adds `boosterPerLevel` (default
+ * 1) to the bag, and keeps `upgrades[id]` as the lifetime purchase counter so
+ * existing saves and any "bought ever" display keep working.
+ *
+ * There is no cap and no `maxLevel` read. The only failure is not affording
+ * the price, which the caller can show as a greyed price tag rather than as a
+ * dead BOUGHT badge.
+ */
+export function buyBooster(entry: {
+  id: string;
+  boosterId: string;
+  baseCost: number;
+  costGrowth: number;
+  boosterPerLevel?: number;
+}): { ok: boolean; meta: MetaSave; cost: number; reason?: string } {
+  const meta = loadMeta();
+  const owned = meta.boosters[entry.boosterId] ?? 0;
+  const cost = upgradeCost(entry, owned);
+  if (meta.currency < cost) return { ok: false, meta, cost, reason: 'not enough currency' };
+  meta.currency -= cost;
+  meta.boosters[entry.boosterId] = owned + Math.max(1, Math.floor(entry.boosterPerLevel ?? 1));
+  meta.upgrades[entry.id] = (meta.upgrades[entry.id] ?? 0) + 1;
+  saveMeta(meta);
+  return { ok: true, meta, cost };
+}
+
 /** `buyMetaLevel` for an id in `META_UPGRADES` — the arena stat-upgrade path. */
 export function buyUpgrade(id: string): { ok: boolean; meta: MetaSave; reason?: string } {
   const def: MetaUpgradeDef | undefined = META_UPGRADES.find((u) => u.id === id);
@@ -355,6 +402,18 @@ export function grantBooster(id: string, n: number): MetaSave {
 
 export function boosterCount(id: string): number {
   return loadMeta().boosters[id] ?? 0;
+}
+
+/**
+ * Counts for several boosters in ONE save read. An in-level tray shows every
+ * consumable at once and re-reads them after every spend; asking
+ * `boosterCount` per chip parses the whole save once per chip per repaint.
+ */
+export function boosterCounts(ids: readonly string[]): Record<string, number> {
+  const owned = loadMeta().boosters;
+  const out: Record<string, number> = {};
+  for (const id of ids) out[id] = owned[id] ?? 0;
+  return out;
 }
 
 /**

@@ -42,6 +42,15 @@ export interface GameOverData {
    * the NEW BEST tag. Defaults to `max`.
    */
   bestTimeMode?: BestTimeMode;
+  /**
+   * True when a WIN has another level waiting: the primary button becomes
+   * PLAY NEXT and starts `level` as a 0-based `levelIndex`, skipping the map
+   * and the pre-level picker. A win WITHOUT a next level keeps a primary
+   * action (PLAY AGAIN, same seed) because a score/endless family's "no next"
+   * is its normal state, and adds the completion note above it. A loss
+   * ignores this entirely — its primary is always RETRY.
+   */
+  next?: boolean;
 }
 
 /** mm:ss clock for the survived-time readout. */
@@ -94,6 +103,7 @@ export class GameOverScene extends Phaser.Scene {
       // so only an absent key falls back to the arena label.
       timeLabel: data.timeLabel === undefined ? 'SURVIVED' : data.timeLabel,
       bestTimeMode: data.bestTimeMode ?? 'max',
+      next: data.next ?? false,
     };
     this.settled = false;
   }
@@ -177,22 +187,56 @@ export class GameOverScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     const buttonWidth = VIEW.width - SAFE.side * 2;
-    const retryY = VIEW.height - SAFE.bottom - 220;
-    const upgradesY = VIEW.height - SAFE.bottom - 100;
+    const primaryY = VIEW.height - SAFE.bottom - 220;
+    const shopY = VIEW.height - SAFE.bottom - 100;
     const menuY = VIEW.height - SAFE.bottom;
 
-    // RETRY replays THIS run's seed (`GameScene.init` reruns a given seed),
-    // so "one more go at that layout" is one tap. The SPACE shortcut below
-    // must stay identical, or keyboard and touch would start different runs.
-    const retry = new Button(this, VIEW.centerX, retryY, 'RETRY', () =>
-      this.scene.start(SCENES.game, { seed: this.result.seed }),
-      { width: buttonWidth, height: 112 },
-    );
-    const upgrades = new Button(
+    // One primary action, three readings of it — the screen ALWAYS offers a
+    // way back into the game, because a results screen whose only live button
+    // is MENU reads as "you are done playing":
+    //  - loss            -> RETRY replays THIS run's seed (`GameScene.init`
+    //                       reruns a given seed), so "one more go at that
+    //                       layout" is one tap.
+    //  - win, more ahead -> PLAY NEXT starts the following level directly,
+    //                       skipping the map and the pre-level picker. There
+    //                       is deliberately NO retry: nobody replays a level
+    //                       they just cleared.
+    //  - win, none ahead -> PLAY AGAIN, the retry action relabelled: for a
+    //                       score/endless family that is every win, and for a
+    //                       finished ladder the note above says so.
+    const hasNext = this.result.won && this.result.next === true;
+    const cleared = this.result.won && !hasNext;
+    // One action behind the button AND the SPACE shortcut: two copies drift.
+    const onPrimary = (): void => {
+      // `level` is the 1-based level reached, so it IS the 0-based index of
+      // the next one.
+      if (hasNext) this.scene.start(SCENES.game, { levelIndex: this.result.level });
+      else this.scene.start(SCENES.game, { seed: this.result.seed });
+    };
+
+    // Deliberately content-free: a slice with a themed sign-off passes its own
+    // `headline`, and this line must never claim a ladder ended in a family
+    // that has no ladder.
+    const note = this.add
+      .text(VIEW.centerX, primaryY - 76, cleared ? 'ALL CLEAR!' : '', {
+        ...TEXT.label,
+        color: CSS.accent,
+      })
+      .setOrigin(0.5);
+
+    const primary = new Button(
       this,
       VIEW.centerX,
-      upgradesY,
-      'UPGRADES',
+      primaryY,
+      hasNext ? 'PLAY NEXT' : cleared ? 'PLAY AGAIN' : 'RETRY',
+      onPrimary,
+      { width: buttonWidth, height: 112 },
+    );
+    const shop = new Button(
+      this,
+      VIEW.centerX,
+      shopY,
+      'SHOP',
       () => this.scene.start(SCENES.meta),
       { width: buttonWidth, height: 96, fill: PALETTE.bgTop, stroke: PALETTE.primary, textColor: CSS.ink },
     );
@@ -210,16 +254,16 @@ export class GameOverScene extends Phaser.Scene {
     enterFromBottom(this, stats, 120);
     enterFromBottom(this, currencyText, 160);
     enterFromBottom(this, seedText, 180);
-    enterFromBottom(this, retry, 200);
-    enterFromBottom(this, upgrades, 240);
+    enterFromBottom(this, note, 190);
+    enterFromBottom(this, primary, 200);
+    enterFromBottom(this, shop, 240);
     enterFromBottom(this, menu, 280);
 
     sfx(this.result.won ? 'levelup' : 'die', { volume: 0.7 });
 
-    // Space = retry, same seed as the button.
-    this.input.keyboard?.once('keydown-SPACE', () =>
-      this.scene.start(SCENES.game, { seed: this.result.seed }),
-    );
+    // SPACE mirrors the primary button exactly — keyboard and touch must never
+    // start different things.
+    this.input.keyboard?.once('keydown-SPACE', onPrimary);
     this.cameras.main.fadeIn(240, 0, 0, 0);
   }
 }

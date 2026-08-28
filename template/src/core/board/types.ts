@@ -23,10 +23,38 @@ export interface Cell {
  */
 export type SpecialKind = 'line-h' | 'line-v' | 'bomb';
 
+/**
+ * Level furniture that sits ON a cell and has to be destroyed by playing
+ * NEAR it — the difficulty axis a match-3 ladder needs once the player can
+ * read the board (PRD §2B).
+ *
+ *  - `jar`: a cell-shaped obstacle. It is not a piece the player can move or
+ *    match; it is a wall with hit points. Damaged by clearing an
+ *    orthogonally adjacent cell.
+ *  - `vine`: a normal piece held in place. It matches as its own kind, but
+ *    the vine eats the first clear that would take it: the piece survives
+ *    free instead of scoring.
+ */
+export type BlockerKind = 'jar' | 'vine';
+
+export interface Blocker {
+  kind: BlockerKind;
+  hp: number;
+}
+
+/**
+ * Pseudo piece kind of a jar. Never in `BoardSpec.kinds`, so it is never
+ * refilled and never drawn by the seeded fill; never matchable, because no
+ * other cell can ever hold it.
+ */
+export const JAR_KIND = '__jar__';
+
 export interface Piece {
   kind: PieceKind;
   /** `null`/absent for a plain piece. */
   special?: SpecialKind | null;
+  /** `null`/absent for an unencumbered piece. */
+  blocker?: Blocker | null;
 }
 
 export interface BoardSpec {
@@ -36,6 +64,10 @@ export interface BoardSpec {
   kinds: readonly PieceKind[];
   /** Permanently empty holes: never filled, and pieces cannot fall through them. */
   blocked?: readonly Cell[];
+  /** Jar obstacles placed by the level, with their starting hit points. */
+  jars?: readonly { cell: Cell; hp: 1 | 2 }[];
+  /** Cells whose seeded piece starts vined. */
+  vines?: readonly Cell[];
 }
 
 /**
@@ -74,13 +106,30 @@ export interface RefillEvent {
   piece: Piece;
 }
 
+/**
+ * A blocker that took damage this step. `broken` means it is GONE: a jar's
+ * cell emptied (and is also in `cleared`, with kind `JAR_KIND`), or a vine
+ * released its piece.
+ */
+export interface BlockerHit {
+  cell: Cell;
+  kind: BlockerKind;
+  broken: boolean;
+}
+
 /** One match -> clear -> fall -> refill beat of a cascade. */
 export interface CascadeStep {
   matches: readonly MatchEvent[];
-  /** Every cell emptied by this step, matches and detonation fallout alike. */
+  /**
+   * Every cell emptied by this step, matches and detonation fallout alike.
+   * The goal-counting source of truth: a vine that absorbed a match is NOT
+   * here (its piece survived), a broken jar IS, under `JAR_KIND`.
+   */
   cleared: readonly ClearedCell[];
   /** Specials created by this step (they survive inside `cleared`'s group). */
   created: readonly { cell: Cell; kind: PieceKind; special: SpecialKind }[];
+  /** Blockers damaged or destroyed this step. Always present, often empty. */
+  blockerHits: readonly BlockerHit[];
   falls: readonly FallEvent[];
   refills: readonly RefillEvent[];
 }
@@ -101,4 +150,23 @@ export function sameCell(a: Cell, b: Cell): boolean {
 /** Orthogonally adjacent — the only legal swap distance. */
 export function areAdjacent(a: Cell, b: Cell): boolean {
   return Math.abs(a.col - b.col) + Math.abs(a.row - b.row) === 1;
+}
+
+/** A jar occupies its cell but is not a piece: nothing about it is playable. */
+export function isJar(piece: Piece | null): boolean {
+  return piece !== null && piece.kind === JAR_KIND;
+}
+
+/** A vined piece matches as its own kind but cannot be moved. */
+export function isVined(piece: Piece | null): boolean {
+  return piece !== null && (piece.blocker?.kind ?? null) === 'vine';
+}
+
+/**
+ * Can the player pick this cell up? Jars are furniture and vines are rooted,
+ * so neither is ever a swap endpoint — the single rule both the input layer
+ * and `findValidMoves` read.
+ */
+export function isMovable(piece: Piece | null): boolean {
+  return piece !== null && !isJar(piece) && !isVined(piece);
 }

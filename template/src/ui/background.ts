@@ -42,6 +42,7 @@ export function addBackground(scene: Phaser.Scene, withStars = true): void {
     });
   } else if (scene.textures.exists(TEXTURE.backdrop)) {
     coverFit(scene, TEXTURE.backdrop, VIEW.width, VIEW.height).setDepth(-200);
+    addScrim(scene);
   } else {
     if (!scene.textures.exists(GRADIENT_KEY)) {
       buildGradient(scene, GRADIENT_KEY, PALETTE.bgTop, PALETTE.bgBottom, 8, VIEW.height);
@@ -53,6 +54,23 @@ export function addBackground(scene: Phaser.Scene, withStars = true): void {
   }
 
   if (withStars) starfield(scene);
+}
+
+/**
+ * Readability veil over the generated backdrop: generated art is far brighter
+ * and busier than the procedural gradient the UI was designed against, so text
+ * drawn straight onto the scene needs a guaranteed dark surface. One full-frame
+ * veil plus heavier top/bottom bands (where HUD, menu copy and results stats
+ * live) keeps the art visible mid-frame while restoring >= 4.5:1 contrast for
+ * ink text. Depth -190 sits above the backdrop (-200) and below starfield
+ * motes and all gameplay.
+ */
+function addScrim(scene: Phaser.Scene): void {
+  const veil = (y: number, h: number, alpha: number) =>
+    scene.add.rectangle(VIEW.centerX, y, VIEW.width, h, PALETTE.bgDeep, alpha).setDepth(-190);
+  veil(VIEW.centerY, VIEW.height, 0.45);
+  veil(150, 300, 0.3);
+  veil(VIEW.height - 190, 380, 0.3);
 }
 
 /**

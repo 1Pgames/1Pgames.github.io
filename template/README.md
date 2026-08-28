@@ -30,10 +30,11 @@ npm run build    # typecheck + dist/
   seeded, reproducible runs (seed shown on the results screen).
 - Family systems on top of that: `SessionDirector` contract with four
   directors (run / level / ramp / lap), a headless board engine
-  (`core/board/*`: match-swap, blast, merge chains, sort, block-fit), an idle
-  `Economy` (generators, managers, prestige, offline accrual), and a shared
-  meta-kit — stars, daily streak, collections, boosters, saga map, booster
-  picker.
+  (`core/board/*`: match-swap, blast, blocker layer, in-level boosters, low-move
+  mercy, merge chains, sort, block-fit), an idle `Economy` (generators,
+  managers, prestige, offline accrual), and a shared meta-kit — stars, daily
+  streak, collections, uncapped boosters, saga map, pre-level booster picker and
+  in-level booster tray.
 - Genre kits (dormant until a PRD needs them, and the whole of family D): turn
   manager, deck/energy, deterministic auto-battle resolver, tap-to-place with
   ghost preview + path-validity, drag-drop board, card hand, shop tray.

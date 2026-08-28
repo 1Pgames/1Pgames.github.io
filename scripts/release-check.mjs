@@ -109,6 +109,52 @@ function checkManifest(m) {
   }
 }
 
+/**
+ * A game ships only after a human has actually played it. The orchestrator
+ * (game-build Step 6) hands the user the local build, collects feedback,
+ * applies it, and only then records the approval here — hand-writing the
+ * field without a real playtest defeats the only gate that catches "runs
+ * fine, feels wrong".
+ */
+function checkPlaytest(m) {
+  const p = m.playtest;
+  if (!p || typeof p !== 'object') {
+    fail(
+      'playtest',
+      'game.json: "playtest" missing — a user playtest is required before release. ' +
+        'Run the game for the user, apply their feedback, then record ' +
+        '{"playtest": {"approved": true, "by": "<user>", "date": "YYYY-MM-DD"}}',
+    );
+    return;
+  }
+  const by = typeof p.by === 'string' ? p.by.trim() : '';
+  const date = typeof p.date === 'string' ? p.date.trim() : '';
+  if (p.approved !== true) fail('playtest', 'game.json: playtest.approved is not true — the user has not signed off');
+  else if (!by || !date) fail('playtest', 'game.json: playtest.approved is true but "by"/"date" are missing');
+  else pass('playtest', `game.json: playtest approved by ${by} on ${date}`);
+}
+
+/**
+ * Golden-path certification (scripts/cert-driver.mjs) leaves a machine
+ * report per run. Missing report = the game shipped without its E2E cert —
+ * a warning for now (the cert harness is newer than the first games), to be
+ * promoted to a hard check once every live game carries one.
+ */
+function checkCert(dir) {
+  const certPath = path.join(dir, 'cert-report.json');
+  if (!existsSync(certPath)) {
+    warn('cert', 'no cert-report.json — run the golden-path cert (scripts/cert-driver.mjs) before release');
+    return;
+  }
+  try {
+    const report = JSON.parse(readFileSync(certPath, 'utf8'));
+    if (report.passed === true) pass('cert', `cert passed at ${report.finishedAt ?? 'unknown time'}`);
+    else fail('cert', `cert-report.json present but passed !== true (${(report.blockers ?? []).length} blocker(s) recorded)`);
+  } catch (err) {
+    fail('cert', `cert-report.json is not valid JSON: ${err.message}`);
+  }
+}
+
 function checkScreenshots(m, dir) {
   const shots = Array.isArray(m.screenshots) ? m.screenshots : [];
   if (shots.length < 3) fail('shots:count', `game.json: ${shots.length} screenshot(s) listed, need >= 3`);
@@ -259,6 +305,8 @@ try {
 }
 
 checkManifest(manifest);
+checkPlaytest(manifest);
+checkCert(dir);
 checkScreenshots(manifest, dir);
 checkPlaceholders(manifest, dir, slug);
 checkCover(manifest, dir, slug);

@@ -45,10 +45,16 @@ export class Button extends Phaser.GameObjects.Container {
     this.bg = scene.add.graphics();
     this.paint(false);
 
+    // The pill IS the contrast surface: the global TEXT armour (stroke +
+    // shadow, tuned for text on the raw backdrop) reads as grime on top of
+    // it, so strip both.
     this.label = scene.add
       .text(0, 0, text, {
         ...TEXT.button,
         color: options.textColor ?? '#05070d',
+        stroke: undefined,
+        strokeThickness: 0,
+        shadow: undefined,
         ...(options.fontSize ? { fontSize: options.fontSize } : {}),
       })
       .setOrigin(0.5);

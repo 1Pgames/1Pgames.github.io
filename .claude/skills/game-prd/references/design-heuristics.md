@@ -1107,3 +1107,22 @@ soft gates are reported and reviewed.
 | H | `LevelDirector` | content validator | Every question/word entry validated against its answer key; no duplicates; no unanswerable entry | Category balance; difficulty-tier spread |
 | J | `RampDirector` | ramp bot | Median session 30-120s; monotone difficulty (no band inversion); retry latency < 2s | Near-miss rate per band; skin coverage 10-15 |
 | I | the core's director | the core's bot | the core family's hard gates, unchanged | plus meta-kit pacing: star/collection gates reachable in the sessions §11.3 predicts |
+
+### 18.1 Human-anchored calibration (playtest-derived, all level-based families)
+
+A single solver-band gate once passed a ladder a real player could not clear:
+the solver sees the whole board and plays optimally, so "solver wins 90%"
+says nothing about humans. Level-based families (B, C levels, G, H — and I
+over any of them) gate BOTH ends:
+
+- **Skilled ceiling** — the family's greedy solver/bot: tutorial 100%,
+  normal ≥95%, hard ≥85%, finale ≥70%.
+- **Weak-human floor** — a RANDOM legal-move bot: tutorial ≥85%,
+  normal 35-65%, hard 12-35%, finale 5-20%, and the floor falls tier by
+  tier (≥5pp per step).
+- **Near-miss** — median loss shortfall ≤15% of the goal, per level.
+- **Mercy parity** — any low-resource kindness (drop-rate narrowing, rubber
+  banding) lives in ONE shared module the scene and the sim both call;
+  a scene-only mercy silently invalidates every tuned number.
+
+Reference gate implementation: `template/src/sim/families/board.ts`.

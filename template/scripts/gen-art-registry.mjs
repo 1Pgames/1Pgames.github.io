@@ -254,7 +254,7 @@ function main() {
   const iconLines = iconEntries
     .map(
       ([name, key, frame, group]) =>
-        `  ${name}: { key: '${key}', frame: ${frame} },${notShipped(group)}`,
+        `  ${/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(name) ? name : `'${name}'`}: { key: '${key}', frame: ${frame} },${notShipped(group)}`,
     )
     .join('\n');
 

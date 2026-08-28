@@ -4,12 +4,16 @@ description: >-
   Turns ONE prompt into a finished, VERIFIED, PUBLISHED game end-to-end: family
   classification → auto-PRD → scaffold with `--family <slice>` → parallel build
   → art (including map-forge world geometry when the family needs it) →
-  integration → family sim gates + browser verification → balance loop → store
-  listing → release gate → publish. Orchestrates `game-prd` (forced `auto`
+  integration → family sim gates + browser verification → balance loop → UI
+  adaptation → store listing → release gate → user playtest → publish.
+  Orchestrates `game-prd` (forced `auto`
   mode), the per-family build workstreams, and `game-art` as parallel subagent
   batches, checkpoints every wave so a dead subagent is reconciled rather than
-  ignored, then drives `npm run verify`, a live browser playthrough and
-  `scripts/release-check.mjs` before flipping the game from draft to released.
+  ignored, then drives `npm run verify`, a live browser playthrough, a
+  mandatory UI-adaptation + overlap/readability audit against the generated
+  art, and `scripts/release-check.mjs` — and NEVER flips draft to released
+  without a real user playtest: the user plays the local build, feedback is
+  applied, and the sign-off is recorded in `game.json.playtest`.
   A pitch in any language is accepted; the storefront it produces is English.
   Use for "make a game about X end to end", "today's game", "сделай игру про X",
   or any single-prompt request for a complete playable game — as opposed to
@@ -48,6 +52,39 @@ Two consequences worth stating twice:
   slice and is wrong for every other family — the single most expensive mistake
   in this pipeline. Confirm the landed slice (`src/slices/` holds exactly one
   dir, `src/sim/family.ts` names it) before spawning anyone.
+
+## Agent roster (specialists, not generic `task` workers)
+
+Project agents live in `.omp/agents/*.md`; each carries its contract, owned
+surfaces and hard rules in its own system prompt, so a dispatch names WHAT to
+do, never re-teaches HOW. The agents are GENRE-AGNOSTIC by design: role and
+method live in the agent, the genre's law flows in from the game's own
+artifacts (PRD §1b dossier, family playbook, heuristics family math,
+AGENTS.md contract) — the same roster builds a casual puzzle today and a
+survival extraction shooter tomorrow. Spawn the specialist, not `task`:
+
+| Agent | Owns | Dispatched at |
+| --- | --- | --- |
+| `game-designer` | Step 0c research, §1b dossier, PRD content tables, design-drift review | Step 0 (with `game-prd`), mid-build design questions |
+| `level-designer` | the family's progression data (ladders / waves / ramps / economy curves), slice tuning, `sim/families/<slice>.ts`, balance loop | Step 1 wave, Step 4 |
+| `gameplay-programmer` | `core/**` engines, slice gameplay logic, sim-model parity, selftests | Step 1 wave |
+| `ui-engineer` | scenes, UI chrome, HUD, coach wiring, every Step 5.5 fix | Step 1 wave, Step 5.5 |
+| `fx-artist` | game-feel wiring: juice/sfx/tween timing, transitions, skip paths, the §13 feel budgets made real | dedicated feel pass after Step 3, before qa |
+| `ux-flow-designer` | PRD §14b flow map (scene graph, tap-depth, interruption matrix, edge states); flow audit of the built game | Step 0 (with game-designer), flow audit before the critic |
+| `art-director` | vision board + anchors (Step 1b), interface direction: UI palette / HUD plan / chrome spec (Step 1c, revises PRD §11+§14), `art/style.json`, generation + QC, manifest, cover/og, icon sheets | Step 2 — vision lock + Step 1c land FIRST (early deliverable ui-engineer waits on) |
+| `content-writer` | naming lexicon, all player-facing copy, store listing strings | Step 1 wave (parallel), Step 6.1 |
+| `build-integrator` | seam reconciliation, GameScene wiring, registry, the ONLY `npm run verify` runner, boot smoke | Step 3 |
+| `game-qa` | golden-path E2E, invariant scans, bug repro/minimization, regression re-checks | Step 5, after every fix round |
+| `game-critic` | persona playtests (novice/veteran/masher), feel verdict vs §1b bar | after Step 5.5, before EVERY user handoff |
+| `code-reviewer` | diff review vs AGENTS.md contract + traps + ownership | between Step 1/2 landing and Step 3 |
+
+The internal loop before ANY user handoff: build waves → `code-reviewer` →
+`build-integrator` → `fx-artist` feel pass → `game-qa` (incl. quality-budget
+measurements + the `ux-flow-designer` flow audit) → fixes (routed to the
+owning specialist) → `game-critic` verdict — repeat until qa has zero
+BLOCKERs, every quality budget measures inside its band, and the critic says
+SHIP. The user's playtest starts where the internal rounds ended, not before
+them.
 
 ## Non-negotiable rules
 
@@ -91,6 +128,24 @@ Two consequences worth stating twice:
 8. **Nothing ships from an unknown state.** Every wave is checkpointed in
    `games/<slug>/build-state.json` and a dead subagent is reconciled before
    integration — see §Checkpoints and dead agents.
+9. **UI adaptation to the game's own art is a build step, not polish.** The
+   template UI is designed against its dark procedural gradient; the moment
+   `game-art` swaps in generated backdrops/pieces, every text layer and
+   surface must be re-fit to that art (Step 5.5): per-game palette, contrast
+   armour, scrim, and an overlap audit of every screen. A game that ships
+   template chrome over bright generated art is not done.
+10. **A user playtest gates every release — AND every commit.** No `git
+    commit` and no `git push` happen anywhere in this pipeline before the
+    user has played the build and signed off. The build's audit trail during
+    development is `build-state.json` plus the working tree, never commits;
+    the FIRST commit of a build is made in Step 6.5 Publish, after
+    `playtest.approved: true` is recorded and `release-check.mjs` exits 0.
+    `release-check.mjs` hard-fails without that field, and it is only written
+    after a human actually played the build and their feedback was applied
+    (Step 6.3). In a headless/non-interactive run the game stays `draft`,
+    nothing is committed or pushed, and the report carries the ready-to-play
+    URL — releasing or deploying without a playtest is not an option the
+    orchestrator has.
 
 ## Workflow
 
@@ -109,6 +164,17 @@ pitch verbatim. It performs, in this order:
    for B/C/F/G/H/J, both for I.
 2. **Step 0b fixed decisions** — session shape, input profile, camera,
    director and meta shape, all looked up on the family.
+2b. **Step 0c genre research (mandatory).** A live market/mechanics research
+    pass on the subgenre (3-6 `web_search` calls, ~10 min budget): reference
+    titles, mechanics inventory incl. special-combo matrices and obstacle
+    taxonomies, numbers (budgets, attempt tiers, mercy), retention surfaces,
+    one differentiation axis — distilled into the PRD's §1b Genre dossier
+    with a ≥8-row staples checklist (`adopt` by default, every `cut`
+    justified). The dossier drives §5 content floors upward
+    (`max(playbook, dossier)`) and sizes §16 workstreams — this is what makes
+    every game content-rich instead of template-shaped. Offline/headless →
+    playbook-cached dossier, flagged in §18; a PRD without §1b is a defect
+    and blocks Step 1.
 3. **Scaffold** — the full command, every flag present:
 
    ```bash
@@ -136,9 +202,10 @@ pitch verbatim. It performs, in this order:
    Omitting `--prompt`/`--genre`/`--desc` ships an empty storefront card and
    fails the release gate; `--family` takes the slice name, never a letter.
 
-The result is `games/<slug>/PRD.md` with the family code in its header, a
-complete §16 build plan, §18 Assumptions log and §19 acceptance criteria — the
-contract for every following step. Read it fully before fanning out, and
+The result is `games/<slug>/PRD.md` with the family code in its header, the
+§1b Genre dossier, a complete §16 build plan, §18 Assumptions log and §19
+acceptance criteria — the contract for every following step. Read it fully
+before fanning out, and
 confirm the scaffold actually landed the right slice (`src/slices/` holds one
 dir; `src/sim/family.ts` names it) before spawning anyone. §16.1's frozen
 interface contracts and §12.2's drift surface are law for every workstream.
@@ -274,6 +341,83 @@ Drive the actual running game; this is not optional and not simulated.
    from the failing state — never skip a state or claim success without its
    screenshot.
 
+### Step 5.5 — UI adaptation + overlap/readability audit (mandatory)
+
+The browser loop proves the game runs; this step proves a player can READ it.
+Run it after Step 5, on the same live tab, using the Step-5 screenshots as the
+audit corpus. The template's own slices under `template/src/slices/` are the
+reference implementation of every fix pattern below.
+
+1. **Palette fit.** `PALETTE`/`CSS` in `src/config.ts` implement the
+   art-director's interface direction (game-art Step 1c: sampled from the
+   locked vision anchors, contrast-checked, recorded in PRD §11/§14) — not
+   the template navy and not values invented in code. If no Step 1c pass
+   exists yet, treat that as the defect: request it via hub, don't
+   re-derive by eye. Keep gameplay identity colours (piece kinds, team
+   colours) as literals locked to the art in the slice's `tuning.ts` —
+   retheming UI chrome must never recolour gameplay coding.
+2. **Contrast armour.** Every `TEXT` preset carries a dark stroke + soft drop
+   shadow tuned to the game's darkest background tone, so copy survives on top
+   of busy art. Components that draw text on their OWN surface (buttons, saga
+   nodes, any pill/panel-backed label) strip the armour
+   (`stroke: undefined, strokeThickness: 0, shadow: undefined`) — armour on a
+   self-surfaced label reads as grime.
+3. **Scrim.** If the slice draws text straight over a generated backdrop, add
+   a readability veil in `src/ui/background.ts` (full-frame ~0.45 alpha of
+   `bgDeep`, heavier top/bottom bands where HUD and results live) so the art
+   stays visible mid-frame while ink text keeps ≥ 4.5:1 contrast.
+4. **Overlap audit — every screen, one screenshot each.** Menu, level/saga
+   map, shop/meta, gameplay HUD, pause, win results, loss results, booster or
+   draft picker (whatever the family ships). Check each against:
+   - the site shell's back-link + prompt chips own the top-left ~315x75 design
+     px on EVERY published page — no in-game text or tappable element may sit
+     under them (centre or right-anchor top-band HUD, or drop it below y≈90);
+   - `SAFE` bands respected: nothing interactive above `SAFE.top` corners or
+     below `VIEW.height - SAFE.bottom` except the shell's own chrome;
+   - no element overlaps another at worst-case animation offsets (idle bobs,
+     count-up text growth, two-line titles from the scaffold's stacked-title
+     rule);
+   - every tappable control actually receives the tap — Phaser hands the
+     pointer to the TOPMOST object only, so a scroll zone or overlay created
+     after buttons swallows them (the template meta shop shipped exactly this
+     bug; its fix — zone created before the rows — is the canonical pattern).
+5. **FTUE / tutorials (mandatory in every game).** A player who has never
+   seen the game must be taught by the game itself, Royal-Match style:
+   - a first-session coach-mark sequence on the first level (dim + spotlight
+     + one-line copy): the goal surface, the resource (moves/timer/lives),
+     and a GATED first action — spotlight a real valid move and only accept
+     that input;
+   - every NEW mechanic (blocker type, booster surface, special) gets a
+     one-beat callout on the level where it debuts, never earlier;
+   - each beat shows exactly ONCE per save (persisted flags), never stacks
+     with another beat, pauses the game while visible, and survives the
+     shutdown trap (clean destroy);
+   - the audit plays the FTUE on a WIPED save and screenshots every beat; a
+     game with no tutorial fails this audit outright.
+   The component SHIPS in the template — `template/src/ui/coach.ts`
+   (`showCoach`/`hasSeenCoach`, `'tap'`/`'swap-gate'` modes) — so a build
+   only writes the WIRING (which beats, which targets, which copy);
+   `template/src/slices/board/game.ts` is the reference wiring. Never build a bespoke tutorial overlay.
+6. **Contract audit.** Walk `template/AGENTS.md` §Non-negotiable rules AND
+   §Quality budgets row by row against the Step-5 screenshots and game-qa's
+   measurements — every rule there is playtest-derived law (modal close,
+   results CTA, scrolling lists clip, icon-first economy surfaces,
+   stats-match-loop, overlap, readability, FTUE, ack ≤100ms, no swallowed
+   input, transition/tempo bands, flow-map fidelity…). The PRD's §1b
+   Genre dossier is part of the same audit: every staple marked
+   `adopt`/`adapt` MUST exist in the shipped game — a dossier row without a
+   shipped implementation is a build defect, not a spec footnote (this is the
+   content-richness gate). A violation is
+   a bug even if this game's user has not complained YET — a previous one
+   already did. New findings from THIS game's playtest are routed per
+   `references/playtest-lessons.md` (a fixed-size routing protocol, not a
+   grow-forever list): merged into the bounded artifact that owns their
+   kind — contract rule, playbook number, Phaser trap, template component,
+   sim gate, or release check.
+7. **Fix and re-shoot.** Any violation is fixed in the owning file and the
+   screen re-captured; the audit is done when every screen passes every row.
+   The store screenshots for Step 6 are taken AFTER this step, never before.
+
 ### Step 6 — Store listing + publish
 
 1. **Store data — English, complete, cover included.** The scaffold already
@@ -299,22 +443,49 @@ Drive the actual running game; this is not optional and not simulated.
    Cyrillic; ≥ 3 screenshots listed **and** on disk; `cover` = `cover.png` with
    a real PNG behind it (never the scaffold gradient); no scaffold placeholder
    strings left in `index.html`/`menu.ts`; generated art not a byte-copy of the
-   template set. Warnings (not blockers): missing `shots/og.png`, leftover
-   `cover.svg`, Cyrillic in `menu.ts`. Fix what it reports; when it exits 0, set
-   `game.json.status` to `"released"`. Games with
-   `status: "draft"` are **not published** — `scripts/build-site.mjs` skips
-   them unless run with `--include-drafts` (local preview only).
-3. **Preview.** `node scripts/build-site.mjs --include-drafts && python3 -m
+   template set; **`playtest.approved: true` recorded by a real user
+   playtest** (step 3 below — the one finding that cannot be fixed by
+   editing files). Warnings (not blockers): missing `shots/og.png`, leftover
+   `cover.svg`, Cyrillic in `menu.ts`. Fix everything else it reports first,
+   so the playtest is the only remaining blocker.
+3. **User playtest gate (blocking).** The user plays the game before it
+   ships — no exceptions:
+   - Keep the Step-5 dev server running (or restart it) and hand the user the
+     URL plus a one-line "what to try" (the family's core loop verbs).
+   - Collect feedback and apply it: gameplay feel, UI readability, palette,
+     anything — each item is a fix + re-verify cycle (typecheck, affected sim
+     gate, re-shoot the touched screen). Update the store screenshots if the
+     fixes changed what the player sees.
+   - **Generalize every finding before closing its fix round — by ROUTING,
+     never by appending to a log.** `references/playtest-lessons.md` is the
+     routing protocol: merge the finding into the bounded artifact that owns
+     its kind (AGENTS.md contract rule or Phaser trap, family playbook
+     number, `template/src/**` component, sim gate/selftest, release check),
+     preferring to SHARPEN an existing rule over adding a sibling. A finding
+     fixed only inside one game will be re-reported by the next game's user.
+   - Only when the user explicitly signs off, write
+     `game.json.playtest = {"approved": true, "by": "<user>", "date": "YYYY-MM-DD"}`,
+     re-run `release-check.mjs` to exit 0, and set `game.json.status` to
+     `"released"`. Games with `status: "draft"` are **not published** —
+     `scripts/build-site.mjs` skips them unless run with `--include-drafts`.
+   - **Headless/non-interactive runs stop here.** Leave the game `draft`,
+     commit NOTHING, push NOTHING, and report the playtest URL and the exact
+     approval command; never self-approve.
+   - Until this gate passes, the entire build exists only in the working
+     tree + `build-state.json` — rule 10: no commit, no push, no deploy.
+4. **Preview.** `node scripts/build-site.mjs --include-drafts && python3 -m
    http.server 5321 -d _site` — check the catalog card, the store page (prompt
    block, gallery, preview loop) and `/play/<slug>/` (the `← Games` pill must
    return to the catalog). Re-run without `--include-drafts` after flipping to
    `released` and confirm the game is in the catalog.
-4. **Publish.** Commit and push to `master`. `.github/workflows/pages.yml`
-   rebuilds every released game plus the catalog and deploys to
-   https://1pgames.github.io/ ; watch the run with `gh run watch`. The `verify`
-   job (sims + selftests) runs alongside — a red verify is a bug to fix even
-   though it does not block the deploy.
-5. **Record.** Capture a short clip of the canvas (screenshots at each beat
+5. **Publish.** Make the build's FIRST commit (everything: game, docs,
+   pipeline changes it needed) and push to `master` — allowed only now, with
+   the sign-off recorded. `.github/workflows/pages.yml` rebuilds every
+   released game plus the catalog and deploys to https://1pgames.github.io/ ;
+   watch the run with `gh run watch`. The `verify` job (sims + selftests)
+   and the release-check job run in CI and **BLOCK the deploy** — a red
+   gate means the push does not ship; fix and re-push.
+6. **Record.** Capture a short clip of the canvas (screenshots at each beat
    from Step 5 are the minimum bar; a full-run recording of the
    `design-heuristics.md` §13 highlight beats is the stretch goal).
 
@@ -330,11 +501,39 @@ Report, in this order:
 4. The screenshot set from Step 5 — the family's checklist rows, one per state,
    with a one-line playability verdict each (renders correctly / input responds
    / matches PRD).
-5. Any fallback taken under §Failure policy, stated plainly, not buried.
-6. Release state: `game.json.status` (`draft` or `released`), the
-   `release-check.mjs` verdict, and — if any wave needed it — which subagents
-   died and were respawned or taken over (from `build-state.json`).
-7. The exact next commands: `cd games/<slug> && npm install && npm run dev`.
+5. The Step 5.5 audit table — one row per screen (menu / map / shop / HUD /
+   pause / win / loss / picker): overlap check + readability check, and what
+   was fixed.
+6. Any fallback taken under §Failure policy, stated plainly, not buried.
+7. Release state: `game.json.status` (`draft` or `released`), the
+   `release-check.mjs` verdict, the **playtest state** (approved by whom and
+   when, or the playtest URL still awaiting the user), and — if any wave
+   needed it — which subagents died and were respawned or taken over (from
+   `build-state.json`).
+8. The exact next commands: `cd games/<slug> && npm install && npm run dev`.
+
+### Step 8 — Post-release retrospective (mandatory, ~10 minutes)
+
+The pipeline learns per release, not per complaint. After the deploy is
+live:
+
+1. **Delta table.** Two columns: findings the INTERNAL loop caught
+   (code-reviewer / qa / flow audit / critic) vs findings the USER's
+   playtest caught. Every user-caught finding is a hole in an internal
+   gate — name the gate that should have caught it.
+2. **Route the holes** per `references/playtest-lessons.md` (merge-first):
+   contract rule, quality budget, playbook number, agent-prompt duty, sim
+   gate, cert/audit script check. A hole with no destination is a new gap —
+   say so explicitly.
+3. **Tighten budgets that measured slack.** If every game clears a budget
+   band effortlessly, the band is too loose to teach anything — tighten it
+   in `template/AGENTS.md` §Quality budgets with the measured evidence.
+4. Append one line to the game's PRD: `Retro: <n internal / m user
+   findings, holes routed to <destinations>>` — the audit trail that the
+   step ran.
+
+A release without a retro is unfinished: the NEXT game pays for it.
+
 
 ## Checkpoints and dead agents
 
@@ -425,10 +624,10 @@ first. `build-state.json` stays in the game folder as the build's audit trail.
 | `skill://game-art` | Style lock, parallel asset generation, engine wiring (Step 2) |
 | `skill://map-forge` | World/level geometry — collision, zones, scene hooks — for genres that need authored maps |
 | `skill://game-prd/references/casual-playbooks.md` | Subgenre playbooks for families B/C/F/G/H/J (and I's casual core) |
-| `skill://game-prd/references/genre-playbooks.md` | Subgenre playbooks for families A/D/E |
+| `references/playtest-lessons.md` | Fixed-size ROUTING PROTOCOL for playtest findings: classification table (finding kind → bounded destination artifact) + merge-first discipline. Findings are never appended as a log — they sharpen a contract rule, playbook number, trap entry, template component, sim gate, or release check |
 | `template/src/slices/` | The eight starter slices; the one the scaffold kept is where gameplay work happens |
 | `scripts/new-game.sh` | Scaffold with `--family <slice> --prompt/--genre/--desc` — prunes other slices and off-family art groups, rewrites the `src/scenes/game.ts` re-export, writes `src/sim/family.ts` and a `status: "draft"` `game.json` |
-| `scripts/release-check.mjs` | Release gate: manifest completeness, English-only fields, ≥3 screenshots, real raster cover, no scaffold leftovers — pass it before setting `game.json.status` to `released` |
+| `scripts/release-check.mjs` | Release gate: manifest completeness, English-only fields, ≥3 screenshots, real raster cover, no scaffold leftovers, and `playtest.approved` from a real user playtest — exit 0 is the precondition for setting `game.json.status` to `released` |
 | `scripts/build-site.mjs` | Catalog + store pages; publishes released games only (`--include-drafts` for local preview) |
 | `games/<slug>/build-state.json` | Per-wave checkpoint written by this skill — task names, ownership globs, statuses; the audit trail for dead-agent recovery |
 | `template/AGENTS.md` | The build contract every workstream and the integrator follow; Phaser 4 traps, UI semantics, pooling rules |

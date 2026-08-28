@@ -36,7 +36,10 @@ Fixed pipeline decisions:
 
 1. **Style profile before any generation.** Write `art/style.json` and pass
    `styleProfile` in every export marker. Skipping it produces individually
-   clean assets that do not belong to the same game.
+   clean assets that do not belong to the same game. The profile's
+   `references` array names the LOCKED VISION ANCHORS (Step 1b) — once they
+   exist, every generation call passes them as `input` images; a text-only
+   call after the vision is locked is a defect.
 2. **Never draw art with code.** No Canvas, SVG, CSS, procedural shapes or
    ASCII. Placeholder procedural textures stay only for particles and debug.
 3. **One `generate_image` call per coherent asset**, one `OMP_SPRITE_EXPORT`
@@ -88,6 +91,66 @@ pixel, flat vector, painterly, neon retro) and the checklist:
 - `plan.materials`: material → substance and surface behaviour, never a colour.
 - `plan.renderScale`: the pixel size the asset is actually drawn at in game.
 - `maxPaletteDistance`: 48-56 for stylised sets.
+
+### Step 1b — Art vision board (choose the vision, lock the anchors)
+
+Text profiles hold a set together; REFERENCE IMAGES hold it together better.
+The art-director chooses one visual vision and every asset is generated
+UNDER it:
+
+1. **Candidates.** Generate 2-3 vision candidates — one full key-art frame
+   each, SAME subject brief (the game's hero moment from PRD §1/§11),
+   deliberately different art directions (pick from
+   `references/style-profiles.md` + the §1b dossier's genre visual bar).
+   One `generate_image` call per candidate, no export marker (these are
+   reference material, not assets).
+2. **Choose.** The art-director picks ONE against explicit criteria: the
+   dossier's reference-title bar, readability at `plan.renderScale`,
+   palette compatibility with the UI, and one distinctive trait that is not
+   a clone of the reference games. Record the choice AND the rejections
+   with one-line reasons in the report; losing candidates are deleted.
+3. **Lock.** Save the winner (and up to 2 detail crops — e.g. a face/prop
+   close-up for material rendering) to `art/refs/vision-*.png`; list those
+   paths in `art/style.json.references`; align the profile's prose fields
+   (artStyle/palette/lighting) to what the winner actually shows — the
+   IMAGE is now the truth, the prose is its description.
+4. **Condition every call.** From this point EVERY asset generation passes
+   the anchors via the native `input` array with the fixing clause (exact
+   wording in `references/prompt-contract.md`): Image 1 fixes rendering
+   style, palette, lighting and finish; the prompt describes only the NEW
+   subject. Characters with multiple actions add their own accepted base
+   frame as the next input (the existing `sprite_anchor_guide` flow) so
+   identity AND style are both pinned.
+5. **Gates unchanged.** `sprite_check_palette` and `art_review` still run
+   on every export — anchors are how the set PASSES them coherently, not a
+   replacement for them.
+
+### Step 1c — Interface direction (UI palette + HUD plan; art-director owns)
+
+The interface is part of the vision. Immediately after the vision lock —
+BEFORE sheet generation fans out — the art-director authors the UI
+direction; ui-engineer implements it verbatim and never re-derives it:
+
+1. **UI palette from the anchors.** Sample the locked vision image(s) and
+   derive every `PALETTE`/`CSS` role: bg tones (deep/top/bottom), ink +
+   inkSoft, primary/secondary/accent, good/bad. Each ink/text colour is
+   CHECKED with real contrast math against `bgTop` (≥4.5:1) and each
+   role's hex is written down with its source ("sampled from the cauldron
+   glow", "anchor shadow tone"). Gameplay identity colours (piece kinds,
+   teams) stay art-locked literals in the slice tuning, never palette
+   references.
+2. **HUD plan (PRD §14 revision).** Author the pixel plan on the game's
+   real frame: every HUD element with coordinates and sizes inside SAFE
+   and clear of the shell corner (315x75), visual hierarchy (what reads
+   first at arm's length), 88px tap targets, and the reserved bands for
+   coach cards / banners / floaters so juice never collides with chrome.
+3. **Chrome spec.** Panel fill/stroke/alpha/radius, button fills per state,
+   armour tone (`INK_STROKE`/shadow colour derived from the darkest anchor
+   tone), scrim strength for text-over-art bands.
+4. **Deliverable.** The PRD's §11 palette table and §14 HUD plan updated to
+   the authored values (they were the game-designer's DRAFT until now) —
+   this is the contract ui-engineer codes against; disagreements route
+   back here, not into ad-hoc code values.
 
 ### Step 2 — Asset manifest (`art/manifest.json`)
 
@@ -181,24 +244,16 @@ project's own style profile.
    moment as a landscape call (`aspect_ratio: "16:9"`,
    `image_size: "1536x1024"`) with `cover.png` passed as `input` (state in the
    prompt that Image 1 fixes composition, palette and character identity), then
-   crop it to the Open Graph frame deterministically:
+   crop it to the Open Graph frame deterministically with the repo script:
 
    ```bash
-   python3 -c "import PIL" && python3 - <<'PY'
-   from PIL import Image
-   im = Image.open('shots/og.raw.png')
-   w, h = im.size
-   tw, th = 1200, 630
-   s = max(tw / w, th / h)
-   im = im.resize((round(w * s), round(h * s)), Image.LANCZOS)
-   w, h = im.size
-   im.crop(((w - tw) // 2, (h - th) // 2, (w - tw) // 2 + tw, (h - th) // 2 + th)).save('shots/og.png')
-   PY
+   scripts/og-crop.sh games/<slug>/shots/og.raw.png games/<slug>/shots/og.png
    ```
 
-   Without Pillow, ship the uncropped landscape as `shots/og.png`: Open Graph
-   consumers rescale, and a hand-guessed crop loses the subject. Never crop the
-   portrait cover into a landscape og — it decapitates the hero.
+   If the script reports its tool missing, ship the uncropped landscape as
+   `shots/og.png`: Open Graph consumers rescale, and a hand-guessed crop
+   loses the subject. Never crop the portrait cover into a landscape og —
+   it decapitates the hero.
 5. **Look at it.** Open both files. A cover that does not read at catalog-card
    size (≈300px wide) is a failed cover, regardless of QC numbers, and the
    `qcExceptions[]` entry a `strict: false` export requires still applies.
@@ -232,7 +287,13 @@ project's own style profile.
 - UI: `this.add.nineslice(...)` for panels/bars, idle/pressed textures for
   buttons, icon frames for HUD. Procedural textures stay for particles only.
 - Verify: `npm run build` clean, then drive the running game in a browser and
-  screenshot menu, run, level-up overlay and results.
+  screenshot menu, run, level-up overlay and results. Generated art is
+  brighter and busier than the template gradient the UI was designed against:
+  after wiring, the build MUST run `game-build` Step 5.5 (UI adaptation +
+  overlap/readability audit) — palette re-fit, text contrast armour, backdrop
+  scrim, and an every-screen overlap pass — before store screenshots are
+  taken. Swapping in a busy background without that audit is a known way to
+  ship unreadable copy.
 
 ### Step 7 — Report
 

@@ -529,7 +529,14 @@ export class GameScene extends Phaser.Scene {
       // The time left on the win IS the rating (see `sideLevelSpec`), so this
       // is what the saga map shows next time.
       recordStars(spec.id, stars);
-      save(SIDE_PROGRESS_KEY, Math.min(this.levelIndex + 1, SIDE_LEVEL_COUNT - 1));
+      // Monotonic: replaying an early level must never revoke the frontier.
+      save(
+        SIDE_PROGRESS_KEY,
+        Math.max(
+          load<number>(SIDE_PROGRESS_KEY, 0),
+          Math.min(this.levelIndex + 1, SIDE_LEVEL_COUNT - 1),
+        ),
+      );
       sfx('levelup');
     } else {
       // Running the 90s budget out is a session outcome, not a twitch mistake:
@@ -797,15 +804,15 @@ export class GameScene extends Phaser.Scene {
     this.paused = true;
     this.director.pause();
     this.physics.world.pause();
-    this.pauseOverlay = showPauseOverlay(
-      this,
-      () => this.resumeRun(),
-      () => {
+    this.pauseOverlay = showPauseOverlay(this, {
+      onResume: () => this.resumeRun(),
+      onRestart: () => {
         this.pauseOverlay?.destroy();
         this.pauseOverlay = null;
         this.scene.restart({ seed: this.seed });
       },
-    );
+      onMenu: () => this.quitToMenu(),
+    });
   }
 
   private resumeRun(): void {
@@ -817,5 +824,26 @@ export class GameScene extends Phaser.Scene {
     // A pause must not bank a jump the player queued before opening it.
     this.jumpPressedAt = -1;
     this.jumpHeld = false;
+  }
+
+  /**
+   * Abandons the level for the map/menu — the exit the pause overlay's MENU
+   * row is. Loops and queued timers die HERE: one firing after `scene.start`
+   * touches a scene that no longer exists (the black-screen trap in
+   * AGENTS.md).
+   */
+  private quitToMenu(): void {
+    this.pauseOverlay?.destroy();
+    this.pauseOverlay = null;
+    this.closeSagaMap();
+    this.ended = true;
+    this.paused = false;
+    this.started = false;
+    this.director.pause();
+    this.tweens.killAll();
+    this.time.removeAllEvents();
+    setMusicIntensity(0.2);
+    sfx('ui', { volume: 0.4 });
+    this.scene.start(SCENES.menu);
   }
 }

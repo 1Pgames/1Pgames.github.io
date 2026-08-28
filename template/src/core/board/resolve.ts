@@ -1,16 +1,19 @@
 import type { Board } from './grid';
 import type {
+  Blocker,
+  BlockerHit,
   CascadeStep,
   Cell,
   ClearedCell,
   FallEvent,
   MatchEvent,
+  Piece,
   PieceKind,
   RefillEvent,
   SpecialKind,
   Swap,
 } from './types';
-import { cellKey } from './types';
+import { JAR_KIND, cellKey, isJar, isMovable, isVined } from './types';
 import type { Rng } from '../rng';
 
 /**
@@ -45,6 +48,11 @@ export interface ResolveOptions {
   detonate?: readonly Cell[];
   /** Minimum connected-group size in `blast`/`tap` mode. */
   minGroup?: number;
+  /**
+   * Cells of the FIRST beat that ignore blockers and empty outright, jars at
+   * full hit points included. The ladle booster, and nothing else.
+   */
+  force?: readonly Cell[];
   maxSteps?: number;
 }
 
@@ -60,13 +68,13 @@ function collectRuns(board: Board): RawRun[] {
   for (let row = 0; row < board.rows; row += 1) {
     let col = 0;
     while (col < board.cols) {
-      const kind = board.kindAt({ col, row });
+      const kind = board.matchKindAt({ col, row });
       if (kind === null) {
         col += 1;
         continue;
       }
       let end = col + 1;
-      while (end < board.cols && board.kindAt({ col: end, row }) === kind) end += 1;
+      while (end < board.cols && board.matchKindAt({ col: end, row }) === kind) end += 1;
       if (end - col >= 3) {
         const cells: Cell[] = [];
         for (let c = col; c < end; c += 1) cells.push({ col: c, row });
@@ -78,13 +86,13 @@ function collectRuns(board: Board): RawRun[] {
   for (let col = 0; col < board.cols; col += 1) {
     let row = 0;
     while (row < board.rows) {
-      const kind = board.kindAt({ col, row });
+      const kind = board.matchKindAt({ col, row });
       if (kind === null) {
         row += 1;
         continue;
       }
       let end = row + 1;
-      while (end < board.rows && board.kindAt({ col, row: end }) === kind) end += 1;
+      while (end < board.rows && board.matchKindAt({ col, row: end }) === kind) end += 1;
       if (end - row >= 3) {
         const cells: Cell[] = [];
         for (let r = row; r < end; r += 1) cells.push({ col, row: r });
@@ -183,6 +191,15 @@ export function findRuns(board: Board, origin?: Cell): MatchEvent[] {
         const longestRun = bucket.reduce((best, run) => (run.cells.length > best.cells.length ? run : best));
         specialAt = longestRun.cells[Math.floor(longestRun.cells.length / 2)];
       }
+      // A special that lands on a vined cell is a special the player cannot
+      // use: the vine keeps it rooted and eats the first blast aimed at it.
+      // Any other cell of the same group is a strictly better home — and if
+      // EVERY cell of the group is vined, the payload is dropped outright:
+      // a booster must never spawn on an occupied (non-free) cell.
+      if (isVined(board.get(specialAt as Cell))) {
+        specialAt = cells.find((cell) => !isVined(board.get(cell)));
+        if (specialAt === undefined) special = null;
+      }
     }
 
     matches.push({ cells, kind: (bucket[0] as RawRun).kind, special, specialAt, runH, runV });
@@ -192,7 +209,7 @@ export function findRuns(board: Board, origin?: Cell): MatchEvent[] {
 
 /** Connected same-kind group containing `cell` (blast/tap mode). */
 export function groupAt(board: Board, cell: Cell, minSize = 2): Cell[] {
-  const kind = board.kindAt(cell);
+  const kind = board.matchKindAt(cell);
   if (kind === null) return [];
   const group: Cell[] = [];
   const seen = new Set<number>([cellKey(cell)]);
@@ -209,7 +226,7 @@ export function groupAt(board: Board, cell: Cell, minSize = 2): Cell[] {
     for (const next of neighbours) {
       const key = cellKey(next);
       if (seen.has(key)) continue;
-      if (board.kindAt(next) !== kind) continue;
+      if (board.matchKindAt(next) !== kind) continue;
       seen.add(key);
       queue.push(next);
     }
@@ -229,13 +246,20 @@ export function findGroups(board: Board, minSize = 2): MatchEvent[] {
       return;
     }
     for (const member of group) claimed.add(cellKey(member));
-    const special: SpecialKind | null =
+    let special: SpecialKind | null =
       group.length >= 7 ? 'bomb' : group.length >= LINE_RUN + 1 ? 'line-h' : null;
+    // Same rule as findRuns: a payload only spawns on a FREE cell of its own
+    // group — never onto a vined piece, and dropped when no free home exists.
+    let specialAt: Cell | undefined;
+    if (special !== null) {
+      specialAt = group.find((member) => !isVined(board.get(member)));
+      if (specialAt === undefined) special = null;
+    }
     matches.push({
       cells: group,
       kind: piece.kind,
       special,
-      specialAt: special === null ? undefined : group[0],
+      specialAt,
       runH: 0,
       runV: 0,
     });
@@ -267,27 +291,102 @@ export function detonationCells(board: Board, at: Cell, special: SpecialKind): C
   return cells;
 }
 
+/** What one clear pass destroyed and what it merely dented. */
+export interface ClearOutcome {
+  cleared: ClearedCell[];
+  hits: BlockerHit[];
+}
+
+/** The four cells whose clearing damages a blocker sitting here. */
+function orthogonal(cell: Cell): Cell[] {
+  return [
+    { col: cell.col + 1, row: cell.row },
+    { col: cell.col - 1, row: cell.row },
+    { col: cell.col, row: cell.row + 1 },
+    { col: cell.col, row: cell.row - 1 },
+  ];
+}
+
+/**
+ * Spends one point of damage on the blocker at `cell` and records the result.
+ *
+ * The two blockers fail in opposite directions, which is the whole design:
+ * a broken JAR takes its cell with it (an empty the refill has to fill, and a
+ * `cleared` entry so a "break the jars" goal can count it), while a broken
+ * VINE gives its cell back (the piece survives, un-vined and un-counted —
+ * freeing an ingredient must never also spend it).
+ */
+function damageBlocker(
+  board: Board,
+  cell: Cell,
+  piece: Piece,
+  blocker: Blocker,
+  cleared: ClearedCell[],
+  hits: BlockerHit[],
+): void {
+  const hp = blocker.hp - 1;
+  if (hp > 0) {
+    blocker.hp = hp;
+    hits.push({ cell: { col: cell.col, row: cell.row }, kind: blocker.kind, broken: false });
+    return;
+  }
+  hits.push({ cell: { col: cell.col, row: cell.row }, kind: blocker.kind, broken: true });
+  if (blocker.kind === 'jar') {
+    board.set(cell, null);
+    cleared.push({ cell: { col: cell.col, row: cell.row }, kind: JAR_KIND, special: null });
+    return;
+  }
+  piece.blocker = null;
+}
+
 /**
  * Empties `seeds`, chaining through any special caught in the blast, and
- * returns what was destroyed (the goal counters read this). Cells in
- * `protect` survive — that is how a freshly created special is not eaten by
- * the very match that produced it.
+ * reports what was destroyed (the goal counters read `cleared`) alongside
+ * every blocker the pass damaged.
+ *
+ * Cells in `protect` survive — that is how a freshly created special is not
+ * eaten by the very match that produced it. Cells in `force` ignore blockers
+ * entirely and are emptied outright; that is the ladle booster, and it is the
+ * ONLY way past a 2-hp jar in one hit.
+ *
+ * A blocker takes at most ONE point of damage per pass no matter how many
+ * clears touch it, so a fat cascade beat cannot silently double-tap a jar —
+ * one beat, one crack, which is what the player sees and can plan against.
  */
 export function clearCells(
   board: Board,
   seeds: readonly Cell[],
   protect?: ReadonlySet<number>,
-): ClearedCell[] {
+  force?: ReadonlySet<number>,
+): ClearOutcome {
   const cleared: ClearedCell[] = [];
+  const hits: BlockerHit[] = [];
   const done = new Set<number>();
+  const dented = new Set<number>();
   const queue: Cell[] = seeds.map((cell) => ({ col: cell.col, row: cell.row }));
   while (queue.length > 0) {
     const cell = queue.pop() as Cell;
     const key = cellKey(cell);
     if (done.has(key) || protect?.has(key) === true) continue;
-    done.add(key);
     const piece = board.get(cell);
-    if (piece === null) continue;
+    if (piece === null) {
+      done.add(key);
+      continue;
+    }
+    const blocker = piece.blocker ?? null;
+    if (blocker !== null && force?.has(key) !== true) {
+      // The blocker absorbs the clear instead of the piece taking it.
+      if (!dented.has(key)) {
+        dented.add(key);
+        damageBlocker(board, cell, piece, blocker, cleared, hits);
+      }
+      continue;
+    }
+    done.add(key);
+    if (blocker !== null) {
+      dented.add(key);
+      hits.push({ cell: { col: cell.col, row: cell.row }, kind: blocker.kind, broken: true });
+    }
     board.set(cell, null);
     const special = piece.special ?? null;
     cleared.push({ cell, kind: piece.kind, special });
@@ -295,10 +394,34 @@ export function clearCells(
       for (const next of detonationCells(board, cell, special)) queue.push(next);
     }
   }
-  return cleared;
+
+  // Splash damage: every cell a PIECE actually left dents the blockers around
+  // it. A jar that broke this pass is not a source — the chain stops at one
+  // ring, so a jar cluster cannot cascade itself away without the player.
+  const sources = cleared.slice();
+  for (const entry of sources) {
+    if (entry.kind === JAR_KIND) continue;
+    for (const next of orthogonal(entry.cell)) {
+      const key = cellKey(next);
+      if (dented.has(key)) continue;
+      const piece = board.get(next);
+      const blocker = piece?.blocker ?? null;
+      if (piece === null || blocker === null) continue;
+      dented.add(key);
+      damageBlocker(board, next, piece, blocker, cleared, hits);
+    }
+  }
+  return { cleared, hits };
 }
 
-/** Slides every piece down its column into the gap below it. Holes are floors. */
+/**
+ * Slides every piece down its column into the gap below it.
+ *
+ * Holes, jars and vined pieces are all FLOORS: they hold their row, and the
+ * pieces above them stack on top instead of streaming past. That is what
+ * makes a jar read as an obstacle rather than as decoration — it splits its
+ * column in two until the player breaks it.
+ */
 export function applyGravity(board: Board): FallEvent[] {
   const falls: FallEvent[] = [];
   for (let col = 0; col < board.cols; col += 1) {
@@ -311,6 +434,12 @@ export function applyGravity(board: Board): FallEvent[] {
       }
       const piece = board.get(cell);
       if (piece === null) continue;
+      // Jars are the floor and vines are nailed down: both hold their row and
+      // the pieces above them stack on top instead of streaming past.
+      if (isJar(piece) || isVined(piece)) {
+        write = row - 1;
+        continue;
+      }
       if (write !== row) {
         board.set({ col, row: write }, piece);
         board.set(cell, null);
@@ -326,14 +455,19 @@ export function applyGravity(board: Board): FallEvent[] {
  * Spawns new pieces into every empty cell. A column split by holes refills
  * each segment from that segment's own top, so a board with holes still
  * returns to full after a cascade.
+ *
+ * Draws from `board.refillKinds`, which is the level's kinds until the mercy
+ * rule narrows them (`board/mercy.ts`) — the one place the endgame's tighter
+ * distribution enters the game.
  */
 export function refillBoard(board: Board, rng: Rng): RefillEvent[] {
   const refills: RefillEvent[] = [];
+  const kinds = board.refillKinds;
   for (let col = 0; col < board.cols; col += 1) {
     for (let row = 0; row < board.rows; row += 1) {
       const cell = { col, row };
       if (board.isBlocked(cell) || board.get(cell) !== null) continue;
-      const piece = { kind: rng.pick(board.kinds), special: null };
+      const piece = { kind: rng.pick(kinds), special: null, blocker: null };
       board.set(cell, piece);
       refills.push({ cell, piece });
     }
@@ -343,8 +477,8 @@ export function refillBoard(board: Board, rng: Rng): RefillEvent[] {
 
 /**
  * Runs the board to rest: match -> create specials -> clear (chaining
- * detonations) -> gravity -> refill, repeated until nothing matches or the
- * step cap is hit. The returned steps are the animation script.
+ * detonations, denting blockers) -> gravity -> refill, repeated until nothing
+ * matches or the step cap is hit. The returned steps are the animation script.
  */
 export function resolveCascades(board: Board, rng: Rng, options: ResolveOptions = {}): CascadeStep[] {
   const mode = options.mode ?? 'swap';
@@ -353,6 +487,10 @@ export function resolveCascades(board: Board, rng: Rng, options: ResolveOptions 
   const steps: CascadeStep[] = [];
 
   let seeds: readonly Cell[] | null = options.detonate ?? null;
+  // Only the FIRST beat may ignore blockers: a booster is one deliberate hit,
+  // not a licence for the cascade it starts to walk through the furniture.
+  let force: ReadonlySet<number> | undefined =
+    options.force === undefined ? undefined : new Set(options.force.map(cellKey));
   let origin = options.origin;
 
   for (let step = 0; step < maxSteps; step += 1) {
@@ -381,13 +519,21 @@ export function resolveCascades(board: Board, rng: Rng, options: ResolveOptions 
       clearSeeds = collected;
     }
 
-    const cleared = clearCells(board, clearSeeds, protect);
-    if (cleared.length === 0 && created.length === 0) break;
-    for (const spawn of created) board.set(spawn.cell, { kind: spawn.kind, special: spawn.special });
+    const { cleared, hits } = clearCells(board, clearSeeds, protect, force);
+    force = undefined;
+    if (cleared.length === 0 && created.length === 0 && hits.length === 0) break;
+    for (const spawn of created) {
+      const under = board.get(spawn.cell);
+      board.set(spawn.cell, {
+        kind: spawn.kind,
+        special: spawn.special,
+        blocker: under?.blocker ?? null,
+      });
+    }
 
     const falls = applyGravity(board);
     const refills = refillBoard(board, rng);
-    steps.push({ matches, cleared, created, falls, refills });
+    steps.push({ matches, cleared, created, blockerHits: hits, falls, refills });
     origin = undefined;
   }
   return steps;
@@ -409,10 +555,15 @@ export function isResolvedSwap(board: Board, a: Cell, b: Cell): boolean {
   return false;
 }
 
-/** Does swapping these two adjacent cells produce a match? Board unchanged. */
+/**
+ * Does swapping these two adjacent cells produce a match? Board unchanged.
+ *
+ * Immovable endpoints are rejected up front: a vined piece MATCHES as its
+ * kind but cannot be the piece you drag, and a jar is not a piece at all.
+ */
 export function swapProducesMatch(board: Board, a: Cell, b: Cell): boolean {
   if (board.isBlocked(a) || board.isBlocked(b)) return false;
-  if (board.get(a) === null || board.get(b) === null) return false;
+  if (!isMovable(board.get(a)) || !isMovable(board.get(b))) return false;
   board.swap(a, b);
   const ok = isResolvedSwap(board, a, b);
   board.swap(a, b);
@@ -428,7 +579,7 @@ export function findValidMoves(board: Board): Swap[] {
   for (let row = 0; row < board.rows; row += 1) {
     for (let col = 0; col < board.cols; col += 1) {
       const a = { col, row };
-      if (board.get(a) === null) continue;
+      if (!isMovable(board.get(a))) continue;
       for (const b of [
         { col: col + 1, row },
         { col, row: row + 1 },
@@ -449,12 +600,17 @@ export function hasDeadBoard(board: Board): boolean {
  * is preserved) until the result has no free matches and at least one legal
  * move. Falls back to a fresh seeded fill. Returns false only if even that
  * cannot produce a playable board.
+ *
+ * Blockers are level layout, not pieces: jars keep their cells and are left
+ * out of the deal entirely, and a vine stays on its cell while the ingredient
+ * underneath is re-dealt with everything else. A shuffle that could move or
+ * clear a blocker would be a free obstacle-removal button.
  */
 export function reshuffle(board: Board, rng: Rng, attempts = 32): boolean {
   const kinds: PieceKind[] = [];
   const cells: Cell[] = [];
   board.forEachCell((cell, piece) => {
-    if (piece === null) return;
+    if (piece === null || piece.kind === JAR_KIND) return;
     kinds.push(piece.kind);
     cells.push({ col: cell.col, row: cell.row });
   });
@@ -465,7 +621,11 @@ export function reshuffle(board: Board, rng: Rng, attempts = 32): boolean {
     for (let i = 0; i < cells.length; i += 1) {
       const cell = cells[i] as Cell;
       const existing = board.get(cell);
-      board.set(cell, { kind: kinds[i] as PieceKind, special: existing?.special ?? null });
+      board.set(cell, {
+        kind: kinds[i] as PieceKind,
+        special: existing?.special ?? null,
+        blocker: existing?.blocker ?? null,
+      });
     }
     if (findRuns(board).length === 0 && findValidMoves(board).length > 0) return true;
   }

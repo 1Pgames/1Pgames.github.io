@@ -247,7 +247,15 @@ function buildNode(scene: Phaser.Scene, x: number, y: number, spec: NodeSpec): N
     .setTint(spec.current ? PALETTE.accent : PALETTE.inkSoft)
     .setAlpha(spec.current ? 1 : 0.5);
   const label = scene.add
-    .text(0, 0, spec.label, { ...TEXT.button, fontSize: '36px', color: spec.unlocked ? '#05070d' : CSS.inkSoft })
+    .text(0, 0, spec.label, {
+      ...TEXT.button,
+      fontSize: '36px',
+      color: spec.unlocked ? '#05070d' : CSS.inkSoft,
+      // The disc is the contrast surface; the backdrop armour would smear the digit.
+      stroke: undefined,
+      strokeThickness: 0,
+      shadow: undefined,
+    })
     .setOrigin(0.5);
 
   const pips: Phaser.GameObjects.Image[] = [];

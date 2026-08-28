@@ -27,6 +27,19 @@ export interface LevelSpec {
   /** Time budget in seconds; omit for purely move-budgeted levels. */
   timeSeconds?: number;
   /**
+   * Playfield dimensions for grid families, when the level's size is part of
+   * its design rather than a global constant.
+   *
+   * Board size is a DIFFICULTY DIAL, not presentation: a smaller grid means
+   * fewer legal swaps, denser blockers per cell and shorter columns, so the
+   * same goal on 6x7 is a different puzzle than on 8x8. Authoring it beside
+   * the goals and the move budget keeps the three numbers that decide a
+   * level's feel in one place; the slice's tuning supplies the default.
+   *
+   * Ignored by non-grid families.
+   */
+  board?: { cols: number; rows: number };
+  /**
    * Star bands as the fraction of budget LEFT on the win: `[one, two, three]`
    * ascending. Defaults to [0, 0.2, 0.45] — any win is 1 star, finishing with
    * 20%+ of the budget left is 2, 45%+ is 3.

@@ -1,5 +1,13 @@
 # Genre playbooks
 
+> **This playbook is a CACHE, not the market.** `game-prd` Step 0c runs a live
+> research pass per game (reference titles, mechanics/combos, obstacle
+> taxonomies, numbers, retention surfaces) and writes the PRD's §1b Genre
+> dossier; content floors become `max(this playbook, dossier)`. Durable
+> corrections discovered by research are merged back HERE (merge-first, see
+> `../../game-build/references/playtest-lessons.md`) so the cache keeps up.
+
+
 Families **A** (real-time-arena) and **D** (turn-based-cards-tactics) only; for
 **B** board-puzzle, **C** side-view-physics, **E** track-vehicle, **F**
 idle-tycoon, **G** table-dice, **H** word-trivia, **J** hypercasual and hybrid

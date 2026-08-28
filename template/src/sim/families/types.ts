@@ -23,6 +23,12 @@ export interface FamilySimOptions {
   seed: string;
   strict: boolean;
   json: boolean;
+  /**
+   * `--trace <path>`: where a family dumps its raw per-session records. Absent
+   * means dump nothing — a family that honours it must also collect nothing,
+   * because the raw arrays are far bigger than the report they feed.
+   */
+  trace?: string;
 }
 
 /** The contract `--family <code>` dispatches to. */

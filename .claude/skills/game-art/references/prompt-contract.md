@@ -59,6 +59,35 @@ outside the 0.5-0.75 band either crops too aggressively (near-square source)
 or leaves letterboxing impossible to fill (very tall/narrow source); staying
 in-band is what makes the crop forgiving instead of surgical.
 
+## Vision anchors (reference-conditioned generation)
+
+Once `art/style.json.references` names the locked vision anchors
+(`art/refs/vision-*.png`, game-art Step 1b), EVERY generation call carries
+them:
+
+```json
+"input": [{ "path": "games/<slug>/art/refs/vision-01.png" }]
+```
+
+and the prompt's `changes`/`subject` opens with the fixing clause, verbatim
+shape:
+
+> Image 1 fixes the rendering style, palette, lighting, outline and finish —
+> match it exactly. Draw a NEW subject in that style: <subject description>.
+> Do not copy Image 1's composition or objects.
+
+Rules:
+- Anchors pin STYLE; the marker's `styleProfile` still rides along (palette
+  QC measures against it) and the magenta-background composition clause is
+  unchanged — reference images never replace the chroma-key contract.
+- Multi-action characters stack inputs: Image 1 = vision anchor, Image 2 =
+  the accepted base frame / `sprite_anchor_guide` (identity + scale), and
+  the clause names both ("Image 1 fixes style; Image 2 fixes this exact
+  character's identity, proportions and feet line").
+- A provider that ignores inputs (style drifts anyway) is handled like any
+  QC failure: 2 retries, then fall back to text-only + record a
+  `qcExceptions[]` entry naming the drift.
+
 ## Multi-action characters
 
 1. Generate `idle` with `"writeScaleProfile": true, "profileName": "<char>"`.

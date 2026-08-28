@@ -19,10 +19,14 @@ import { META_UPGRADES } from './upgrades';
  *               why only the arena catalog uses this kind. `statKey` /
  *               `statPerLevel` are display/authoring hints, not the source
  *               of truth for the modifier.
- * - `booster` — a purchase bumps `MetaSave.upgrades[id]` (so `maxLevel` still
- *               caps lifetime purchases) AND grants `boosterPerLevel`
- *               boosters into `MetaSave.boosters[boosterId]`. Slices consume
- *               them in-run with `progression.spendBooster(boosterId)`.
+ * - `booster` — a CONSUMABLE, and consumables are sold WITHOUT a cap:
+ *               `maxLevel` is `UNLIMITED` and the purchase runs through
+ *               `progression.buyBooster`, which prices the next one off the
+ *               stockpile in `MetaSave.boosters[boosterId]` and bumps
+ *               `MetaSave.upgrades[id]` as the lifetime counter. Slices spend
+ *               them with `progression.spendBooster(boosterId)`. A capped
+ *               consumable is a shelf that goes empty and stays empty — the
+ *               escalating price is the pacing, not a limit.
  * - `perk`    — a purchase only bumps `MetaSave.upgrades[id]`. Slices read
  *               the level directly (`loadMeta().upgrades[id] ?? 0`) and
  *               apply the rule change themselves. Wiring each slice's perk
@@ -42,10 +46,14 @@ export interface MetaEntry {
   id: string;
   name: string;
   description: string;
-  /** Cost of the first level; `cost(level) = round(baseCost * costGrowth ** level)`. */
+  /** Cost of the first one; `cost(n) = round(baseCost * costGrowth ** n)`. */
   baseCost: number;
-  /** Per-level cost multiplier; 1.35 means each level costs 35% more. */
+  /** Per-step cost multiplier; 1.35 means each one costs 35% more. */
   costGrowth: number;
+  /**
+   * Purchase cap. `stat`/`perk` entries name a real ceiling; every `booster`
+   * entry is `UNLIMITED`, and the shop must not render a cap for those.
+   */
   maxLevel: number;
   kind: MetaEntryKind;
   /** `stat` only: the `StatKey` the matching `MetaUpgradeDef` modifies. Informational. */
@@ -57,6 +65,15 @@ export interface MetaEntry {
   /** `booster` only: boosters granted per level bought. Defaults to 1. */
   boosterPerLevel?: number;
 }
+
+/**
+ * `MetaEntry.maxLevel` for anything the player may buy forever.
+ *
+ * `Infinity` rather than a big number so the "is this capped" test is exact
+ * (`Number.isFinite(entry.maxLevel)`) and no arithmetic on it can ever wrap
+ * around into a cap by accident.
+ */
+export const UNLIMITED = Number.POSITIVE_INFINITY;
 
 /**
  * The arena catalog IS `META_UPGRADES`, projected. Deriving it instead of
@@ -75,15 +92,30 @@ const ARENA: readonly MetaEntry[] = META_UPGRADES.map((def) => ({
   statPerLevel: def.perLevel.add ?? def.perLevel.mul,
 }));
 
-/** Match-3 / puzzle board: stockpiled consumables the player spends on a hard level. */
+/**
+ * Match-3 / puzzle board: stockpiled consumables the player spends on a hard
+ * level. Two shelves, and the split matters more than the prices.
+ *
+ * PRE-LEVEL (`extra-moves`, `shuffle`, `bomb-start`) is a bet placed before
+ * the deal, so it is cheap and blunt. IN-LEVEL (`ladle`, `broom`, `pestle`,
+ * `whisk`, see `core/board/boosters.ts`) is a tool used with the board in
+ * front of you — the answer to the one jar you cannot reach on the last move.
+ * It costs more per point of raw clearing because knowing WHERE to aim is most
+ * of its value, and none of the four spends a move.
+ *
+ * Price ladder inside the in-level shelf tracks how much of the board an aim
+ * buys: a ladle answers one cell (70), a broom or pestle a whole line (70/90 —
+ * a column is worth more on a board taller than it is wide), a whisk re-deals
+ * every loose piece at once (120).
+ */
 const BOARD: readonly MetaEntry[] = [
   {
     id: 'meta_extra_moves',
     name: 'Extra Moves',
-    description: '+3 moves at the start of a level. Grants 1 use per level bought.',
+    description: '+3 moves at the start of a level.',
     baseCost: 60,
     costGrowth: 1.35,
-    maxLevel: 10,
+    maxLevel: UNLIMITED,
     kind: 'booster',
     boosterId: 'extra-moves',
     boosterPerLevel: 1,
@@ -91,10 +123,10 @@ const BOARD: readonly MetaEntry[] = [
   {
     id: 'meta_shuffle',
     name: 'Shuffle',
-    description: 'Reshuffle the board once when you run out of matches.',
+    description: 'One reshuffle when you are out of matches.',
     baseCost: 80,
     costGrowth: 1.4,
-    maxLevel: 8,
+    maxLevel: UNLIMITED,
     kind: 'booster',
     boosterId: 'shuffle',
     boosterPerLevel: 1,
@@ -102,12 +134,56 @@ const BOARD: readonly MetaEntry[] = [
   {
     id: 'meta_bomb_start',
     name: 'Opening Bomb',
-    description: 'Start the level with one bomb already on the board.',
+    description: 'Begin with a bomb already on the board.',
     baseCost: 110,
     costGrowth: 1.45,
-    maxLevel: 6,
+    maxLevel: UNLIMITED,
     kind: 'booster',
     boosterId: 'bomb-start',
+    boosterPerLevel: 1,
+  },
+  {
+    id: 'meta_ladle',
+    name: 'Ladle',
+    description: 'Scoops out any one piece. Cracks a jar. Free.',
+    baseCost: 70,
+    costGrowth: 1.35,
+    maxLevel: UNLIMITED,
+    kind: 'booster',
+    boosterId: 'ladle',
+    boosterPerLevel: 1,
+  },
+  {
+    id: 'meta_broom',
+    name: 'Broom',
+    description: 'Sweeps one whole row clean. Free.',
+    baseCost: 70,
+    costGrowth: 1.35,
+    maxLevel: UNLIMITED,
+    kind: 'booster',
+    boosterId: 'broom',
+    boosterPerLevel: 1,
+  },
+  {
+    id: 'meta_pestle',
+    name: 'Pestle',
+    description: 'Grinds one whole column. Free.',
+    baseCost: 90,
+    costGrowth: 1.35,
+    maxLevel: UNLIMITED,
+    kind: 'booster',
+    boosterId: 'pestle',
+    boosterPerLevel: 1,
+  },
+  {
+    id: 'meta_whisk',
+    name: 'Whisk',
+    description: 'Stirs loose pieces into new spots. Free.',
+    baseCost: 120,
+    costGrowth: 1.4,
+    maxLevel: UNLIMITED,
+    kind: 'booster',
+    boosterId: 'whisk',
     boosterPerLevel: 1,
   },
 ];
@@ -129,7 +205,7 @@ const SIDE: readonly MetaEntry[] = [
     description: 'Carry on once after a fatal hit. Grants 1 use per level bought.',
     baseCost: 90,
     costGrowth: 1.4,
-    maxLevel: 8,
+    maxLevel: UNLIMITED,
     kind: 'booster',
     boosterId: 'extra-life',
     boosterPerLevel: 1,
@@ -144,7 +220,7 @@ const WORD: readonly MetaEntry[] = [
     description: 'Reveal half of the remaining letters. Grants 1 use per level bought.',
     baseCost: 55,
     costGrowth: 1.35,
-    maxLevel: 10,
+    maxLevel: UNLIMITED,
     kind: 'booster',
     boosterId: 'fifty-fifty',
     boosterPerLevel: 1,
@@ -155,7 +231,7 @@ const WORD: readonly MetaEntry[] = [
     description: '+20 seconds on the clock. Grants 1 use per level bought.',
     baseCost: 50,
     costGrowth: 1.3,
-    maxLevel: 10,
+    maxLevel: UNLIMITED,
     kind: 'booster',
     boosterId: 'time-plus',
     boosterPerLevel: 1,
@@ -214,7 +290,7 @@ const TABLE: readonly MetaEntry[] = [
     description: 'One extra reroll this game. Grants 1 use per level bought.',
     baseCost: 60,
     costGrowth: 1.35,
-    maxLevel: 10,
+    maxLevel: UNLIMITED,
     kind: 'booster',
     boosterId: 'extra-rolls',
     boosterPerLevel: 1,

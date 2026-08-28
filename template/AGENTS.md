@@ -35,7 +35,7 @@ column is what the slice already wires out of `core/progression.ts` and
 | Code | Genres | Session director | Slice | Sim gate | Meta wiring the slice ships |
 | --- | --- | --- | --- | --- | --- |
 | A | survivor-like, action roguelike, tower defense, horde arena | `RunDirector` (`src/core/run.ts`) | `src/slices/arena/` | `npm run sim -- --family arena` | `metaModifiers()` stat upgrades + daily streak |
-| B | match/blast, merge, sort, block-fit | `LevelDirector` (`src/core/level.ts`) | `src/slices/board/` | `npm run sim -- --family board` | saga map + stars + boosters (`extra-moves`, `shuffle`, `bomb-start`) + streak |
+| B | match/blast, merge, sort, block-fit | `LevelDirector` (`src/core/level.ts`) | `src/slices/board/` | `npm run sim -- --family board` | saga map + stars + 7 uncapped boosters — pre-level (`extra-moves`, `shuffle`, `bomb-start`) and in-level tray (`ladle`, `broom`, `pestle`, `whisk`, none of which spend a move) — + streak |
 | C | platformer, endless runner, physics launch/hill-climb | `LevelDirector` (levels) or `RampDirector` (endless) | `src/slices/side/` | `npm run sim -- --family side` | saga map + time-band stars + `extra-life` revive + `meta_coin_magnet` + streak |
 | D | deckbuilder, tactics, auto-battler | `RunDirector`, `progress` indexed by fight/node | **no slice — compose from the genre kits** | none yet | none yet — a D game wires its own |
 | E | racing, karts, drift circuits | `LapDirector` (`src/core/lap.ts`) | `src/slices/track/` | `npm run sim -- --family track` | `meta_tune_up` top speed + streak |
@@ -149,10 +149,12 @@ The template default is `arena`.
 | `src/ui/hud.ts` | `Hud` — hp/xp bars, level, run timer, currency, kills, phase label; fed a diffed `HudModel` via `set(model)` each frame |
 | `src/ui/bars.ts` | `Bar` — HP / XP / progress bars: primitive housing + texture-scaled fill |
 | `src/ui/cards.ts` | `showUpgradeCards(scene, choices, onPick, opts)` — pick-1-of-N overlay with rarity chips and an optional one-per-draft reroll (`TUNING.draft.rerollCost`) |
-| `src/ui/pauseOverlay.ts` | `showPauseOverlay(scene, onResume, onRestart)` — dim + Resume/Restart/Mute; pairs with the on-screen pause button in `GameScene` |
+| `src/ui/pauseOverlay.ts` | `showPauseOverlay(scene, {onResume, onRestart, onMenu?})` — dim + Resume/Restart/**Menu**/Mute; the MENU row renders ONLY when `onMenu` is passed (and every slice passes it: the run's exit door), and the caller owns the teardown before `scene.start(SCENES.menu)` |
 | `src/ui/sagaMap.ts` | `showSagaMap(scene, opts)` — scrolling level path with star ratings and lock states; the meta shape for B/C/H |
-| `src/ui/boosterBar.ts` | `showBoosterPicker(scene, opts)` — pre-level booster offers spent against `MetaSave.boosters` |
+| `src/ui/boosterBar.ts` | `showBoosterPicker(scene, opts)` pre-level gate + `showBoosterTray(scene, opts)` in-level tray, both ICON-ONLY square slots (glow/plate/count badge) sharing one tooltip (`BOOSTER_BLURB[id]`, SAFE-aware flip, 3s auto-hide, never interactive). A name is never a permanent label. Both return `bounds` for a coach mark; `BoosterGlyph.art` degrades to the tinted `TEX` primitive when its slot is unloaded |
+| `src/ui/coach.ts` | `showCoach(scene, {id, target, text, mode})` / `hasSeenCoach(id)` — FTUE coach marks: 4-rect dim + spotlight cutout, pointer hand, one-line card; `'tap'` or `'swap-gate'` (the dim rects ARE the input gate); one-shot `tut:<id>` flags via `core/storage` |
 | `src/ui/background.ts` | `addBackground(scene)` — parallax `bg-layer-0/1/2` (cover-fit, camera scrollFactors) → single `bg-arena` → procedural gradient+starfield fallback |
+| `src/ui/background.ts` scrim | the generated-backdrop branch adds a `bgDeep` veil at depth -190 (full frame 0.45 + heavier top/bottom bands) — generated art is brighter than the gradient the UI was designed against, and ink text needs a guaranteed dark surface |
 | `src/core/music.ts` | zero-asset generative music: `startMusic('menu'\|'run')`, `setMusicIntensity(0..1)`, `setMusicLayer('boss', on)`, `stopMusic()`; muted together with sfx |
 
 ### Systems (the reason this template exists)
@@ -170,7 +172,7 @@ The template default is `arena`.
 | `src/core/level.ts` | `LevelDirector`: `LevelGoal[]` + move/time budget → win/lose; families B/C/G/H |
 | `src/core/ramp.ts` | `RampDirector`: endless score-chase with a difficulty ramp (`RampSpec`), `progress === null`; family J and C-endless |
 | `src/core/lap.ts` | `LapDirector`: laps + checkpoints (`LapSpec`); family E |
-| `src/core/board/*` | headless board engine: `types` (cells/specials), `grid` (`Board`), `resolve` (match-swap/blast cascades), `merge` (merge chains), `sort` (sort puzzles), `block` (block-fit) — all seeded, all Phaser-free |
+| `src/core/board/*` | headless board engine: `types` (cells/specials/blockers), `grid` (`Board`), `resolve` (match-swap/blast cascades, jar + vine blocker layer), `boosters` (in-level `ladle`/`broom`/`pestle`/`whisk` — none spends a move), `mercy` (refill-pool narrowing at low moves), `merge` (merge chains), `sort` (sort puzzles), `block` (block-fit) — all seeded, all Phaser-free |
 | `src/core/economy.ts` | `Economy`: generators, managers, prestige, offline accrual, `EconomySnapshot` save/restore — family F's whole loop |
 | `src/core/progression.ts` | versioned `MetaSave` (v2: currency, unlocks, upgrades, **stars**, daily **streak**, **collections**, **boosters**) + `metaModifiers()`; migrations are per-version steps — bump `version` and add one |
 | `src/core/collections.ts` | `CollectionSetDef` / `collectionProgress` / `rollMissingPiece` — the collect-a-set meta layer |
@@ -183,7 +185,7 @@ The template default is `arena`.
 | `src/data/waves.ts` | reference 480s run: phases, waves, `TIMELINE_EVENTS` (2 chests, breather, elite-rush) |
 | `src/objects/coin.ts`, `src/objects/blade.ts` | pooled elite-drop currency pickup; pooled orbit blade |
 | `src/sim/*` | headless balance sim over the REAL data. `families/<code>.ts` holds one family's bots/solvers and gates (`board` greedy-vs-random solver ladder, `hyper` skill-parameterised session length, `idle` economy curves and prestige floor, `table` dice win-rate band, `word` bank integrity + accuracy bots over all five packs, `side` generator validation + hop bot, `track` lap completion + bot spread); `arena` is `cli.ts`'s own lane pipeline; `family.ts` holds the scaffolded default; `kits/*.selftest.ts` guard the shared kits |
-| `src/scenes/*` | `boot → preload → menu → meta → game → gameover` wired with fades |
+| `src/scenes/*` | `boot → preload → menu → meta → game → gameover` wired with fades. `meta.ts` is the SHOP: a drag-scrolled row list clipped by its OWN camera viewport (a real GPU scissor — Phaser 4 has no `setMask`), identity scroll, mutual `ignore` with the main camera, re-hooked per visit. `gameover.ts` obeys one CTA law: `won && next` → PLAY NEXT (`levelIndex`), `won && !next` → PLAY AGAIN (the retry action relabelled, plus the neutral `ALL CLEAR!` note), a loss → RETRY (same seed) — SPACE always mirrors the primary, and the shop pill is labelled SHOP everywhere, never UPGRADES |
 
 ### Genre kits (dormant until a PRD needs them)
 
@@ -283,13 +285,69 @@ Regenerating or adding art is the `game-art` skill's job, not hand-drawing:
 - **Screen-space UI must set `setScrollFactor(0)` on every interactive object,**
   not just on its parent container: with a following camera Phaser hit-tests a
   child against the camera scroll independently, so an unpinned card renders
-  centred but only accepts clicks at the camera's world offset.
+  centred but only accepts clicks at the camera's world offset. The ONE
+  exception: objects inside a camera-scissor list scroll WITH the content —
+  restore factor 1 on their whole tree there (`buyButton.setScrollFactor(1,
+  1, true)` in `scenes/meta.ts`), because that camera's base scroll equals
+  its viewport origin.
 - **Tappable UI uses click semantics, never release semantics.** Phaser
   dispatches `POINTER_UP` to whatever is under the pointer, so a control must
   arm on its own `POINTER_DOWN` and disarm on `POINTER_OUT` before acting —
   otherwise letting go of the stick over a freshly opened overlay picks a card
   for the player. `ui/button.ts` and `ui/cards.ts` already do this; copy the
   pattern for any new interactive object.
+- **Interactive z-order is a contract.** Phaser hands the pointer to the
+  TOPMOST interactive object only: any scroll zone, dim veil or overlay
+  created AFTER a set of buttons swallows their taps. Create drag/scroll
+  zones BEFORE the rows they scroll (see `scenes/meta.ts`), and after adding
+  any full-screen interactive layer, re-verify every button under it still
+  receives clicks in a real browser.
+- **The site shell owns the top-left corner.** The published page (and dev)
+  overlays back-link + prompt chips over roughly the top-left 315x75 design
+  px of the canvas. No in-game text or tappable element may sit there:
+  centre or right-anchor top-band HUD, or drop it below y≈90.
+- **Every modal offers an explicit way out.** A picker/overlay without a
+  close control (X pill, ESC parity) traps the player; pause always offers
+  RESUME / RESTART / MENU / SOUND (`ui/pauseOverlay.ts` renders MENU when
+  `onMenu` is wired — wire it in every slice).
+- **Results CTA matches the outcome.** Win with a next level → PLAY NEXT
+  (direct start); win without one → PLAY AGAIN; loss → RETRY (same seed).
+  Never RETRY as the primary on a win (`scenes/gameover.ts` implements the
+  law via `GameOverData.next`).
+- **Scrolling lists clip, they never hide.** Rows scroll continuously under
+  a camera-viewport scissor (list on its own camera, identity scroll, mutual
+  `ignore` — `scenes/meta.ts` is the pattern); visibility-culling or fading
+  rows at the boundary reads as broken.
+- **Economy surfaces are icon-first.** Booster chips/slots show an icon +
+  corner count badge, never a text label; selecting/arming shows the shared
+  tooltip (name + one-liner, `BOOSTER_BLURB`). In-level boosters live in the
+  tray housing panel; the meta screen is called SHOP and sells consumables
+  UNCAPPED at escalating prices, coin glyph on every price pill.
+- **Stats shown match the loop.** A move-budgeted game shows no BEST TIME; a
+  timed game shows no MOVES. Menu and results rows are re-derived per family,
+  never left as template defaults.
+- **UI must be re-fit to generated art (game-build Step 5.5).** The template
+  chrome is tuned for the dark procedural gradient. Once `game-art` lands a
+  backdrop or piece art: re-derive `PALETTE`/`CSS` from the art; keep
+  gameplay identity colours (piece kinds, teams) as literals in the slice's
+  `tuning.ts` locked to the art, never palette references; give `TEXT`
+  presets stroke+shadow armour against the darkest background tone; add a
+  backdrop scrim in `ui/background.ts` when text draws straight over art;
+  and STRIP the armour (`stroke: undefined, strokeThickness: 0,
+  shadow: undefined`) on labels that sit on their own pill/panel/disc
+  surface, where it reads as grime.
+- **Ladder progress is monotonic.** Any `save(<family> progress key, …)` on a
+  win takes `Math.max` with the stored value — replaying an early level must
+  never revoke the frontier (the board/side/word slices ship this pattern;
+  copy it for any new ladder).
+- **Every game teaches itself (FTUE).** First session gets a coach-mark
+  sequence on level/run 1 (dim + spotlight + one-liner: goal surface,
+  resource, one gated first action), and every new mechanic gets a one-beat
+  callout on its debut level. Build it with `ui/coach.ts` (`showCoach` /
+  `hasSeenCoach`) — never a bespoke overlay. Beats show once per save
+  (persisted `tut:<id>` flags), pause the game while visible, never stack,
+  and destroy cleanly. A game without a tutorial fails the game-build
+  Step 5.5 audit.
 - **Pool everything hot.** Above ~50 spawns/minute use `Pool`/`SpritePool`. Above
   ~150 simultaneous entities use `SpatialHash` instead of per-pair overlaps.
 - **60fps at the PRD's peak entity count.** No `Graphics` redraw per frame, no new
@@ -297,7 +355,9 @@ Regenerating or adding art is the `game-art` skill's job, not hand-drawing:
   update loops.
 - **Every gameplay event gets feedback:** one of `shake / pop / flash / burst /
   floatText / hitstop` plus one `sfx()`, respecting the PRD's spam caps (damage
-  numbers per second, no shake at very high entity counts).
+  numbers per second, no shake at very high entity counts). Persistent states
+  are designed too: earned specials pulse/glow while idle (loop tweens killed
+  on recycle), and the selection highlight is themed, never a default circle.
 - **A session must be completable** in the PRD's target window, with win and
   loss both reachable through the director's `SessionOutcome`, and one-tap
   retry.
@@ -319,6 +379,47 @@ Regenerating or adding art is the `game-art` skill's job, not hand-drawing:
   answer, side level clear, track lap) → pause/resume → win **and** loss →
   results with the family's `ResultStat` rows → retry.
 
+## Quality budgets (genre-agnostic numbers; the feel contract)
+
+Every budget below is measurable in the running game; game-qa measures them,
+game-critic judges against them, fx-artist and ui-engineer are held to them.
+A build over budget is a defect even when every feature "works".
+
+### Responsiveness
+- **Input acknowledgment ≤ 100ms** (ideally next frame): every tap/drag gets
+  a VISIBLE reaction immediately — pressed state, selection glow, refusal
+  headshake — even when the real effect animates later. Silence is a bug.
+- **No swallowed input**: during cascades/animations, input is either
+  queued (and visibly so) or refused WITH feedback (bounce + soft sfx) —
+  never silently dropped. Buttons stay armed on their own POINTER_DOWN.
+- **Scene transitions ≤ 400ms** (fade or slide, never a hard cut, never a
+  black gap); retry/restart from decision to playable ≤ 2s.
+- **60fps at the PRD's peak counts** — measured during the heaviest beat
+  (max cascade / max entities), not the menu.
+
+### Feel & dynamism
+- **Meaningful events stack ≥ 2 feedback channels** (visual + audio minimum;
+  big beats add scale/shake/hitstop) with spam caps from the PRD's §13
+  juice table.
+- **Payoff cadence**: no stretch of normal play longer than ~20s without a
+  reward beat (family's §9 feel budget refines this); idle/persistent
+  states have designed presence (pulse/glow), never static sprites.
+- **Animation tempo**: core-loop action animations 120-400ms; anything
+  longer is skippable or fast-forwardable (tap-to-skip on finales and
+  ceremonies). Nothing the player waits on twice per minute exceeds 700ms.
+
+### Flow logic
+- **≤ 2 taps from boot to the core action** (menu → [map] → playing);
+  every extra gate needs a design reason in the PRD.
+- **Every screen is exitable**: no dead ends; back/close never destroys
+  progress without confirmation; the pause path always reaches the menu.
+- **State honesty**: empty/zero/maxed states are designed (empty shop,
+  zero-count consumables, last-level win), never blank panels or dangling
+  buttons.
+- **The flow map is law**: the PRD's §14b scene/flow graph names every
+  screen, transition and its trigger; a shipped transition not on the map
+  (or a mapped one that dead-ends) is a defect.
+
 ## Common Phaser 4 traps (this is v4, not v3)
 
 - `setTintFill()` is gone → `setTint(c).setTintMode(Phaser.TintModes.FILL)`.
@@ -333,8 +434,20 @@ Regenerating or adding art is the `game-art` skill's job, not hand-drawing:
   `import Phaser from 'phaser'`.**
 - `TimerEvent#delay` is read-only → `timer.reset({...})`.
 - `setMask()` / `createGeometryMask()` are gone: masks are Filters
-  (`obj.filters.internal.addMask(...)`). For a short scrolling list prefer
-  visibility culling (see `scenes/meta.ts`) over a filter.
+  (`obj.filters.internal.addMask(...)`). For a scrolling list do NOT reach for
+  a filter (or for visibility culling, which pops rows in and out at the band
+  edge): give the list its OWN camera whose viewport IS the band — a camera
+  viewport is a true GPU scissor. Set that camera's scroll to its viewport
+  origin so world→screen stays identity (same hit areas, same drag math),
+  `cameras.main.ignore(list)` and `listCam.ignore(everything else)`.
+  Two follow-on traps, both in `scenes/meta.ts`:
+  `ui/button.ts` pins itself at scrollFactor 0, which a factor-0 object
+  renders offset by the list camera's origin — restore
+  `setScrollFactor(1, 1, true)` on any button that scrolls with the content;
+  and an `ADDED_TO_SCENE` listener that keeps the camera honest OUTLIVES a
+  `scene.start()` round-trip, so it must be unhooked on `SHUTDOWN` or the next
+  visit ignores everything against the destroyed camera's reused id and the
+  screen comes up blank.
 - `this.sound` is a union type; narrow to `Phaser.Sound.WebAudioSoundManager`
   before touching `.context`.
 - Arcade `StaticBody` circles are in WORLD px, their centre is derived as
@@ -349,3 +462,12 @@ Regenerating or adding art is the `game-art` skill's job, not hand-drawing:
   scene transition — which shows up as a black screen on game over, not as an
   obvious crash. Hold your own scene reference plus a `destroyed` flag (see
   `ui/bars.ts`) and unsubscribe in `destroy()`.
+- A Scene INSTANCE survives `scene.start()` round-trips: instance fields
+  (arrays, scroll offsets, flags) keep their values while every child they
+  described is destroyed, and `this.events` listeners registered in
+  `create()` stay attached across the restart. Reset per-visit state at the
+  top of `create()`, and pair every `this.events.on(...)` with
+  `this.events.once(SHUTDOWN, () => this.events.off(...))` — a leaked
+  ADDED_TO_SCENE listener holding a destroyed camera blanked a shipped game's
+  shop on re-entry, because the fresh camera REUSES the destroyed camera's
+  id in `cameraFilter` masks.

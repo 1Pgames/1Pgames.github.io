@@ -69,6 +69,21 @@ jobs:
             echo "== verify $dir"
             (cd "$dir" && bash scripts/verify.sh)
           done
+      # The storefront gate: every game claiming `released` must actually
+      # clear the release checklist (manifest, playtest sign-off, cover,
+      # screenshots, no scaffold leftovers). A hand-flipped status without
+      # the gate no longer deploys.
+      - name: Release-check released games
+        run: |
+          for dir in games/*/; do
+            [ -f "$dir/game.json" ] || continue
+            status=$(node -p "JSON.parse(require('fs').readFileSync('$dir/game.json','utf8')).status")
+            if [ "$status" = "released" ]; then
+              slug=$(basename "$dir")
+              echo "== release-check $slug"
+              node scripts/release-check.mjs "$slug"
+            fi
+          done
 
   # BY DESIGN: a red `verify` blocks the deploy. The storefront promises
   # polished, playable games — shipping a build whose balance sims, selftests
