@@ -50,22 +50,29 @@ const SKILL_LEVELS: readonly number[] = [0.1, 0.5, 0.9];
 const MAX_DROPS = 4000;
 
 /**
- * Session-length bands.
+ * Session-length band at median skill, HARD.
  *
- * The HARD band is derived from this slice's own numbers: the retry loop costs
- * `hitstopMs + fadeOutMs` plus a results screen, and one traversal of the slab
- * costs `~(VIEW.width - width) / 2 / speed` ≈ 0.3-0.6s, so a run under ~10s is
- * fewer than ~20 drops — too short to even show a perfect drop (~1 in 5 at
- * median skill) before the transition costs more than the run. The 120s
- * ceiling is the instant-retry design: past that the session stops being a
- * hypercasual loop.
+ * `SESSION_TARGET_S` is the design target: a hypercasual sitting is one deep
+ * breath, and the whole meta (skins on score milestones, the pre-run picker,
+ * `meta_slow_start`) is priced against a player who takes ~30s a run and
+ * retries instantly.
  *
- * `SESSION_TARGET_S` is the wave brief's 30s design target, kept as a SOFT
- * gate: the measured median is well under it (see the note this file prints),
- * and closing that gap is a `slices/hyper/tuning.ts` change, not a sim change.
+ * The band brackets that target rather than merely bracketing the absurd. It
+ * used to be [10, 120] with the 30s target parked in a separate SOFT gate,
+ * which is the same thing as having no session-length bar at all: 10s is
+ * fewer than ~20 drops, too short to even show a perfect drop (~1 in 5 at
+ * median skill) before the retry transition costs more than the run, and 120s
+ * is four times the target — a run that long is a different genre. So:
+ *  - 25s floor: the target minus one bad early drop. Under it the loop is not
+ *    "one more go", it is a coin-flip on the first three slabs.
+ *  - 90s ceiling: three times the target. A median player routinely running
+ *    that long means `difficultyPerStep`/`minWidth` never close the window,
+ *    and the score chase has no pressure.
+ * Asymmetric on purpose: overshooting the target is a slow-burn design smell,
+ * undershooting it breaks the retry loop immediately.
  */
-const MIN_SESSION_S = 10;
-const MAX_SESSION_S = 120;
+const MIN_SESSION_S = 25;
+const MAX_SESSION_S = 90;
 const SESSION_TARGET_S = 30;
 
 interface RunResult {
@@ -146,7 +153,7 @@ export default function runFamilySim(options: FamilySimOptions): number {
     hard(
       midSession >= MIN_SESSION_S && midSession <= MAX_SESSION_S,
       `median session at skill 0.5 = ${num(midSession, 1)}s ` +
-        `(must be within [${MIN_SESSION_S}, ${MAX_SESSION_S}])`,
+        `(must be within [${MIN_SESSION_S}, ${MAX_SESSION_S}] around the ${SESSION_TARGET_S}s design target)`,
     ),
   );
 
@@ -191,18 +198,6 @@ export default function runFamilySim(options: FamilySimOptions): number {
       expertDifficulty >= rampHorizon,
       `difficulty reached at skill 0.9 = ${num(expertDifficulty)} of a ${num(rampCeiling)} ceiling ` +
         `(must pass ${num(rampHorizon)}, else the ramp is unreachable)`,
-    ),
-  );
-
-  gates.push(
-    soft(
-      midSession >= SESSION_TARGET_S,
-      `median session at skill 0.5 = ${num(midSession, 1)}s vs the ${SESSION_TARGET_S}s design target ` +
-        `(short: the perfect window is +-${HYPER_TUNING.stack.perfectEpsilon}px ~ ` +
-        `+-${Math.round((HYPER_TUNING.stack.perfectEpsilon / HYPER_TUNING.baseSpeed) * 1000)}ms at base speed, ` +
-        `so a ${HYPER_TUNING.stack.startWidth - HYPER_TUNING.stack.minWidth}px width budget bleeds out in ` +
-        `${num(median(bySkill[1]?.results.map((r) => r.drops) ?? []), 0)} drops — raise perfectEpsilon or ` +
-        'widthBonusOnPerfect in slices/hyper/tuning.ts)',
     ),
   );
 

@@ -13,6 +13,8 @@ import {
 } from '../../slices/side/gen';
 import { SIDE_LEVEL_KNOBS, buildSideLevel, sideLevelSpec } from '../../slices/side/levels';
 import { SIDE_TUNING } from '../../slices/side/tuning';
+import { finishFamily, hard, median, num, pct, printTable, soft } from './types';
+import type { FamilySimOptions, GateResult } from './types';
 
 /**
  * Headless balance gates for the side-view platformer slice (family C).
@@ -40,19 +42,23 @@ import { SIDE_TUNING } from '../../slices/side/tuning';
  * Run: `npm run sim -- --family side [--runs 20] [--seed balance] [--json]`
  */
 
-interface FamilyOptions {
-  runs: number;
-  seed: string;
-  strict: boolean;
-  json: boolean;
-}
-
 const STEP_S = 1 / 60;
 const STEP_MS = STEP_S * 1000;
 const JITTER_MS_AT_ZERO_SKILL = 90;
-/** Skill the gates are evaluated at: a median player, not an expert. */
-const GATE_SKILL = 0.5;
-/** Jitter streams per generated level — the same level, replayed by three players. */
+/**
+ * Skill spread the gates are evaluated across — a novice, a median player and
+ * an expert. Gating at the median alone said nothing about whether the ladder
+ * REWARDS skill: a level that plays identically for a novice and an expert is
+ * a level whose difficulty is noise, not execution, and only a spread shows
+ * that up. 0.25/0.75 rather than 0.1/0.9 because the jitter model is a timing
+ * SD (`JITTER_MS_AT_ZERO_SKILL * (1 - skill)`), and its ends — 81ms and 9ms —
+ * are a flailing beginner and a frame-perfect robot, neither of whom the
+ * ladder is authored for.
+ */
+const GATE_SKILLS: readonly number[] = [0.25, 0.5, 0.75];
+/** Index into `GATE_SKILLS` of the median player every absolute band is read at. */
+const MID = 1;
+/** Jitter streams per generated level per skill — the same level, replayed by three players. */
 const ATTEMPTS_PER_SEED = 3;
 /** Seeds the analytic validator gate sweeps, independent of `--runs`. */
 const VALIDATION_SEEDS = 50;
@@ -244,6 +250,16 @@ function simulateRun(level: SideLevel, skill: number, rng: Rng): RunResult {
   };
 }
 
+/** One skill's bot sample on one level. */
+interface SkillSample {
+  skill: number;
+  runs: number;
+  wins: number;
+  completion: number;
+  medianTimeS: number | null;
+  topDeath: string;
+}
+
 interface LevelReport {
   level: number;
   /** Generator health across the validation sweep. */
@@ -254,12 +270,8 @@ interface LevelReport {
   coins: number;
   minWindow: number;
   maxGap: number;
-  /** Bot results at `GATE_SKILL`. */
-  runs: number;
-  wins: number;
-  completion: number;
-  medianTimeS: number | null;
-  topDeath: string;
+  /** One sample per `GATE_SKILLS` entry, in that order. */
+  bySkill: SkillSample[];
   /** Runs by a zero-jitter bot: a fair level is always clearable by perfect play. */
   flawlessRuns: number;
   flawlessWins: number;
@@ -267,20 +279,12 @@ interface LevelReport {
   unfairSeed: string | null;
 }
 
-function median(values: readonly number[]): number | null {
-  if (values.length === 0) return null;
-  const sorted = [...values].sort((a, b) => a - b);
-  const mid = Math.floor(sorted.length / 2);
-  return sorted.length % 2 === 0 ? ((sorted[mid - 1]! + sorted[mid]!) / 2) : sorted[mid]!;
+/** The median player's sample — every absolute completion band is read here. */
+function midSample(report: LevelReport): SkillSample {
+  return report.bySkill[MID] as SkillSample;
 }
 
-interface GateResult {
-  ok: boolean;
-  level: 'hard' | 'soft';
-  message: string;
-}
-
-function buildReports(options: FamilyOptions): { reports: LevelReport[]; validationFailures: string[] } {
+function buildReports(options: FamilySimOptions): { reports: LevelReport[]; validationFailures: string[] } {
   const reports: LevelReport[] = [];
   const validationFailures: string[] = [];
   const seeds = Math.max(VALIDATION_SEEDS, options.runs);
@@ -293,13 +297,15 @@ function buildReports(options: FamilyOptions): { reports: LevelReport[]; validat
     let coins = 0;
     let minWindow = Number.POSITIVE_INFINITY;
     let maxGap = 0;
-    const times: number[] = [];
-    const deaths = new Map<string, number>();
-    let wins = 0;
-    let runs = 0;
     let flawlessRuns = 0;
     let flawlessWins = 0;
     let unfairSeed: string | null = null;
+    // One accumulator per gate skill, all fed from the SAME generated levels
+    // so the completion spread is a pure measurement of execution.
+    const times = GATE_SKILLS.map((): number[] => []);
+    const deaths = GATE_SKILLS.map(() => new Map<string, number>());
+    const wins = GATE_SKILLS.map(() => 0);
+    const runs = GATE_SKILLS.map(() => 0);
 
     for (let s = 0; s < seeds; s += 1) {
       const seed = `${options.seed}:${s}`;
@@ -329,24 +335,19 @@ function buildReports(options: FamilyOptions): { reports: LevelReport[]; validat
       if (flawless.won) flawlessWins += 1;
       else if (unfairSeed === null) unfairSeed = `${seed} (${flawless.reason} on platform ${flawless.platform})`;
 
-      for (let attempt = 0; attempt < ATTEMPTS_PER_SEED; attempt += 1) {
-        const result = simulateRun(level, GATE_SKILL, new Rng(`${seed}:bot:${index}:${attempt}`));
-        runs += 1;
-        if (result.won) {
-          wins += 1;
-          times.push(result.timeS);
-        } else {
-          deaths.set(result.reason, (deaths.get(result.reason) ?? 0) + 1);
+      for (let k = 0; k < GATE_SKILLS.length; k += 1) {
+        const skill = GATE_SKILLS[k] as number;
+        for (let attempt = 0; attempt < ATTEMPTS_PER_SEED; attempt += 1) {
+          const result = simulateRun(level, skill, new Rng(`${seed}:bot:${index}:${skill}:${attempt}`));
+          runs[k] = (runs[k] as number) + 1;
+          if (result.won) {
+            wins[k] = (wins[k] as number) + 1;
+            (times[k] as number[]).push(result.timeS);
+          } else {
+            const reasons = deaths[k] as Map<string, number>;
+            reasons.set(result.reason, (reasons.get(result.reason) ?? 0) + 1);
+          }
         }
-      }
-    }
-
-    let topDeath = 'none';
-    let topCount = 0;
-    for (const [reason, count] of deaths) {
-      if (count > topCount) {
-        topCount = count;
-        topDeath = reason;
       }
     }
 
@@ -359,11 +360,27 @@ function buildReports(options: FamilyOptions): { reports: LevelReport[]; validat
       coins: coins / seeds,
       minWindow: minWindow === Number.POSITIVE_INFINITY ? 0 : minWindow,
       maxGap,
-      runs,
-      wins,
-      completion: runs > 0 ? wins / runs : 0,
-      medianTimeS: median(times),
-      topDeath,
+      bySkill: GATE_SKILLS.map((skill, k) => {
+        let topDeath = 'none';
+        let topCount = 0;
+        for (const [reason, count] of deaths[k] as Map<string, number>) {
+          if (count > topCount) {
+            topCount = count;
+            topDeath = reason;
+          }
+        }
+        const played = runs[k] as number;
+        const won = wins[k] as number;
+        const sample = times[k] as number[];
+        return {
+          skill,
+          runs: played,
+          wins: won,
+          completion: played > 0 ? won / played : 0,
+          medianTimeS: sample.length > 0 ? median(sample) : null,
+          topDeath,
+        };
+      }),
       flawlessRuns,
       flawlessWins,
       unfairSeed,
@@ -376,151 +393,171 @@ function buildReports(options: FamilyOptions): { reports: LevelReport[]; validat
 function evaluateGates(
   reports: readonly LevelReport[],
   validationFailures: readonly string[],
-  strict: boolean,
 ): GateResult[] {
   const gates: GateResult[] = [];
+  const midSkill = GATE_SKILLS[MID] as number;
 
-  gates.push({
-    ok: validationFailures.length === 0,
-    level: 'hard',
-    message:
+  gates.push(
+    hard(
+      validationFailures.length === 0,
       validationFailures.length === 0
         ? `all ${SIDE_LEVEL_KNOBS.length} levels validated across every seed (reachability proof holds)`
         : `${validationFailures.length} level(s) failed their own reachability proof, first: ${validationFailures[0]}`,
-  });
+    ),
+  );
 
   const relaxedTotal = reports.reduce((sum, report) => sum + report.relaxed, 0);
-  gates.push({
-    ok: relaxedTotal === 0,
-    level: 'soft',
-    message: `${relaxedTotal} level(s) needed the relaxed knob fallback (the shipped ladder should place directly)`,
-  });
+  gates.push(
+    soft(
+      relaxedTotal === 0,
+      `${relaxedTotal} level(s) needed the relaxed knob fallback (the shipped ladder should place directly)`,
+    ),
+  );
 
   const early = reports.filter((report) => report.level <= 3);
   const earlyWorst = early.reduce(
-    (worst, report) => (report.completion < worst.completion ? report : worst),
+    (worst, report) => (midSample(report).completion < midSample(worst).completion ? report : worst),
     early[0] ?? reports[0]!,
   );
-  gates.push({
-    ok: earlyWorst.completion >= 0.7,
-    level: 'hard',
-    message: `L1-3 completion at skill ${GATE_SKILL}: worst is L${earlyWorst.level} at ${(earlyWorst.completion * 100).toFixed(0)}% (must be >= 70%)`,
-  });
+  gates.push(
+    hard(
+      midSample(earlyWorst).completion >= 0.7,
+      `L1-3 completion at skill ${midSkill}: worst is L${earlyWorst.level} at ` +
+        `${pct(midSample(earlyWorst).completion)} (must be >= 70%)`,
+    ),
+  );
 
   const finale = reports[reports.length - 1]!;
-  gates.push({
-    ok: finale.completion >= 0.25,
-    level: 'hard',
-    message: `L${finale.level} completion at skill ${GATE_SKILL}: ${(finale.completion * 100).toFixed(0)}% (must be >= 25%)`,
-  });
+  gates.push(
+    hard(
+      midSample(finale).completion >= 0.25,
+      `L${finale.level} completion at skill ${midSkill}: ${pct(midSample(finale).completion)} (must be >= 25%)`,
+    ),
+  );
 
   // Perfect play must clear everything. This is the gate that actually proves
   // the hazard-aware hop planner: an unfair level is one where a player who
   // lands exactly where the planner told them to still has no legal jump left.
   const unfair = reports.filter((report) => report.flawlessWins < report.flawlessRuns);
-  gates.push({
-    ok: unfair.length === 0,
-    level: 'hard',
-    message:
+  gates.push(
+    hard(
+      unfair.length === 0,
       unfair.length === 0
         ? `zero-jitter play clears all ${reports.length} levels on every seed (no unfair level)`
         : `unfair level(s): ${unfair
             .map((report) => `L${report.level} ${report.flawlessRuns - report.flawlessWins}x, first ${report.unfairSeed}`)
             .join('; ')}`,
-  });
+    ),
+  );
+
+  // EXECUTION MUST PAY. Read on the last three levels, where the gaps are
+  // tight enough for timing to decide the run: if a 9ms-SD expert clears them
+  // no more often than a 68ms-SD novice, the ladder's late difficulty is
+  // coming from generator variance rather than from anything the player does,
+  // and no amount of practice would make it feel fairer. Hard, because that is
+  // a broken platformer, not a tuning preference.
+  const late = reports.filter((report) => report.level >= reports.length - 2);
+  const laneMean = (subset: readonly LevelReport[], k: number): number =>
+    subset.reduce((sum, report) => sum + (report.bySkill[k] as SkillSample).completion, 0) /
+    Math.max(1, subset.length);
+  const noviceLate = laneMean(late, 0);
+  const expertLate = laneMean(late, GATE_SKILLS.length - 1);
+  gates.push(
+    hard(
+      expertLate > noviceLate,
+      `late-ladder completion spread: skill ${GATE_SKILLS[GATE_SKILLS.length - 1]} ${pct(expertLate)} vs ` +
+        `skill ${GATE_SKILLS[0]} ${pct(noviceLate)} on L${reports.length - 2}-L${reports.length} ` +
+        '(execution must beat flailing)',
+    ),
+  );
 
   // Difficulty trend, aggregated: single-level completion at 60 runs is too
   // noisy to gate on, but the ladder's two halves should still separate.
-  const meanCompletion = (subset: readonly LevelReport[]): number =>
-    subset.reduce((sum, report) => sum + report.completion, 0) / Math.max(1, subset.length);
-  const earlyMean = meanCompletion(early);
-  const lateMean = meanCompletion(reports.filter((report) => report.level >= reports.length - 2));
-  gates.push({
-    ok: lateMean <= earlyMean,
-    level: 'soft',
-    message: `difficulty trend: L1-3 mean ${(earlyMean * 100).toFixed(0)}% vs last three ${(lateMean * 100).toFixed(0)}% (the ladder should not get easier)`,
-  });
+  const earlyMean = laneMean(early, MID);
+  const lateMean = laneMean(late, MID);
+  gates.push(
+    soft(
+      lateMean <= earlyMean,
+      `difficulty trend: L1-3 mean ${pct(earlyMean)} vs last three ${pct(lateMean)} ` +
+        '(the ladder should not get easier)',
+    ),
+  );
 
   // Completion time is dominated by the world length: 5600px at 260px/s is
   // ~21.5s of running, plus airtime and the door approach.
-  const outOfBand = reports.filter(
-    (report) => report.medianTimeS !== null && (report.medianTimeS < 20 || report.medianTimeS > 75),
-  );
-  gates.push({
-    ok: outOfBand.length === 0,
-    level: 'soft',
-    message:
+  const outOfBand = reports.filter((report) => {
+    const timeS = midSample(report).medianTimeS;
+    return timeS !== null && (timeS < 20 || timeS > 75);
+  });
+  gates.push(
+    soft(
+      outOfBand.length === 0,
       outOfBand.length === 0
         ? `median completion time per level within [20, 75]s (${reports
-            .map((report) => report.medianTimeS?.toFixed(1) ?? 'n/a')
+            .map((report) => midSample(report).medianTimeS?.toFixed(1) ?? 'n/a')
             .join(', ')})`
         : `level(s) outside the 20-75s completion band: ${outOfBand
-            .map((report) => `L${report.level}=${report.medianTimeS?.toFixed(1)}s`)
+            .map((report) => `L${report.level}=${midSample(report).medianTimeS?.toFixed(1)}s`)
             .join(', ')}`,
-  });
+    ),
+  );
 
   const noCoins = reports.filter((report) => report.coins < 8);
-  gates.push({
-    ok: noCoins.length === 0,
-    level: 'soft',
-    message:
+  gates.push(
+    soft(
+      noCoins.length === 0,
       noCoins.length === 0
-        ? `every level pays 8-14 coins (mean ${reports.map((r) => r.coins.toFixed(1)).join(', ')})`
+        ? `every level pays 8-14 coins (mean ${reports.map((r) => num(r.coins, 1)).join(', ')})`
         : `level(s) under the 8-coin payout floor: ${noCoins.map((r) => `L${r.level}`).join(', ')}`,
-  });
+    ),
+  );
 
-  if (strict) return gates.map((gate) => ({ ...gate, level: 'hard' as const }));
   return gates;
-}
-
-function printTable(reports: readonly LevelReport[]): void {
-  console.log('side (family C) — authored platformer levels');
-  console.log('level  plats  spikes  coins  maxGap  minWin  runs  completion  medianS  topDeath  genTries');
-  console.log('------------------------------------------------------------------------------------------');
-  for (const report of reports) {
-    console.log(
-      `L${String(report.level).padEnd(5)}` +
-        `${report.platforms.toFixed(1).padStart(5)}  ` +
-        `${report.spikes.toFixed(1).padStart(6)}  ` +
-        `${report.coins.toFixed(1).padStart(5)}  ` +
-        `${String(report.maxGap).padStart(6)}  ` +
-        `${report.minWindow.toFixed(0).padStart(6)}  ` +
-        `${String(report.runs).padStart(4)}  ` +
-        `${`${(report.completion * 100).toFixed(0)}%`.padStart(10)}  ` +
-        `${(report.medianTimeS?.toFixed(1) ?? 'n/a').padStart(7)}  ` +
-        `${report.topDeath.padEnd(8)}  ` +
-        `${report.attempts.toFixed(2).padStart(8)}`,
-    );
-  }
 }
 
 /**
  * Family entry point (see `src/sim/cli.ts`): returns the process exit code —
  * 0 when every hard gate passes, 1 otherwise.
  */
-export default function runFamilySim(options: FamilyOptions): number {
+export default function runFamilySim(options: FamilySimOptions): number {
   const { reports, validationFailures } = buildReports(options);
-  const gates = evaluateGates(reports, validationFailures, options.strict);
-  const hardFailures = gates.filter((gate) => gate.level === 'hard' && !gate.ok);
-  const softWarnings = gates.filter((gate) => gate.level === 'soft' && !gate.ok);
+  const gates = evaluateGates(reports, validationFailures);
 
-  if (options.json) {
-    console.log(JSON.stringify({ family: 'side', reports, gates, validationFailures }, null, 2));
-  } else {
-    printTable(reports);
-    console.log('');
-    for (const gate of gates) {
-      const tag = gate.ok ? 'PASS' : gate.level === 'hard' ? 'FAIL' : 'WARN';
-      console.log(`[${tag}] ${gate.message}`);
-    }
-  }
+  const render = (): void => {
+    console.log('side (family C) — authored platformer levels');
+    printTable(
+      [
+        'level',
+        'plats',
+        'spikes',
+        'coins',
+        'maxGap',
+        'minWin',
+        'runs',
+        ...GATE_SKILLS.map((skill) => `c@${skill}`),
+        'medianS',
+        'topDeath',
+        'genTries',
+      ],
+      reports.map((report) => [
+        `L${report.level}`,
+        num(report.platforms, 1),
+        num(report.spikes, 1),
+        num(report.coins, 1),
+        String(report.maxGap),
+        num(report.minWindow, 0),
+        String(midSample(report).runs),
+        ...report.bySkill.map((sample) => pct(sample.completion)),
+        midSample(report).medianTimeS?.toFixed(1) ?? 'n/a',
+        midSample(report).topDeath,
+        num(report.attempts, 2),
+      ]),
+    );
+    console.log(
+      `\n${ATTEMPTS_PER_SEED} attempt(s) x ${options.runs} seed(s) per level per skill, seed '${options.seed}'; ` +
+        `${VALIDATION_SEEDS}-seed analytic sweep on top.`,
+    );
+  };
 
-  if (hardFailures.length > 0) {
-    console.error(`\n${hardFailures.length} hard gate(s) failed.`);
-    return 1;
-  }
-  if (softWarnings.length > 0 && !options.json) {
-    console.error(`\n${softWarnings.length} soft warning(s) (non-fatal; pass --strict to fail on these).`);
-  }
-  return 0;
+  return finishFamily(options, gates, render, { family: 'side', reports, validationFailures });
 }

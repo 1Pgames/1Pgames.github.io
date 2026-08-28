@@ -22,6 +22,15 @@ export interface RunMetrics {
   hpMinPct: number;
   /** Player DPS dealt, bucketed per 60s of run time (index 0 = 0-60s, etc). */
   dpsBy60s: number[];
+  /**
+   * Fraction of the boss's HP bar the player removed (1 = killed), or `null`
+   * on a run that died before the boss spawned. The finale is the only place
+   * `TUNING.boss` matters, so this is the one number that says whether the
+   * authored 3-phase script is reachable content or decoration.
+   */
+  bossHpRemoved: number | null;
+  /** Highest boss phase the fight reached (0 = boss never spawned, 3 = enrage). */
+  bossPhase: number;
 }
 
 export interface LaneAggregate {
@@ -33,6 +42,16 @@ export interface LaneAggregate {
   cadencePer480: number;
   /** Mean choice events inside the first 120s (design lands 3-4 there: first draft ~45s, then a slowing curve). */
   choicesBy120S: number;
+  /** Runs that lived long enough to meet the boss. */
+  bossRuns: number;
+  /** Mean fraction of the boss bar removed across those runs (`NaN` when none met it). */
+  bossHpRemoved: number;
+  /**
+   * Deepest boss phase any run reached (0 = boss never met). `TUNING.boss`
+   * scripts three of them, so a lane stuck at 1 is a lane that never sees the
+   * summon+shield or enrage-ring content at all.
+   */
+  bossPhaseMax: number;
 }
 
 function median(values: readonly number[]): number | null {
@@ -58,11 +77,19 @@ export function aggregateLane(lane: LanePolicy, runs: readonly RunMetrics[]): La
   let totalChoices = 0;
   let totalBy120 = 0;
   let totalRefRuns = 0; // each run's share of a 480s reference run
+  let bossRuns = 0;
+  let totalBossHpRemoved = 0;
+  let bossPhaseMax = 0;
   for (const run of laneRuns) {
     if (run.deathS !== null) deathSeconds.push(run.deathS);
     totalChoices += run.choiceEvents;
     totalBy120 += run.choicesBy120S;
     totalRefRuns += Math.max(run.endS, 60) / 480;
+    if (run.bossHpRemoved !== null) {
+      bossRuns += 1;
+      totalBossHpRemoved += run.bossHpRemoved;
+      bossPhaseMax = Math.max(bossPhaseMax, run.bossPhase);
+    }
   }
   return {
     lane,
@@ -71,5 +98,8 @@ export function aggregateLane(lane: LanePolicy, runs: readonly RunMetrics[]): La
     medianDeathS: median(deathSeconds),
     cadencePer480: totalRefRuns > 0 ? totalChoices / totalRefRuns : 0,
     choicesBy120S: laneRuns.length > 0 ? totalBy120 / laneRuns.length : 0,
+    bossRuns,
+    bossHpRemoved: bossRuns > 0 ? totalBossHpRemoved / bossRuns : Number.NaN,
+    bossPhaseMax,
   };
 }

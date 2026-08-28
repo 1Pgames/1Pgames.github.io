@@ -16,8 +16,36 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.."
 echo "== typecheck =="
 npm run --silent typecheck
 
-echo "== balance sim =="
-npm run --silent sim -- --runs 20 --lane all
+echo "== balance sims (strict) =="
+# STRICT is the shipping gate: `--strict` promotes every soft gate to hard, so
+# a WARN fails the pipeline. The soft/hard split exists for interactive tuning
+# runs (`npm run sim`), where a warning is a hint about the number you are
+# currently moving; by the time a change is being verified, a gate worth
+# printing is a gate worth failing on.
+#
+# The family list is the filesystem, not a literal — `new-game.sh` prunes the
+# families a scaffold does not ship, and a game may author its own (see
+# `availableFamilies` in src/sim/cli.ts). The arena lane pipeline lives in
+# `cli.ts` itself rather than in `src/sim/families/`, and it gates the
+# reference 480s timeline in `data/waves.ts`, which only an A game plays — so
+# it runs while `src/sim/family.ts` still says `arena`.
+shopt -s nullglob
+if grep -q "SIM_FAMILY = 'arena'" src/sim/family.ts; then
+  echo "-- arena --"
+  npm run --silent sim -- --family arena --runs 20 --lane all --strict
+fi
+for family_module in src/sim/families/*.ts; do
+  family_code="$(basename "$family_module" .ts)"
+  if [ "$family_code" = "types" ]; then continue; fi
+  echo "-- $family_code --"
+  case "$family_code" in
+    # 20 runs per level is a +-10 point win-rate estimate, too coarse for the
+    # [30%, 90%] ladder band the board gate reads off its hardest level.
+    board) family_runs=60 ;;
+    *) family_runs=20 ;;
+  esac
+  npm run --silent sim -- --family "$family_code" --runs "$family_runs" --strict
+done
 
 echo "== art registry =="
 if [ -f scripts/gen-art-registry.mjs ]; then

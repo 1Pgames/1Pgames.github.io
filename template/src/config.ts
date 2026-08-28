@@ -173,9 +173,15 @@ export const TUNING = {
     summonMin: 6,
     summonMax: 10,
     shieldDamageMul: 0.35,
-    /** Phase 3: enrage speed/cadence multipliers and the bullet-ring cadence. */
+    /**
+     * Phase 3: enrage speed plus the bullet-ring cadence. Phase 3 REPLACES the
+     * volley with the ring (`Enemy.tickBoss` routes into `tickBossRing` and
+     * never reaches the volley branch), so the ring's own cooldown is the
+     * phase-3 cadence and there is no separate enrage cadence multiplier to
+     * apply — the one that used to sit here was read by nothing but the sim,
+     * which was modelling a phase-3 volley the game does not fire.
+     */
     enrageSpeedMul: 1.4,
-    enrageCadenceMul: 0.65,
     ringCooldownMs: 3000,
     ringTelegraphMs: 500,
     ringShots: 14,

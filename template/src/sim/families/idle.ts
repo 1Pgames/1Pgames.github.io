@@ -38,22 +38,29 @@ const TAP_INTERVAL_MS = 200;
 const HORIZON_MIN = 45;
 
 /**
- * Prestige window. This bot plays the FASTEST possible first cycle — it spends
- * every coin the instant it can afford the cheapest thing and taps at the
- * sustained human ceiling — so its time is a LOWER bound on a real player's.
- * The ceiling is therefore a hard gate (if optimal play cannot prestige in one
- * sitting, nobody can) and so is half the design floor (below that the unlock
- * is trivial at any play rate), while the design floor itself is a soft gate:
- * an optimal bot beating it is expected, a human tapping once a second is not.
- */
-/**
- * Human design floor is 15 min; the optimal bot spends instantly and taps at
- * 5/s, measured ~20-25% faster than sustained human play, so the bot-adjusted
- * floor is 12 bot-minutes ≈ 15 human-minutes.
+ * Prestige window, HARD at both ends.
+ *
+ * This bot plays the FASTEST possible first cycle — it spends every coin the
+ * instant it can afford the cheapest thing and taps at the sustained human
+ * ceiling of 5/s — so its time is a LOWER bound on a real player's. That is
+ * exactly what makes both ends gateable:
+ *  - ceiling: if optimal play cannot prestige in one sitting, nobody can;
+ *  - floor: if optimal play prestiges EARLIER than the design floor, the
+ *    unlock is trivial, because every slower player is bounded below by this
+ *    bot's time, not above it.
+ *
+ * The floor used to be gated at `PRESTIGE_MIN / 2` — 6 bot-minutes — with the
+ * real floor demoted to a soft warning "because an optimal bot beating it is
+ * expected". That reasoning is backwards: the bot is the lower bound, so it is
+ * the ONE player whose time the floor can be stated against. Halving it gated
+ * nothing a human would ever notice.
+ *
+ * Human design floor is 15 min; the bot's instant spending and 5/s tapping
+ * measure ~20-25% faster than sustained human play, so the bot-adjusted floor
+ * is 12 bot-minutes ≈ 15 human-minutes.
  */
 const PRESTIGE_MIN = 12;
 const PRESTIGE_MAX = 35;
-const PRESTIGE_BOT_MIN = PRESTIGE_MIN / 2;
 /**
  * Dead air is measured as consecutive steps in which the bot took NO action:
  * nothing was affordable and no manual cycle came up ready. (Sampling the
@@ -238,19 +245,10 @@ export default function runFamilySim(options: FamilySimOptions): number {
   const prestigeMedian = median(prestigeTimes);
   gates.push(
     hard(
-      prestigeTimes.length === results.length &&
-        prestigeMedian >= PRESTIGE_BOT_MIN &&
-        prestigeMedian <= PRESTIGE_MAX,
+      prestigeTimes.length === results.length && prestigeMedian >= PRESTIGE_MIN && prestigeMedian <= PRESTIGE_MAX,
       `optimal-bot first prestige at ${num(prestigeMedian, 1)} min in ${prestigeTimes.length}/${results.length} ` +
-        `runs (must be within [${num(PRESTIGE_BOT_MIN, 1)}, ${PRESTIGE_MAX}])`,
-    ),
-  );
-  gates.push(
-    soft(
-      prestigeMedian >= PRESTIGE_MIN,
-      `optimal-bot first prestige at ${num(prestigeMedian, 1)} min vs the ${PRESTIGE_MIN} bot-min floor (≈15 human-min) ` +
-        '(the bot spends every coin instantly and taps at 5/s, so a human lands later — ' +
-        `raise prestige.unlockAtTotalEarned above ${IDLE_TUNING.prestige.unlockAtTotalEarned} to move it)`,
+        `runs (must be within [${PRESTIGE_MIN}, ${PRESTIGE_MAX}] bot-min; the floor is ≈15 human-min — ` +
+        `move it with prestige.unlockAtTotalEarned, now ${IDLE_TUNING.prestige.unlockAtTotalEarned})`,
     ),
   );
 

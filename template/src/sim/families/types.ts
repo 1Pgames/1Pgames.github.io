@@ -10,7 +10,7 @@
  * Pure TypeScript, no Phaser import, no `Math.random`.
  */
 
-/** Same shape as the arena CLI's gate record: hard fails the run, soft warns. */
+/** The one gate record in the sim: hard fails the run, soft warns. `cli.ts` imports it too. */
 export interface GateResult {
   ok: boolean;
   level: 'hard' | 'soft';

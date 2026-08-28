@@ -14,8 +14,9 @@ import type { FamilySimOptions, GateResult } from './types';
  * WHAT IT GATES — that the shipped level ladder (`slices/board/levels.ts`) is
  * actually content and not an accident:
  *  - every level is SOLVABLE at all (a greedy solver wins it at least once),
- *  - the difficulty band is human: levels 1-3 are near-guaranteed wins, no
- *    level collapses below a 30% win rate,
+ *  - the difficulty band is human AND bounded at BOTH ends: levels 1-3 are
+ *    near-guaranteed wins, no level collapses below a 30% win rate, and the
+ *    hardest level is not a guaranteed win either (30-90%),
  *  - SKILL MATTERS: a random-swap bot must lose to the greedy one (otherwise
  *    the level is a slot machine, not a puzzle),
  *  - cascades happen (the juice proxy: mean cascade beats per move).
@@ -38,6 +39,20 @@ const MIN_LEVEL_WINRATE = 0.3;
 /** Levels 1-3 are the teaching band: a solver should almost never lose them. */
 const TUTORIAL_WINRATE = 0.9;
 const TUTORIAL_LEVELS = 3;
+/**
+ * Hard CEILING on the hardest level's greedy win rate.
+ *
+ * The floor above proves no level is broken; this proves the ladder has a top.
+ * A ladder whose hardest level the solver clears every single time has no
+ * level a reading player can lose, so it has no level worth a retry, no
+ * booster worth spending and no 3-star worth chasing — the whole saga/stars
+ * meta hangs off there being a level that resists. 90% is the loosest bar that
+ * still means "resists": one loss in ten for a bot that scores every legal
+ * swap against the goals, i.e. considerably more than one in ten for a human.
+ * Hard rather than soft because it is not a preference; a ladder without a top
+ * end has no endgame content at all.
+ */
+const MAX_LADDER_WINRATE = 0.9;
 
 type BotKind = 'greedy' | 'random';
 
@@ -271,15 +286,14 @@ export default function runFamilySim(options: FamilySimOptions): number {
     ),
   );
 
-  // A solver clearing EVERY level of the ladder means the ceiling is missing.
-  // Soft, not hard: this greedy bot evaluates every swap against the goals, so
-  // it is an upper bound on human play — a level it always wins is not proven
-  // un-losable, only proven generous.
+  // The ladder's ceiling (see MAX_LADDER_WINRATE). Measured on the greedy bot
+  // because it is an UPPER bound on human play: a level it loses one run in
+  // four is a level a player loses far more often than that.
   gates.push(
-    soft(
-      floorRate < 1,
+    hard(
+      floorRate <= MAX_LADDER_WINRATE,
       `hardest level for the solver wins ${pct(floorRate)} of runs ` +
-        '(a ladder whose last level is a guaranteed solver win has no top end)',
+        `(must be <= ${pct(MAX_LADDER_WINRATE)}: a ladder the solver always clears has no top end)`,
     ),
   );
 

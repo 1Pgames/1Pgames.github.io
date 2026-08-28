@@ -64,6 +64,70 @@ const CHARGE_OVERSHOOT_PX = 200;
 const SHOOT_STANDOFF_PX = 320;
 const SHOOT_CADENCE_MS = 1500;
 /**
+ * Where a shooter's standoff dance actually SETTLES, as a fraction of its
+ * nominal hold distance. `objects/enemy.ts` gives a shooter `approach = -0.5`
+ * inside `SHOOT_STANDOFF_PX`, so it only re-opens the gap at half its own
+ * 110px/s — a player pushing in at 330px/s wins that argument and drags the
+ * dance inside their own weapons, which is how shooters actually die.
+ */
+const STANDOFF_DRIFT = 0.8;
+/**
+ * Boss engagement gap: the boss body's contact reach plus this margin.
+ *
+ * `objects/enemy.ts` `tickBoss` wants a 380px standoff and backs off at 0.5x
+ * its 90px/s move speed once the player is inside it — 45px/s of retreat
+ * against a 330px/s player. The boss therefore does NOT get to pick the gap;
+ * the player does, and the gap a player picks in a 30s finale is the closest
+ * one that still eats no contact tick: hugging the boss body maximises how
+ * many of their weapons reach it (bolt range 300, nova radius 260, a boosted
+ * orbit ~204). Clamping the boss to its nominal standoff instead — as this
+ * model used to — parked it outside every weapon but `rail`, which is why
+ * `bossHpRemoved` measured 0-2% and the authored phase-2/phase-3 script was
+ * unreachable in every run.
+ */
+const BOSS_ENGAGE_MARGIN_PX = 20;
+/**
+ * Chance per volley that the player's bolt is aimed at the boss rather than
+ * the nearest body, at skill 1 and once the boss is inside bolt range.
+ * `CombatSystem.tickBolt` auto-aims at the nearest enemy, but that is a
+ * constraint on POSITION, not on choice: walking the crowd off the boss and
+ * putting the boss in front of yourself is the entire skill expression of
+ * the finale. Scaled by `skill`, so a novice's bolts keep feeding the swarm.
+ */
+const BOSS_FOCUS_CHANCE = 0.75;
+/**
+ * Boss ring geometry. `CombatSystem.bossAttack` fires BOTH boss attacks as a
+ * radial ring — `shotCount` projectiles spaced evenly over 2π at 340px/s — so
+ * what decides whether the player is hit is how much of that circle the shots
+ * cover, not a flat per-attack coin flip.
+ *
+ * Per shot: the lethal corridor is the shot's hit radius (`projectileSize` 18
+ * at the 1.2 scale `bossAttack` fires with, so ~11px) plus the player's own,
+ * which is deliberately smaller than the 96px sprite — call it ~34px. That is
+ * ~45px either side of the shot's line, and at the ~190px this fight is
+ * actually fought at (see BOSS_ENGAGE_MARGIN_PX) it subtends ~26°. Trimmed to
+ * 20° because the corridor is only lethal while the ring passes THROUGH the
+ * player's radius, not for the whole flight.
+ */
+const RING_SHOT_ARC_DEG = 20;
+/** Fraction of the covered arc a skill-1 player still slips out of. */
+const RING_DODGE = 0.8;
+/**
+ * Chance one radial boss attack of `shots` projectiles connects.
+ *
+ * This replaced a flat `skill * 0.7` dodge on the volley and a flat `skill`
+ * dodge on the ring, which priced the SPARSER pattern as the deadlier one:
+ * the phase-1 volley is 5 shots (72° apart — a wall you walk through) and
+ * the phase-3 ring is 14 (26° apart, plus a 500ms telegraph). Charging one
+ * full 65-damage hit per volley at 37% made the 30s finale a guaranteed
+ * 4-hit death for every build, which is why no lane could win the reference
+ * run while the authored phase-2/phase-3 script was never seen at all.
+ */
+function ringHitChance(shots: number, skill: number): number {
+  const covered = Math.min(1, (shots * RING_SHOT_ARC_DEG) / 360);
+  return covered * (1 - skill * RING_DODGE);
+}
+/**
  * Mirrors `CombatSystem.enemyShoot` + `Projectile.fire`: an enemy shot
  * travels at 420px/s and expires after 1600ms, so it only ever reaches
  * ~672px — a shooter/boss well outside that range fires into nothing.
@@ -172,9 +236,12 @@ export function simulateRun(options: SimOptions): RunMetrics {
   let spawnSilencedUntilMs = -Infinity;
   let bossKilled = false;
 
-  // Boss phase state (null until the boss spawns).
+  // Boss phase state (null until the boss spawns). `bossHpRemoved` is sampled
+  // every tick because the fight's own state is gone once the boss dies or the
+  // run ends — it is the finale's only readable outcome besides win/lose.
   let boss: SimEnemy | null = null;
-  let bossPhase = 1;
+  let bossPhase = 0;
+  let bossHpRemoved: number | null = null;
   let bossVolleyCd = 0;
   let bossRingCd = 0;
   let bossAddsAlive = 0;
@@ -209,6 +276,7 @@ export function simulateRun(options: SimOptions): RunMetrics {
     if (def.id === 'boss' && boss === null) {
       boss = enemy;
       bossPhase = 1;
+      bossHpRemoved = 0;
       bossVolleyCd = TUNING.boss.volleyCooldownMs;
       bossRingCd = TUNING.boss.ringCooldownMs;
     }
@@ -318,6 +386,7 @@ export function simulateRun(options: SimOptions): RunMetrics {
     if (enemy === boss) {
       boss = null;
       bossKilled = true; // boss kill = immediate win, mirrors `GameScene.finish(true)`
+      bossHpRemoved = 1;
     }
     const dropDistance = enemy.distance;
     const delayS =
@@ -403,7 +472,7 @@ export function simulateRun(options: SimOptions): RunMetrics {
         // The standoff dance has hysteresis and drift; the player pushing
         // toward a shooter drags the dance just inside their attack range,
         // which is how shooters actually die in the real game.
-        const standoff = SHOOT_STANDOFF_PX * 0.8;
+        const standoff = SHOOT_STANDOFF_PX * STANDOFF_DRIFT;
         if (enemy.distance > standoff) {
           enemy.distance = Math.max(standoff, enemy.distance - enemy.speed * deltaS);
         }
@@ -416,16 +485,17 @@ export function simulateRun(options: SimOptions): RunMetrics {
         }
         break;
 
-      case 'boss':
-        // The boss relentlessly closes to shot range; kiting delays, never escapes.
-        if (enemy.distance > SHOOT_STANDOFF_PX) {
+      case 'boss': {
+        // The player closes this gap, not the boss (see BOSS_ENGAGE_MARGIN_PX):
+        // the boss's crawl adds to the closing speed, the player's own
+        // movement does the rest, and both stop at the engagement distance.
+        const engage = contactReach(enemy) + BOSS_ENGAGE_MARGIN_PX;
+        if (enemy.distance > engage) {
           const speedMul = bossPhase === 3 ? TUNING.boss.enrageSpeedMul : 1;
-          enemy.distance = Math.max(
-            SHOOT_STANDOFF_PX,
-            enemy.distance - Math.max(20, enemy.speed * speedMul - evadeSpeed * 0.5) * deltaS,
-          );
+          enemy.distance = Math.max(engage, enemy.distance - (evadeSpeed + enemy.speed * speedMul) * deltaS);
         }
         break;
+      }
     }
   }
 
@@ -444,6 +514,7 @@ export function simulateRun(options: SimOptions): RunMetrics {
     if (boss === null) return;
     const cfg = TUNING.boss;
     const ratio = boss.health.ratio;
+    bossHpRemoved = 1 - ratio;
     if (bossPhase === 1 && ratio <= cfg.phase2At) {
       bossPhase = 2;
       const summons = rng.int(cfg.summonMin, cfg.summonMax);
@@ -458,25 +529,27 @@ export function simulateRun(options: SimOptions): RunMetrics {
     }
     if (bossPhase === 2 && ratio <= cfg.phase3At) bossPhase = 3;
 
-    // Phase 1+: spread volleys on their own cadence (enraged cadence in phase 3).
-    const cadenceMul = bossPhase === 3 ? cfg.enrageCadenceMul : 1;
-    bossVolleyCd -= deltaMs;
-    if (bossVolleyCd <= 0) {
-      bossVolleyCd = cfg.volleyCooldownMs * cadenceMul;
-      // One volley = one dodgeable hit opportunity: i-frames make per-shot
-      // resolution meaningless inside a 700ms invuln window.
-      if (boss.distance <= ENEMY_SHOT_MAX_RANGE_PX && !rng.chance(skill * 0.7)) {
-        damagePlayer(boss.damage, 'boss-volley');
+    // Phases 1-2 fire the 5-shot volley; phase 3 REPLACES it with the
+    // telegraphed 14-shot ring — `Enemy.tickBoss` returns into `tickBossRing`
+    // before ever reaching the volley branch once the phase flips. One ring
+    // is one hit opportunity either way: i-frames make per-shot resolution
+    // meaningless inside a 700ms invuln window.
+    if (bossPhase < 3) {
+      bossVolleyCd -= deltaMs;
+      if (bossVolleyCd <= 0) {
+        bossVolleyCd = cfg.volleyCooldownMs;
+        if (boss.distance <= ENEMY_SHOT_MAX_RANGE_PX && rng.chance(ringHitChance(cfg.volleyShots, skill))) {
+          damagePlayer(boss.damage, 'boss-volley');
+        }
       }
+      return;
     }
 
-    // Phase 3: telegraphed radial ring, dodged with probability `skill`.
-    if (bossPhase === 3) {
-      bossRingCd -= deltaMs;
-      if (bossRingCd <= 0) {
-        bossRingCd = cfg.ringCooldownMs;
-        if (!rng.chance(skill)) damagePlayer(boss.damage * 0.8, 'boss-ring');
-      }
+    bossRingCd -= deltaMs;
+    if (bossRingCd <= 0) {
+      // Telegraph then fire: the real cadence is the cooldown plus the wind-up.
+      bossRingCd = cfg.ringCooldownMs + cfg.ringTelegraphMs;
+      if (rng.chance(ringHitChance(cfg.ringShots, skill))) damagePlayer(boss.damage, 'boss-ring');
     }
   }
 
@@ -532,13 +605,18 @@ export function simulateRun(options: SimOptions): RunMetrics {
     const volleys = weapon.evolved ? 2 : 1;
     const count = Math.max(1, Math.round(stats.get('projectiles')));
     const damageMul = weaponBoostDamageMul('bolt', weapon.boosts);
+    // Boss focus: the one fight where the player positions to choose the
+    // target instead of letting auto-aim keep the nearest one (see
+    // BOSS_FOCUS_CHANCE). Rolled per shot, so the crowd still gets fed.
+    const focus =
+      boss !== null && boss.distance <= range && rng.chance(skill * BOSS_FOCUS_CHANCE) ? boss : null;
     for (let v = 0; v < volleys; v += 1) {
       for (let i = 0; i < count; i += 1) {
         // 2D "nearest" reshuffles constantly as the player weaves, so the
         // back line (parked shooters, healers) does get aimed at sometimes.
-        const target = rng.chance(BOLT_TARGET_NOISE)
-          ? rng.pick(inRange)
-          : inRange[Math.min(v * count + i, inRange.length - 1)];
+        const target =
+          focus ??
+          (rng.chance(BOLT_TARGET_NOISE) ? rng.pick(inRange) : inRange[Math.min(v * count + i, inRange.length - 1)]);
         if (target === undefined || target.health.hp <= 0) continue;
         const roll = rollDamage(stats, rng, 'auto');
         damageEnemy(target, roll.amount * damageMul, roll.crit);
@@ -594,6 +672,10 @@ export function simulateRun(options: SimOptions): RunMetrics {
       .filter((e) => e.distance <= RAIL_RANGE_PX)
       .sort((a, b) => b.distance - a.distance)
       .slice(0, pierce + 1);
+    // `densestClusterCenter` aims at the enemy with the most neighbours, and
+    // in the finale that is a 280px boss wearing a crowd — the line goes
+    // through it whether or not it is the deepest body in range.
+    if (boss !== null && boss.distance <= RAIL_RANGE_PX && !targets.includes(boss)) targets[0] = boss;
     for (const target of targets) damageEnemy(target, damage, false);
   }
 
@@ -673,5 +755,7 @@ export function simulateRun(options: SimOptions): RunMetrics {
       const bucketSeconds = index === bucketCount - 1 ? TUNING.runSeconds - index * 60 : 60;
       return total / bucketSeconds;
     }),
+    bossHpRemoved,
+    bossPhase,
   };
 }
