@@ -1,5 +1,7 @@
 import { PALETTE } from '../../config';
 import { TEX } from '../../core/keys';
+import type { ArtSlot } from '../../data/art';
+import type { SpecialKind } from '../../core/board/types';
 
 /**
  * Slice-local balance and presentation numbers for the match-3 board.
@@ -19,14 +21,20 @@ export interface BoardKindStyle {
   tint: number;
   /** Target on-screen size in px (longest axis); the sprite keeps its aspect. */
   size: number;
+  /**
+   * Generated piece art. `null` keeps the procedural `texture` + `tint` path;
+   * a resolved slot is drawn UNTINTED (generated art carries its own colour),
+   * so an art pass has to keep the silhouettes distinct on its own.
+   */
+  art: ArtSlot | null;
 }
 
 export const BOARD_KIND_STYLES: readonly BoardKindStyle[] = [
-  { id: 'ember', label: 'EMBER', texture: TEX.disc, tint: PALETTE.bad, size: 56 },
-  { id: 'leaf', label: 'LEAF', texture: TEX.spike, tint: PALETTE.good, size: 58 },
-  { id: 'spark', label: 'SPARK', texture: TEX.star, tint: PALETTE.accent, size: 60 },
-  { id: 'tide', label: 'TIDE', texture: TEX.square, tint: PALETTE.primary, size: 54 },
-  { id: 'bloom', label: 'BLOOM', texture: TEX.ring, tint: PALETTE.secondary, size: 60 },
+  { id: 'ember', label: 'EMBER', texture: TEX.disc, tint: PALETTE.bad, size: 56, art: null },
+  { id: 'leaf', label: 'LEAF', texture: TEX.spike, tint: PALETTE.good, size: 58, art: null },
+  { id: 'spark', label: 'SPARK', texture: TEX.star, tint: PALETTE.accent, size: 60, art: null },
+  { id: 'tide', label: 'TIDE', texture: TEX.square, tint: PALETTE.primary, size: 54, art: null },
+  { id: 'bloom', label: 'BLOOM', texture: TEX.ring, tint: PALETTE.secondary, size: 60, art: null },
 ];
 
 export const BOARD_KINDS: readonly string[] = BOARD_KIND_STYLES.map((style) => style.id);
@@ -63,4 +71,31 @@ export const BOARD_TUNING = {
   dragCommitPx: 26,
   /** Cap on floating score numbers per cascade beat. */
   floatTextPerStep: 3,
+
+  /**
+   * Pre-level boosters, spent through `progression.spendBooster` when the
+   * level begins. Ids are the `boosterId`s of the board catalog in
+   * `data/metaCatalog.ts` — the catalog is the shop, this is the effect.
+   */
+  boosters: {
+    /** `extra-moves`: added to the level's move budget (a spec copy, not the ladder). */
+    extraMoves: 3,
+    /** `bomb-start`: the inclusive mid-board row band the opening bomb may land in. */
+    bombRowBand: { min: 3, max: 5 },
+    /** `shuffle`: one-tap reshuffles granted for the level. */
+    shuffleCharges: 1,
+    /** Boosters armable at once in the picker (`ui/boosterBar.ts` default is 2). */
+    maxPick: 2,
+  },
+
+  /**
+   * Generated-art slots. `null` everywhere is the shipped state: the slice
+   * draws its procedural glyph and tint. `game-art` fills these per the
+   * slice-wiring guide; a slot that names an unloaded key falls back on its
+   * own (one `textures.exists` check at construction).
+   */
+  art: {
+    /** Overlay badge per special kind; the piece underneath keeps its own slot. */
+    specials: { 'line-h': null, 'line-v': null, bomb: null } as Record<SpecialKind, ArtSlot | null>,
+  },
 } as const;

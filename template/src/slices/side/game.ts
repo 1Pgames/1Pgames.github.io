@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { CSS, PALETTE, SAFE, TEXT, VIEW } from '../../config';
-import { EVENTS, SCENES, TEX } from '../../core/keys';
+import { SCENES, TEX } from '../../core/keys';
 import { Rng } from '../../core/rng';
 import { LevelDirector } from '../../core/level';
 import type { SessionOutcome } from '../../core/session';
@@ -12,11 +12,41 @@ import { buildGradient } from '../../core/textures';
 import { Button } from '../../ui/button';
 import { addBackground } from '../../ui/background';
 import { showPauseOverlay, type PauseOverlayHandle } from '../../ui/pauseOverlay';
+import { showSagaMap, type SagaMapHandle } from '../../ui/sagaMap';
+import {
+  MAX_STARS,
+  bestStars,
+  boosterCount,
+  loadMeta,
+  recordStars,
+  spendBooster,
+  touchDailyStreak,
+} from '../../core/progression';
+import type { ArtSlot } from '../../data/art';
 import { SIDE_TUNING } from './tuning';
-import { SIDE_LEVEL_COUNT, SIDE_PROGRESS_KEY, buildSideLevel, clampLevelIndex, sideLevelSpec } from './levels';
+import {
+  SIDE_LAST_LEVEL_KEY,
+  SIDE_LEVEL_COUNT,
+  SIDE_PROGRESS_KEY,
+  buildSideLevel,
+  clampLevelIndex,
+  sideLevelSpec,
+} from './levels';
 import type { SideLevel } from './gen';
 
 const SIDE_SKY = 'side-sky';
+
+/** `meta_coin_magnet` in the side catalog (`data/metaCatalog.ts`). */
+const PERK_COIN_MAGNET = 'meta_coin_magnet';
+/** `extra-life` booster id, spent for one in-level revive. */
+const BOOSTER_EXTRA_LIFE = 'extra-life';
+
+/**
+ * Art groups `PreloadScene` loads for this slice (see the slice-wiring guide):
+ * `ui` + `bg` are universal, `side-hero` carries the hero actions plus the
+ * platform/spike tiles.
+ */
+export const ART_GROUPS = ['ui', 'bg', 'side-hero'] as const;
 
 /**
  * SIDE RUNNER — the authored-level platformer (family C) reference slice.
@@ -34,6 +64,10 @@ const SIDE_SKY = 'side-sky';
  * All geometry decisions live in `gen.ts` (pure, headless-testable, and
  * reachability-proved), the ladder in `levels.ts`, the numbers in `tuning.ts`.
  * This scene only renders them and adds feel.
+ *
+ * The meta layer wraps the loop: a bare start opens the saga map, a win banks
+ * `recordStars` off the time left, an owned `extra-life` booster buys one
+ * in-level revive, and `meta_coin_magnet` widens the pickup bodies.
  */
 export class GameScene extends Phaser.Scene {
   private rng!: Rng;
@@ -75,14 +109,37 @@ export class GameScene extends Phaser.Scene {
   private airborneSince = 0;
   private paused = false;
   private ended = false;
+  /** True once a level is built: the saga-map phase has no world to tick. */
+  private started = false;
+  /** Level asked for explicitly by the caller, bypassing the map. */
+  private requestedLevel: number | null = null;
+  /** A seed in `init` data means "replay this level", never "pick a new one". */
+  private replay = false;
+  private sagaMap: SagaMapHandle | null = null;
+  private mapBackdrop: Phaser.GameObjects.Rectangle | null = null;
+  /** World position of the last frame the hero stood on something solid. */
+  private lastGroundX = 0;
+  private lastGroundY = 0;
+  /** One `extra-life` per level, no matter how many the player owns. */
+  private reviveUsed = false;
+  private revivePrompt: Phaser.GameObjects.Container | null = null;
+  /** Pickup body inflation from `meta_coin_magnet`, resolved once per level. */
+  private magnetScale = 1;
 
   constructor() {
     super(SCENES.game);
   }
 
-  /** `scene.start(SCENES.game, { seed })` replays the exact same level layout. */
-  init(data: { seed?: string } = {}): void {
+  /**
+   * `scene.start(SCENES.game, { seed })` replays the level in
+   * `SIDE_LAST_LEVEL_KEY` with the exact same layout and no map — what the
+   * death restart, RETRY and the pause overlay's RESTART all send. A bare
+   * start (from the menu) opens the saga map; `levelIndex` skips to one level.
+   */
+  init(data: { seed?: string; levelIndex?: number } = {}): void {
+    this.replay = data.seed !== undefined;
     this.seed = data.seed ?? Date.now().toString(36);
+    this.requestedLevel = data.levelIndex === undefined ? null : clampLevelIndex(data.levelIndex);
   }
 
   create(): void {
@@ -99,16 +156,12 @@ export class GameScene extends Phaser.Scene {
     this.airborneSince = 0;
     this.paused = false;
     this.ended = false;
+    this.started = false;
+    this.reviveUsed = false;
+    this.revivePrompt = null;
+    this.sagaMap = null;
+    this.mapBackdrop = null;
     this.pauseOverlay = null;
-
-    this.levelIndex = clampLevelIndex(load<number>(SIDE_PROGRESS_KEY, 0));
-    // One layout per (run seed, level): a retry replays it jump for jump, and
-    // the sim generates the identical level from the same two numbers.
-    this.level = buildSideLevel(this.levelIndex, this.seed);
-    this.rng = new Rng(`${this.seed}:side:${this.levelIndex}:view`);
-    this.director = new LevelDirector(sideLevelSpec(this.levelIndex), {
-      onEnd: (outcome) => this.resolve(outcome),
-    });
 
     // `addBackground` draws in WORLD space, and this world is 5600px wide, so
     // the scrolling camera would leave its single screen-sized backdrop behind
@@ -122,20 +175,115 @@ export class GameScene extends Phaser.Scene {
       .setScrollFactor(0)
       .setDepth(-300);
     addBackground(this);
+
+    this.cameras.main.fadeIn(180, 0, 0, 0);
+    startMusic('run');
+    this.markDailyStreak();
+
+    const explicit = this.requestedLevel;
+    if (explicit !== null) {
+      this.beginLevel(explicit);
+      return;
+    }
+    if (this.replay) {
+      this.beginLevel(clampLevelIndex(load<number>(SIDE_LAST_LEVEL_KEY, 0)));
+      return;
+    }
+    this.openSagaMap();
+  }
+
+  /** Advances the daily streak once per entry; celebrates only real growth. */
+  private markDailyStreak(): void {
+    const streak = touchDailyStreak();
+    if (!streak.extended) return;
+    this.time.delayedCall(520, () => {
+      floatText(this, VIEW.centerX, SAFE.top + 40, `DAY ${streak.days} STREAK!`, CSS.accent, 46);
+      sfx('combo', { volume: 0.5 });
+    });
+  }
+
+  // --- meta gateway ---------------------------------------------------------
+
+  /**
+   * The 8-level saga map over a dimmed sky. Nothing is built behind it yet, so
+   * CLOSE goes back to the menu rather than to a level.
+   */
+  private openSagaMap(): void {
+    this.mapBackdrop = this.add
+      .rectangle(VIEW.centerX, VIEW.centerY, VIEW.width, VIEW.height, PALETTE.bgDeep, 0.72)
+      .setScrollFactor(0)
+      .setDepth(2100);
+
+    const starsByLevel: Record<string, number> = {};
+    const levels = [];
+    for (let index = 0; index < SIDE_LEVEL_COUNT; index += 1) {
+      const id = sideLevelSpec(index).id;
+      starsByLevel[id] = bestStars(id);
+      levels.push({ id, label: `${index + 1}` });
+    }
+
+    this.sagaMap = showSagaMap(this, {
+      levels,
+      // Stored progress is the NEXT unplayed index, so the frontier is one
+      // level wider than it.
+      unlockedCount: clampLevelIndex(load<number>(SIDE_PROGRESS_KEY, 0)) + 1,
+      starsByLevel,
+      onPick: (levelId) => {
+        let picked = 0;
+        for (let index = 0; index < SIDE_LEVEL_COUNT; index += 1) {
+          if (sideLevelSpec(index).id === levelId) picked = index;
+        }
+        this.closeSagaMap();
+        this.beginLevel(picked);
+      },
+      onClose: () => {
+        this.closeSagaMap();
+        this.scene.start(SCENES.menu);
+      },
+    });
+  }
+
+  private closeSagaMap(): void {
+    this.sagaMap?.destroy();
+    this.sagaMap = null;
+    this.mapBackdrop?.destroy();
+    this.mapBackdrop = null;
+  }
+
+  /** Generates level `index`, builds it and starts its clock. */
+  private beginLevel(index: number): void {
+    this.levelIndex = index;
+    // Written before the first jump so a death restart or RETRY (seed only)
+    // lands on this level even after a win advanced the ladder.
+    save(SIDE_LAST_LEVEL_KEY, index);
+
+    // One layout per (run seed, level): a retry replays it jump for jump, and
+    // the sim generates the identical level from the same two numbers.
+    this.level = buildSideLevel(index, this.seed);
+    this.rng = new Rng(`${this.seed}:side:${index}:view`);
+    this.director = new LevelDirector(sideLevelSpec(index), {
+      onEnd: (outcome) => this.resolve(outcome),
+    });
+
+    // `meta_coin_magnet` is reach, not size: the body grows, the coin does not.
+    const magnetLevel = loadMeta().upgrades[PERK_COIN_MAGNET] ?? 0;
+    this.magnetScale = 1 + magnetLevel * SIDE_TUNING.coin.magnetPerPerkLevel;
+
     this.buildWorld();
     this.buildPlayer();
     this.buildHud();
     this.buildInput();
     this.refreshHud();
+    this.started = true;
 
-    this.game.events.emit(EVENTS.runStarted);
-    this.cameras.main.fadeIn(180, 0, 0, 0);
-    startMusic('run');
-    setMusicIntensity(0.35 + (this.levelIndex / SIDE_LEVEL_COUNT) * 0.4);
+    setMusicIntensity(0.35 + (index / SIDE_LEVEL_COUNT) * 0.4);
+    if (magnetLevel > 0) {
+      floatText(this, VIEW.centerX, SAFE.top + 96, `COIN MAGNET +${Math.round((this.magnetScale - 1) * 100)}%`, CSS.accent, 34);
+    }
   }
 
   update(time: number, delta: number): void {
-    if (this.ended || this.paused) return;
+    if (!this.started || this.ended || this.paused) return;
 
     this.director.update(delta);
     if (this.ended) return;
@@ -146,7 +294,13 @@ export class GameScene extends Phaser.Scene {
 
     const body = this.player.body as Phaser.Physics.Arcade.Body;
     const grounded = body.blocked.down || body.touching.down;
-    if (grounded) this.lastGroundedAt = time;
+    if (grounded) {
+      this.lastGroundedAt = time;
+      // Where an `extra-life` revive puts the hero back: the last surface it
+      // actually stood on, never the spot it died in.
+      this.lastGroundX = this.player.x;
+      this.lastGroundY = this.player.y;
+    }
 
     // Landing feedback only after a REAL flight: Arcade re-separates a resting
     // body every frame, so `blocked.down` can blink and a naive edge trigger
@@ -227,6 +381,11 @@ export class GameScene extends Phaser.Scene {
     floatText(this, image.x, image.y - 20, `+${SIDE_TUNING.coin.score}`, CSS.accent, 34);
   }
 
+  /**
+   * A fatal hit. With an `extra-life` in stock the player is offered one
+   * revive per level before the level restarts; without one this is the
+   * template's instant retry (death → playing again inside 600ms).
+   */
   private die(reason: string): void {
     if (this.ended) return;
     this.ended = true;
@@ -238,15 +397,112 @@ export class GameScene extends Phaser.Scene {
     flash(this, PALETTE.bad, 160);
     shake(this, 0.02, 200);
     setMusicIntensity(0.2);
-
-    // Instant retry of the SAME level: the fade runs on the raw frame delta, so
-    // death → playing again stays inside the 600ms budget. `reason` is only
-    // feedback here; the level index in storage is untouched.
     floatText(this, this.player.x, this.player.y - 60, reason === 'void' ? 'MISSED' : 'OUCH', CSS.bad, 44);
+
+    if (!this.reviveUsed && boosterCount(BOOSTER_EXTRA_LIFE) > 0) {
+      this.offerRevive();
+      return;
+    }
+    this.restartLevel();
+  }
+
+  /**
+   * Instant retry of the SAME level: the fade runs on the raw frame delta, so
+   * death → playing again stays inside the 600ms budget, and the stored level
+   * index is untouched.
+   */
+  private restartLevel(): void {
     this.cameras.main.fadeOut(SIDE_TUNING.deathHoldMs, 0, 0, 0);
     this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
       this.scene.restart({ seed: this.seed });
     });
+  }
+
+  /**
+   * The revive offer: one screen-wide capsule, live for `revive.promptMs`, and
+   * the level restarts by itself when it lapses — a dead run must never wait
+   * on a decision the player has walked away from. Click semantics come from
+   * `ui/button.ts`; the director's clock is frozen while this is up because
+   * `update` returns early on `ended`.
+   */
+  private offerRevive(): void {
+    const root = this.add.container(0, 0).setDepth(2400).setScrollFactor(0);
+    const dim = this.add
+      .rectangle(VIEW.centerX, VIEW.centerY, VIEW.width, VIEW.height, 0x000000, 0.55)
+      .setScrollFactor(0);
+    const heading = this.add
+      .text(VIEW.centerX, VIEW.centerY - 120, 'EXTRA LIFE?', { ...TEXT.heading, color: CSS.good })
+      .setOrigin(0.5)
+      .setScrollFactor(0);
+    const blurb = this.add
+      .text(
+        VIEW.centerX,
+        VIEW.centerY - 50,
+        `${boosterCount(BOOSTER_EXTRA_LIFE)} IN STOCK  ·  ONE PER LEVEL`,
+        { ...TEXT.label, color: CSS.inkSoft },
+      )
+      .setOrigin(0.5)
+      .setScrollFactor(0);
+
+    let resolved = false;
+    const button = new Button(
+      this,
+      VIEW.centerX,
+      VIEW.centerY + 60,
+      'REVIVE',
+      () => {
+        if (resolved) return;
+        resolved = true;
+        // Gate the effect on the SPEND, not on the count read a moment ago.
+        if (spendBooster(BOOSTER_EXTRA_LIFE)) this.revive();
+        else this.restartLevel();
+      },
+      { width: VIEW.width - SAFE.side * 2, height: 112, fill: PALETTE.good, stroke: PALETTE.ink },
+    );
+    button.setScrollFactor(0);
+
+    root.add([dim, heading, blurb, button]);
+    this.revivePrompt = root;
+
+    this.time.delayedCall(SIDE_TUNING.revive.promptMs, () => {
+      if (resolved) return;
+      resolved = true;
+      this.closeRevivePrompt();
+      this.restartLevel();
+    });
+  }
+
+  private closeRevivePrompt(): void {
+    this.revivePrompt?.destroy(true);
+    this.revivePrompt = null;
+  }
+
+  /** Puts the hero back on the last surface it stood on and un-ends the level. */
+  private revive(): void {
+    this.closeRevivePrompt();
+    this.reviveUsed = true;
+    this.ended = false;
+    this.pauseButton.setVisible(true);
+
+    this.player.setPosition(this.lastGroundX, this.lastGroundY - SIDE_TUNING.revive.liftPx);
+    this.player.setVelocity(0, 0);
+    const body = this.player.body as Phaser.Physics.Arcade.Body;
+    body.setAllowGravity(true);
+    this.player.setVelocityX(SIDE_TUNING.motion.moveSpeed);
+    this.skin.setPosition(this.player.x, this.player.y);
+
+    // A queued jump from before the death must not fire on the respawn frame.
+    this.jumpPressedAt = -1;
+    this.jumpHeld = false;
+    this.wasGrounded = true;
+    this.airborneSince = this.time.now;
+    this.lastGroundedAt = this.time.now;
+
+    sfx('levelup', { volume: 0.7 });
+    flash(this, PALETTE.good, 180);
+    burst(this, this.player.x, this.player.y, PALETTE.good, 18, 300);
+    floatText(this, this.player.x, this.player.y - 70, 'REVIVED', CSS.good, 46);
+    setMusicIntensity(0.35 + (this.levelIndex / SIDE_LEVEL_COUNT) * 0.4);
   }
 
   private reachExit(): void {
@@ -259,60 +515,93 @@ export class GameScene extends Phaser.Scene {
     this.director.recordProgress('exit');
   }
 
-  /** Called by `LevelDirector.onEnd` — the only place a run resolves. */
+  /** Called by `LevelDirector.onEnd` — the only place a level resolves. */
   private resolve(outcome: SessionOutcome): void {
     if (this.ended) return;
-    if (!outcome.won) {
-      // Out of time: the same instant-retry loop as a hazard death.
-      this.die(outcome.reason);
-      return;
-    }
     this.ended = true;
     this.pauseButton.setVisible(false);
     this.pauseOverlay?.destroy();
     this.pauseOverlay = null;
 
-    const nextIndex = Math.min(this.levelIndex + 1, SIDE_LEVEL_COUNT - 1);
-    save(SIDE_PROGRESS_KEY, nextIndex);
+    const stars = this.director.stars;
+    const spec = sideLevelSpec(this.levelIndex);
+    if (outcome.won) {
+      // The time left on the win IS the rating (see `sideLevelSpec`), so this
+      // is what the saga map shows next time.
+      recordStars(spec.id, stars);
+      save(SIDE_PROGRESS_KEY, Math.min(this.levelIndex + 1, SIDE_LEVEL_COUNT - 1));
+      sfx('levelup');
+    } else {
+      // Running the 90s budget out is a session outcome, not a twitch mistake:
+      // it goes to the results screen. Hazard and void deaths keep the
+      // instant-retry loop in `die`.
+      sfx('die', { volume: 0.6 });
+      flash(this, PALETTE.bad, 200);
+      setMusicIntensity(0.2);
+    }
 
     const timeMs = this.director.elapsedSeconds * 1000;
-    const score = this.coins * SIDE_TUNING.coin.score + SIDE_TUNING.exitScore;
-    this.game.events.emit(EVENTS.runEnded, { won: true, score });
+    const score = outcome.won ? this.coins * SIDE_TUNING.coin.score + SIDE_TUNING.exitScore : this.coins * SIDE_TUNING.coin.score;
 
     this.cameras.main.fadeOut(SIDE_TUNING.fadeOutMs, 0, 0, 0);
     this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
       this.scene.start(SCENES.gameOver, {
-        won: true,
+        won: outcome.won,
         timeMs,
         score,
-        currencyEarned: Math.floor(this.coins / SIDE_TUNING.coin.perCurrency) + this.director.stars * 2,
+        currencyEarned: Math.floor(this.coins / SIDE_TUNING.coin.perCurrency) + stars * 2,
         seed: this.seed,
         stats: [
           { label: 'LEVEL', value: `${this.levelIndex + 1}/${SIDE_LEVEL_COUNT}` },
+          { label: 'STARS', value: `${stars}/${MAX_STARS}` },
           { label: 'COINS', value: `${this.coins}/${this.level.coins.length}` },
-          { label: 'TIME', value: `${this.director.elapsedSeconds.toFixed(1)}s` },
         ],
+        headline: outcome.won ? 'LEVEL COMPLETE!' : 'WIPED OUT',
+        timeLabel: 'TIME',
+        // Per-level runs are not comparable to each other, so a lifetime "best
+        // time" across the whole ladder would be meaningless: stars carry the
+        // fast-clear reward instead.
+        bestTimeMode: 'off',
       });
     });
   }
 
   // --- world ----------------------------------------------------------------
 
+  /**
+   * The slot to draw with, or `null` for the procedural primitive. A slot whose
+   * texture never loaded (pruned art group, art not generated yet) resolves to
+   * `null` here, so the slice stays playable without its art.
+   */
+  private resolveSlot(slot: ArtSlot | null): ArtSlot | null {
+    if (slot === null) return null;
+    return this.textures.exists(slot.key) ? slot : null;
+  }
+
   private buildWorld(): void {
     const level = this.level;
     this.physics.world.setBounds(0, 0, level.worldWidth, level.worldHeight);
     this.cameras.main.setBounds(0, 0, level.worldWidth, level.worldHeight);
 
+    const platformSlot = this.resolveSlot(SIDE_TUNING.art.platform);
     this.platforms = this.physics.add.staticGroup();
     for (const platform of level.platforms) {
       const body = this.physics.add
-        .staticImage(platform.x + platform.w / 2, platform.y + platform.h / 2, TEX.square)
+        .staticImage(
+          platform.x + platform.w / 2,
+          platform.y + platform.h / 2,
+          platformSlot?.key ?? TEX.square,
+          platformSlot?.frame,
+        )
         // STATIC BODY TRAP: the body is rebuilt from `displayWidth/Height`, so
         // the size must be set BEFORE `refreshBody()` — the other order leaves
         // a 96x96 body on a 400x240 platform and the hero walks on thin air.
         .setDisplaySize(platform.w, platform.h)
         .refreshBody();
-      body.setTint(platform.ground ? PALETTE.bgTop : PALETTE.primary).setDepth(10);
+      body.setDepth(10);
+      // Tint is the FALLBACK's readability trick (ground vs float); generated
+      // tiles carry their own colour and must not be tinted.
+      if (platformSlot === null) body.setTint(platform.ground ? PALETTE.bgTop : PALETTE.primary);
       if (platform.ground) body.setAlpha(0.95);
       this.platforms.add(body);
 
@@ -323,23 +612,35 @@ export class GameScene extends Phaser.Scene {
         .setDepth(11);
     }
 
+    const spikeSlot = this.resolveSlot(SIDE_TUNING.art.spike);
     this.hazards = this.physics.add.staticGroup();
     for (const spike of level.spikes) {
       const image = this.physics.add
-        .staticImage(spike.x + spike.w / 2, spike.y + spike.h / 2, TEX.spike)
+        .staticImage(spike.x + spike.w / 2, spike.y + spike.h / 2, spikeSlot?.key ?? TEX.spike, spikeSlot?.frame)
         .setDisplaySize(spike.w, spike.h)
         .refreshBody();
-      image.setTint(PALETTE.bad).setDepth(12);
+      image.setDepth(12);
+      if (spikeSlot === null) image.setTint(PALETTE.bad);
       this.hazards.add(image);
     }
 
+    const coinSlot = this.resolveSlot(SIDE_TUNING.art.coin);
+    const coinSize = SIDE_TUNING.coin.size;
     this.pickups = this.physics.add.staticGroup();
     for (const coin of level.coins) {
       const image = this.physics.add
-        .staticImage(coin.x, coin.y, TEX.star)
-        .setDisplaySize(SIDE_TUNING.coin.size, SIDE_TUNING.coin.size)
+        .staticImage(coin.x, coin.y, coinSlot?.key ?? TEX.star, coinSlot?.frame)
+        .setDisplaySize(coinSize, coinSize)
         .refreshBody();
-      image.setTint(PALETTE.accent).setDepth(14);
+      image.setDepth(14);
+      if (coinSlot === null) image.setTint(PALETTE.accent);
+      // `meta_coin_magnet`: the pickup BODY grows, the drawn coin does not.
+      // `setSize` re-inserts the body into the static RTree and re-centres it
+      // on the coin, which `refreshBody` alone would undo.
+      if (this.magnetScale > 1) {
+        const reach = coinSize * this.magnetScale;
+        (image.body as Phaser.Physics.Arcade.StaticBody).setSize(reach, reach, true);
+      }
       this.pickups.add(image);
       // Idle spin so a coin never reads as scenery.
       this.tweens.add({
@@ -351,16 +652,20 @@ export class GameScene extends Phaser.Scene {
     }
 
     const exit = SIDE_TUNING.exit;
+    const exitSlot = this.resolveSlot(SIDE_TUNING.art.exit);
     this.door = this.physics.add
-      .staticImage(level.exit.x, level.exit.y - exit.height / 2, TEX.square)
+      .staticImage(level.exit.x, level.exit.y - exit.height / 2, exitSlot?.key ?? TEX.square, exitSlot?.frame)
       .setDisplaySize(exit.width, exit.height)
       .refreshBody();
-    this.door.setTint(PALETTE.good).setDepth(9).setAlpha(0.9);
-    this.add
-      .image(level.exit.x, level.exit.y - exit.height / 2, TEX.ring)
-      .setDisplaySize(exit.width * 0.7, exit.width * 0.7)
-      .setTint(PALETTE.ink)
-      .setDepth(10);
+    this.door.setDepth(9).setAlpha(0.9);
+    if (exitSlot === null) {
+      this.door.setTint(PALETTE.good);
+      this.add
+        .image(level.exit.x, level.exit.y - exit.height / 2, TEX.ring)
+        .setDisplaySize(exit.width * 0.7, exit.width * 0.7)
+        .setTint(PALETTE.ink)
+        .setDepth(10);
+    }
   }
 
   private buildPlayer(): void {
@@ -369,11 +674,14 @@ export class GameScene extends Phaser.Scene {
     // centre sits half a body above the surface it spawns on.
     this.player = this.physics.add.image(this.level.spawn.x, this.level.spawn.y - size / 2, TEX.square);
     this.player.setDisplaySize(size, size).setVisible(false);
+    const heroSlot = this.resolveSlot(SIDE_TUNING.art.hero);
     this.skin = this.add
-      .image(this.player.x, this.player.y, TEX.square)
+      .image(this.player.x, this.player.y, heroSlot?.key ?? TEX.square, heroSlot?.frame)
       .setDisplaySize(size, size)
-      .setTint(PALETTE.secondary)
       .setDepth(20);
+    // A generated hero is already coloured (AGENTS.md): only the placeholder
+    // block takes a tint.
+    if (heroSlot === null) this.skin.setTint(PALETTE.secondary);
     this.skinScaleX = this.skin.scaleX;
     this.skinScaleY = this.skin.scaleY;
     const body = this.player.body as Phaser.Physics.Arcade.Body;
@@ -489,7 +797,6 @@ export class GameScene extends Phaser.Scene {
     this.paused = true;
     this.director.pause();
     this.physics.world.pause();
-    this.game.events.emit(EVENTS.paused);
     this.pauseOverlay = showPauseOverlay(
       this,
       () => this.resumeRun(),
@@ -510,6 +817,5 @@ export class GameScene extends Phaser.Scene {
     // A pause must not bank a jump the player queued before opening it.
     this.jumpPressedAt = -1;
     this.jumpHeld = false;
-    this.game.events.emit(EVENTS.resumed);
   }
 }

@@ -1,12 +1,12 @@
 import Phaser from 'phaser';
 import { PALETTE, SAFE, TUNING, VIEW } from '../../config';
-import { EVENTS, SCENES } from '../../core/keys';
+import { SCENES } from '../../core/keys';
 import { Controls } from '../../core/controls';
 import { Joystick } from '../../ui/joystick';
 import { Rng } from '../../core/rng';
 import { setDamageClock } from '../../core/damage';
 import { RunDirector, type EventSpec } from '../../core/run';
-import { metaModifiers } from '../../core/progression';
+import { metaModifiers, touchDailyStreak } from '../../core/progression';
 import { rollUpgradeChoices, type UpgradeDef, type UpgradeRollContext } from '../../data/upgrades';
 import { PHASES, WAVES, TIMELINE_EVENTS } from '../../data/waves';
 import { ANIM } from '../../data/art';
@@ -130,7 +130,7 @@ export class GameScene extends Phaser.Scene {
         onEnemyKilled: (def, x, y) => this.onEnemyKilled(def, x, y),
         onPlayerHit: (ratio) => this.onPlayerHit(ratio),
         onPlayerDied: () => this.finish(false),
-        onLevelUp: (level, gained) => this.onLevelUp(level, gained),
+        onLevelUp: (_level, gained) => this.onLevelUp(gained),
         onPlayerAttack: () => sfx('tap', { volume: 0.25 }),
         onBossSpawned: () => this.onBossSpawned(),
         onBossKilled: () => this.finish(true),
@@ -161,7 +161,6 @@ export class GameScene extends Phaser.Scene {
         durationSeconds: TUNING.runSeconds,
         onPhaseChange: (phase) => {
           this.model.phase = phase.name;
-          this.game.events.emit(EVENTS.phaseChanged, phase);
           sfx('whoosh', { volume: 0.5 });
         },
         onEvent: (event) => this.onScriptedEvent(event),
@@ -190,11 +189,24 @@ export class GameScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-ESC', () => this.togglePause());
     this.input.keyboard?.on('keydown-P', () => this.togglePause());
 
-    this.game.events.emit(EVENTS.runStarted);
     this.cameras.main.fadeIn(220, 0, 0, 0);
+    this.markDailyStreak();
 
     startMusic('run');
     setMusicIntensity(0.25);
+  }
+
+  /**
+   * Advances the daily streak once per run (the menu chip reads it back on the
+   * next visit) and celebrates only the day it actually grew.
+   */
+  private markDailyStreak(): void {
+    const streak = touchDailyStreak();
+    if (!streak.extended) return;
+    this.time.delayedCall(600, () => {
+      floatText(this, VIEW.centerX, SAFE.top + 60, `DAY ${streak.days} STREAK!`, '#ffd166', 46);
+      sfx('combo', { volume: 0.5 });
+    });
   }
 
   update(_time: number, delta: number): void {
@@ -293,8 +305,7 @@ export class GameScene extends Phaser.Scene {
     shake(this, intensity, durationMs);
   }
 
-  private onLevelUp(level: number, gained: number): void {
-    this.game.events.emit(EVENTS.levelUp, level);
+  private onLevelUp(gained: number): void {
     sfx('levelup');
     flash(this, PALETTE.accent, 140);
     playFx(this, ANIM.levelUpBurst, this.combat.player.x, this.combat.player.y, 320);
@@ -415,7 +426,6 @@ export class GameScene extends Phaser.Scene {
       this.director.pause();
       this.combat.setPaused(true);
       this.joystick.setEnabled(false);
-      this.game.events.emit(EVENTS.paused);
       this.pauseOverlay = showPauseOverlay(
         this,
         () => this.resumeFromPause(),
@@ -435,7 +445,6 @@ export class GameScene extends Phaser.Scene {
     this.director.resume();
     this.combat.setPaused(false);
     this.joystick.setEnabled(true);
-    this.game.events.emit(EVENTS.resumed);
   }
 
   private finish(won: boolean): void {
@@ -456,7 +465,6 @@ export class GameScene extends Phaser.Scene {
 
     const timeMs = this.director.elapsedSeconds * 1000;
     const currencyEarned = this.currency + (won ? TUNING.economy.winBonus : 0);
-    this.game.events.emit(EVENTS.runEnded, { won, score: this.score });
 
     this.cameras.main.fadeOut(340, 0, 0, 0);
     this.time.delayedCall(360, () => {

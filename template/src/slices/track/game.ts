@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { CSS, PALETTE, SAFE, TEXT, VIEW } from '../../config';
-import { EVENTS, SCENES, TEX } from '../../core/keys';
+import { SCENES, TEX } from '../../core/keys';
 import { Rng } from '../../core/rng';
 import { LapDirector } from '../../core/lap';
 import type { SessionOutcome } from '../../core/session';
@@ -10,6 +10,8 @@ import { burst, flash, floatText, pop, shake } from '../../core/juice';
 import { Button } from '../../ui/button';
 import { addBackground } from '../../ui/background';
 import { showPauseOverlay, type PauseOverlayHandle } from '../../ui/pauseOverlay';
+import { loadMeta, touchDailyStreak } from '../../core/progression';
+import type { ArtSlot } from '../../data/art';
 import { TRACK_TUNING } from './tuning';
 import {
   TRACK_SHAPES,
@@ -55,6 +57,15 @@ interface Racer {
 
 const TRACK_TEXTURE = 'track-surface';
 
+/** `meta_tune_up` in the track catalog (`data/metaCatalog.ts`). */
+const PERK_TUNE_UP = 'meta_tune_up';
+
+/**
+ * Art groups `PreloadScene` loads for this slice (see the slice-wiring guide):
+ * `track-cars` is one nose-up sprite per car; the surface is baked per seed.
+ */
+export const ART_GROUPS = ['ui', 'bg', 'track-cars'] as const;
+
 /**
  * LAP RACER — the top-down racing (family E) reference slice.
  *
@@ -97,9 +108,30 @@ export class GameScene extends Phaser.Scene {
   private offTrackPuffAt = 0;
   private paused = false;
   private ended = false;
+  /** Player-only top-speed multiplier from `meta_tune_up` (1 = no perk). */
+  private tuneUpMul = 1;
 
   constructor() {
     super(SCENES.game);
+  }
+
+  /** Advances the daily streak once per entry; celebrates only real growth. */
+  private markDailyStreak(): void {
+    const streak = touchDailyStreak();
+    if (!streak.extended) return;
+    this.time.delayedCall(620, () => {
+      floatText(this, VIEW.centerX, SAFE.top + 60, `DAY ${streak.days} STREAK!`, CSS.accent, 46);
+      sfx('combo', { volume: 0.5 });
+    });
+  }
+
+  /**
+   * The slot to draw with, or `null` when its texture never loaded (pruned art
+   * group, or art that does not exist yet).
+   */
+  private resolveSlot(slot: ArtSlot | null): ArtSlot | null {
+    if (slot === null) return null;
+    return this.textures.exists(slot.key) ? slot : null;
   }
 
   /** `scene.start(SCENES.game, { seed })` replays the same track and field. */
@@ -134,11 +166,11 @@ export class GameScene extends Phaser.Scene {
     this.buildInput();
     this.refreshHud();
 
-    this.game.events.emit(EVENTS.runStarted);
     this.cameras.main.fadeIn(220, 0, 0, 0);
     floatText(this, VIEW.centerX, VIEW.centerY, shape.toUpperCase(), CSS.primary, 64);
     startMusic('run');
     setMusicIntensity(0.4);
+    this.markDailyStreak();
   }
 
   update(_time: number, delta: number): void {
@@ -249,7 +281,6 @@ export class GameScene extends Phaser.Scene {
       shake(this, 0.012, 180);
     }
     setMusicIntensity(0.2);
-    this.game.events.emit(EVENTS.runEnded, { won, score });
 
     this.cameras.main.fadeOut(TRACK_TUNING.fadeOutMs, 0, 0, 0);
     this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
@@ -262,7 +293,16 @@ export class GameScene extends Phaser.Scene {
         stats: [
           { label: 'POSITION', value: `${position}/${this.racers.length}` },
           { label: 'BEST LAP', value: bestLapMs > 0 ? `${(bestLapMs / 1000).toFixed(2)}s` : '-' },
+          ...(this.tuneUpMul > 1
+            ? [{ label: 'TUNE-UP', value: `+${Math.round((this.tuneUpMul - 1) * 100)}%` }]
+            : []),
         ],
+        // A race is finished or it is nothing: the only DNF in this slice is
+        // RESTART from the pause overlay, which never reaches this screen.
+        headline: 'RACE COMPLETE!',
+        timeLabel: 'RACE TIME',
+        // Fastest total race time is the record a racer chases.
+        bestTimeMode: 'min',
       });
     });
   }
@@ -374,21 +414,29 @@ export class GameScene extends Phaser.Scene {
     ];
     const grid = startGrid(this.track, profiles.length, []);
 
+    // `meta_tune_up` is the player's edge only: the bot specs are scaled off
+    // the SHIPPED car, so the field stays exactly as the sim gates it.
+    const tuneLevel = loadMeta().upgrades[PERK_TUNE_UP] ?? 0;
+    this.tuneUpMul = 1 + tuneLevel * TRACK_TUNING.perks.topSpeedPerLevel;
+
     this.racers = profiles.map((profile, index) => {
       const car = grid[index]!;
+      const carSlot = this.resolveSlot(TRACK_TUNING.art.cars[index] ?? null);
       const sprite = this.add
-        .image(car.x, car.y, TEX.square)
+        .image(car.x, car.y, carSlot?.key ?? TEX.square, carSlot?.frame)
         .setDisplaySize(TRACK_TUNING.car2d.width, TRACK_TUNING.car2d.height)
-        .setTint(tints[index] ?? PALETTE.ink)
         .setRotation(car.heading)
         .setDepth(profile === null ? 30 : 20);
+      // Four near-identical shapes need colour separation; generated cars carry
+      // their own livery, so only the placeholder rectangles are tinted.
+      if (carSlot === null) sprite.setTint(tints[index] ?? PALETTE.ink);
       const hit = createTrackHit();
       nearestOnTrack(this.track, car.x, car.y, hit);
       return {
         label: profile === null ? 'YOU' : `CPU${index}`,
         car,
         sprite,
-        spec: scaleCarSpec(TRACK_TUNING.car, profile?.speedMul ?? 1),
+        spec: scaleCarSpec(TRACK_TUNING.car, (profile?.speedMul ?? 1) * (profile === null ? this.tuneUpMul : 1)),
         profile,
         director: new LapDirector(TRACK_TUNING.race),
         hit,
@@ -405,12 +453,13 @@ export class GameScene extends Phaser.Scene {
     // screen, "which one am I" has to be answerable at a glance. It is moved
     // with the car every frame — a marker left on the start line is worse than
     // no marker at all.
+    const markerSlot = this.resolveSlot(TRACK_TUNING.art.playerMarker);
     this.playerMarker = this.add
-      .image(this.player.car.x, this.player.car.y, TEX.ring)
+      .image(this.player.car.x, this.player.car.y, markerSlot?.key ?? TEX.ring, markerSlot?.frame)
       .setDisplaySize(58, 58)
-      .setTint(PALETTE.ink)
-      .setAlpha(0.35)
+      .setAlpha(markerSlot === null ? 0.35 : 0.9)
       .setDepth(29);
+    if (markerSlot === null) this.playerMarker.setTint(PALETTE.ink);
   }
 
   // --- shell ----------------------------------------------------------------
@@ -515,7 +564,6 @@ export class GameScene extends Phaser.Scene {
     this.steer = 0;
     this.steerPointer = -1;
     for (const racer of this.racers) racer.director.pause();
-    this.game.events.emit(EVENTS.paused);
     this.pauseOverlay = showPauseOverlay(
       this,
       () => this.resumeRun(),
@@ -533,6 +581,5 @@ export class GameScene extends Phaser.Scene {
     this.pauseOverlay?.destroy();
     this.pauseOverlay = null;
     for (const racer of this.racers) racer.director.resume();
-    this.game.events.emit(EVENTS.resumed);
   }
 }

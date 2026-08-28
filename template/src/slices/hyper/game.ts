@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { CSS, PALETTE, SAFE, TEXT, VIEW } from '../../config';
-import { EVENTS, SCENES, TEX } from '../../core/keys';
+import { SCENES, TEX } from '../../core/keys';
 import { Rng } from '../../core/rng';
 import { Pool } from '../../core/pool';
 import { RampDirector } from '../../core/ramp';
@@ -10,8 +10,24 @@ import { flash, floatText, hitstop, pop, shake } from '../../core/juice';
 import { buildGradient } from '../../core/textures';
 import { Button } from '../../ui/button';
 import { showPauseOverlay, type PauseOverlayHandle } from '../../ui/pauseOverlay';
-import { HYPER_TUNING } from './tuning';
+import { drawPanel } from '../../ui/primitives';
+import { addToCollection, loadMeta, ownedPieces, touchDailyStreak } from '../../core/progression';
+import { load, save } from '../../core/storage';
+import type { ArtSlot } from '../../data/art';
+import { HYPER_SKIN_SET, HYPER_TUNING, type HyperSkin } from './tuning';
 import { createTower, placeSlab, slabSpeed, travelBounds, type StackTower } from './stack';
+
+/** `meta_skin_pack` in the hyper catalog (`data/metaCatalog.ts`). */
+const PERK_SKIN_PACK = 'meta_skin_pack';
+/** `meta_slow_start` in the same catalog. */
+const PERK_SLOW_START = 'meta_slow_start';
+
+/**
+ * Art groups `PreloadScene` loads for this slice (see the slice-wiring guide).
+ * `hyper-skins` is the slab sheet; while that group ships no art the tower's
+ * banding comes from the skin palettes instead.
+ */
+export const ART_GROUPS = ['ui', 'bg', 'hyper-skins'] as const;
 
 const SKY = 'hyper-sky';
 /** Screen y the tower top is pinned to: the tower scrolls, the action line never moves. */
@@ -28,6 +44,12 @@ const ACTION_Y = Math.round(VIEW.height * HYPER_TUNING.actionLineRatio);
  *
  * All geometry decisions live in `stack.ts` (pure, headless-testable), all
  * numbers in `tuning.ts`. This scene only renders them and adds feel.
+ *
+ * Meta layer: the six slab colourways are a collection set. Beating a
+ * milestone score grants the next one, the `meta_skin_pack` perk unlocks one
+ * per level outright, and a small picker before the first tap lets the player
+ * choose between the ones they own (the choice is persisted, so it survives
+ * the instant-retry loop).
  */
 export class GameScene extends Phaser.Scene {
   private rng!: Rng;
@@ -53,6 +75,15 @@ export class GameScene extends Phaser.Scene {
   private paused = false;
   private ended = false;
 
+  /** Skin chosen for this run; its palette bands the tower. */
+  private skin: HyperSkin = HYPER_TUNING.skins[0] as HyperSkin;
+  /** Resolved once per run: null means "tint the procedural slab". */
+  private slabSlot: ArtSlot | null = null;
+  /** Multiplier applied to the slide speed for the first `slowStart.seconds`. */
+  private slowStartMul = 1;
+  /** While the picker is open the run is armed but not live. */
+  private awaitingSkinPick = false;
+
   constructor() {
     super(SCENES.game);
   }
@@ -75,6 +106,22 @@ export class GameScene extends Phaser.Scene {
     this.ended = false;
     this.shownScore = -1;
     this.shownStats = '';
+    this.awaitingSkinPick = false;
+
+    // The default colourway is owned by definition; granting it on entry keeps
+    // the collection screen honest instead of showing 0/6 to a new player.
+    const firstSkin = HYPER_TUNING.skins[0] as HyperSkin;
+    addToCollection(HYPER_SKIN_SET.id, firstSkin.id, HYPER_SKIN_SET.pieces.length);
+    this.applySkinPackPerk();
+    this.skin = this.storedSkin();
+    this.slabSlot = this.resolveSlot(HYPER_TUNING.art.slab);
+
+    // `meta_slow_start` only touches the opening seconds; the ceiling — where a
+    // score-chase run is actually decided — is untouched.
+    const slowLevel = loadMeta().upgrades[PERK_SLOW_START] ?? 0;
+    this.slowStartMul = Math.max(0.4, 1 - slowLevel * HYPER_TUNING.slowStart.speedMulPerLevel);
+
+    this.markDailyStreak();
 
     this.drawBackdrop();
 
@@ -121,19 +168,171 @@ export class GameScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-ESC', () => this.togglePause());
     this.input.keyboard?.on('keydown-P', () => this.togglePause());
 
-    this.game.events.emit(EVENTS.runStarted);
     this.cameras.main.fadeIn(200, 0, 0, 0);
 
     startMusic('run');
     setMusicIntensity(0.5);
+
+    // The picker only appears when there is a choice to make.
+    if (ownedPieces(HYPER_SKIN_SET.id).length > 1) this.openSkinPicker();
+  }
+
+  /** Advances the daily streak once per entry; celebrates only real growth. */
+  private markDailyStreak(): void {
+    const streak = touchDailyStreak();
+    if (!streak.extended) return;
+    this.time.delayedCall(480, () => {
+      floatText(this, VIEW.centerX, SAFE.top + 90, `DAY ${streak.days} STREAK!`, CSS.accent, 46);
+      sfx('combo', { volume: 0.5 });
+    });
+  }
+
+  // --- skins ----------------------------------------------------------------
+
+  /**
+   * `meta_skin_pack`: each purchased level hands over the next locked
+   * colourway outright, in definition order, so the perk is a shortcut through
+   * the milestone ladder rather than a second currency.
+   */
+  private applySkinPackPerk(): void {
+    const levels = loadMeta().upgrades[PERK_SKIN_PACK] ?? 0;
+    if (levels <= 0) return;
+    let granted = 0;
+    for (const skin of HYPER_TUNING.skins) {
+      if (granted >= levels) return;
+      const result = addToCollection(HYPER_SKIN_SET.id, skin.id, HYPER_SKIN_SET.pieces.length);
+      if (result.added) granted += 1;
+    }
+  }
+
+  /** The persisted choice, falling back to the default when it is not owned. */
+  private storedSkin(): HyperSkin {
+    const owned = ownedPieces(HYPER_SKIN_SET.id);
+    const storedId = load<string>(HYPER_TUNING.skinStoreKey, '');
+    const stored = HYPER_TUNING.skins.find((skin) => skin.id === storedId && owned.includes(skin.id));
+    return stored ?? (HYPER_TUNING.skins[0] as HyperSkin);
+  }
+
+  /**
+   * Pre-run colourway picker: one row of owned swatches, tapped to choose. The
+   * run is armed behind it (`awaitingSkinPick` swallows the drop) so the first
+   * tap after the pick is a slab, not a wasted one.
+   */
+  private openSkinPicker(): void {
+    this.awaitingSkinPick = true;
+    const owned = ownedPieces(HYPER_SKIN_SET.id);
+    const choices = HYPER_TUNING.skins.filter((skin) => owned.includes(skin.id));
+
+    const root = this.add.container(0, 0).setDepth(2300).setScrollFactor(0);
+    const dim = this.add
+      .rectangle(VIEW.centerX, VIEW.centerY, VIEW.width, VIEW.height, 0x000000, 0.6)
+      .setScrollFactor(0)
+      .setInteractive();
+    const panelHeight = 300;
+    const panel = drawPanel(this, VIEW.width - SAFE.side * 2, panelHeight, {
+      fill: PALETTE.bgTop,
+      fillAlpha: 0.97,
+      stroke: PALETTE.primary,
+      radius: 30,
+    })
+      .setPosition(VIEW.centerX, VIEW.centerY)
+      .setScrollFactor(0);
+    const heading = this.add
+      .text(VIEW.centerX, VIEW.centerY - panelHeight / 2 + 46, 'COLOURWAY', {
+        ...TEXT.heading,
+        fontSize: '40px',
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0);
+    root.add([dim, panel, heading]);
+
+    const close = (): void => {
+      root.destroy(true);
+      this.awaitingSkinPick = false;
+    };
+
+    // Swatch chips: three per row, each a 96px tap target (>= the 88px floor).
+    const perRow = 3;
+    const chip = 96;
+    const gap = 24;
+    choices.forEach((skin, index) => {
+      const row = Math.floor(index / perRow);
+      const column = index % perRow;
+      const rowCount = Math.min(perRow, choices.length - row * perRow);
+      const rowWidth = rowCount * chip + (rowCount - 1) * gap;
+      const x = VIEW.centerX - rowWidth / 2 + chip / 2 + column * (chip + gap);
+      const y = VIEW.centerY - 10 + row * (chip + gap);
+      const swatch = this.add
+        .image(x, y, TEX.square)
+        .setDisplaySize(chip, chip)
+        .setTint(skin.colors[0] ?? PALETTE.primary)
+        .setScrollFactor(0)
+        .setInteractive();
+      const ring = this.add
+        .image(x, y, TEX.ring)
+        .setDisplaySize(chip + 14, chip + 14)
+        .setTint(PALETTE.ink)
+        .setAlpha(skin.id === this.skin.id ? 0.9 : 0.15)
+        .setScrollFactor(0);
+      // Click semantics (AGENTS.md): arm on this chip's own POINTER_DOWN and
+      // disarm on POINTER_OUT, so releasing a stray drag never picks a skin.
+      let armed = false;
+      swatch.on(Phaser.Input.Events.POINTER_DOWN, () => {
+        armed = true;
+      });
+      swatch.on(Phaser.Input.Events.POINTER_OUT, () => {
+        armed = false;
+      });
+      swatch.on(Phaser.Input.Events.POINTER_UP, () => {
+        if (!armed) return;
+        armed = false;
+        this.chooseSkin(skin);
+        close();
+      });
+      root.add([swatch, ring]);
+    });
+
+    const keep = new Button(this, VIEW.centerX, VIEW.centerY + panelHeight / 2 + 76, 'PLAY', () => close(), {
+      width: VIEW.width - SAFE.side * 2,
+      height: 104,
+    });
+    keep.setScrollFactor(0);
+    root.add(keep);
+  }
+
+  /** Applies and PERSISTS a pick, then repaints the tower that is already up. */
+  private chooseSkin(skin: HyperSkin): void {
+    this.skin = skin;
+    save(HYPER_TUNING.skinStoreKey, skin.id);
+    sfx('ui');
+    for (let row = 0; row < this.rows.length; row += 1) {
+      this.paintSlab(this.rows[row] as Phaser.GameObjects.Image, row);
+    }
+    this.paintSlab(this.mover, this.tower.height + 1);
+    floatText(this, VIEW.centerX, ACTION_Y - HYPER_TUNING.slabHeight * 2, skin.name, CSS.accent, 44);
+  }
+
+  /**
+   * The slot to draw a slab with, or `null` for the procedural square. A slot
+   * whose texture never loaded resolves to `null`, so a pruned art group leaves
+   * the palette-tinted fallback rather than a green box.
+   */
+  private resolveSlot(slot: ArtSlot | null): ArtSlot | null {
+    if (slot === null) return null;
+    return this.textures.exists(slot.key) ? slot : null;
   }
 
   update(_time: number, delta: number): void {
-    if (this.ended || this.paused) return;
+    if (this.ended || this.paused || this.awaitingSkinPick) return;
 
     this.director.update(delta);
 
-    const speed = slabSpeed(HYPER_TUNING.baseSpeed, HYPER_TUNING.speedPerDifficulty, this.director.difficulty);
+    // The opening seconds can be slowed by `meta_slow_start`; everything past
+    // them runs at the ramp's own speed.
+    const opening = this.director.elapsedSeconds < HYPER_TUNING.slowStart.seconds;
+    const speed =
+      slabSpeed(HYPER_TUNING.baseSpeed, HYPER_TUNING.speedPerDifficulty, this.director.difficulty) *
+      (opening ? this.slowStartMul : 1);
     const bounds = travelBounds(this.tower.width, VIEW.width);
     let x = this.mover.x + this.direction * speed * (delta / 1000);
     if (x <= bounds.minX) {
@@ -151,7 +350,7 @@ export class GameScene extends Phaser.Scene {
   // --- gameplay -------------------------------------------------------------
 
   private drop(): void {
-    if (this.ended || this.paused) return;
+    if (this.ended || this.paused || this.awaitingSkinPick) return;
 
     const dropX = this.mover.x;
     const dropW = this.tower.width;
@@ -198,9 +397,9 @@ export class GameScene extends Phaser.Scene {
       .setActive(true)
       .setVisible(true)
       .setPosition(x, ACTION_Y - row * HYPER_TUNING.slabHeight)
-      .setDisplaySize(width, HYPER_TUNING.slabHeight)
-      .setTint(this.rowColor(row))
       .setAlpha(1);
+    this.paintSlab(slab, row);
+    slab.setDisplaySize(width, HYPER_TUNING.slabHeight);
     this.rows.push(slab);
     // Rows scrolled off the bottom go back to the pool instead of piling up.
     while (this.rows.length > HYPER_TUNING.visibleRows) {
@@ -208,6 +407,22 @@ export class GameScene extends Phaser.Scene {
       if (oldest) this.slabPool.release(oldest);
     }
     return slab;
+  }
+
+  /**
+   * Skins one slab for its row. With the art slot resolved the slab wears the
+   * generated texture and NO tint (generated art carries its own colour, see
+   * AGENTS.md); otherwise it is the procedural square banded by the active
+   * skin's palette. A pooled slab is re-textured on every reuse, or it would
+   * keep the previous run's skin.
+   */
+  private paintSlab(slab: Phaser.GameObjects.Image, row: number): void {
+    const slot = this.slabSlot;
+    if (slot !== null) {
+      slab.setTexture(slot.key, slot.frame).clearTint();
+      return;
+    }
+    slab.setTexture(TEX.square).setTint(this.rowColor(row));
   }
 
   /** Slides the tower down one row so the new top sits on the action line. */
@@ -225,9 +440,9 @@ export class GameScene extends Phaser.Scene {
       .setActive(true)
       .setVisible(true)
       .setPosition(this.direction === 1 ? bounds.minX : bounds.maxX, this.moverRowY())
-      .setDisplaySize(this.tower.width, HYPER_TUNING.slabHeight)
-      .setTint(this.rowColor(this.tower.height + 1))
       .setAlpha(1);
+    this.paintSlab(this.mover, this.tower.height + 1);
+    this.mover.setDisplaySize(this.tower.width, HYPER_TUNING.slabHeight);
   }
 
   /** Local y of the row above the current top — where the sliding slab lives. */
@@ -274,7 +489,7 @@ export class GameScene extends Phaser.Scene {
 
     const score = this.director.score;
     const timeMs = this.director.elapsedSeconds * 1000;
-    this.game.events.emit(EVENTS.runEnded, { won: false, score });
+    const unlocked = this.grantMilestoneSkins(score);
 
     // Camera effects run on the raw frame delta, so the transition is not
     // stretched by the hitstop's time scale — death to results stays < 600ms.
@@ -289,9 +504,35 @@ export class GameScene extends Phaser.Scene {
         stats: [
           { label: 'HEIGHT', value: `${this.tower.height}` },
           { label: 'PERFECT', value: `${this.tower.perfects}` },
+          ...(unlocked === null ? [] : [{ label: 'UNLOCKED', value: unlocked }]),
         ],
+        // A score chase has no win state: the tower coming down IS the result.
+        headline: 'TOWER DOWN',
+        timeLabel: 'SURVIVED',
+        bestTimeMode: 'max',
       });
     });
+  }
+
+  /**
+   * Grants every colourway this run's score reached. Milestone `n` pays out
+   * `skins[n + 1]`, so the ladder is the same for everyone and a big run can
+   * clear several rungs at once. Returns the last skin unlocked, for the
+   * results row.
+   */
+  private grantMilestoneSkins(score: number): string | null {
+    let unlocked: string | null = null;
+    HYPER_TUNING.skinMilestones.forEach((threshold, index) => {
+      if (score < threshold) return;
+      const skin = HYPER_TUNING.skins[index + 1];
+      if (skin === undefined) return;
+      const result = addToCollection(HYPER_SKIN_SET.id, skin.id, HYPER_SKIN_SET.pieces.length);
+      if (!result.added) return;
+      unlocked = skin.name;
+      floatText(this, VIEW.centerX, VIEW.centerY - 60, `${skin.name} UNLOCKED!`, CSS.accent, 50);
+      sfx('levelup', { volume: 0.7 });
+    });
+    return unlocked;
   }
 
   // --- shell ----------------------------------------------------------------
@@ -333,9 +574,10 @@ export class GameScene extends Phaser.Scene {
     return slab;
   }
 
+  /** Band tint for a row, cycled through the ACTIVE skin's palette. */
   private rowColor(row: number): number {
-    const colors = HYPER_TUNING.colors;
-    return colors[((row % colors.length) + colors.length) % colors.length] ?? colors[0];
+    const colors = this.skin.colors;
+    return colors[((row % colors.length) + colors.length) % colors.length] ?? PALETTE.primary;
   }
 
   private buildHud(): void {
@@ -385,7 +627,6 @@ export class GameScene extends Phaser.Scene {
     }
     this.paused = true;
     this.director.pause();
-    this.game.events.emit(EVENTS.paused);
     this.pauseOverlay = showPauseOverlay(
       this,
       () => this.resumeRun(),
@@ -402,6 +643,5 @@ export class GameScene extends Phaser.Scene {
     this.pauseOverlay?.destroy();
     this.pauseOverlay = null;
     this.director.resume();
-    this.game.events.emit(EVENTS.resumed);
   }
 }

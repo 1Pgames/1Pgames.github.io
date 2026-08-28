@@ -1,3 +1,4 @@
+import type { ArtSlot } from '../../data/art';
 import type { SideGeometry, SideMotion } from './gen';
 
 /**
@@ -60,6 +61,12 @@ export const SIDE_TUNING = {
     score: 25,
     /** Coins per unit of meta currency on the results screen. */
     perCurrency: 2,
+    /**
+     * `meta_coin_magnet` widens the pickup BODY (never the drawn coin) by this
+     * share of its size per perk level, so a magnet reads as reach rather than
+     * as bigger scenery.
+     */
+    magnetPerPerkLevel: 0.12,
   },
 
   exit: { width: 64, height: 104 },
@@ -73,6 +80,19 @@ export const SIDE_TUNING = {
 
   /** Time budget per level (`LevelDirector.timeSeconds`); a clean run is ~22s. */
   levelTimeSeconds: 90,
+  /**
+   * Star bands as the share of the time budget LEFT on the win. A clean ~22s
+   * run of the 90s budget leaves ~75% and takes all three; 40s leaves 55% and
+   * takes two; anything slower still clears the level for one.
+   */
+  starBands: [0, 0.55, 0.7] as readonly [number, number, number],
+  /** `extra-life`: the revive offer after a fatal hit, once per level. */
+  revive: {
+    /** How long the offer stays tappable before the level restarts anyway. */
+    promptMs: 3000,
+    /** Hero is re-dropped this far above the surface it last stood on. */
+    liftPx: 24,
+  },
   /** Score for reaching the door, on top of coins. */
   exitScore: 250,
   /** Death → restart transition; the retry must feel instant (< 600ms). */
@@ -81,4 +101,17 @@ export const SIDE_TUNING = {
   fadeOutMs: 200,
   /** Generator attempts before the knobs are relaxed (see `gen.ts`). */
   maxGenAttempts: 20,
+
+  /**
+   * Generated-art slots; `null` keeps the procedural primitive + tint. Hero
+   * art is a character (never tinted once it resolves), platforms and spikes
+   * are tiles stretched to the generator's geometry.
+   */
+  art: {
+    hero: null,
+    platform: null,
+    spike: null,
+    coin: null,
+    exit: null,
+  } as Record<'hero' | 'platform' | 'spike' | 'coin' | 'exit', ArtSlot | null>,
 } as const;

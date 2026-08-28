@@ -58,3 +58,18 @@ export const BOARD_LEVELS: readonly BoardLevel[] = [
 
 /** Namespaced `core/storage` key holding the next unplayed level index. */
 export const BOARD_PROGRESS_KEY = 'board:level';
+
+/**
+ * Index of the level actually being played, written the moment a level starts.
+ *
+ * `GameOverScene` hands RETRY nothing but the run seed, so without this the
+ * retry of a WON level would re-read `BOARD_PROGRESS_KEY` — which the win just
+ * advanced — and silently start the next level instead of replaying the one the
+ * player asked for.
+ */
+export const BOARD_LAST_LEVEL_KEY = 'board:last';
+
+/** Clamps any stored/derived index into the ladder. */
+export function clampBoardLevel(index: number): number {
+  return Math.max(0, Math.min(BOARD_LEVELS.length - 1, Math.floor(index)));
+}

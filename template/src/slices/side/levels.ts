@@ -34,14 +34,24 @@ export const SIDE_LEVEL_COUNT = SIDE_LEVEL_KNOBS.length;
 export const SIDE_PROGRESS_KEY = 'side:level';
 
 /**
- * `LevelSpec` for level `index`: one goal (`exit`), a 90s budget. Coins are
- * score, never a goal — a level must never be blocked by a missed pickup.
+ * Index of the level actually being played, written when it starts. RETRY and
+ * the death restart carry nothing but the run seed, so this — not
+ * `SIDE_PROGRESS_KEY`, which the win already advanced — is what a replay reads.
+ */
+export const SIDE_LAST_LEVEL_KEY = 'side:last';
+
+/**
+ * `LevelSpec` for level `index`: one goal (`exit`), a 90s budget and the time
+ * star bands from `tuning.ts` — the budget LEFT on the win is the rating, so a
+ * clean run is worth three stars on the saga map. Coins are score, never a
+ * goal — a level must never be blocked by a missed pickup.
  */
 export function sideLevelSpec(index: number): LevelSpec {
   return {
     id: `side-${(index + 1).toString().padStart(2, '0')}`,
     goals: [{ id: 'exit', target: 1 }],
     timeSeconds: SIDE_TUNING.levelTimeSeconds,
+    starBands: SIDE_TUNING.starBands,
   };
 }
 

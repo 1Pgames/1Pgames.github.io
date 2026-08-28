@@ -1,12 +1,12 @@
 import Phaser from 'phaser';
 import { CSS, PALETTE, SAFE, TEXT, VIEW } from '../../config';
-import { EVENTS, SCENES, TEX } from '../../core/keys';
+import { SCENES, TEX } from '../../core/keys';
 import { Rng } from '../../core/rng';
 import { load, save } from '../../core/storage';
 import { sfx, sfxArp } from '../../core/audio';
 import { setMusicIntensity, startMusic } from '../../core/music';
 import { burst, flash, floatText, pop, shake } from '../../core/juice';
-import { LevelDirector } from '../../core/level';
+import { LevelDirector, type LevelGoal } from '../../core/level';
 import type { ResultStat, SessionOutcome } from '../../core/session';
 import { Board } from '../../core/board/grid';
 import {
@@ -18,13 +18,30 @@ import {
 } from '../../core/board/resolve';
 import type { CascadeStep, Cell, SpecialKind } from '../../core/board/types';
 import { areAdjacent, sameCell } from '../../core/board/types';
+import {
+  MAX_STARS,
+  bestStars,
+  boosterCount,
+  recordStars,
+  spendBooster,
+  touchDailyStreak,
+} from '../../core/progression';
+import { metaCatalogFor } from '../../data/metaCatalog';
+import type { ArtSlot } from '../../data/art';
 import { addBackground } from '../../ui/background';
 import { Button } from '../../ui/button';
 import { drawPanel, drawPill } from '../../ui/primitives';
 import { showPauseOverlay, type PauseOverlayHandle } from '../../ui/pauseOverlay';
+import { showSagaMap, type SagaMapHandle } from '../../ui/sagaMap';
+import { showBoosterPicker, type BoosterPickerHandle } from '../../ui/boosterBar';
 import { BOARD_KINDS, BOARD_KIND_STYLES, BOARD_TUNING } from './tuning';
 import type { BoardKindStyle } from './tuning';
-import { BOARD_LEVELS, BOARD_PROGRESS_KEY } from './levels';
+import {
+  BOARD_LAST_LEVEL_KEY,
+  BOARD_LEVELS,
+  BOARD_PROGRESS_KEY,
+  clampBoardLevel,
+} from './levels';
 
 /**
  * Family B reference slice: a move-budgeted match-3 with cascades, line/bomb
@@ -34,7 +51,20 @@ import { BOARD_LEVELS, BOARD_PROGRESS_KEY } from './levels';
  * `CascadeStep`s and `core/level.ts` owns win/lose; everything here is
  * translation — tweens, particles, sfx and a diffed HUD. That split is what
  * lets the same engine drive the blast, merge, sort and block variants later.
+ *
+ * The meta layer wraps that loop rather than living inside it: entering from
+ * the menu opens the saga map (`ui/sagaMap.ts`) over the backdrop, the pick
+ * opens the booster picker (`ui/boosterBar.ts`), and only then is a board
+ * dealt. A win writes `recordStars`, so the map the player comes back to shows
+ * what they actually earned.
  */
+
+/**
+ * Art groups `PreloadScene` loads for this slice (see the slice-wiring guide).
+ * `ui` + `bg` are universal (HUD glyphs, menu emblem, `ui/background.ts`);
+ * `board-pieces` is where this family's gem sheet and special overlays live.
+ */
+export const ART_GROUPS = ['ui', 'bg', 'board-pieces'] as const;
 
 interface PieceView {
   root: Phaser.GameObjects.Container;
@@ -93,13 +123,35 @@ export class GameScene extends Phaser.Scene {
   private downY = 0;
   private dragResolved = false;
 
+  /** Boosters armed for THIS level; each id was spent when the level began. */
+  private readonly armedBoosters = new Set<string>();
+  private shuffleCharges = 0;
+  private shuffleButton: Button | null = null;
+  /** True once a board exists: the map/picker phase has no director to tick. */
+  private started = false;
+  /** Level asked for explicitly by the caller, bypassing the map. */
+  private requestedLevel: number | null = null;
+  /** A seed in `init` data means "replay a level", never "pick a new one". */
+  private replay = false;
+  private sagaMap: SagaMapHandle | null = null;
+  private boosterPicker: BoosterPickerHandle | null = null;
+  private mapBackdrop: Phaser.GameObjects.Rectangle | null = null;
+
   constructor() {
     super(SCENES.game);
   }
 
-  /** `scene.start(SCENES.game, { seed })` replays the exact same deal. */
-  init(data: { seed?: string } = {}): void {
+  /**
+   * `scene.start(SCENES.game, { seed })` replays the level in
+   * `BOARD_LAST_LEVEL_KEY` with the exact same deal and NO map or picker —
+   * that is what RETRY and the pause overlay's RESTART both send. A bare
+   * start (from the menu) opens the map instead; `levelIndex` skips straight
+   * to one level.
+   */
+  init(data: { seed?: string; levelIndex?: number } = {}): void {
+    this.replay = data.seed !== undefined;
     this.seed = data.seed ?? Date.now().toString(36);
+    this.requestedLevel = data.levelIndex === undefined ? null : clampBoardLevel(data.levelIndex);
   }
 
   create(): void {
@@ -108,40 +160,23 @@ export class GameScene extends Phaser.Scene {
     this.paused = false;
     this.ended = false;
     this.disposed = false;
+    this.started = false;
     this.pendingOutcome = null;
     this.selected = null;
     this.downCell = null;
     this.goalChips = [];
     this.shownMoves = '';
     this.shownScore = '';
+    this.shuffleCharges = 0;
+    this.shuffleButton = null;
+    this.sagaMap = null;
+    this.boosterPicker = null;
+    this.mapBackdrop = null;
+    this.armedBoosters.clear();
     this.styleByKind.clear();
     for (const style of BOARD_KIND_STYLES) this.styleByKind.set(style.id, style);
 
-    const stored = load<number>(BOARD_PROGRESS_KEY, 0);
-    this.levelIndex = Math.max(0, Math.min(BOARD_LEVELS.length - 1, Math.floor(stored)));
-    const level = BOARD_LEVELS[this.levelIndex] as (typeof BOARD_LEVELS)[number];
-
-    // One seed per (run, level): the same seed always deals the same puzzle,
-    // and RETRY on the results screen replays it move for move.
-    this.rng = new Rng(`${this.seed}:${level.seed}`);
-    this.board = new Board(
-      { cols: BOARD_TUNING.cols, rows: BOARD_TUNING.rows, kinds: BOARD_KINDS },
-      new Rng(`${this.seed}:${level.seed}:deal`),
-    );
-
-    this.director = new LevelDirector(level.spec, {
-      onEnd: (outcome) => {
-        this.pendingOutcome = outcome;
-      },
-    });
-
     addBackground(this, false);
-    this.buildBoardLayer();
-    this.buildHud(level.spec.goals.length);
-    this.buildInput();
-    this.refreshHud();
-
-    this.game.events.emit(EVENTS.runStarted);
     this.cameras.main.fadeIn(220, 0, 0, 0);
     startMusic('run');
     setMusicIntensity(0.28);
@@ -151,10 +186,221 @@ export class GameScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.disposed = true;
     });
+
+    this.markDailyStreak();
+
+    const explicit = this.requestedLevel;
+    if (explicit !== null) {
+      this.beginLevel(explicit, []);
+      return;
+    }
+    if (this.replay) {
+      // Boosters are consumed goods: a replay is the un-boosted level, only
+      // the same one.
+      this.beginLevel(clampBoardLevel(load<number>(BOARD_LAST_LEVEL_KEY, 0)), []);
+      return;
+    }
+    this.openSagaMap();
+  }
+
+  /**
+   * Advances the daily streak once per scene entry (the menu reads it back on
+   * the next visit) and celebrates only the day it actually grew.
+   */
+  private markDailyStreak(): void {
+    const streak = touchDailyStreak();
+    if (!streak.extended) return;
+    this.time.delayedCall(520, () => {
+      if (this.disposed) return;
+      floatText(this, VIEW.centerX, SAFE.top + 40, `DAY ${streak.days} STREAK!`, CSS.accent, 46);
+      sfx('combo', { volume: 0.5 });
+    });
+  }
+
+  // ------------------------------------------------------------- meta gateway
+
+  /**
+   * The saga map, over a dimmed backdrop: no board exists yet, so the level
+   * pick is the first decision of the session. CLOSE walks back to the menu —
+   * there is nothing behind the map to return to.
+   */
+  private openSagaMap(): void {
+    this.mapBackdrop = this.add
+      .rectangle(VIEW.centerX, VIEW.centerY, VIEW.width, VIEW.height, PALETTE.bgDeep, 0.72)
+      .setScrollFactor(0)
+      .setDepth(2100);
+
+    const starsByLevel: Record<string, number> = {};
+    for (const level of BOARD_LEVELS) starsByLevel[level.spec.id] = bestStars(level.spec.id);
+
+    this.sagaMap = showSagaMap(this, {
+      levels: BOARD_LEVELS.map((level, index) => ({ id: level.spec.id, label: `${index + 1}` })),
+      // Stored progress is the NEXT unplayed index, so the frontier is one
+      // level wider than it.
+      unlockedCount: clampBoardLevel(load<number>(BOARD_PROGRESS_KEY, 0)) + 1,
+      starsByLevel,
+      onPick: (levelId) => {
+        const index = BOARD_LEVELS.findIndex((level) => level.spec.id === levelId);
+        this.closeMetaOverlays();
+        this.offerBoosters(clampBoardLevel(index < 0 ? 0 : index));
+      },
+      onClose: () => {
+        this.closeMetaOverlays();
+        this.scene.start(SCENES.menu);
+      },
+    });
+  }
+
+  /**
+   * Pre-level booster offer. The catalog in `data/metaCatalog.ts` owns the ids
+   * and the copy; this only reads the owned counts and spends what is armed.
+   * A player who owns nothing never sees the gate.
+   */
+  private offerBoosters(index: number): void {
+    const offers = metaCatalogFor('board')
+      .filter((entry) => entry.kind === 'booster' && entry.boosterId !== undefined)
+      .map((entry) => ({
+        id: entry.boosterId as string,
+        name: entry.name.toUpperCase(),
+        count: boosterCount(entry.boosterId as string),
+      }));
+
+    if (offers.every((offer) => offer.count === 0)) {
+      this.beginLevel(index, []);
+      return;
+    }
+
+    this.boosterPicker = showBoosterPicker(this, {
+      boosters: offers,
+      maxPick: BOARD_TUNING.boosters.maxPick,
+      onStart: (selected) => {
+        this.closeMetaOverlays();
+        this.beginLevel(index, selected);
+      },
+    });
+  }
+
+  private closeMetaOverlays(): void {
+    this.sagaMap?.destroy();
+    this.sagaMap = null;
+    this.boosterPicker?.destroy();
+    this.boosterPicker = null;
+    this.mapBackdrop?.destroy();
+    this.mapBackdrop = null;
+  }
+
+  /**
+   * Deals `index` and starts its clock. Boosters are spent HERE — the spend is
+   * what commits the level, so a picker that never reaches this point costs
+   * the player nothing.
+   */
+  private beginLevel(index: number, boosters: readonly string[]): void {
+    this.levelIndex = index;
+    for (const id of boosters) {
+      if (spendBooster(id)) this.armedBoosters.add(id);
+    }
+    // Written before the first move so RETRY (seed only) lands on this level
+    // even after the win advances `BOARD_PROGRESS_KEY`.
+    save(BOARD_LAST_LEVEL_KEY, index);
+
+    const level = BOARD_LEVELS[index] as (typeof BOARD_LEVELS)[number];
+    // One seed per (run, level): the same seed always deals the same puzzle,
+    // and RETRY on the results screen replays it move for move.
+    this.rng = new Rng(`${this.seed}:${level.seed}`);
+    this.board = new Board(
+      { cols: BOARD_TUNING.cols, rows: BOARD_TUNING.rows, kinds: BOARD_KINDS },
+      new Rng(`${this.seed}:${level.seed}:deal`),
+    );
+
+    // `extra-moves` widens a COPY of the ladder's spec: the authored level data
+    // (and the sim gate that reads it) stays exactly as shipped.
+    const spec = this.armedBoosters.has('extra-moves')
+      ? { ...level.spec, moves: (level.spec.moves ?? 0) + BOARD_TUNING.boosters.extraMoves }
+      : level.spec;
+    this.director = new LevelDirector(spec, {
+      onEnd: (outcome) => {
+        this.pendingOutcome = outcome;
+      },
+    });
+
+    this.buildBoardLayer();
+    if (this.armedBoosters.has('bomb-start')) this.seedOpeningBomb();
+    this.buildHud(spec.goals);
+    if (this.armedBoosters.has('shuffle')) this.grantShuffleCharge();
+    this.buildInput();
+    this.refreshHud();
+    this.started = true;
+
+    if (this.armedBoosters.size > 0) {
+      floatText(
+        this,
+        VIEW.centerX,
+        BOARD_TUNING.boardTop - 26,
+        `${this.armedBoosters.size} BOOSTER${this.armedBoosters.size > 1 ? 'S' : ''} ARMED`,
+        CSS.accent,
+        38,
+      );
+    }
+  }
+
+  /**
+   * `bomb-start`: one bomb on a mid-board cell, seeded from the level's own
+   * `Rng` so the same seed opens the same way. Mid-board because a bomb on the
+   * bottom row detonates into gravity and reads as a wasted booster.
+   */
+  private seedOpeningBomb(): void {
+    const band = BOARD_TUNING.boosters.bombRowBand;
+    const cell = {
+      col: this.rng.int(0, BOARD_TUNING.cols - 1),
+      row: this.rng.int(band.min, Math.min(band.max, BOARD_TUNING.rows - 1)),
+    };
+    const piece = this.board.get(cell);
+    if (piece === null) return;
+    this.board.set(cell, { kind: piece.kind, special: 'bomb' });
+    const view = this.views[this.index(cell)] ?? null;
+    if (view !== null) {
+      this.markSpecial(view, 'bomb');
+      pop(this, view.root, 0.4, 260);
+    }
+  }
+
+  /**
+   * `shuffle`: a one-tap re-deal parked next to the moves pill. It is a HUD
+   * button rather than a picker chip because the player cannot know before the
+   * level whether the board will need it.
+   */
+  private grantShuffleCharge(): void {
+    this.shuffleCharges = BOARD_TUNING.boosters.shuffleCharges;
+    this.shuffleButton = new Button(
+      this,
+      VIEW.width - SAFE.side - 90,
+      268,
+      `SHUFFLE ${this.shuffleCharges}`,
+      () => this.spendShuffleCharge(),
+      {
+        width: 180,
+        height: 88,
+        fill: PALETTE.bgTop,
+        stroke: PALETTE.accent,
+        textColor: CSS.accent,
+        fontSize: '28px',
+      },
+    );
+    this.shuffleButton.setScrollFactor(0).setDepth(1500);
+  }
+
+  private spendShuffleCharge(): void {
+    if (this.shuffleCharges <= 0 || !this.acceptsInput()) return;
+    this.shuffleCharges -= 1;
+    this.shuffleButton?.setLabel(`SHUFFLE ${this.shuffleCharges}`);
+    if (this.shuffleCharges <= 0) this.shuffleButton?.setVisible(false);
+    this.busy = true;
+    this.clearSelection();
+    this.reshuffleBoard('BOOSTER SHUFFLE');
   }
 
   update(_time: number, delta: number): void {
-    if (this.ended || this.paused) return;
+    if (!this.started || this.ended || this.paused) return;
     this.director.update(delta);
     this.refreshHud();
     // Any resolution the director reaches on its own (a timed variant of a
@@ -213,6 +459,16 @@ export class GameScene extends Phaser.Scene {
     return row * BOARD_TUNING.cellPx + BOARD_TUNING.cellPx / 2;
   }
 
+  /**
+   * The slot to draw with, or `null` for the procedural fallback. A slot whose
+   * texture was never loaded (its art group is pruned, or the art does not
+   * exist yet) resolves to `null` here rather than rendering a green box.
+   */
+  private resolveSlot(slot: ArtSlot | null): ArtSlot | null {
+    if (slot === null) return null;
+    return this.textures.exists(slot.key) ? slot : null;
+  }
+
   /** Scale that fits a texture's longest axis to the kind's target size. */
   private scaleFor(style: BoardKindStyle): number {
     const cached = this.scaleByKind.get(style.id);
@@ -224,10 +480,24 @@ export class GameScene extends Phaser.Scene {
     return scale;
   }
 
+  /**
+   * One piece glyph at `size` px. Generated art is drawn UNTINTED (it carries
+   * its own colour); only the procedural primitive takes the kind's tint.
+   */
+  private drawKindGlyph(style: BoardKindStyle, x: number, y: number, size: number): Phaser.GameObjects.Image {
+    const slot = this.resolveSlot(style.art);
+    if (slot !== null) {
+      return this.add.image(x, y, slot.key, slot.frame).setDisplaySize(size, size);
+    }
+    return this.add
+      .image(x, y, style.texture)
+      .setTint(style.tint)
+      .setScale(this.scaleFor(style) * (size / style.size));
+  }
+
   private spawnView(cell: Cell, kind: string, special: SpecialKind | null, dropRows: number): PieceView {
     const style = this.styleByKind.get(kind) as BoardKindStyle;
-    const glyph = this.add.image(0, 0, style.texture).setTint(style.tint);
-    glyph.setScale(this.scaleFor(style));
+    const glyph = this.drawKindGlyph(style, 0, 0, style.size);
     const root = this.add.container(this.localX(cell.col), this.localY(cell.row) - dropRows * BOARD_TUNING.cellPx, [
       glyph,
     ]);
@@ -240,21 +510,26 @@ export class GameScene extends Phaser.Scene {
   /** Specials are dual coded too: a badge glyph AND a bright ink tint. */
   private markSpecial(view: PieceView, special: SpecialKind): void {
     if (view.badge !== null) return;
-    const badge = this.add
-      .image(0, 0, SPECIAL_BADGE[special])
-      .setTint(PALETTE.ink)
-      .setAlpha(0.9);
-    if (special === 'bomb') badge.setDisplaySize(BOARD_TUNING.cellPx - 12, BOARD_TUNING.cellPx - 12);
-    else if (special === 'line-h') badge.setDisplaySize(BOARD_TUNING.cellPx - 14, 10);
-    else badge.setDisplaySize(10, BOARD_TUNING.cellPx - 14);
+    const slot = this.resolveSlot(BOARD_TUNING.art.specials[special]);
+    const badge =
+      slot !== null
+        ? this.add.image(0, 0, slot.key, slot.frame).setAlpha(0.95)
+        : this.add.image(0, 0, SPECIAL_BADGE[special]).setTint(PALETTE.ink).setAlpha(0.9);
+    if (slot !== null || special === 'bomb') {
+      badge.setDisplaySize(BOARD_TUNING.cellPx - 12, BOARD_TUNING.cellPx - 12);
+    } else if (special === 'line-h') {
+      badge.setDisplaySize(BOARD_TUNING.cellPx - 14, 10);
+    } else {
+      badge.setDisplaySize(10, BOARD_TUNING.cellPx - 14);
+    }
     view.root.add(badge);
     view.badge = badge;
   }
 
   // ---------------------------------------------------------------------- HUD
 
-  private buildHud(goalCount: number): void {
-    const level = BOARD_LEVELS[this.levelIndex] as (typeof BOARD_LEVELS)[number];
+  /** `goals` comes from the LIVE spec (a booster may have widened its budget). */
+  private buildHud(goals: readonly LevelGoal[]): void {
 
     this.add
       .text(SAFE.side, SAFE.top / 2, `LEVEL ${this.levelIndex + 1}`, { ...TEXT.heading, fontSize: '40px' })
@@ -291,18 +566,21 @@ export class GameScene extends Phaser.Scene {
       .setScrollFactor(0)
       .setDepth(1410);
 
-    // Goal chips: the icon is the piece's real texture and tint, so the goal
-    // reads as "collect THESE" without a legend.
+    // Goal chips: the icon is the piece's own glyph — generated art when its
+    // slot resolves, the tinted primitive otherwise — so the goal reads as
+    // "collect THESE" without a legend.
+    const goalCount = goals.length;
     const chipWidth = goalCount >= 3 ? 190 : 230;
     const gap = 12;
     const totalWidth = goalCount * chipWidth + (goalCount - 1) * gap;
     let x = VIEW.centerX - totalWidth / 2 + chipWidth / 2;
-    for (const goal of level.spec.goals) {
+    for (const goal of goals) {
       const style = this.styleByKind.get(goal.id) as BoardKindStyle;
       const chip = drawPill(this, chipWidth, 82, { fill: PALETTE.bgTop, stroke: style.tint, gloss: true });
       chip.setPosition(x, 268).setScrollFactor(0).setDepth(1400);
-      const icon = this.add.image(x - chipWidth / 2 + 40, 268, style.texture).setTint(style.tint);
-      icon.setScale(this.scaleFor(style) * 0.72).setScrollFactor(0).setDepth(1410);
+      this.drawKindGlyph(style, x - chipWidth / 2 + 40, 268, style.size * 0.72)
+        .setScrollFactor(0)
+        .setDepth(1410);
       const text = this.add
         .text(x + chipWidth / 2 - 22, 268, '', { ...TEXT.body, fontSize: '34px', color: CSS.ink })
         .setOrigin(1, 0.5)
@@ -609,13 +887,13 @@ export class GameScene extends Phaser.Scene {
       return;
     }
     if (hasDeadBoard(this.board)) {
-      this.reshuffleBoard();
+      this.reshuffleBoard('NO MOVES - SHUFFLE');
       return;
     }
     this.busy = false;
   }
 
-  private reshuffleBoard(): void {
+  private reshuffleBoard(label: string): void {
     const ok = reshuffle(this.board, this.rng);
     for (let slot = 0; slot < this.views.length; slot += 1) {
       this.views[slot]?.root.destroy();
@@ -637,7 +915,7 @@ export class GameScene extends Phaser.Scene {
 
     flash(this, PALETTE.primary, 200);
     sfx('whoosh');
-    floatText(this, VIEW.centerX, BOARD_TUNING.boardTop + this.boardHeight / 2, 'NO MOVES - SHUFFLE', CSS.primary, 44);
+    floatText(this, VIEW.centerX, BOARD_TUNING.boardTop + this.boardHeight / 2, label, CSS.primary, 44);
 
     this.time.delayedCall(BOARD_TUNING.shuffleMs + 220, () => {
       if (this.disposed) return;
@@ -659,7 +937,6 @@ export class GameScene extends Phaser.Scene {
     }
     this.paused = true;
     this.director.pause();
-    this.game.events.emit(EVENTS.paused);
     this.pauseOverlay = showPauseOverlay(
       this,
       () => this.resumeFromPause(),
@@ -676,7 +953,6 @@ export class GameScene extends Phaser.Scene {
     this.pauseOverlay?.destroy();
     this.pauseOverlay = null;
     this.director.resume();
-    this.game.events.emit(EVENTS.resumed);
   }
 
   private finish(outcome: SessionOutcome): void {
@@ -695,18 +971,19 @@ export class GameScene extends Phaser.Scene {
     shake(this, 0.018, 300);
     setMusicIntensity(0.2);
 
-    // Winning advances the ladder; losing leaves it, so RETRY replays this
-    // level with the same seed.
+    // Winning advances the ladder AND banks the star rating the saga map reads
+    // back; losing leaves both, so RETRY replays this level with the same seed.
     if (outcome.won) {
+      const level = BOARD_LEVELS[this.levelIndex] as (typeof BOARD_LEVELS)[number];
+      recordStars(level.spec.id, stars);
       save(BOARD_PROGRESS_KEY, Math.min(this.levelIndex + 1, BOARD_LEVELS.length - 1));
     }
 
     const stats: ResultStat[] = [
       { label: 'LEVEL', value: `${this.levelIndex + 1}` },
-      { label: 'STARS', value: `${stars}/3` },
+      { label: 'STARS', value: `${stars}/${MAX_STARS}` },
       { label: 'MOVES LEFT', value: `${movesLeft}` },
     ];
-    this.game.events.emit(EVENTS.runEnded, { won: outcome.won, score: this.score });
 
     this.cameras.main.fadeOut(340, 0, 0, 0);
     this.time.delayedCall(360, () => {
@@ -717,6 +994,11 @@ export class GameScene extends Phaser.Scene {
         currencyEarned: stars * BOARD_TUNING.currencyPerStar,
         seed: this.seed,
         stats,
+        headline: outcome.won ? 'LEVEL CLEAR!' : 'OUT OF MOVES',
+        // A move-budgeted puzzle has no clock to beat: the time row would be
+        // noise, and a lifetime "best time" on it means nothing.
+        timeLabel: null,
+        bestTimeMode: 'off',
       });
     });
   }

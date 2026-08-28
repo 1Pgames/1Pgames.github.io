@@ -28,20 +28,22 @@ runs through Node 24 type stripping: `node --import ./scripts/ts-resolve.mjs <fi
 
 Ten families, one shared systems layer. The family code comes from the PRD
 header (`game-prd` Step 0); everything below is a lookup on it. `--family`
-takes the slice/gate name in the last column, not the letter.
+takes the slice/gate name in the `Sim gate` column, not the letter. The last
+column is what the slice already wires out of `core/progression.ts` and
+`data/metaCatalog.ts` — do not rebuild it, extend it.
 
-| Code | Genres | Session director | Slice | Sim gate |
-| --- | --- | --- | --- | --- |
-| A | survivor-like, action roguelike, tower defense, horde arena | `RunDirector` (`src/core/run.ts`) | `src/slices/arena/` | `npm run sim -- --family arena` |
-| B | match/blast, merge, sort, block-fit | `LevelDirector` (`src/core/level.ts`) | `src/slices/board/` | `npm run sim -- --family board` |
-| C | platformer, endless runner, physics launch/hill-climb | `LevelDirector` (levels) or `RampDirector` (endless) | `src/slices/side/` | `npm run sim -- --family side` |
-| D | deckbuilder, tactics, auto-battler | `RunDirector`, `progress` indexed by fight/node | **no slice — compose from the genre kits** | none yet |
-| E | racing, karts, drift circuits | `LapDirector` (`src/core/lap.ts`) | `src/slices/track/` | `npm run sim -- --family track` |
-| F | idle, incremental, tycoon, clicker | `Economy` (`src/core/economy.ts`) — no `SessionDirector`: the session ends only when the player ascends; `LevelDirector` only if the PRD adds milestone chapters | `src/slices/idle/` | `npm run sim -- --family idle` |
-| G | solitaire, dice, roll-and-move, tile draw | `LevelDirector` for a deal/goal loop; the shipped table slice instead resolves `SessionOutcome` from its own roll-budget `DiceLoop` (`slices/table/board.ts`) | `src/slices/table/` | `npm run sim -- --family table` |
-| H | word, anagram, trivia, quiz | `LevelDirector` | `src/slices/word/` | `npm run sim -- --family word` |
-| J | hypercasual: one mechanic, endless score chase, instant retry | `RampDirector` (`src/core/ramp.ts`) | `src/slices/hyper/` | `npm run sim -- --family hyper` |
-| I | hybrid **composition pattern**, not a family: a casual core from J/B/F wrapped in 2-3 meta-kit layers | the core's director | the core's slice | the core's family gate |
+| Code | Genres | Session director | Slice | Sim gate | Meta wiring the slice ships |
+| --- | --- | --- | --- | --- | --- |
+| A | survivor-like, action roguelike, tower defense, horde arena | `RunDirector` (`src/core/run.ts`) | `src/slices/arena/` | `npm run sim -- --family arena` | `metaModifiers()` stat upgrades + daily streak |
+| B | match/blast, merge, sort, block-fit | `LevelDirector` (`src/core/level.ts`) | `src/slices/board/` | `npm run sim -- --family board` | saga map + stars + boosters (`extra-moves`, `shuffle`, `bomb-start`) + streak |
+| C | platformer, endless runner, physics launch/hill-climb | `LevelDirector` (levels) or `RampDirector` (endless) | `src/slices/side/` | `npm run sim -- --family side` | saga map + time-band stars + `extra-life` revive + `meta_coin_magnet` + streak |
+| D | deckbuilder, tactics, auto-battler | `RunDirector`, `progress` indexed by fight/node | **no slice — compose from the genre kits** | none yet | none yet — a D game wires its own |
+| E | racing, karts, drift circuits | `LapDirector` (`src/core/lap.ts`) | `src/slices/track/` | `npm run sim -- --family track` | `meta_tune_up` top speed + streak |
+| F | idle, incremental, tycoon, clicker | `Economy` (`src/core/economy.ts`) — no `SessionDirector`: the session ends only when the player ascends; `LevelDirector` only if the PRD adds milestone chapters | `src/slices/idle/` | `npm run sim -- --family idle` | `meta_offline_cap` + `meta_golden_touch` + streak |
+| G | solitaire, dice, roll-and-move, tile draw | `LevelDirector` for a deal/goal loop; the shipped table slice instead resolves `SessionOutcome` from its own roll-budget `DiceLoop` (`slices/table/board.ts`) | `src/slices/table/` | `npm run sim -- --family table` | pre-session picker (`extra-rolls`) + `meta_loaded_dice` + streak |
+| H | word, anagram, trivia, quiz | `LevelDirector` | `src/slices/word/` | `npm run sim -- --family word` | pack map + time-band stars + `time-plus`/`fifty-fifty` + streak |
+| J | hypercasual: one mechanic, endless score chase, instant retry | `RampDirector` (`src/core/ramp.ts`) | `src/slices/hyper/` | `npm run sim -- --family hyper` | `skins` collection (milestones + `meta_skin_pack`) + pre-run picker + `meta_slow_start` + streak |
+| I | hybrid **composition pattern**, not a family: a casual core from J/B/F wrapped in 2-3 meta-kit layers | the core's director | the core's slice | the core's family gate | the core slice's, plus the wrapping kit layers |
 
 **Family D has kits but no slice.** `core/{turns,deck,autobattle}.ts`,
 `systems/{placement,board}.ts` and `ui/{hand,shopTray}.ts` are shipped, and the
@@ -73,9 +75,11 @@ The template default is `arena`.
 - **A slice owns its directory and nothing else.** `src/slices/<code>/` may
   contain `game.ts` (required) plus family data modules — the shipped ones are
   `levels.ts` (board, side), `gen.ts` (side), `content.ts` (idle), `stack.ts`
-  (hyper), `board.ts` (table), `math.ts` (track). Everything outside the dir is
-  imported read-only from `src/{core,ui,systems,data}`; a slice never edits a
-  shared module to suit itself.
+  (hyper), `board.ts` (table), `math.ts` (track), `packs.ts` (word).
+  Everything outside the dir is imported read-only from
+  `src/{core,ui,systems,data}`; a slice never edits a shared module to suit
+  itself. It also exports `ART_GROUPS` next to its `GameScene` (see the art
+  slots rule below).
 - **`tuning.ts` is local and mandatory.** Every slice except `arena` keeps its
   balance numbers in `src/slices/<code>/tuning.ts` (`BOARD_TUNING`,
   `SIDE_TUNING`, `TRACK_TUNING`, …); the arena slice uses `TUNING` in
@@ -94,6 +98,37 @@ The template default is `arena`.
   anything a seed must reproduce.
 - **One pause path.** `showPauseOverlay` + `director.pause()/resume()`; the
   director's clock is the session clock, not `scene.time`.
+- **The meta layer is a catalog, not a feature.** `data/metaCatalog.ts` holds
+  one entry list per family and `scenes/meta.ts` renders whichever
+  `metaCatalogFor(SIM_FAMILY)` returns; the slice's job is to CONSUME what the
+  player bought, through three paths and no others:
+  - `booster` entries: read `boosterCount(id)` to build the offer, call
+    `spendBooster(id)` **at the moment the level actually begins**, and apply
+    the effect to a COPY of the level/rules spec (`{...spec, moves: …}`), never
+    to the authored data the family sim reads. A picker the player backs out of
+    must cost nothing.
+  - `perk` entries: read `loadMeta().upgrades[id] ?? 0` ONCE in `create`, turn
+    it into a local multiplier, and keep every per-level number in `tuning.ts`
+    (e.g. `SIDE_TUNING.coin.magnetPerPerkLevel`). A perk read per frame is a
+    perk that changes mid-session.
+  - `stat` entries: nothing to wire — `metaModifiers()` already folds them in
+    at run start (arena only).
+  Level families additionally own the map/stars loop: `showSagaMap` before the
+  first deal, `recordStars(levelId, director.stars)` on the win, and the level
+  index persisted under a `<family>:last` storage key so `RETRY` — which
+  carries only the run seed — replays the level the player just lost instead of
+  the next one. Every slice calls `touchDailyStreak()` once in `create` and
+  floats a `DAY n STREAK!` toast when it returns `extended`.
+- **Art slots, never hardcoded textures.** A gameplay role that generated art
+  can fill carries an `ArtSlot | null` (`{key, frame?}`, imported from
+  `data/art.ts`) beside its procedural fallback — `BOARD_KIND_STYLES[].art`,
+  `SIDE_TUNING.art.hero`, `HYPER_TUNING.art.slab`, and so on. Resolve it ONCE
+  at construction with `scene.textures.exists(slot.key)`: a slot whose group is
+  pruned falls back to `TEX.*` + `tint` instead of drawing a green box. A
+  resolved slot is drawn **untinted** — generated art carries its own colour —
+  and sizes always come from `tuning.ts`, never from the art's cell. The
+  slice's `ART_GROUPS` export lists the manifest groups those slots need; `ui`
+  and `bg` are always in it.
 
 ## What already exists (use it, never reinvent)
 
@@ -147,7 +182,7 @@ The template default is `arena`.
 | `src/core/effects.ts` | `EFFECT_HOOKS` registry consuming `UpgradeDef.effect` (`glass-cannon`, `bulwark`) — behaviour cards, not stat tweaks |
 | `src/data/waves.ts` | reference 480s run: phases, waves, `TIMELINE_EVENTS` (2 chests, breather, elite-rush) |
 | `src/objects/coin.ts`, `src/objects/blade.ts` | pooled elite-drop currency pickup; pooled orbit blade |
-| `src/sim/*` | headless balance sim over the REAL data. `families/<code>.ts` holds one family's bots/solvers and gates (`board` greedy-vs-random solver ladder, `hyper` skill-parameterised session length, `idle` economy curves and prestige floor, `table` dice win-rate band, `word` bank integrity + accuracy bots, `side` generator validation + hop bot, `track` lap completion + bot spread); `arena` is `cli.ts`'s own lane pipeline; `family.ts` holds the scaffolded default; `kits/*.selftest.ts` guard the shared kits |
+| `src/sim/*` | headless balance sim over the REAL data. `families/<code>.ts` holds one family's bots/solvers and gates (`board` greedy-vs-random solver ladder, `hyper` skill-parameterised session length, `idle` economy curves and prestige floor, `table` dice win-rate band, `word` bank integrity + accuracy bots over all five packs, `side` generator validation + hop bot, `track` lap completion + bot spread); `arena` is `cli.ts`'s own lane pipeline; `family.ts` holds the scaffolded default; `kits/*.selftest.ts` guard the shared kits |
 | `src/scenes/*` | `boot → preload → menu → meta → game → gameover` wired with fades |
 
 ### Genre kits (dormant until a PRD needs them)

@@ -13,6 +13,25 @@
  * Pure data, no Phaser import.
  */
 
+/**
+ * How a slice's tuning points a gameplay role at loaded art: `{ key }` for a
+ * single-image texture, `{ key, frame }` for one cell of a sheet (the shape
+ * `ICON` entries already have). One declaration for every slice — a slot is
+ * addressing art, which is what this registry is for.
+ *
+ * Resolve it once, at construction: when
+ * `scene.textures.exists(slot.key)` is false the slice draws its procedural
+ * fallback instead, so a pruned art group degrades instead of rendering
+ * missing-texture boxes. Tint belongs to that fallback only — generated art
+ * carries its own colour.
+ */
+export interface ArtSlot {
+  /** Texture key from `TEXTURE`/`ANIM`/`ICON` (or a raw registry `key`). */
+  key: string;
+  /** Frame on a multi-frame sheet: index, or an atlas frame name. */
+  frame?: string | number;
+}
+
 export interface SpriteAsset {
   /** Phaser texture key; also the animation key when `frames > 1`. */
   key: string;

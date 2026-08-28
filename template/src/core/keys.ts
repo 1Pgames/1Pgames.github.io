@@ -1,4 +1,4 @@
-/** Scene, event, texture and storage keys. Strings are never duplicated inline. */
+/** Scene, texture and storage keys. Strings are never duplicated inline. */
 
 export const SCENES = {
   boot: 'Boot',
@@ -10,16 +10,6 @@ export const SCENES = {
 } as const;
 
 export type SceneKey = (typeof SCENES)[keyof typeof SCENES];
-
-/** Cross-scene events emitted on the global bus (`game.events`). */
-export const EVENTS = {
-  runStarted: 'run:started',
-  runEnded: 'run:ended',
-  paused: 'run:paused',
-  resumed: 'run:resumed',
-  levelUp: 'run:levelup',
-  phaseChanged: 'run:phase',
-} as const;
 
 /** Procedural textures registered in Preload. See core/textures.ts. */
 export const TEX = {

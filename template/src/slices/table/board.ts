@@ -59,6 +59,8 @@ export interface RollEvent {
   piece: number | null;
   /** True when the tile refunded the roll it consumed (`rollagain`). */
   refunded: boolean;
+  /** True when a natural 1 was rerolled by the `meta_loaded_dice` perk. */
+  rerolled: boolean;
 }
 
 /**
@@ -105,6 +107,12 @@ export function buildRing(rng: Rng, tileCount = 20): TileType[] {
 export interface DiceLoopOptions {
   onEnd?: (outcome: SessionOutcome) => void;
   onGoal?: (goalId: string, current: number, target: number) => void;
+  /**
+   * Natural 1s this session may reroll (the `meta_loaded_dice` perk). Defaults
+   * to 0, which is the shipped, gated loop: the perk widens the model, it does
+   * not change the balance of a session without it.
+   */
+  loadedRerolls?: number;
 }
 
 export class DiceLoop {
@@ -115,10 +123,12 @@ export class DiceLoop {
   private pos = 0;
   private purse = 0;
   private held = 0;
+  private rerolls = 0;
 
   constructor(tiles: readonly TileType[], rules: DiceRules, options: DiceLoopOptions = {}) {
     this.tiles = tiles;
     this.rules = rules;
+    this.rerolls = Math.max(0, Math.floor(options.loadedRerolls ?? 0));
     this.level = new LevelDirector(
       {
         id: 'table-ring',
@@ -141,6 +151,11 @@ export class DiceLoop {
     return this.held;
   }
 
+  /** Loaded-dice rerolls still available this session. */
+  get rerollsLeft(): number {
+    return this.rerolls;
+  }
+
   /** Tile indices the token visits for `roll`, in hop order (excludes `from`). */
   path(from: number, roll: number): number[] {
     const steps: number[] = [];
@@ -157,7 +172,16 @@ export class DiceLoop {
   roll(rng: Rng): RollEvent | null {
     if (this.level.ended) return null;
 
-    const face = rng.int(1, this.rules.diceFaces);
+    let face = rng.int(1, this.rules.diceFaces);
+    // `meta_loaded_dice`: a natural 1 is the one roll that can waste a turn
+    // outright, so the perk buys it back — once per stocked reroll, never
+    // recursively (a rerolled 1 stands).
+    let rerolled = false;
+    if (face === 1 && this.rerolls > 0) {
+      this.rerolls -= 1;
+      face = rng.int(1, this.rules.diceFaces);
+      rerolled = true;
+    }
     const from = this.pos;
     const to = (from + face) % this.tiles.length;
     this.level.useMove();
@@ -197,6 +221,6 @@ export class DiceLoop {
     if (piece !== null) this.level.recordProgress(GOAL_SETS, 1);
     this.level.settleMove();
 
-    return { roll: face, from, to, tile, effect, delta, coins: this.purse, piece, refunded };
+    return { roll: face, from, to, tile, effect, delta, coins: this.purse, piece, refunded, rerolled };
   }
 }

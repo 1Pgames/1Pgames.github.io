@@ -1,8 +1,9 @@
 import { LevelDirector } from '../../core/level';
 import { Rng } from '../../core/rng';
-import { drawQuiz, TRIVIA } from '../../data/trivia';
+import { TRIVIA } from '../../data/trivia';
 import type { TriviaQuestion } from '../../data/trivia';
 import { WORD_TUNING } from '../../slices/word/tuning';
+import { GOAL_ANSWERS, WORD_PACK_COUNT, drawPack, wordPackSpec } from '../../slices/word/packs';
 import { finishFamily, hard, median, num, pct, printTable, soft } from './types';
 import type { FamilySimOptions, GateResult } from './types';
 
@@ -52,18 +53,23 @@ interface RunResult {
   reason: string;
   correct: number;
   answered: number;
-  /** Seconds of the 90s budget spent, penalties included. */
+  /** Seconds of the pack's budget spent, penalties included. */
   spentS: number;
+  /** Pack index this run played (see `slices/word/packs.ts`). */
+  pack: number;
 }
 
-function playRun(accuracy: number, seed: string): RunResult {
+/**
+ * One run of pack `pack`. The draw and the spec come from the slice's own
+ * `packs.ts`, so the gate measures the ladder the game actually ships rather
+ * than a bank-wide draw nothing plays.
+ */
+function playRun(accuracy: number, pack: number, seed: string): RunResult {
   const rng = new Rng(seed);
-  const quiz: readonly TriviaQuestion[] = drawQuiz(new Rng(`${seed}:draw`), WORD_TUNING.poolSize);
-  const level = new LevelDirector({
-    id: 'word-quiz',
-    goals: [{ id: 'answers', target: WORD_TUNING.quizLength }],
-    timeSeconds: WORD_TUNING.timeSeconds,
-  });
+  const quiz: readonly TriviaQuestion[] = drawPack(new Rng(`${seed}:draw`), pack);
+  const spec = wordPackSpec(pack);
+  const level = new LevelDirector(spec);
+  const budgetS = spec.timeSeconds ?? WORD_TUNING.timeSeconds;
 
   let correct = 0;
   let answered = 0;
@@ -78,7 +84,7 @@ function playRun(accuracy: number, seed: string): RunResult {
     if (rng.chance(chance)) {
       correct += 1;
       // Progress before the beat: the tenth correct answer must win instantly.
-      level.recordProgress('answers', 1);
+      level.recordProgress(GOAL_ANSWERS, 1);
       level.update(WORD_TUNING.advanceMs);
     } else {
       level.update(WORD_TUNING.revealMs + WORD_TUNING.wrongPenaltySeconds * 1000);
@@ -93,7 +99,8 @@ function playRun(accuracy: number, seed: string): RunResult {
     reason: outcome?.reason ?? 'unresolved',
     correct,
     answered,
-    spentS: WORD_TUNING.timeSeconds - (level.timeLeftSeconds ?? 0),
+    spentS: budgetS - (level.timeLeftSeconds ?? 0),
+    pack,
   };
 }
 
@@ -133,7 +140,12 @@ export default function runFamilySim(options: FamilySimOptions): number {
   const runs = Math.max(1, Math.floor(options.runs)) * 5;
   const bands = ACCURACY_LEVELS.map((accuracy) => {
     const results: RunResult[] = [];
-    for (let run = 0; run < runs; run += 1) results.push(playRun(accuracy, `${options.seed}:word:${accuracy}:${run}`));
+    for (let run = 0; run < runs; run += 1) {
+      // Runs are dealt round-robin across the pack ladder, so one band covers
+      // every difficulty window at the same total run count.
+      const pack = run % WORD_PACK_COUNT;
+      results.push(playRun(accuracy, pack, `${options.seed}:word:${accuracy}:${run}`));
+    }
     return { accuracy, results };
   });
 
@@ -185,6 +197,34 @@ export default function runFamilySim(options: FamilySimOptions): number {
     ),
   );
 
+  // Per-pack readout. The win-rate floors above are measured across the whole
+  // ladder; this is what says WHICH window is out of line.
+  const packWinrate = (accuracy: number, pack: number): number => {
+    const band = bands.find((entry) => entry.accuracy === accuracy)?.results ?? [];
+    const subset = band.filter((result) => result.pack === pack);
+    return subset.length === 0 ? Number.NaN : subset.filter((result) => result.won).length / subset.length;
+  };
+
+  // Ladder SHAPE is gated on the authored data, not on per-pack win rates: at
+  // 20 runs a pack a single unlucky seed moves a rate by 5 points, so a
+  // win-rate comparison between neighbouring packs would flip run to run. The
+  // tier-3 share is the difficulty the packs actually author, and it must never
+  // fall as the ladder climbs.
+  const hardShare = WORD_TUNING.packs.map((pack) => pack.mix[2] ?? 0);
+  let inversion = -1;
+  for (let index = 1; index < hardShare.length; index += 1) {
+    if ((hardShare[index] as number) < (hardShare[index - 1] as number)) inversion = index;
+  }
+  gates.push(
+    soft(
+      inversion < 0,
+      `tier-3 share per pack = [${hardShare.map((share) => `${Math.round(share * 100)}%`).join(', ')}]` +
+        (inversion < 0
+          ? ' (the authored difficulty climbs)'
+          : ` — pack ${inversion + 1} is easier than pack ${inversion}`),
+    ),
+  );
+
   const render = (): void => {
     printTable(
       ['accuracy', 'runs', 'win rate', 'correct', 'answered', 'clock s', 'top loss'],
@@ -202,10 +242,22 @@ export default function runFamilySim(options: FamilySimOptions): number {
         ];
       }),
     );
+    printTable(
+      ['pack', 'mix 1/2/3', 'clock s', 'pool', '0.35 WR', '0.65 WR', '0.90 WR'],
+      WORD_TUNING.packs.map((pack, index) => [
+        pack.label,
+        pack.mix.map((share) => `${Math.round(share * 100)}`).join('/'),
+        `${pack.timeSeconds}`,
+        `${pack.poolSize}`,
+        pct(packWinrate(0.35, index), 0),
+        pct(packWinrate(0.65, index), 0),
+        pct(packWinrate(0.9, index), 0),
+      ]),
+    );
     console.log(
-      `\n${runs} seed(s) per accuracy band, seed '${options.seed}'; ` +
-        `pool ${WORD_TUNING.poolSize}, goal ${WORD_TUNING.quizLength} correct, ` +
-        `${WORD_TUNING.timeSeconds}s budget, -${WORD_TUNING.wrongPenaltySeconds}s per miss.`,
+      `\n${runs} seed(s) per accuracy band (round-robin over ${WORD_PACK_COUNT} packs), ` +
+        `seed '${options.seed}'; goal ${WORD_TUNING.quizLength} correct, ` +
+        `-${WORD_TUNING.wrongPenaltySeconds}s per miss, ${TRIVIA.length} questions in the shared bank.`,
     );
   };
 

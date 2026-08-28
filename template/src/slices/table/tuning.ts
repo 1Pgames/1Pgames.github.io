@@ -1,4 +1,6 @@
+import type { ArtSlot } from '../../data/art';
 import type { DiceRules } from './board';
+import type { TileType } from './board';
 
 /**
  * Slice-local balance for family G (dice-board). Global `TUNING` in
@@ -27,6 +29,38 @@ export const TABLE_TUNING = {
 
   /** Coins per 1 meta currency on the results screen. */
   coinsPerCurrency: 10,
+
+  /**
+   * Meta layer numbers. `extra-rolls` is the pre-session booster (armed in the
+   * picker, spent when the ring is dealt); `meta_loaded_dice` is the standing
+   * perk. Both are small on purpose: `rules.rolls` is tuned against
+   * `diceloop.selftest.ts`, so a big grant would trivialise the win band.
+   */
+  meta: {
+    /** Rolls added to the budget per armed `extra-rolls` booster. */
+    rollsPerBooster: 2,
+    /** Boosters armable at once in the picker. */
+    maxPick: 2,
+    /** `meta_loaded_dice`: natural 1s rerolled per perk level, per session. */
+    loadedDiceRerollsPerLevel: 1,
+  },
+
+  /**
+   * Generated-art slots. `null` keeps the procedural plate + icon + tint per
+   * tile type; a resolved slot is drawn untinted. Dice faces are addressed by
+   * frame on one sheet — `faces[n]` is the art for a roll of `n + 1`.
+   */
+  art: {
+    tiles: {
+      coin: null,
+      chest: null,
+      loss: null,
+      rollagain: null,
+      collect: null,
+    } as Record<TileType, ArtSlot | null>,
+    faces: [null, null, null, null, null, null] as readonly (ArtSlot | null)[],
+    token: null as ArtSlot | null,
+  },
 
   /** Results-screen score bonus per collected set piece (coins add on top). */
   scorePerPiece: 100,

@@ -10,8 +10,22 @@ import { addBackground } from '../../ui/background';
 import { Button } from '../../ui/button';
 import { drawPanel } from '../../ui/primitives';
 import { showPauseOverlay, type PauseOverlayHandle } from '../../ui/pauseOverlay';
+import { showBoosterPicker, type BoosterPickerHandle } from '../../ui/boosterBar';
+import { boosterCount, loadMeta, spendBooster, touchDailyStreak } from '../../core/progression';
+import { metaCatalogFor } from '../../data/metaCatalog';
+import type { ArtSlot } from '../../data/art';
 import { DiceLoop, GOAL_SETS, PIECE_NAMES, buildRing, type RollEvent, type TileType } from './board';
 import { TABLE_TUNING } from './tuning';
+
+/** `extra-rolls` booster and `meta_loaded_dice` perk (`data/metaCatalog.ts`). */
+const BOOSTER_EXTRA_ROLLS = 'extra-rolls';
+const PERK_LOADED_DICE = 'meta_loaded_dice';
+
+/**
+ * Art groups `PreloadScene` loads for this slice (see the slice-wiring guide):
+ * `table-icons` is the tile/dice icon sheet, addressed by frame.
+ */
+export const ART_GROUPS = ['ui', 'bg', 'table-icons'] as const;
 
 /** Per-tile-type presentation. Rules live in `board.ts`, colours live here. */
 const TILE_STYLE: Record<string, { fill: number; icon: string; tint: number; label: string }> = {
@@ -52,6 +66,13 @@ export class GameScene extends Phaser.Scene {
   private animating = false;
   private paused = false;
   private ended = false;
+  /** True once the ring is dealt: the picker phase has no loop to tick. */
+  private started = false;
+  /** A seed in `init` data means "replay this session" — no picker. */
+  private replay = false;
+  private boosterPicker: BoosterPickerHandle | null = null;
+  /** Loaded-dice rerolls this session was granted, for the results row. */
+  private loadedRerolls = 0;
   private pendingOutcome: SessionOutcome | null = null;
   private pauseOverlay: PauseOverlayHandle | null = null;
 
@@ -59,8 +80,13 @@ export class GameScene extends Phaser.Scene {
     super(SCENES.game);
   }
 
-  /** `scene.start(SCENES.game, { seed })` replays the exact same board and dice. */
+  /**
+   * `scene.start(SCENES.game, { seed })` replays the exact same board and dice
+   * with no pre-session picker — boosters are consumed goods, so a replay is
+   * the un-boosted session.
+   */
   init(data: { seed?: string } = {}): void {
+    this.replay = data.seed !== undefined;
     this.seed = data.seed ?? Date.now().toString(36);
   }
 
@@ -68,8 +94,11 @@ export class GameScene extends Phaser.Scene {
     this.animating = false;
     this.paused = false;
     this.ended = false;
+    this.started = false;
     this.pendingOutcome = null;
     this.pauseOverlay = null;
+    this.boosterPicker = null;
+    this.loadedRerolls = 0;
     this.rollsShown = '';
     this.setsShown = '';
     this.coinsShown = '';
@@ -82,23 +111,93 @@ export class GameScene extends Phaser.Scene {
     this.rng = new Rng(this.seed);
 
     addBackground(this);
+    this.markDailyStreak();
 
-    this.loop = new DiceLoop(buildRing(this.rng, TABLE_TUNING.tiles), TABLE_TUNING.rules, {
+    if (this.replay) this.beginSession([]);
+    else this.offerBoosters();
+  }
+
+  /** Advances the daily streak once per entry; celebrates only real growth. */
+  private markDailyStreak(): void {
+    const streak = touchDailyStreak();
+    if (!streak.extended) return;
+    this.time.delayedCall(520, () => {
+      floatText(this, VIEW.centerX, SAFE.top + 70, `DAY ${streak.days} STREAK!`, CSS.accent, 46);
+      sfx('combo', { volume: 0.5 });
+    });
+  }
+
+  /**
+   * Pre-session booster offer off the table catalog (`data/metaCatalog.ts`).
+   * There is no level ladder in this family, so the picker IS the meta gate —
+   * and a player who owns nothing never sees it.
+   */
+  private offerBoosters(): void {
+    const offers = metaCatalogFor('table')
+      .filter((entry) => entry.kind === 'booster' && entry.boosterId !== undefined)
+      .map((entry) => ({
+        id: entry.boosterId as string,
+        name: entry.name.toUpperCase(),
+        count: boosterCount(entry.boosterId as string),
+      }));
+
+    if (offers.every((offer) => offer.count === 0)) {
+      this.beginSession([]);
+      return;
+    }
+
+    this.boosterPicker = showBoosterPicker(this, {
+      boosters: offers,
+      maxPick: TABLE_TUNING.meta.maxPick,
+      onStart: (selected) => {
+        this.boosterPicker?.destroy();
+        this.boosterPicker = null;
+        this.beginSession(selected);
+      },
+    });
+  }
+
+  /**
+   * Deals the ring and starts the roll budget. Boosters are spent HERE, so a
+   * picker the player backs out of costs them nothing.
+   */
+  private beginSession(boosters: readonly string[]): void {
+    let extraRolls = 0;
+    for (const id of boosters) {
+      if (!spendBooster(id)) continue;
+      if (id === BOOSTER_EXTRA_ROLLS) extraRolls += TABLE_TUNING.meta.rollsPerBooster;
+    }
+
+    // `meta_loaded_dice` is a standing perk: rerolls are stocked per session,
+    // and the pure loop defaults to zero of them (so the gated balance of an
+    // un-perked session is untouched).
+    this.loadedRerolls =
+      (loadMeta().upgrades[PERK_LOADED_DICE] ?? 0) * TABLE_TUNING.meta.loadedDiceRerollsPerLevel;
+
+    // `extra-rolls` widens a COPY of the rules the sim gates, never the data.
+    const rules =
+      extraRolls > 0
+        ? { ...TABLE_TUNING.rules, rolls: TABLE_TUNING.rules.rolls + extraRolls }
+        : TABLE_TUNING.rules;
+
+    this.loop = new DiceLoop(buildRing(this.rng, TABLE_TUNING.tiles), rules, {
       // The model resolves a roll instantly; the outcome is held back until the
       // token has finished hopping so the player sees what killed the run.
       onEnd: (outcome) => {
         this.pendingOutcome = outcome;
       },
+      loadedRerolls: this.loadedRerolls,
     });
 
     this.buildRingView();
     this.buildHud();
 
+    const tokenSlot = this.resolveSlot(TABLE_TUNING.art.token);
     this.token = this.add
-      .image(this.tileX[0] ?? VIEW.centerX, this.tileY[0] ?? VIEW.centerY, TEX.disc)
+      .image(this.tileX[0] ?? VIEW.centerX, this.tileY[0] ?? VIEW.centerY, tokenSlot?.key ?? TEX.disc, tokenSlot?.frame)
       .setDisplaySize(TABLE_TUNING.ring.tokenSize, TABLE_TUNING.ring.tokenSize)
-      .setTint(PALETTE.primary)
       .setDepth(40);
+    if (tokenSlot === null) this.token.setTint(PALETTE.primary);
 
     this.rollButton = new Button(
       this,
@@ -137,13 +236,21 @@ export class GameScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-SPACE', () => this.doRoll());
 
     this.refreshHud();
+    this.started = true;
     this.cameras.main.fadeIn(220, 0, 0, 0);
     startMusic('run');
     setMusicIntensity(0.3);
+
+    if (extraRolls > 0) {
+      floatText(this, VIEW.centerX, SAFE.top + 118, `+${extraRolls} ROLLS`, CSS.accent, 40);
+    }
+    if (this.loadedRerolls > 0) {
+      floatText(this, VIEW.centerX, SAFE.top + 160, `LOADED DICE x${this.loadedRerolls}`, CSS.good, 36);
+    }
   }
 
   update(_time: number, delta: number): void {
-    if (this.ended || this.paused) return;
+    if (!this.started || this.ended || this.paused) return;
     // No time budget on this family — the clock only feeds the results screen.
     this.loop.level.update(delta);
   }
@@ -161,6 +268,8 @@ export class GameScene extends Phaser.Scene {
 
       const tile: TileType = this.loop.tiles[i] ?? 'coin';
       const style = TILE_STYLE[tile] ?? TILE_STYLE.coin!;
+      // Plate and ring are chrome and stay procedural; only the tile ICON has
+      // an art slot, drawn untinted once it resolves.
       this.add
         .image(x, y, TEX.square)
         .setDisplaySize(tileSize, tileSize)
@@ -172,11 +281,12 @@ export class GameScene extends Phaser.Scene {
         .setTint(style.tint)
         .setAlpha(0.5)
         .setDepth(11);
-      this.add
-        .image(x, y, style.icon)
-        .setScale(iconScale)
-        .setTint(style.tint)
+      const iconSlot = this.resolveSlot(TABLE_TUNING.art.tiles[tile]);
+      const icon = this.add
+        .image(x, y, iconSlot?.key ?? style.icon, iconSlot?.frame)
         .setDepth(12);
+      if (iconSlot === null) icon.setScale(iconScale).setTint(style.tint);
+      else icon.setDisplaySize(tileSize * 0.6, tileSize * 0.6);
     }
   }
 
@@ -224,7 +334,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private doRoll(): void {
-    if (this.animating || this.paused || this.ended || this.loop.level.ended) return;
+    if (!this.started || this.animating || this.paused || this.ended || this.loop.level.ended) return;
 
     const event = this.loop.roll(this.rng);
     if (event === null) return;
@@ -234,16 +344,47 @@ export class GameScene extends Phaser.Scene {
     this.refreshHud();
 
     sfx('whoosh', { volume: 0.35 });
-    floatText(
-      this,
-      VIEW.centerX,
-      TABLE_TUNING.ring.centerY - 40,
-      `${event.roll}`,
-      CSS.primary,
-      110,
-    );
+    this.showDiceFace(event);
 
     this.hop(event, this.loop.path(event.from, event.roll), 0);
+  }
+
+  /**
+   * The rolled face: the art slot for that face when the dice sheet is loaded,
+   * and the big number otherwise. A rerolled natural 1 says so, or the perk
+   * would look like the dice cheating in the player's favour by accident.
+   */
+  private showDiceFace(event: RollEvent): void {
+    const faceSlot = this.resolveSlot(TABLE_TUNING.art.faces[event.roll - 1] ?? null);
+    const y = TABLE_TUNING.ring.centerY - 40;
+    if (faceSlot === null) {
+      floatText(this, VIEW.centerX, y, `${event.roll}`, CSS.primary, 110);
+    } else {
+      const pip = this.add
+        .image(VIEW.centerX, y, faceSlot.key, faceSlot.frame)
+        .setDisplaySize(TABLE_TUNING.ring.tileSize, TABLE_TUNING.ring.tileSize)
+        .setDepth(1300);
+      this.tweens.add({
+        targets: pip,
+        y: y - 60,
+        alpha: 0,
+        duration: 620,
+        ease: 'Quad.easeOut',
+        onComplete: () => pip.destroy(),
+      });
+    }
+    if (event.rerolled) {
+      floatText(this, VIEW.centerX, y + 70, 'LOADED DICE', CSS.good, 36);
+    }
+  }
+
+  /**
+   * The slot to draw with, or `null` when its texture never loaded (pruned art
+   * group, or art that does not exist yet).
+   */
+  private resolveSlot(slot: ArtSlot | null): ArtSlot | null {
+    if (slot === null) return null;
+    return this.textures.exists(slot.key) ? slot : null;
   }
 
   /** One tween per tile, chained — never a tween per frame. */
@@ -405,7 +546,14 @@ export class GameScene extends Phaser.Scene {
           { label: 'ROLLS LEFT', value: `${level.movesLeft ?? 0}` },
           { label: 'SETS', value: `${goal.current}/${goal.target}` },
           { label: 'COINS', value: `${this.loop.coins}` },
+          ...(this.loadedRerolls > 0
+            ? [{ label: 'REROLLS LEFT', value: `${this.loop.rerollsLeft}` }]
+            : []),
         ],
+        headline: outcome.won ? 'SET COMPLETE!' : 'OUT OF ROLLS',
+        // A roll budget, not a clock: elapsed time is not a result here.
+        timeLabel: null,
+        bestTimeMode: 'off',
       });
     });
   }

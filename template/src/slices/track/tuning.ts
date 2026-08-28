@@ -1,4 +1,5 @@
 import type { LapSpec } from '../../core/lap';
+import type { ArtSlot } from '../../data/art';
 import type { BotProfile, CarSpec, TrackSpec } from './math';
 
 /**
@@ -78,4 +79,24 @@ export const TRACK_TUNING = {
 
   hitstopMs: 60,
   fadeOutMs: 220,
+
+  /**
+   * `meta_tune_up`: top speed added per perk level. 2% a level over 6 levels is
+   * +12% flat out — enough to feel, small enough that the bot field (0.92-1.02
+   * of the player's spec) still races the player rather than parading in front
+   * of them.
+   */
+  perks: {
+    topSpeedPerLevel: 0.02,
+  },
+
+  /**
+   * Generated-art slots. `cars[0]` is the player, the rest the field in grid
+   * order; `null` keeps the tinted rectangle. The track SURFACE stays
+   * procedural — it is baked per seed (see `paintTrack`).
+   */
+  art: {
+    cars: [null, null, null, null] as readonly (ArtSlot | null)[],
+    playerMarker: null as ArtSlot | null,
+  },
 } as const;

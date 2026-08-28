@@ -9,10 +9,22 @@ import { Economy } from '../../core/economy';
 import type { GeneratorDef } from '../../core/economy';
 import type { ResultStat } from '../../core/session';
 import { load, save } from '../../core/storage';
+import { loadMeta, touchDailyStreak } from '../../core/progression';
+import type { ArtSlot } from '../../data/art';
 import { Button } from '../../ui/button';
 import { drawPanel } from '../../ui/primitives';
 import { ECONOMY_SPEC, GENERATOR_VIEW, MANAGER_BY_GENERATOR } from './content';
 import { IDLE_TUNING } from './tuning';
+
+/** `meta_offline_cap` and `meta_golden_touch` (see `data/metaCatalog.ts`). */
+const PERK_OFFLINE_CAP = 'meta_offline_cap';
+const PERK_GOLDEN_TOUCH = 'meta_golden_touch';
+
+/**
+ * Art groups `PreloadScene` loads for this slice (see the slice-wiring guide):
+ * `idle-icons` is one glyph per generator tier, read at list scale (~62px).
+ */
+export const ART_GROUPS = ['ui', 'bg', 'idle-icons'] as const;
 
 /**
  * Family F starter slice: idle tycoon (generators / managers / prestige).
@@ -140,6 +152,11 @@ export class GameScene extends Phaser.Scene {
   private armedRow = -1;
   private overlay: OverlayHandle | null = null;
 
+  /** Offline accrual cap in hours, widened by `meta_offline_cap`. */
+  private offlineCapHours: number = IDLE_TUNING.offlineCapHours;
+  /** Manual-collect multiplier from `meta_golden_touch` (1 = no perk). */
+  private goldenTouchMul = 1;
+
   constructor() {
     super(SCENES.game);
   }
@@ -167,9 +184,19 @@ export class GameScene extends Phaser.Scene {
     // deterministic — but it keeps the family's replay contract intact.
     this.rng = new Rng(this.seed);
 
+    // Perks are read ONCE per session, so a purchase mid-session cannot change
+    // the payout of a cycle that is already running.
+    const meta = loadMeta();
+    this.offlineCapHours =
+      IDLE_TUNING.offlineCapHours +
+      (meta.upgrades[PERK_OFFLINE_CAP] ?? 0) * IDLE_TUNING.perks.offlineCapHoursPerLevel;
+    this.goldenTouchMul =
+      1 + (meta.upgrades[PERK_GOLDEN_TOUCH] ?? 0) * IDLE_TUNING.perks.goldenTouchPerLevel;
+
     this.eco = new Economy(ECONOMY_SPEC, IDLE_TUNING.startingCash);
     this.eco.restore(load<unknown>(STORE_ECONOMY, null));
     const offline = this.grantOfflineIncome();
+    this.markDailyStreak();
 
     this.buildBackdrop();
     this.buildHud();
@@ -221,6 +248,29 @@ export class GameScene extends Phaser.Scene {
     for (const row of this.rows) {
       if (row.container.visible) this.refreshRow(row, false);
     }
+  }
+
+  /**
+   * Advances the daily streak once per entry (the menu chip reads it back) and
+   * celebrates only the day it actually grew.
+   */
+  private markDailyStreak(): void {
+    const streak = touchDailyStreak();
+    if (!streak.extended) return;
+    this.time.delayedCall(560, () => {
+      if (this.destroyed) return;
+      floatText(this, VIEW.centerX, VIEWPORT_TOP - 40, `DAY ${streak.days} STREAK!`, CSS.accent, 46);
+      sfx('combo', { volume: 0.5 });
+    });
+  }
+
+  /**
+   * The slot to draw with, or `null` when its texture never loaded (pruned art
+   * group, or art that does not exist yet).
+   */
+  private resolveSlot(slot: ArtSlot | null): ArtSlot | null {
+    if (slot === null) return null;
+    return this.textures.exists(slot.key) ? slot : null;
   }
 
   // --- construction -------------------------------------------------------
@@ -297,7 +347,7 @@ export class GameScene extends Phaser.Scene {
 
   private buildRow(def: GeneratorDef, index: number, y: number): Row {
     const container = this.add.container(0, y);
-    const view = GENERATOR_VIEW[def.id] ?? { tex: TEX.disc, tint: PALETTE.primary, blurb: '' };
+    const view = GENERATOR_VIEW[def.id] ?? { tex: TEX.disc, tint: PALETTE.primary, blurb: '', art: null };
 
     const bg = drawPanel(this, ROW_WIDTH, ROW_HEIGHT, {
       fill: PALETTE.bgTop,
@@ -308,10 +358,13 @@ export class GameScene extends Phaser.Scene {
       radius: 26,
     });
 
+    // Generated tier icon when its slot resolves (drawn untinted), the
+    // procedural glyph + tint otherwise.
+    const iconSlot = this.resolveSlot(view.art);
     const icon = this.add
-      .image(-ROW_WIDTH / 2 + 56, -14, view.tex)
-      .setDisplaySize(IDLE_TUNING.ui.iconSize, IDLE_TUNING.ui.iconSize)
-      .setTint(view.tint);
+      .image(-ROW_WIDTH / 2 + 56, -14, iconSlot?.key ?? view.tex, iconSlot?.frame)
+      .setDisplaySize(IDLE_TUNING.ui.iconSize, IDLE_TUNING.ui.iconSize);
+    if (iconSlot === null) icon.setTint(view.tint);
 
     const nameText = this.add
       .text(TEXT_LEFT, -70, def.name, { ...TEXT.button, fontSize: '34px' })
@@ -527,8 +580,10 @@ export class GameScene extends Phaser.Scene {
 
     const before = this.eco.cash - base;
     const crit = this.rng.chance(IDLE_TUNING.tapCritChance);
-    if (crit) this.eco.credit(base * (IDLE_TUNING.tapCritMult - 1));
-    const total = crit ? base * IDLE_TUNING.tapCritMult : base;
+    // `meta_golden_touch` pays only on a MANUAL collect — automating a tier
+    // trades the perk away, which is the decision the perk exists to create.
+    const total = base * this.goldenTouchMul * (crit ? IDLE_TUNING.tapCritMult : 1);
+    if (total > base) this.eco.credit(total - base);
 
     sfx('pickup', { rate: crit ? 1.35 : 1 });
     pop(this, row.icon, crit ? 0.42 : 0.26);
@@ -566,6 +621,7 @@ export class GameScene extends Phaser.Scene {
     const stats: ResultStat[] = [
       { label: 'PRESTIGE MULT', value: `x${this.eco.prestigeMult.toFixed(2)}` },
       { label: 'LIFETIME', value: formatCash(this.eco.lifetimeEarned) },
+      { label: 'TAP BONUS', value: `+${Math.round((this.goldenTouchMul - 1) * 100)}%` },
     ];
 
     this.cameras.main.fadeOut(280, 0, 0, 0);
@@ -579,6 +635,11 @@ export class GameScene extends Phaser.Scene {
         currencyEarned: Math.max(1, Math.round(gain)),
         seed: this.seed,
         stats,
+        // An idle session has no fail state and no clock worth beating: it
+        // ends when the player chooses to trade the estate for power.
+        headline: 'ASCENDED!',
+        timeLabel: null,
+        bestTimeMode: 'off',
       });
     });
   }
@@ -864,7 +925,8 @@ export class GameScene extends Phaser.Scene {
     if (typeof stamp !== 'number' || stamp <= 0) return 0;
     const elapsed = Date.now() - stamp;
     if (elapsed <= 0) return 0;
-    return this.eco.grantOffline(elapsed, IDLE_TUNING.offlineCapHours);
+    // `meta_offline_cap` widens the cap; the accrual rate itself is untouched.
+    return this.eco.grantOffline(elapsed, this.offlineCapHours);
   }
 
   private persist(): void {

@@ -4,6 +4,19 @@ import type { Rng } from '../core/rng';
  * Original general-knowledge bank for the family H (trivia quiz) slice: 60
  * questions, 15 per category, 5 per difficulty tier inside each category.
  *
+ * REPLACE THIS FILE WHOLESALE. It is a TEMPLATE bank, not content: 60 general
+ * questions are enough to prove the loop and pass the gates, and nothing else.
+ * A generated game writes its own bank here — themed, and large enough that
+ * every level can own a slice of it.
+ *
+ * That size is a limitation the shipped slice works AROUND rather than hides:
+ * `slices/word/packs.ts` builds its five packs as difficulty WINDOWS over this
+ * single bank (pack 1 is mostly tier 1, pack 5 mostly tier 3), because there is
+ * not enough material for five separate pools — so a player who clears the
+ * ladder will have seen some questions more than once. With per-pack banks the
+ * windows become real pools and that repetition disappears; `WORD_TUNING.packs`
+ * is the only thing that then has to change.
+ *
  * Rules for anyone extending it:
  *  - questions are written for this template, never lifted from a quiz product;
  *  - `question` stays under 90 characters so it fits the portrait panel in
@@ -11,9 +24,13 @@ import type { Rng } from '../core/rng';
  *  - exactly 4 options, all distinct, exactly one defensibly correct — a
  *    "second nearly-right option" is a bug, not a hard question;
  *  - the correct answer is authored FIRST (`answerIndex: 0`) so a reviewer can
- *    fact-check the bank by reading one column; `drawQuiz` shuffles the option
- *    order per draw, so the position is never a tell in play;
- *  - `difficulty` 1..3 drives the ramp in `drawQuiz`, not the score alone.
+ *    fact-check the bank by reading one column; `drawQuiz` — and the slice's
+ *    own `drawPack` — shuffles the option order per draw, so the position is
+ *    never a tell in play;
+ *  - `difficulty` 1..3 drives the ramp in `drawQuiz` and the pack windows, not
+ *    the score alone;
+ *  - keep every tier at least as large as the biggest pack's `poolSize`, or a
+ *    window silently backfills out of the neighbouring tiers.
  *
  * `src/sim/kits/trivia.selftest.ts` enforces every one of those invariants.
  */

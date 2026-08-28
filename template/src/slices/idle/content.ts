@@ -1,4 +1,5 @@
 import { TEX } from '../../core/keys';
+import type { ArtSlot } from '../../data/art';
 import type { EconomySpec, GeneratorDef, ManagerDef } from '../../core/economy';
 import { IDLE_TUNING, type IdleGeneratorId, type IdleManagerGeneratorId } from './tuning';
 
@@ -15,6 +16,12 @@ export interface GeneratorView {
   tint: number;
   /** One-line fantasy flavour shown while the tier is still locked. */
   blurb: string;
+  /**
+   * Generated icon for this tier. `null` keeps the procedural `tex` + `tint`;
+   * a resolved slot is drawn UNTINTED, so an icon sheet has to carry its own
+   * colour separation between the eight tiers.
+   */
+  art: ArtSlot | null;
 }
 
 interface GeneratorContent {
@@ -27,42 +34,42 @@ const GENERATOR_CONTENT: readonly GeneratorContent[] = [
   {
     id: 'glowcap',
     name: 'Glowcap Farm',
-    view: { tex: TEX.disc, tint: 0x5df2a0, blurb: 'Mushrooms that pay rent.' },
+    view: { tex: TEX.disc, tint: 0x5df2a0, blurb: 'Mushrooms that pay rent.', art: null },
   },
   {
     id: 'copper',
     name: 'Copper Delve',
-    view: { tex: TEX.square, tint: 0xffd166, blurb: 'Shallow seams, deep pockets.' },
+    view: { tex: TEX.square, tint: 0xffd166, blurb: 'Shallow seams, deep pockets.', art: null },
   },
   {
     id: 'still',
     name: "Herbalist's Still",
-    view: { tex: TEX.ring, tint: 0x4de1ff, blurb: 'Tonics for adventurers, sold by the crate.' },
+    view: { tex: TEX.ring, tint: 0x4de1ff, blurb: 'Tonics for adventurers, sold by the crate.', art: null },
   },
   {
     id: 'forge',
     name: 'Rune Forge',
-    view: { tex: TEX.spike, tint: 0xff5da2, blurb: 'Stamped sigils, guaranteed to spark.' },
+    view: { tex: TEX.spike, tint: 0xff5da2, blurb: 'Stamped sigils, guaranteed to spark.', art: null },
   },
   {
     id: 'roost',
     name: 'Gryphon Roost',
-    view: { tex: TEX.star, tint: 0xf2f6ff, blurb: 'Freight, courier work, and one very loud tenant.' },
+    view: { tex: TEX.star, tint: 0xf2f6ff, blurb: 'Freight, courier work, and one very loud tenant.', art: null },
   },
   {
     id: 'well',
     name: 'Mana Well',
-    view: { tex: TEX.disc, tint: 0x4de1ff, blurb: 'Bottled ley-line, tapped on a schedule.' },
+    view: { tex: TEX.disc, tint: 0x4de1ff, blurb: 'Bottled ley-line, tapped on a schedule.', art: null },
   },
   {
     id: 'hoard',
     name: 'Dragon Hoard',
-    view: { tex: TEX.star, tint: 0xffd166, blurb: 'A lease agreement nobody dares audit.' },
+    view: { tex: TEX.star, tint: 0xffd166, blurb: 'A lease agreement nobody dares audit.', art: null },
   },
   {
     id: 'mint',
     name: 'Astral Mint',
-    view: { tex: TEX.ring, tint: 0xff5da2, blurb: 'Coins struck from tomorrow.' },
+    view: { tex: TEX.ring, tint: 0xff5da2, blurb: 'Coins struck from tomorrow.', art: null },
   },
 ];
 

@@ -32,6 +32,19 @@ export const IDLE_TUNING = {
   /** A single credit worth this share of the purse animates instead of snapping. */
   cashCountThreshold: 0.12,
 
+  /**
+   * Meta perks from the idle catalog (`data/metaCatalog.ts`), read once in
+   * `create` off `loadMeta().upgrades`. Both are deliberately modest: an idle
+   * curve is the balance, and a perk that outruns it turns the tiers into
+   * decoration.
+   */
+  perks: {
+    /** `meta_offline_cap`: hours added to the offline accrual cap per level. */
+    offlineCapHoursPerLevel: 2,
+    /** `meta_golden_touch`: share added to a MANUAL collect per level. */
+    goldenTouchPerLevel: 0.15,
+  },
+
   prestige: {
     /** Earn this much in one cycle to unlock ASCEND. */
     unlockAtTotalEarned: 210_000,
@@ -77,6 +90,7 @@ export const IDLE_TUNING = {
   tapCritChance: number;
   tapCritMult: number;
   cashCountThreshold: number;
+  perks: { offlineCapHoursPerLevel: number; goldenTouchPerLevel: number };
   prestige: { unlockAtTotalEarned: number; multiplierPerReset: number; earningsPerStep: number };
   generators: Record<string, GeneratorTuning>;
   managers: Record<string, number>;
