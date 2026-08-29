@@ -1092,8 +1092,9 @@ like it cost nothing.
 ## 18. Family → verification map
 
 Every family's balance proof is `npm run sim -- --family <slice>`, driven by the
-bot in `src/sim/families/<slice>.ts`. The hard gates below fail the build; the
-soft gates are reported and reviewed.
+bot in `src/sim/families/<slice>.ts` (except arena — its lane pipeline and bots
+live in `src/sim/cli.ts` + `src/sim/bots.ts`, not in `src/sim/families/`). The
+hard gates below fail the build; the soft gates are reported and reviewed.
 
 | Code | Director | Sim bot | Hard gates | Soft gates |
 | --- | --- | --- | --- | --- |

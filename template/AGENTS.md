@@ -60,7 +60,7 @@ exist.
 `src/scenes/game.ts` is a one-line re-export of the active slice, nothing else:
 
 ```ts
-export { GameScene } from '../slices/arena/game';
+export { GameScene, ART_GROUPS } from '../slices/arena/game';
 ```
 
 `scripts/new-game.sh <slug> "Title" --family <code>` does three things at
@@ -142,7 +142,7 @@ The template default is `arena`.
 | `src/ui/joystick.ts` | `Joystick`: floating on-screen thumb stick (movement), `vector` carries throttle, `setEnabled` for overlays |
 | `src/core/controls.ts` | `Controls`: tap / swipe / drag / hold callbacks + `axisX/axisY` keyboard parity |
 | `src/core/juice.ts` | `shake`, `flash`, `pop`, `floatText`, `burst`, `hitstop`, `countTo`, `enterFromBottom`, `idleBob`, `starfield` |
-| `src/core/audio.ts` | `sfx(name)` — synthesised WebAudio, no files: `ui tap pickup combo jump hit die levelup whoosh`; `sfxArp`, `toggleMute` |
+| `src/core/audio.ts` | `sfx(name)` — synthesised WebAudio, no files required: `ui tap pickup combo jump hit die levelup whoosh`; `sfxArp`, `toggleMute`. Generated samples are OPT-IN per name via `src/data/audio.ts` + `initGeneratedAudio()` (called once by `PreloadScene`); anything unregistered keeps its synth voice |
 | `src/core/textures.ts` | procedural `disc / ring / square / spike / star / particle / panel`; `buildGradient` |
 | `src/ui/primitives.ts` | `drawPanel` / `drawPill` / `paintPanel` / `paintPill` — all UI chrome, palette-driven |
 | `src/ui/button.ts` | `Button` — primitive capsule, ≥88px tap target, pressed repaint, plays `sfx('ui')` |
@@ -155,7 +155,7 @@ The template default is `arena`.
 | `src/ui/coach.ts` | `showCoach(scene, {id, target, text, mode})` / `hasSeenCoach(id)` — FTUE coach marks: 4-rect dim + spotlight cutout, pointer hand, one-line card; `'tap'` or `'swap-gate'` (the dim rects ARE the input gate); one-shot `tut:<id>` flags via `core/storage` |
 | `src/ui/background.ts` | `addBackground(scene)` — parallax `bg-layer-0/1/2` (cover-fit, camera scrollFactors) → single `bg-arena` → procedural gradient+starfield fallback |
 | `src/ui/background.ts` scrim | the generated-backdrop branch adds a `bgDeep` veil at depth -190 (full frame 0.45 + heavier top/bottom bands) — generated art is brighter than the gradient the UI was designed against, and ink text needs a guaranteed dark surface |
-| `src/core/music.ts` | zero-asset generative music: `startMusic('menu'\|'run')`, `setMusicIntensity(0..1)`, `setMusicLayer('boss', on)`, `stopMusic()`; muted together with sfx |
+| `src/core/music.ts` | generative music, zero assets by default: `startMusic('menu'\|'run')`, `setMusicIntensity(0..1)`, `setMusicLayer('boss', on)`, `stopMusic()`; muted together with sfx. Registered stems in `src/data/audio.ts` (`menu`, `game-low`+`game-high`, same key/tempo/bar length) replace the synth score per mood and crossfade at intensity ~0.55; a missing/undecodable file warns once and falls back to synth |
 
 ### Systems (the reason this template exists)
 
@@ -178,6 +178,10 @@ The template default is `arena`.
 | `src/core/collections.ts` | `CollectionSetDef` / `collectionProgress` / `rollMissingPiece` — the collect-a-set meta layer |
 | `src/core/rng.ts` | seeded `Rng` (`float/int/chance/pick/pickWeighted/shuffle`), `dailySeed()` |
 | `src/core/storage.ts` | namespaced, throw-safe localStorage |
+| `src/core/telemetry.ts` | `track('<event>')` → GoatCounter event `ev/<slug>/<event>`; silent no-op without the injected snippet, one deferred retry per page load |
+| `src/core/daily.ts` | UTC daily challenge: `sessionSeed()` (every slice's `init` seed default), `?d=YYYY-MM-DD` link pinning, `isDailyMode()`/`setDailyMode()`, per-day `loadDailyBest()`/`saveDailyBest()` |
+| `src/core/share.ts` | `shareResult({score, won})` → native share sheet, clipboard fallback, `'unavailable'` when neither is permitted; fires `track('share')` itself |
+| `src/core/wake.ts` | `armWakeLock()` — one call from `main.ts`: first-gesture Screen Wake Lock + re-acquire on tab return; no scene requests its own |
 | `src/data/enemies.ts` | archetypes as `{ base, behaviour, ... }` incl. `healer` aura, telegraphed `charge`, 3-phase `boss` (`TUNING.boss`: volley → summon+shield → enrage ring), `eliteDrop` coins; `scaleEnemy(def, difficultyMul)` |
 | `src/data/weapons.ts` | `WeaponDef` catalog: `bolt / orbit / nova / rail` + evolutions; per-weapon numbers in `TUNING.weapons`; patterns implemented in `systems/combat.ts` |
 | `src/data/upgrades.ts` | card pool with `kind: 'stat' \| 'weapon-unlock' \| 'weapon-boost'`, slot/ownership gating via `UpgradeRollContext`, 2 legendary `effect` cards, meta upgrades, `rollUpgradeChoices()`, boot-time `validateUpgradeStats` |
@@ -185,7 +189,7 @@ The template default is `arena`.
 | `src/data/waves.ts` | reference 480s run: phases, waves, `TIMELINE_EVENTS` (2 chests, breather, elite-rush) |
 | `src/objects/coin.ts`, `src/objects/blade.ts` | pooled elite-drop currency pickup; pooled orbit blade |
 | `src/sim/*` | headless balance sim over the REAL data. `families/<code>.ts` holds one family's bots/solvers and gates (`board` greedy-vs-random solver ladder, `hyper` skill-parameterised session length, `idle` economy curves and prestige floor, `table` dice win-rate band, `word` bank integrity + accuracy bots over all five packs, `side` generator validation + hop bot, `track` lap completion + bot spread); `arena` is `cli.ts`'s own lane pipeline; `family.ts` holds the scaffolded default; `kits/*.selftest.ts` guard the shared kits |
-| `src/scenes/*` | `boot → preload → menu → meta → game → gameover` wired with fades. `meta.ts` is the SHOP: a drag-scrolled row list clipped by its OWN camera viewport (a real GPU scissor — Phaser 4 has no `setMask`), identity scroll, mutual `ignore` with the main camera, re-hooked per visit. `gameover.ts` obeys one CTA law: `won && next` → PLAY NEXT (`levelIndex`), `won && !next` → PLAY AGAIN (the retry action relabelled, plus the neutral `ALL CLEAR!` note), a loss → RETRY (same seed) — SPACE always mirrors the primary, and the shop pill is labelled SHOP everywhere, never UPGRADES |
+| `src/scenes/*` | `boot → preload → menu → meta → game → gameover` wired with fades. `meta.ts` is the SHOP: a drag-scrolled row list clipped by its OWN camera viewport (a real GPU scissor — Phaser 4 has no `setMask`), identity scroll, mutual `ignore` with the main camera, re-hooked per visit. `gameover.ts` obeys one CTA law: `won && next` → PLAY NEXT (`levelIndex`), `won && !next` → PLAY AGAIN (the retry action relabelled, plus the neutral `ALL CLEAR!` note), a loss → RETRY (same seed) — SPACE always mirrors the primary, and the shop pill is labelled SHOP everywhere, never UPGRADES. It also closes the funnel: one `win-<level>`/`loss-<level>` event per run (plain `win`/`loss` when the family passes no `level`), `retry` on the seed-replay CTA, the per-day best via `saveDailyBest` in daily mode, and a half-width SHARE next to SHOP (label flashes COPIED!/NO SHARE) — read back with `node scripts/telemetry-pull.mjs --slug <slug>` |
 
 ### Genre kits (dormant until a PRD needs them)
 
@@ -205,6 +209,31 @@ deckbuilder, `autobattle` + `board` + `shopTray` for an auto-battler,
 so a D game wires them into its own `src/slices/<code>/game.ts` and gets a new
 `src/sim/families/<code>.ts` gate.
 
+### Player platform (ships in every game, degrade-to-nothing by design)
+
+- **PWA shell.** `public/manifest.webmanifest` (name = game title, portrait,
+  standalone) + `public/sw.js` (`game-v1` cache: navigation network-first,
+  hashed Vite output immutable, other public/ paths stale-while-revalidate) +
+  icons built from the logo. `main.ts` registers the worker in PROD builds
+  only — dev stays uncached; `vite preview` on localhost does register, so
+  browser-driving harnesses purge SW + caches before measuring a boot
+  (`cert-driver.mjs` does this in both `runCert` and `runFuzz`).
+- **Keep the tones in sync**: `index.html` `<meta name="theme-color">`, the
+  manifest `theme_color`/`background_color` and the page background all equal
+  `PALETTE.bgDeep` (`#05070d`) — repaint all four together in Step 5.5.
+- **Haptics ride the juice layer**: `shake()` and `hitstop()` fire a
+  throttled `navigator.vibrate` (≥120ms apart). Never add per-callsite
+  vibration — call the juice helpers.
+- **Wake lock has one owner**: `armWakeLock()` in `main.ts`.
+- **Telemetry events are a fixed vocabulary** — `session-start`,
+  `daily-start`, `win[-<level>]`, `loss[-<level>]`, `retry`, `share` — fired
+  from `menu.ts`/`gameover.ts`. A new surface adds an event only together
+  with a funnel reading in `scripts/telemetry-pull.mjs`; never rename
+  existing events (they are the cross-release retention baseline).
+- **Daily seed is the session default**: every slice's `init` takes
+  `data.seed ?? sessionSeed()`. Never reintroduce `Date.now()` seeding in a
+  slice — it silently breaks the daily challenge and `?d=` share links.
+
 ### Generated art (vibrant 2D chibi)
 
 | File | Role |
@@ -213,7 +242,7 @@ so a D game wires them into its own `src/slices/<code>/game.ts` and gets a new
 | `art/manifest.json` | asset plan per group (hero, enemies, FX, UI, backdrop) |
 | `public/assets/generated/**` | exported sheets, frames, GIFs, `sprite-metadata.json` |
 | `src/data/art.ts` | **GENERATED** registry (`node scripts/gen-art-registry.mjs`, `--check` guards drift in `npm run verify`) — texture keys, frame geometry, per-action `scale`, `facesRight`, `ICON` frames. Never hand-edit; edit `art/manifest.json` and regenerate |
-| `src/scenes/preload.ts` | loads every registry row and creates one animation per animated sheet |
+| `src/scenes/preload.ts` | loads the registry rows whose `group` is in the active slice's `ART_GROUPS` (re-exported by `src/scenes/game.ts`) and creates one animation per animated sheet |
 
 Regenerating or adding art is the `game-art` skill's job, not hand-drawing:
 `.claude/skills/game-art`. Rules that matter when you touch it:
@@ -251,7 +280,7 @@ Regenerating or adding art is the `game-art` skill's job, not hand-drawing:
    family sim must import the same module.
 3. **Content lives in `src/data/`** as plain data records (enemies, upgrades,
    waves, towers, items) — never as `if` chains in scenes.
-4. **Systems live in `src/systems/`** (create it) as classes taking their
+4. **Systems live in `src/systems/`** as classes taking their
    dependencies in the constructor. They must be Phaser-light: gameplay maths in
    pure TS, Phaser only for rendering/physics.
 5. **Entities live in `src/objects/`**, one class per file, extending

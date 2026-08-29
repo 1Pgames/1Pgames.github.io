@@ -5,10 +5,15 @@ import { isMuted, sfx, toggleMute, unlockAudio } from '../core/audio';
 import { startMusic } from '../core/music';
 import { enterFromBottom, idleBob } from '../core/juice';
 import { loadMeta } from '../core/progression';
+import { isDailyMode, setDailyMode } from '../core/daily';
+import { track } from '../core/telemetry';
 import { Button } from '../ui/button';
 import { addBackground } from '../ui/background';
 import { ICON, TEXTURE } from '../data/art';
 import { drawPanel } from '../ui/primitives';
+
+/** Gutter between the two half-width toggles sharing the bottom row. */
+const TOGGLE_GAP = 24;
 
 /** mm:ss clock for the best-run readout. */
 function formatClock(ms: number): string {
@@ -20,9 +25,9 @@ function formatClock(ms: number): string {
 
 /**
  * Title screen for the survivor-like slice: name, lifetime best score/time,
- * current meta currency, and the three doors into the loop — play, the meta
- * shop, and mute. Buttons are stacked full-width in the bottom safe area so
- * the whole screen stays one-thumb reachable.
+ * current meta currency, and the doors into the loop — play, the meta shop,
+ * and the sound/daily toggles. Buttons are stacked full-width in the bottom
+ * safe area so the whole screen stays one-thumb reachable.
  */
 export class MenuScene extends Phaser.Scene {
   constructor() {
@@ -104,14 +109,17 @@ export class MenuScene extends Phaser.Scene {
     const shopY = VIEW.height - SAFE.bottom - 100;
     const muteY = VIEW.height - SAFE.bottom;
 
-    const play = new Button(this, VIEW.centerX, playY, 'PLAY', () => {
+    const startRun = (): void => {
+      track(isDailyMode() ? 'daily-start' : 'session-start');
       this.cameras.main.fadeOut(180, 0, 0, 0);
       // EMPTY data object is load-bearing: Phaser keeps the PREVIOUS start's
       // settings.data when none is passed, so a bare start after PLAY NEXT
       // ({levelIndex}) or RETRY ({seed}) replays that payload and bypasses
       // the level-select surface (cert finding flow:map-bypassed).
       this.time.delayedCall(190, () => this.scene.start(SCENES.game, {}));
-    }, { width: buttonWidth, height: 112 });
+    };
+
+    const play = new Button(this, VIEW.centerX, playY, 'PLAY', startRun, { width: buttonWidth, height: 112 });
 
     const shop = new Button(
       this,
@@ -122,13 +130,39 @@ export class MenuScene extends Phaser.Scene {
       { width: buttonWidth, height: 96, fill: PALETTE.bgTop, stroke: PALETTE.primary, textColor: CSS.ink },
     );
 
+    // The bottom row carries both toggles side by side: a fourth full-width
+    // button would have to push the stack up into the how-to line.
+    const toggleWidth = (buttonWidth - TOGGLE_GAP) / 2;
+    const toggleStyle = {
+      width: toggleWidth,
+      height: 88,
+      fill: PALETTE.bgTop,
+      stroke: PALETTE.primary,
+      textColor: CSS.inkSoft,
+      fontSize: '32px',
+    };
+
     const muteButton = new Button(
       this,
-      VIEW.centerX,
+      VIEW.centerX - (toggleWidth + TOGGLE_GAP) / 2,
       muteY,
       isMuted() ? 'SOUND: OFF' : 'SOUND: ON',
       () => muteButton.setLabel(toggleMute() ? 'SOUND: OFF' : 'SOUND: ON'),
-      { width: buttonWidth, height: 88, fill: PALETTE.bgTop, stroke: PALETTE.primary, textColor: CSS.inkSoft, fontSize: '32px' },
+      toggleStyle,
+    );
+
+    // Daily mode: one seed per UTC day, shared by every player, so a shared
+    // result is reproducible (see core/daily.ts). The choice persists.
+    const dailyButton = new Button(
+      this,
+      VIEW.centerX + (toggleWidth + TOGGLE_GAP) / 2,
+      muteY,
+      isDailyMode() ? 'DAILY: ON' : 'DAILY: OFF',
+      () => {
+        setDailyMode(!isDailyMode());
+        dailyButton.setLabel(isDailyMode() ? 'DAILY: ON' : 'DAILY: OFF');
+      },
+      toggleStyle,
     );
 
     enterFromBottom(this, bestText, 40);
@@ -139,9 +173,11 @@ export class MenuScene extends Phaser.Scene {
     enterFromBottom(this, play, 160);
     enterFromBottom(this, shop, 200);
     enterFromBottom(this, muteButton, 240);
+    enterFromBottom(this, dailyButton, 240);
 
-    // Any key/tap also starts the game — fewer taps means better retention.
-    this.input.keyboard?.once('keydown-SPACE', () => this.scene.start(SCENES.game));
+    // SPACE also starts the game — same handler as PLAY, so the funnel event
+    // fires and the empty data object clears any previous seed/levelIndex.
+    this.input.keyboard?.once('keydown-SPACE', startRun);
     this.input.once(Phaser.Input.Events.POINTER_DOWN, () => {
       unlockAudio();
       sfx('ui', { volume: 0.5 });

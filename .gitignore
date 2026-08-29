@@ -4,3 +4,5 @@ dist/
 .DS_Store
 *.local
 _site/
+**/art/exports/
+**/shots/cert/

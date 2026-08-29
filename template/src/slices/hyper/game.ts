@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { CSS, PALETTE, SAFE, TEXT, VIEW } from '../../config';
 import { SCENES, TEX } from '../../core/keys';
 import { Rng } from '../../core/rng';
+import { sessionSeed } from '../../core/daily';
 import { Pool } from '../../core/pool';
 import { RampDirector } from '../../core/ramp';
 import { sfx } from '../../core/audio';
@@ -90,7 +91,7 @@ export class GameScene extends Phaser.Scene {
 
   /** `scene.start(SCENES.game, { seed })` replays the same run (RETRY on results). */
   init(data: { seed?: string } = {}): void {
-    this.seed = data.seed ?? Date.now().toString(36);
+    this.seed = data.seed ?? sessionSeed();
   }
 
   create(): void {

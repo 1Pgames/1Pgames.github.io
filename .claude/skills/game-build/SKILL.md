@@ -55,7 +55,8 @@ Two consequences worth stating twice:
 
 ## Agent roster (specialists, not generic `task` workers)
 
-Project agents live in `.omp/agents/*.md`; each carries its contract, owned
+Project agents live in `.claude/agents/*.md` (mirrored at `.omp/agents`);
+each carries its contract, owned
 surfaces and hard rules in its own system prompt, so a dispatch names WHAT to
 do, never re-teaches HOW. The agents are GENRE-AGNOSTIC by design: role and
 method live in the agent, the genre's law flows in from the game's own
@@ -67,7 +68,7 @@ survival extraction shooter tomorrow. Spawn the specialist, not `task`:
 | --- | --- | --- |
 | `game-designer` | Step 0c research, §1b dossier, PRD content tables, design-drift review | Step 0 (with `game-prd`), mid-build design questions |
 | `level-designer` | the family's progression data (ladders / waves / ramps / economy curves), slice tuning, `sim/families/<slice>.ts`, balance loop | Step 1 wave, Step 4 |
-| `gameplay-programmer` | `core/**` engines, slice gameplay logic, sim-model parity, selftests | Step 1 wave |
+| `gameplay-programmer` | `core/**` engines, slice gameplay logic, sim-model parity, selftests | Step 0.7 greybox, Step 1 wave |
 | `ui-engineer` | scenes, UI chrome, HUD, coach wiring, every Step 5.5 fix | Step 1 wave, Step 5.5 |
 | `fx-artist` | game-feel wiring: juice/sfx/tween timing, transitions, skip paths, the §13 feel budgets made real | dedicated feel pass after Step 3, before qa |
 | `ux-flow-designer` | PRD §14b flow map (scene graph, tap-depth, interruption matrix, edge states); flow audit of the built game | Step 0 (with game-designer), flow audit before the critic |
@@ -75,7 +76,7 @@ survival extraction shooter tomorrow. Spawn the specialist, not `task`:
 | `content-writer` | naming lexicon, all player-facing copy, store listing strings | Step 1 wave (parallel), Step 6.1 |
 | `build-integrator` | seam reconciliation, GameScene wiring, registry, the ONLY `npm run verify` runner, boot smoke | Step 3 |
 | `game-qa` | golden-path E2E, invariant scans, bug repro/minimization, regression re-checks | Step 5, after every fix round |
-| `game-critic` | persona playtests (novice/veteran/masher), feel verdict vs §1b bar | after Step 5.5, before EVERY user handoff |
+| `game-critic` | persona playtests (novice/veteran/masher), feel verdict vs §1b bar | Step 0.7 greybox verdict, after Step 5.5, before EVERY user handoff |
 | `code-reviewer` | diff review vs AGENTS.md contract + traps + ownership | between Step 1/2 landing and Step 3 |
 
 The internal loop before ANY user handoff: build waves → `code-reviewer` →
@@ -210,6 +211,36 @@ confirm the scaffold actually landed the right slice (`src/slices/` holds one
 dir; `src/sim/family.ts` names it) before spawning anyone. §16.1's frozen
 interface contracts and §12.2's drift surface are law for every workstream.
 
+**Mechanical PRD gate.** Before fanning out, run
+`node scripts/audit-check.mjs <slug>` — it checks the PRD's load-bearing
+sections mechanically (§1b dossier row floor, §13 feel table, §14b flow
+blocks, §17 cut list, §18 assumptions; later runs also shape-check
+`build-state.json`). `SPEC INCOMPLETE` blocks Step 1 exactly like a missing
+§1b: route the gaps back to `game-designer`, fix the PRD, re-run the script,
+then spawn the waves.
+
+### Step 0.7 — Greybox fun gate (find the fun before building the game)
+
+The slice already boots as a playable core; the PRD names this game's twist.
+Prove the twist is FUN before six workstreams build on top of it:
+
+1. One `gameplay-programmer` wave (checkpoint `greybox` in
+   `build-state.json`): re-point the slice's core verb at the PRD's variant
+   and prototype the §1b differentiation axis — placeholder art, slice
+   `tuning.ts` numbers, nothing else. When the axis has two credible
+   readings, build BOTH behind a tuning flag instead of debating them.
+2. Boot it in a browser tab (Step 5.1's `hub` dev-server recipe) and hand it
+   to `game-critic` for a 3-minute verdict against the §1b reference bar:
+   does the core verb generate decisions, tension and payoff on its own —
+   before art, meta and balance exist to dress it up? With two variants the
+   critic picks one; the loser's flag is deleted, not left to rot.
+3. `FUN` → freeze the twist's final shape into the §16.1 contracts and fan
+   out Step 1. `NO-FUN` → route the critic's evidence to `game-designer`,
+   re-spec §4/§5, re-run `audit-check.mjs`, rebuild the greybox — ONCE. A
+   second NO-FUN ships the stronger variant anyway, with the verdict quoted
+   in §18 Assumptions and the final report: bounded like the balance loop,
+   never an unbounded design spiral.
+
 ### Step 1 — Parallel build workstreams
 
 Read PRD §16 (Build plan). Fan out one `task` per workstream (4-6, per the
@@ -253,7 +284,8 @@ build workstreams never touch `art/` or `public/assets/generated/`).
   hand-estimate collision when `map_trace_geometry` can derive it).
 - **Key art is a required deliverable, not a nice-to-have.** `game-art`'s cover
   step produces the store cover; the integrator saves it as
-  `public/cover.png` (600x800) and `games/<slug>/shots/og.png` (1200x630 social
+  `public/cover.png` (1024x1536, the 3:4 key-art frame from `game-art`'s
+  cover step) and `games/<slug>/shots/og.png` (1200x630 social
   crop) and points `game.json.cover` at `cover.png`. The scaffold's gradient
   `public/cover.svg` is a **draft-only** placeholder — a release with it still
   in `game.json.cover` fails Step 6's release gate.
@@ -418,6 +450,36 @@ reference implementation of every fix pattern below.
    screen re-captured; the audit is done when every screen passes every row.
    The store screenshots for Step 6 are taken AFTER this step, never before.
 
+### Step 5.7 — Golden-path cert (machine playtest)
+
+`scripts/cert-driver.mjs` replays the golden path — cold boot on a wiped
+save, the FTUE walk, the core loop to BOTH outcomes, the surface tour, the
+quality-budget measurements — inside a live browser tab and writes
+`games/<slug>/cert-report.json`, which `release-check.mjs` reads
+(`checkCert`). Run it after Step 5.5's fixes, following the USAGE recipe in
+the driver's own header (two `xd://browser` calls against the dev/preview
+server).
+
+- The report must end `passed: true`. Blockers route to the owning
+  specialist like any qa finding; fix, then re-run the cert.
+- Family adapters live next to `export const adapters` in the driver
+  (currently `board`). Building a family that has no adapter yet: write the
+  adapter against the board reference as part of the build — it amortises
+  over every future game of that family. If that is genuinely not feasible
+  in this run, say so in the final report; `release-check.mjs` fails a
+  missing report only for adapter-covered families and warns for the rest,
+  and silence is not an accepted form of the warning.
+- Keep `CERT_ADAPTED` in `scripts/release-check.mjs` in sync when an adapter
+  lands — that is what promotes the family's missing-cert warning to a hard
+  failure.
+- Every family — with or without an adapter — also runs the adapter-less
+  monkey test from the same module:
+  `mod.runFuzz({ tab, page, baseUrl, gameDir, seconds: 45 })` hammers random
+  taps/drags/keys while watching family-agnostic invariants (no page errors,
+  a scene always active, the loop never wedges, the save survives a reload)
+  and writes `fuzz-report.json`. `passed: false` routes to the owning
+  specialist like any qa blocker before release.
+
 ### Step 6 — Store listing + publish
 
 1. **Store data — English, complete, cover included.** The scaffold already
@@ -426,7 +488,7 @@ reference implementation of every fix pattern below.
    player-facing sentences from PRD §1 (no jargon, no family jargon, English).
    Then:
    - **Cover (required).** Save `game-art`'s key art as `public/cover.png`
-     (600x800) and set `game.json.cover` to `cover.png`. Also export the social
+     (1024x1536, 3:4) and set `game.json.cover` to `cover.png`. Also export the social
      crop to `games/<slug>/shots/og.png` (1200x630) — the site uses
      `media/<slug>/og.png` for `og:image` when that file exists, otherwise the
      first `.png` screenshot, otherwise no `og:image` at all. The gradient
@@ -434,19 +496,26 @@ reference implementation of every fix pattern below.
    - **Screenshots (≥3).** Copy the 3-5 best Step-5 shots into
      `games/<slug>/shots/` (menu, the decision surface, a payoff moment,
      results) and list them in `game.json.screenshots`.
-   - **Preview clip (optional).** A short loop of real gameplay saved as
-     `games/<slug>/shots/preview.webm` becomes an autoplaying muted loop on the
-     store page. Skip it rather than ship a stuttering one.
+   - **Preview clip (capture it, don't skip it).** Record 10-15s of the §13
+     highlight beats with `scripts/preview-capture.mjs` — same `xd://browser`
+     sandbox as the cert: `startPreview` → drive the beats with `tab`/`page`
+     → `finishPreview` writes `shots/preview.webm`, the autoplaying muted
+     loop on the store page. Skip only a genuinely broken recording, and say
+     so in the final report.
 2. **Release gate.** `node scripts/release-check.mjs <slug>` (`--json` for a
    machine-readable findings array). Hard checks: `status` valid; `title`,
    `genre`, `description` (≥ 40 chars) and `prompt` present and free of
-   Cyrillic; ≥ 3 screenshots listed **and** on disk; `cover` = `cover.png` with
+   Cyrillic; the ROOT `package-lock.json` registers the `games/<slug>`
+   workspace (the `lock` check — run `npm install` at the repo root if it
+   fails); ≥ 3 screenshots listed **and** on disk; `cover` = `cover.png` with
    a real PNG behind it (never the scaffold gradient); no scaffold placeholder
    strings left in `index.html`/`menu.ts`; generated art not a byte-copy of the
-   template set; **`playtest.approved: true` recorded by a real user
+   template set; a `cert-report.json` with `passed: true` for families with a
+   cert adapter (Step 5.7); **`playtest.approved: true` recorded by a real user
    playtest** (step 3 below — the one finding that cannot be fixed by
    editing files). Warnings (not blockers): missing `shots/og.png`, leftover
-   `cover.svg`, Cyrillic in `menu.ts`. Fix everything else it reports first,
+   `cover.svg`, Cyrillic in `menu.ts`, missing cert-report for a family
+   without an adapter yet. Fix everything else it reports first,
    so the playtest is the only remaining blocker.
 3. **User playtest gate (blocking).** The user plays the game before it
    ships — no exceptions:
@@ -478,8 +547,13 @@ reference implementation of every fix pattern below.
    block, gallery, preview loop) and `/play/<slug>/` (the `← Games` pill must
    return to the catalog). Re-run without `--include-drafts` after flipping to
    `released` and confirm the game is in the catalog.
-5. **Publish.** Make the build's FIRST commit (everything: game, docs,
-   pipeline changes it needed) and push to `master` — allowed only now, with
+5. **Publish.** Make the build's FIRST commit — everything the build touched:
+   `games/<slug>/`, the ROOT `package-lock.json` (the workspace registration
+   from the scaffold's root `npm install`; if the scaffold ran
+   `--no-install`, run `npm install` at the repo root now — CI `npm ci` dies
+   without the lock entry and `release-check`'s `lock` check catches it),
+   plus any docs/pipeline changes it needed —
+   and push to `master` — allowed only now, with
    the sign-off recorded. `.github/workflows/pages.yml` rebuilds every
    released game plus the catalog and deploys to https://1pgames.github.io/ ;
    watch the run with `gh run watch`. The `verify` job (sims + selftests)
@@ -517,14 +591,19 @@ Report, in this order:
 The pipeline learns per release, not per complaint. After the deploy is
 live:
 
-1. **Delta table.** Two columns: findings the INTERNAL loop caught
-   (code-reviewer / qa / flow audit / critic) vs findings the USER's
-   playtest caught. Every user-caught finding is a hole in an internal
-   gate — name the gate that should have caught it.
+1. **Delta table.** Three columns: findings the INTERNAL loop caught
+   (code-reviewer / qa / flow audit / critic), findings the USER's playtest
+   caught, and findings REAL PLAYERS surfaced through telemetry —
+   `GOATCOUNTER_TOKEN=… node scripts/telemetry-pull.mjs --slug <slug>`
+   turns the `ev/<slug>/*` events the template fires into a level funnel,
+   retry rate and quit points. Telemetry lands on its own clock: THIS retro
+   pulls the numbers for the PREVIOUS release, the next one pulls this
+   one's. Every finding outside column one is a hole in an internal gate —
+   name the gate that should have caught it.
 2. **Route the holes** per `references/playtest-lessons.md` (merge-first):
    contract rule, quality budget, playbook number, agent-prompt duty, sim
-   gate, cert/audit script check. A hole with no destination is a new gap —
-   say so explicitly.
+   gate, cert/audit script check, telemetry event. A hole with no
+   destination is a new gap — say so explicitly.
 3. **Tighten budgets that measured slack.** If every game clears a budget
    band effortlessly, the band is too loose to teach anything — tighten it
    in `template/AGENTS.md` §Quality budgets with the measured evidence.

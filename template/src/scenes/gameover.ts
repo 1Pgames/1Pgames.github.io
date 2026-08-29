@@ -4,6 +4,9 @@ import { SCENES } from '../core/keys';
 import { countTo, enterFromBottom } from '../core/juice';
 import { sfx } from '../core/audio';
 import { grantCurrency, loadMeta, recordRunResult, type BestTimeMode } from '../core/progression';
+import { isDailyMode, saveDailyBest } from '../core/daily';
+import { track } from '../core/telemetry';
+import { shareResult } from '../core/share';
 import { Button } from '../ui/button';
 import { addBackground } from '../ui/background';
 import type { ResultStat } from '../core/session';
@@ -53,12 +56,34 @@ export interface GameOverData {
   next?: boolean;
 }
 
+/** Gutter between the two half-width buttons sharing the secondary row. */
+const PAIR_GAP = 24;
+/** How long SHARE holds 'COPIED!' before it turns back into SHARE. */
+const SHARE_FLASH_MS = 1200;
+/** Shorter beat for the "no share sheet, no clipboard" case. */
+const SHARE_FAIL_FLASH_MS = 900;
+
 /** mm:ss clock for the survived-time readout. */
 function formatClock(ms: number): string {
   const totalSeconds = Math.max(0, Math.floor(ms / 1000));
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
   return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+}
+
+/**
+ * The run's headline number and how to write it: `score` when the family
+ * scores, otherwise the first `stats` row whose value carries a number — so a
+ * board slice shares "3 STARS" and records a daily best, instead of the 0 its
+ * unused `score` holds.
+ */
+function primaryMetric(result: GameOverData): { value: number; text: string } {
+  if (result.score > 0) return { value: result.score, text: `${result.score}` };
+  for (const row of result.stats ?? []) {
+    const match = /-?\d+(?:\.\d+)?/.exec(row.value.replace(/,/g, ''));
+    if (match !== null) return { value: Number(match[0]), text: `${row.value} ${row.label}` };
+  }
+  return { value: result.score, text: `${result.score}` };
 }
 
 /**
@@ -84,6 +109,13 @@ export class GameOverScene extends Phaser.Scene {
 
   private settled = false;
 
+  /**
+   * True when the finished run actually came from a level ladder. Only then do
+   * the funnel events carry a level number: `level` defaults to 1 above, and a
+   * ladderless family reporting every run as 'win-1' would fake a funnel.
+   */
+  private levelKnown = false;
+
   constructor() {
     super(SCENES.gameOver);
   }
@@ -105,6 +137,7 @@ export class GameOverScene extends Phaser.Scene {
       bestTimeMode: data.bestTimeMode ?? 'max',
       next: data.next ?? false,
     };
+    this.levelKnown = data.level !== undefined;
     this.settled = false;
   }
 
@@ -126,6 +159,10 @@ export class GameOverScene extends Phaser.Scene {
         (before.stats.bestTimeMs === 0 || this.result.timeMs < before.stats.bestTimeMs);
     }
 
+    // The headline number of this run, whatever the family calls it — shared
+    // by the daily best and the share text below.
+    const metric = primaryMetric(this.result);
+
     if (!this.settled) {
       this.settled = true;
       recordRunResult(
@@ -133,6 +170,19 @@ export class GameOverScene extends Phaser.Scene {
         { bestTimeMode },
       );
       if (this.result.currencyEarned > 0) grantCurrency(this.result.currencyEarned);
+      // Funnel events, fired next to the progression write so a run is
+      // recorded and reported exactly once. `win-3`/`loss-3` is what
+      // `scripts/telemetry-pull.mjs` folds into a per-level funnel.
+      track(
+        this.levelKnown
+          ? `${this.result.won ? 'win' : 'loss'}-${this.result.level}`
+          : this.result.won
+            ? 'win'
+            : 'loss',
+      );
+      // Daily mode keeps a per-day best of its own (core/daily.ts), separate
+      // from the lifetime best: today's run only competes with today.
+      if (isDailyMode()) saveDailyBest(metric.value);
     }
 
     const heading = this.add
@@ -211,7 +261,12 @@ export class GameOverScene extends Phaser.Scene {
       // `level` is the 1-based level reached, so it IS the 0-based index of
       // the next one.
       if (hasNext) this.scene.start(SCENES.game, { levelIndex: this.result.level });
-      else this.scene.start(SCENES.game, { seed: this.result.seed });
+      else {
+        // The seed replay IS the retry action, whether it reads RETRY or
+        // PLAY AGAIN — one funnel event covers both.
+        track('retry');
+        this.scene.start(SCENES.game, { seed: this.result.seed });
+      }
     };
 
     // Deliberately content-free: a slice with a themed sign-off passes its own
@@ -232,13 +287,46 @@ export class GameOverScene extends Phaser.Scene {
       onPrimary,
       { width: buttonWidth, height: 112 },
     );
+    // SHOP and SHARE split the secondary row instead of claiming one each: a
+    // fourth full-width button would either push the stack into the seed line
+    // or crowd the bottom safe area, and neither may outweigh the primary CTA.
+    const pairWidth = (buttonWidth - PAIR_GAP) / 2;
+    const pairStyle = {
+      width: pairWidth,
+      height: 96,
+      fill: PALETTE.bgTop,
+      stroke: PALETTE.primary,
+      textColor: CSS.ink,
+    };
     const shop = new Button(
       this,
-      VIEW.centerX,
+      VIEW.centerX - (pairWidth + PAIR_GAP) / 2,
       shopY,
       'SHOP',
       () => this.scene.start(SCENES.meta),
-      { width: buttonWidth, height: 96, fill: PALETTE.bgTop, stroke: PALETTE.primary, textColor: CSS.ink },
+      pairStyle,
+    );
+    const share = new Button(
+      this,
+      VIEW.centerX + (pairWidth + PAIR_GAP) / 2,
+      shopY,
+      'SHARE',
+      () => {
+        void shareResult({ score: metric.text, won: this.result.won }).then((outcome) => {
+          // The promise settles when the native share sheet closes, which can
+          // be long after the player left this screen — touching a dead
+          // scene's button would throw inside a floating promise.
+          if (!this.scene.isActive()) return;
+          // 'shared' needs no feedback: the OS sheet already showed itself.
+          if (outcome === 'shared') return;
+          const copied = outcome === 'copied';
+          share.setLabel(copied ? 'COPIED!' : 'NO SHARE');
+          this.time.delayedCall(copied ? SHARE_FLASH_MS : SHARE_FAIL_FLASH_MS, () => {
+            share.setLabel('SHARE');
+          });
+        });
+      },
+      pairStyle,
     );
     const menu = new Button(
       this,
@@ -257,6 +345,7 @@ export class GameOverScene extends Phaser.Scene {
     enterFromBottom(this, note, 190);
     enterFromBottom(this, primary, 200);
     enterFromBottom(this, shop, 240);
+    enterFromBottom(this, share, 240);
     enterFromBottom(this, menu, 280);
 
     sfx(this.result.won ? 'levelup' : 'die', { volume: 0.7 });

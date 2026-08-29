@@ -68,7 +68,16 @@ function loadGames() {
   for (const slug of readdirSync(GAMES).sort()) {
     const manifestPath = path.join(GAMES, slug, 'game.json');
     if (!existsSync(manifestPath)) continue;
-    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+    let manifest;
+    try {
+      manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+    } catch (err) {
+      // One broken draft must not take the whole catalog down. A RELEASED
+      // game with a corrupt manifest is still caught before deploy: the CI
+      // verify job's release-check loop parses game.json itself and fails.
+      console.warn(`skip ${slug}: invalid game.json (${err.message})`);
+      continue;
+    }
     const status = manifest.status ?? 'draft';
     if (status !== 'released' && !includeDrafts) {
       console.log(`skip ${slug}: status "${status}" (use --include-drafts to preview)`);
@@ -395,6 +404,19 @@ for (const g of games) {
     recursive: true,
     filter: (src) => path.basename(src) !== '.buildhash',
   });
+  // The play page is the game's own vite build — inject the analytics
+  // snippet there too (dist/ never carries it, so re-copies stay
+  // idempotent): game sessions count, and in-game
+  // `window.goatcounter.count()` events have count.js to talk to.
+  if (ANALYTICS) {
+    const playIndex = path.join(OUT, 'play', g.slug, 'index.html');
+    const html = readFileSync(playIndex, 'utf8');
+    if (html.includes('</head>')) {
+      writeFileSync(playIndex, html.replace('</head>', `${ANALYTICS}\n</head>`));
+    } else {
+      console.warn(`warn ${g.slug}: play index.html has no </head>; analytics not injected`);
+    }
+  }
 
   // 2. Store media: cover from public/, screenshots + og/preview from shots/.
   const m = media.get(g.slug);

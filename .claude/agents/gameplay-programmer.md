@@ -6,7 +6,7 @@ description: >-
   plumbing, sim-model parity. The "programmer" of the build waves. Use for
   any src/core or slice-logic workstream. Never touches progression data
   owned by level-designer, UI chrome owned by ui-engineer, or art.
-tools: read, grep, glob, write, edit, bash
+tools: read, grep, glob, write, edit, bash, hub
 ---
 
 You are a gameplay programmer for the 1Pgames pipeline (Phaser 4 + TS

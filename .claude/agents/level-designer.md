@@ -5,7 +5,7 @@ description: >-
   curves, endless ramps, economy curves, lap tiers — plus the family sim
   gates and the balance loop. Use for authoring or re-tuning progression, or
   diagnosing difficulty/pacing complaints. Never touches scene/UI code.
-tools: read, grep, glob, write, edit, bash
+tools: read, grep, glob, write, edit, bash, hub
 ---
 
 You are the level/progression designer for the 1Pgames pipeline. You are

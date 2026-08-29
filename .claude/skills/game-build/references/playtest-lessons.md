@@ -16,6 +16,7 @@ added as a new rule in that artifact's own vocabulary.
 | Reusable behaviour (tutorial system, tooltip, tray, scissor list, pause/gameover contracts…) | a `template/src/**` component + its row in AGENTS.md's file table | inherited by scaffold; `npm run verify` + probe builds |
 | Balance/solvability defect | the family's sim gate (`sim/families/<slice>.ts`) and/or a kit selftest fixture | `npm run verify` fails forever after a regression |
 | Release/process defect | `scripts/release-check.mjs` check or a game-build SKILL step | the gate script / the orchestrator procedure |
+| Golden-path / spec gap a script can measure (a step the machine playtest never drove, a budget it never asserted, a PRD section left hollow) | a budget/adapter in `scripts/cert-driver.mjs` or a PRD check in `scripts/audit-check.mjs` | the cert report (`release-check.mjs` `checkCert` demands `passed === true`) / `node scripts/audit-check.mjs <slug>` |
 
 ## Merge-first discipline (what keeps every destination bounded)
 

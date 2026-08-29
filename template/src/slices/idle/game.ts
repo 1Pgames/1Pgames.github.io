@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { CSS, PALETTE, SAFE, TEXT, VIEW } from '../../config';
 import { SCENES, TEX } from '../../core/keys';
 import { Rng } from '../../core/rng';
+import { sessionSeed } from '../../core/daily';
 import { sfx } from '../../core/audio';
 import { setMusicIntensity, startMusic } from '../../core/music';
 import { burst, countTo, flash, floatText, pop, shake } from '../../core/juice';
@@ -163,7 +164,7 @@ export class GameScene extends Phaser.Scene {
 
   /** `scene.start(SCENES.game, { seed })` fixes the tap-crit rolls for a replay. */
   init(data: { seed?: string } = {}): void {
-    this.seed = data.seed ?? Date.now().toString(36);
+    this.seed = data.seed ?? sessionSeed();
   }
 
   create(): void {

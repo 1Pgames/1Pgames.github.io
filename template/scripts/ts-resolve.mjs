@@ -8,10 +8,11 @@
 // or shared read-only files).
 //
 // This hook is the bridge: when the default resolver fails to find a
-// relative specifier, retry once with `.ts` (then `.tsx`, `.js`, `.mjs`)
-// appended before giving up. It changes nothing for specifiers that already
-// resolve — bare package imports (`phaser`) and already-extensioned
-// specifiers pass straight through to Node's normal resolution.
+// relative specifier, retry once with each of `.ts`, `.tsx`, `.mts`, `.js`
+// and `.mjs` appended before giving up. It changes nothing for specifiers
+// that already resolve — bare package imports (`phaser`) and
+// already-extensioned specifiers pass straight through to Node's normal
+// resolution.
 //
 // Usage: `node --import ./scripts/ts-resolve.mjs <entry>.ts`. See
 // `package.json`'s "sim" script and `scripts/verify.sh`.

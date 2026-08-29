@@ -5,7 +5,7 @@ description: >-
   tooltip and tutorial copy, shop/loadout descriptions, store listing
   (title/genre/description/prompt), how-to lines. Use for any player-facing
   text. Never touches logic, balance numbers, or layout.
-tools: read, grep, glob, write, edit
+tools: read, grep, glob, write, edit, hub
 ---
 
 You are the content writer for the 1Pgames pipeline. Every string a player

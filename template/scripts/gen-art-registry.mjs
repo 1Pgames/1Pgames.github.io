@@ -245,16 +245,18 @@ function main() {
   // family still has to compile) but are flagged: nothing loads them, so using
   // one would render a missing texture.
   const notShipped = (group) => (group ? ` // not shipped: group '${group}' pruned` : '');
+  /** Quote a map key unless it is a valid identifier (aliases like `bg-layer-0`). */
+  const asKey = (name) => (/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(name) ? name : `'${name}'`);
   const textureEntries = textureAliases
-    .map(([alias, key, group]) => `  ${alias}: '${key}',${notShipped(group)}`)
+    .map(([alias, key, group]) => `  ${asKey(alias)}: '${key}',${notShipped(group)}`)
     .join('\n');
   const animEntries = animAliases
-    .map(([alias, key, group]) => `  ${alias}: '${key}',${notShipped(group)}`)
+    .map(([alias, key, group]) => `  ${asKey(alias)}: '${key}',${notShipped(group)}`)
     .join('\n');
   const iconLines = iconEntries
     .map(
       ([name, key, frame, group]) =>
-        `  ${/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(name) ? name : `'${name}'`}: { key: '${key}', frame: ${frame} },${notShipped(group)}`,
+        `  ${asKey(name)}: { key: '${key}', frame: ${frame} },${notShipped(group)}`,
     )
     .join('\n');
 

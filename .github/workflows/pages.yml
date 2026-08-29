@@ -29,14 +29,18 @@ jobs:
       # Reuse per-game vite output across runs so build-site's dist/.buildhash
       # check can actually skip unchanged games.
       - name: Restore game dists
+        # hashFiles on an empty games/ yields '' and the post-save step warns;
+        # skip the cache entirely until the first game exists.
+        if: ${{ hashFiles('games/*/package.json') != '' }}
         uses: actions/cache@v4
         with:
           path: games/*/dist
           key: dists-${{ hashFiles('games/**', '!games/**/dist/**') }}
           restore-keys: |
             dists-
-      # Typecheck lives in `verify` only — one source of truth, and the build
-      # job stays a pure packaging step.
+      # build-site reuses each game's `npm run build` (tsc + vite), so types
+      # are checked here too; the `verify` job runs the full gate suite
+      # (sims, selftests, release-check) in parallel and blocks the deploy.
       - name: Build catalog and games
         run: node scripts/build-site.mjs
       - uses: actions/upload-pages-artifact@v3
@@ -96,5 +100,15 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      # Idempotent: creates/updates the Pages site with source "GitHub
+      # Actions" so the first deploy does not depend on a manual settings
+      # step. For a user site (1Pgames.github.io) the legacy "from branch"
+      # mode would publish the repo ROOT instead of _site — this step is what
+      # prevents that. Falls back with a clear error if the token cannot
+      # manage Pages (then enable it once by hand: Settings → Pages →
+      # Source: GitHub Actions).
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
       - id: deployment
         uses: actions/deploy-pages@v4

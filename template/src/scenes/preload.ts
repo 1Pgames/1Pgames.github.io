@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { PALETTE, PLAYER_BASE_STATS, TEXT, VIEW } from '../config';
+import { initGeneratedAudio } from '../core/audio';
 import { SCENES } from '../core/keys';
 import { IMAGES, SPRITES } from '../data/art';
 import { validateUpgradeStats } from '../data/upgrades';
@@ -77,6 +78,11 @@ export class PreloadScene extends Phaser.Scene {
         repeat: asset.loop ? -1 : 0,
       });
     }
+
+    // Registered audio samples (none in the template) start downloading here and
+    // decode into the shared context; every unregistered voice stays synthesised.
+    initGeneratedAudio();
+
     this.scene.start(SCENES.menu);
   }
 }

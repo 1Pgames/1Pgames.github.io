@@ -6,7 +6,7 @@ description: >-
   review), sheet/icon planning, cover/og key art, and the wiring handoff
   contract. Use for any asset generation or visual-coherence work. Never
   edits gameplay code.
-tools: read, grep, glob, write, edit, bash
+tools: read, grep, glob, write, edit, bash, hub
 autoloadSkills: game-art, sprite-forge
 ---
 

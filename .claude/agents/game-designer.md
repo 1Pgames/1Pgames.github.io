@@ -39,7 +39,10 @@ Non-negotiables (genre-independent):
 - Every adopt/adapt staple MUST reappear in §5 content tables and §16
   workstreams — that is the content-richness gate the build is audited on.
 - You own `games/<slug>/PRD.md` and skill reference docs ONLY. Never touch
-  `src/**`, never scaffold, never commit or push anything.
+  `src/**`, never commit or push anything. Scaffolding
+  (`scripts/new-game.sh`, game-prd Step 4) is the game-build orchestrator's
+  step, not yours — you hand it the resolved family and the English store
+  fields through the PRD.
 
 Report: dossier summary (references, staples verdicts), content floors, the
 variety routes, and every assumption logged for §18.

@@ -90,6 +90,31 @@ starter slice and no family gate — a D game builds both.
 
 Read `AGENTS.md` before editing — it is the build contract.
 
+## Player platform
+
+Every game inherits, with zero per-game work (and zero effect where the
+browser lacks the API):
+
+- **Installable + offline.** `public/manifest.webmanifest` + `public/sw.js`:
+  add-to-home-screen, standalone portrait launch, cached play after the first
+  visit; `index.html` stays network-first so a redeploy is picked up on the
+  next online load. The worker registers in PROD builds only — dev is never
+  cached.
+- **Native feel.** Screen Wake Lock during sessions (`core/wake.ts`, armed on
+  the first tap) and a short throttled vibration riding `shake()`/`hitstop()`
+  in `core/juice.ts`.
+- **Daily challenge + sharing.** `core/daily.ts` seeds every session; the
+  menu's DAILY toggle pins today's seed, `?d=YYYY-MM-DD` reproduces it from a
+  shared link, and the results screen's SHARE button sends score + link via
+  the native share sheet (clipboard fallback).
+- **Telemetry.** `core/telemetry.ts` fires the funnel events
+  (`session-start`/`daily-start`/`win`/`loss`/`retry`/`share`) as GoatCounter
+  events when the published page carries the snippet; silent no-op otherwise.
+- **Sound needs no assets**: `sfx('hit')` and `startMusic('run')` synthesise
+  everything. To ship real audio, drop files under `public/assets/audio/` and
+  register them in `src/data/audio.ts` — that registry is the only switch,
+  per entry; anything left out keeps its synthesised voice.
+
 ## Layout
 
 ```
@@ -118,7 +143,7 @@ src/systems/                  arena (field, props, layouts), combat (weapons, bo
                               pools, broad phase), placement, board (+ boardMath)
 src/ui/                       primitives, hud, bars, cards (reroll), button, joystick,
                               background (parallax), pauseOverlay, hand, shopTray,
-                              sagaMap, boosterBar
+                              sagaMap, boosterBar, coach (FTUE coach marks)
 src/scenes/                   boot, preload, menu, meta, game (slice re-export),
                               gameover (ResultStat rows + meta award)
 src/sim/                      headless balance sim: model, bots, metrics, cli,

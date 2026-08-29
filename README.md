@@ -17,6 +17,8 @@ template/                  Phaser 4 + Vite + TS portrait template (runs as-is)
 scripts/new-game.sh        template → games/<slug>: identity, --family slice, game.json manifest
 scripts/release-check.mjs  release gate: manifest, English-only fields, cover, shots, no scaffold leftovers
 scripts/build-site.mjs     games/*/game.json → _site/ (catalog + store pages + built games)
+scripts/telemetry-pull.mjs reads the GoatCounter funnel back: per-event counts + per-level retention for one game
+scripts/preview-capture.mjs  records the live canvas into shots/preview.webm (browser-sandbox module, like cert-driver)
 site/                      store-front assets (styles, filter, lightbox, config.json)
 .github/workflows/pages.yml  push to master → build catalog + games → GitHub Pages
 games/<slug>/              one generated game per folder: PRD.md, game.json, shots/, build-state.json
@@ -165,10 +167,18 @@ exists, else the first `.png` screenshot, else it is omitted. An optional
 `games/<slug>/shots/preview.webm` becomes an autoplaying muted loop on the store
 page.
 
-**Analytics.** Optional and off by default: `site/config.json` may hold
-`{"goatcounter": "https://<code>.goatcounter.com/count"}`, and `build-site.mjs`
-injects the GoatCounter snippet into every generated page. No file, no snippet,
-no third-party requests.
+**Analytics + telemetry.** `site/config.json` holds
+`{"goatcounter": "https://<code>.goatcounter.com/count"}`; `build-site.mjs`
+injects the snippet into every generated page — including `/play/<slug>/`, so
+game sessions count and in-game events have `count.js` to talk to. Delete the
+file to turn all third-party requests off. The template records one event per
+funnel beat — `session-start`, `daily-start`, `win-<n>`, `loss-<n>`, `retry`,
+`share` — as `ev/<slug>/<event>` (`template/src/core/telemetry.ts`). Read it
+back with `GOATCOUNTER_TOKEN=<api token> node scripts/telemetry-pull.mjs
+--slug <slug> --days 7`: per-event counts, session flow, and a per-level
+funnel (PLAYS / WINRATE / REACH — the row where REACH falls off a cliff is
+where the game loses players). The token is created in GoatCounter under
+Settings → API and never lives in the repo.
 
 Deploys run from `.github/workflows/pages.yml` on push to `master`
 (build+typecheck gate the deploy; the slow sim/selftest `verify` job runs in

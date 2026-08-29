@@ -9,8 +9,29 @@ import { TEX } from './keys';
  * shake / pop / flash / burst / floatText / hitstop.
  */
 
+/**
+ * Haptics. On a phone the shake/hitstop pair is felt, not just seen, so both
+ * fire a single short buzz. Throttled module-wide: dozens of hits per second
+ * would otherwise queue into one continuous, unpleasant vibration (and Chrome
+ * drops spammed calls anyway). Absent API (desktop, iOS Safari) — silent no-op.
+ */
+const HAPTIC_GAP_MS = 120;
+let lastHaptic = 0;
+
+function buzz(durationMs: number): void {
+  const now = Date.now();
+  if (now - lastHaptic < HAPTIC_GAP_MS) return;
+  lastHaptic = now;
+  try {
+    navigator.vibrate?.(durationMs);
+  } catch {
+    /* vibration blocked by permissions policy — feel degrades, nothing breaks */
+  }
+}
+
 export function shake(scene: Phaser.Scene, intensity = 0.008, durationMs = 160): void {
   scene.cameras.main.shake(durationMs, intensity);
+  buzz(12);
 }
 
 /** Full-screen color flash. Use sparingly: damage, death, milestone. */
@@ -118,6 +139,7 @@ export function playFx(
  * scale is restored automatically, tweens/timers included.
  */
 export function hitstop(scene: Phaser.Scene, durationMs = 70, slow = 0.05): void {
+  buzz(18);
   scene.time.timeScale = slow;
   scene.tweens.timeScale = slow;
   scene.physics.world.timeScale = 1 / Math.max(slow, 0.0001);

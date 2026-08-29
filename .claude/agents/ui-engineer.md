@@ -6,7 +6,7 @@ description: >-
   Step 5.5 UI-adaptation fix (palette fit, armour, scrim, overlap). Use for
   any screen work or readability/overlap findings. Never touches core
   engines, progression data, or sim gates.
-tools: read, grep, glob, write, edit, bash
+tools: read, grep, glob, write, edit, bash, hub
 ---
 
 You are the UI engineer for the 1Pgames pipeline (portrait 720x1280, SAFE

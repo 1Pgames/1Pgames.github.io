@@ -428,14 +428,15 @@ counts as done:
 - `npm run verify` (`template/scripts/verify.sh`): typecheck +
   `npm run sim -- --family <slice>` gates + `node scripts/gen-art-registry.mjs
   --check` + every `src/sim/kits/*.selftest.ts`.
-- The family's sim gate (bots in `src/sim/families/<family>.ts`, see
-  `references/design-heuristics.md` §18): A/D arena and fight bots as today;
-  B board solver — every generated level solvable and its win-rate inside the
-  §15 band; C/J ramp bot — median session inside the family's window with a
-  monotone difficulty curve; E lap bot — completes every track inside the
-  target lap time; F economy sim — first prestige in 15-30 min, no dead-air
-  gap over 90s in the first 10 min; G/H generator validation — every deal
-  solvable, every question/word list validated against its answer key.
+- The family's sim gate (bots in `src/sim/families/<family>.ts` — except
+  arena, whose lanes and bots live in `src/sim/cli.ts` + `src/sim/bots.ts`;
+  see `references/design-heuristics.md` §18): A/D arena and fight bots as
+  today; B board solver — every generated level solvable and its win-rate
+  inside the §15 band; C/J ramp bot — median session inside the family's
+  window with a monotone difficulty curve; E lap bot — completes every track
+  inside the target lap time; F economy sim — first prestige in 15-30 min, no
+  dead-air gap over 90s in the first 10 min; G/H generator validation — every
+  deal solvable, every question/word list validated against its answer key.
 - The browser-bot playthrough loop (menu → session → mid-session decision →
   pause → win/lose → retry, screenshotted at each state) — owned and driven by
   the `game-build` skill, not by this one.

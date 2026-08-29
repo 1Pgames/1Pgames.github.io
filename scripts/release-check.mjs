@@ -12,6 +12,7 @@
  *   placeholder scaffold strings still baked into index.html / menu.ts
  *   cover      raster public/cover.png, never the deterministic scaffold SVG
  *   art        generated assets must not be a byte-copy of template art
+ *   audio      generated tracks/samples stay inside the download budget
  *   store      shots/og.png presence (warning)
  */
 import { createHash } from 'node:crypto';
@@ -26,6 +27,8 @@ const CYRILLIC = /[\u0400-\u04FF]/;
 const SCAFFOLD_HOWTO = 'Joystick to move. Survive the run.';
 /** Share of byte-identical template art a released game may still ship. */
 const ART_REUSE_LIMIT = { arena: 0.9, default: 0.6 };
+/** Download budget for generated music + sfx, in MB; above it release-check warns. */
+const AUDIO_BUDGET_MB = 6;
 
 // --- findings ---------------------------------------------------------------
 
@@ -135,15 +138,31 @@ function checkPlaytest(m) {
 }
 
 /**
- * Golden-path certification (scripts/cert-driver.mjs) leaves a machine
- * report per run. Missing report = the game shipped without its E2E cert —
- * a warning for now (the cert harness is newer than the first games), to be
- * promoted to a hard check once every live game carries one.
+ * Golden-path certification (scripts/cert-driver.mjs) leaves a machine report
+ * per run. For families that HAVE a cert adapter a missing report is a hard
+ * failure — the game would ship without its E2E cert. Families without an
+ * adapter yet only warn; grow CERT_ADAPTED together with
+ * `export const adapters` in scripts/cert-driver.mjs.
  */
-function checkCert(dir) {
+const CERT_ADAPTED = new Set(['board']);
+
+function checkCert(m, dir) {
   const certPath = path.join(dir, 'cert-report.json');
   if (!existsSync(certPath)) {
-    warn('cert', 'no cert-report.json — run the golden-path cert (scripts/cert-driver.mjs) before release');
+    const family = typeof m.family === 'string' ? m.family : '';
+    if (CERT_ADAPTED.has(family)) {
+      fail(
+        'cert',
+        `no cert-report.json — the '${family}' family has a cert adapter; ` +
+          'run the golden-path cert (scripts/cert-driver.mjs) before release',
+      );
+    } else {
+      warn(
+        'cert',
+        `no cert-report.json and no cert adapter for family '${family || 'unknown'}' yet — ` +
+          'write one next to `adapters` in scripts/cert-driver.mjs and run the golden-path cert',
+      );
+    }
     return;
   }
   try {
@@ -152,6 +171,34 @@ function checkCert(dir) {
     else fail('cert', `cert-report.json present but passed !== true (${(report.blockers ?? []).length} blocker(s) recorded)`);
   } catch (err) {
     fail('cert', `cert-report.json is not valid JSON: ${err.message}`);
+  }
+}
+
+/**
+ * npm workspaces: scaffolding registers the game in the ROOT package-lock.json
+ * (`games/*` is a workspace). If that lock update is not committed together
+ * with the game, CI dies on `npm ci` in both jobs ("Missing: <slug> from
+ * lock file") and nothing deploys.
+ */
+function checkWorkspaceLock(slug) {
+  const lockPath = path.join(ROOT, 'package-lock.json');
+  if (!existsSync(lockPath)) {
+    fail('lock', 'root package-lock.json missing — run `npm install` at the repo root and commit it');
+    return;
+  }
+  try {
+    const lock = JSON.parse(readFileSync(lockPath, 'utf8'));
+    if (lock.packages?.[`games/${slug}`]) {
+      pass('lock', `root package-lock.json registers the games/${slug} workspace`);
+    } else {
+      fail(
+        'lock',
+        `root package-lock.json does not register games/${slug} — run \`npm install\` at the ` +
+          'repo root and commit the updated lock (CI `npm ci` fails without it)',
+      );
+    }
+  } catch (err) {
+    fail('lock', `root package-lock.json is not valid JSON: ${err.message}`);
   }
 }
 
@@ -257,6 +304,34 @@ function checkArt(m, dir) {
   );
 }
 
+/** Total bytes of every file under `root`, recursively; 0 when it does not exist. */
+function treeBytes(root) {
+  if (!existsSync(root)) return 0;
+  let total = 0;
+  for (const entry of readdirSync(root, { withFileTypes: true })) {
+    const full = path.join(root, entry.name);
+    if (entry.isDirectory()) total += treeBytes(full);
+    else if (entry.isFile()) total += statSync(full).size;
+  }
+  return total;
+}
+
+/**
+ * Generated audio is optional — `core/audio.ts` synthesises every voice and
+ * `core/music.ts` the score, so an empty tree is a pass, not a gap. What is
+ * checked is weight: music loops are the heaviest thing a game downloads.
+ */
+function checkAudio(dir) {
+  const bytes = treeBytes(path.join(dir, 'public', 'assets', 'audio'));
+  if (bytes === 0) {
+    pass('audio', 'audio: synth only — no generated tracks or samples shipped');
+    return;
+  }
+  const mb = bytes / (1024 * 1024);
+  if (mb <= AUDIO_BUDGET_MB) pass('audio', `audio: ${mb.toFixed(1)} MB of generated tracks/samples, budget ${AUDIO_BUDGET_MB} MB`);
+  else warn('audio', `audio: ${mb.toFixed(1)} MB of generated tracks/samples over the ${AUDIO_BUDGET_MB} MB budget — re-encode the music loops (30-60s mono at ~96 kbps)`);
+}
+
 // --- driver -----------------------------------------------------------------
 
 const args = process.argv.slice(2);
@@ -305,11 +380,13 @@ try {
 }
 
 checkManifest(manifest);
+checkWorkspaceLock(slug);
 checkPlaytest(manifest);
-checkCert(dir);
+checkCert(manifest, dir);
 checkScreenshots(manifest, dir);
 checkPlaceholders(manifest, dir, slug);
 checkCover(manifest, dir, slug);
 checkArt(manifest, dir);
+checkAudio(dir);
 
 report(findings.some((f) => f.level === 'error') ? 1 : 0);

@@ -19,7 +19,7 @@ import { Bar } from './bars';
  * own containers built on demand, not part of this always-visible layer.
  */
 
-const HP_BAR_WIDTH = 240;
+const HP_BAR_WIDTH = 180;
 const HP_BAR_HEIGHT = 30;
 const XP_BAR_HEIGHT = 24;
 const BADGE_SIZE = 56;
@@ -28,15 +28,23 @@ const BADGE_SIZE = 56;
  * The generated bar chrome carries a transparent margin, so a bar's footprint
  * is ~3x its visible height (see `NINE_SLICE.bar` / `inflate`). Rows are spaced
  * for that footprint, not for the visible capsule, or the top row clips.
+ *
+ * Layout honours the site-shell contract (AGENTS.md, "The site shell owns the
+ * top-left corner"): the published page overlays back-link + prompt chips over
+ * roughly the top-left 315x75 design px, so the badge + HP row is
+ * RIGHT-anchored (stopping short of the GameScene's 88px top-right pause
+ * button) and the currency/kills column left-anchors BELOW that zone.
  */
 const ROW_Y = 64;
-const BADGE_X = SAFE.side + BADGE_SIZE / 2;
-const HP_BAR_X = BADGE_X + BADGE_SIZE / 2 + 18 + HP_BAR_WIDTH / 2;
-const XP_BAR_Y = ROW_Y + 76;
+/** Top-right pause button footprint (88px Button in the slice) + breathing room. */
+const PAUSE_CLEAR = SAFE.side + 88 + 12;
+const BADGE_X = VIEW.width - PAUSE_CLEAR - BADGE_SIZE / 2;
+const HP_BAR_X = BADGE_X - BADGE_SIZE / 2 - 18 - HP_BAR_WIDTH / 2;
+const XP_BAR_Y = ROW_Y + 96;
 const XP_BAR_WIDTH = VIEW.width - SAFE.side * 2;
-const SIDE_TEXT_X = VIEW.width - SAFE.side;
-const CURRENCY_Y = ROW_Y - 20;
-const KILLS_Y = ROW_Y + 20;
+const SIDE_TEXT_X = SAFE.side;
+const CURRENCY_Y = 100;
+const KILLS_Y = 132;
 const PHASE_BANNER_Y = SAFE.top + 120;
 
 /** Snapshot handed to `Hud.set` every frame. */
@@ -130,24 +138,27 @@ export class Hud extends Phaser.GameObjects.Container {
 
     // Generated icon glyphs instead of text symbols: one sheet, one frame each.
     const coinIcon = scene.add
-      .image(SIDE_TEXT_X - 74, CURRENCY_Y, ICON.coin.key, ICON.coin.frame)
+      .image(SIDE_TEXT_X, CURRENCY_Y, ICON.coin.key, ICON.coin.frame)
       .setDisplaySize(34, 34)
-      .setOrigin(1, 0.5);
+      .setOrigin(0, 0.5);
     const skullIcon = scene.add
-      .image(SIDE_TEXT_X - 74, KILLS_Y, ICON.skull.key, ICON.skull.frame)
+      .image(SIDE_TEXT_X, KILLS_Y, ICON.skull.key, ICON.skull.frame)
       .setDisplaySize(34, 34)
-      .setOrigin(1, 0.5);
+      .setOrigin(0, 0.5);
+    // Overlays the bar's left cap (added to the container AFTER the bar, so it
+    // draws on top) — a leading icon outside the bar would cross into the
+    // shell-owned top-left zone.
     const heartIcon = scene.add
-      .image(HP_BAR_X - HP_BAR_WIDTH / 2 - 22, ROW_Y, ICON.heart.key, ICON.heart.frame)
+      .image(HP_BAR_X - HP_BAR_WIDTH / 2 + 10, ROW_Y, ICON.heart.key, ICON.heart.frame)
       .setDisplaySize(34, 34)
-      .setOrigin(1, 0.5);
+      .setOrigin(0.5);
 
     this.currencyText = scene.add
-      .text(SIDE_TEXT_X, CURRENCY_Y, '0', { ...TEXT.label, color: CSS.accent })
-      .setOrigin(1, 0.5);
+      .text(SIDE_TEXT_X + 42, CURRENCY_Y, '0', { ...TEXT.label, color: CSS.accent })
+      .setOrigin(0, 0.5);
     this.killsText = scene.add
-      .text(SIDE_TEXT_X, KILLS_Y, '0', { ...TEXT.label, color: CSS.inkSoft })
-      .setOrigin(1, 0.5);
+      .text(SIDE_TEXT_X + 42, KILLS_Y, '0', { ...TEXT.label, color: CSS.inkSoft })
+      .setOrigin(0, 0.5);
 
     this.phaseBanner = scene.add
       .text(VIEW.centerX, PHASE_BANNER_Y, '', { ...TEXT.heading, color: CSS.accent })

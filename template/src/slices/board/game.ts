@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { CSS, PALETTE, SAFE, TEXT, VIEW } from '../../config';
 import { SCENES, TEX } from '../../core/keys';
 import { Rng } from '../../core/rng';
+import { sessionSeed } from '../../core/daily';
 import { load, save } from '../../core/storage';
 import { sfx, sfxArp } from '../../core/audio';
 import { setMusicIntensity, startMusic } from '../../core/music';
@@ -115,15 +116,14 @@ const SPECIAL_BADGE: Record<SpecialKind, string> = {
  * and every chip falls back to its primitive instead of failing the build.
  *
  * `bomb-start` is the catalog's id for the opening bomb (`data/metaCatalog.ts`,
- * and the one `beginLevel` arms); `opening-bomb` is what the art sheet calls
- * its frame. The alias is what keeps an ICON-ONLY chip from rendering as a
- * blank disc — there is no label left to carry the meaning.
+ * and the one `beginLevel` arms); `opening-bomb` is what the art sheet would
+ * call its frame — and the template's ICON set does not contain it, so there is
+ * nothing to alias to yet. art slot: ship an 'opening-bomb' icon in the game's
+ * art pass and restore this alias (`'bomb-start': ICON_BY_ID['opening-bomb']`),
+ * otherwise an ICON-ONLY chip keeps rendering its primitive with no label left
+ * to carry the meaning.
  */
-const ICON_REGISTRY: Readonly<Record<string, ArtSlot | undefined>> = ICON;
-const ICON_BY_ID: Readonly<Record<string, ArtSlot | undefined>> = {
-  ...ICON_REGISTRY,
-  'bomb-start': ICON_REGISTRY['opening-bomb'],
-};
+const ICON_BY_ID: Readonly<Record<string, ArtSlot | undefined>> = ICON;
 
 /** Procedural fallback per booster/blocker id, used until its icon ships. */
 const GLYPH_FALLBACK: Readonly<Record<string, { texture: string; tint: number }>> = {
@@ -348,7 +348,7 @@ export class GameScene extends Phaser.Scene {
    */
   init(data: { seed?: string; levelIndex?: number } = {}): void {
     this.replay = data.seed !== undefined;
-    this.seed = data.seed ?? Date.now().toString(36);
+    this.seed = data.seed ?? sessionSeed();
     this.requestedLevel = data.levelIndex === undefined ? null : clampBoardLevel(data.levelIndex);
   }
 

@@ -4,6 +4,7 @@ import { SCENES } from '../../core/keys';
 import { Controls } from '../../core/controls';
 import { Joystick } from '../../ui/joystick';
 import { Rng } from '../../core/rng';
+import { sessionSeed } from '../../core/daily';
 import { setDamageClock } from '../../core/damage';
 import { RunDirector, type EventSpec } from '../../core/run';
 import { metaModifiers, touchDailyStreak } from '../../core/progression';
@@ -92,7 +93,7 @@ export class GameScene extends Phaser.Scene {
 
   /** `scene.start(SCENES.game, { seed })` reruns the exact same run; omit for a fresh one. */
   init(data: { seed?: string } = {}): void {
-    this.seed = data.seed ?? Date.now().toString(36);
+    this.seed = data.seed ?? sessionSeed();
   }
 
   create(): void {

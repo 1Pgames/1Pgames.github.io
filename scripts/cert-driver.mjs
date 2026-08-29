@@ -13,6 +13,10 @@
  * USAGE — two `xd://browser` calls, against the game under test in games/<slug>
  * ---------------------------------------------------------------------------
  *
+ * 0. Serve the game first (any port; keep `url`/`baseUrl` below in sync):
+ *    `npm run preview -- --port 5322` inside games/<slug>, or point at the
+ *    vite dev server (default 5173). `<repo>` below = the repo root.
+ *
  * 1. Open the tab once. Portrait, so the 720x1280 design space maps cleanly:
  *
  *    {"action":"open","name":"cert","url":"http://localhost:5322/",
@@ -25,8 +29,8 @@
  *    // The run sandbox caches ESM by resolved path and IGNORES a `?v=` query,
  *    // so a fresh filename is the only way to pick up an edited driver in a
  *    // live session. Harmless on a first run; essential while iterating.
- *    const tmp = `/Users/tmwh/homework/1Pgames/scripts/.cert-run-${Date.now()}.mjs`;
- *    fs.copyFileSync('/Users/tmwh/homework/1Pgames/scripts/cert-driver.mjs', tmp);
+ *    const tmp = `<repo>/scripts/.cert-run-${Date.now()}.mjs`;
+ *    fs.copyFileSync('<repo>/scripts/cert-driver.mjs', tmp);
  *    let report;
  *    const log = [];
  *    try {
@@ -1601,6 +1605,28 @@ async function phaseBoot(ctx) {
   ctx.note('wipedKeys', wiped.removed);
   if (wiped.left.length > 0) ctx.note('foreignStorageKeys', wiped.left);
 
+  // A previous game (or an older build of this one) served on this
+  // origin:port may have left a service worker + cache behind — the template
+  // sw.js registers in PROD builds, and preview ports get reused between
+  // runs. Purge both so the cold boot below is served from the network, not
+  // from another game's cached sheets.
+  const sw = await ctx.tab.evaluate(async () => {
+    let workers = 0;
+    if ('serviceWorker' in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      workers = regs.length;
+      await Promise.all(regs.map((r) => r.unregister()));
+    }
+    let cachesCleared = 0;
+    if (typeof caches !== 'undefined') {
+      const keys = await caches.keys();
+      cachesCleared = keys.length;
+      await Promise.all(keys.map((k) => caches.delete(k)));
+    }
+    return { workers, cachesCleared };
+  });
+  if (sw.workers > 0 || sw.cachesCleared > 0) ctx.note('swPurged', sw);
+
   // Reload so the game boots against the wiped save rather than its in-memory copy.
   await ctx.reload('cold boot');
   const post = await ctx.evalPage((slug) => Object.keys(localStorage).filter((k) => k.startsWith(`${slug}:`)), ctx.slug);
@@ -1981,4 +2007,201 @@ async function scoreMeasurements(ctx) {
     marks: e.marks.map((k) => k.name),
     sceneTrail: e.scenes.map((s) => `${s.t}:${s.keys}`),
   }));
+}
+
+/**
+ * Family-agnostic monkey test — needs NO adapter, so it runs for EVERY game,
+ * including families whose cert adapter has not been written yet. It hammers
+ * random input over the live canvas while watching the invariants that hold
+ * for any family:
+ *   - no console error / uncaught exception at any point,
+ *   - `window.__GAME__` alive with at least one active scene,
+ *   - the game loop keeps advancing (renderer not wedged),
+ *   - after the storm, a reload boots clean (the save was not corrupted).
+ *
+ * Runs in the same `xd://browser` `run` sandbox as `runCert` (same import
+ * dance from the USAGE header):
+ *
+ *   const fuzz = await mod.runFuzz({ tab, page,
+ *     baseUrl: 'http://localhost:5322/',
+ *     gameDir: '<repo>/games/<slug>', seconds: 45 });
+ *
+ * Writes `<gameDir>/fuzz-report.json` and screenshots the first failure into
+ * `<gameDir>/shots/cert/`. A failing fuzz RESOLVES with `passed: false` —
+ * only a broken harness throws. Deterministic for a given `seed` up to page
+ * timing.
+ */
+export async function runFuzz({ tab, page, baseUrl, gameDir, seconds = 45, seed = 1, logger = () => {} }) {
+  // Small LCG so a repro can replay the same action stream.
+  let rngState = (seed >>> 0) || 1;
+  const rng = () => {
+    rngState = (Math.imul(rngState, 1664525) + 1013904223) >>> 0;
+    return rngState / 0x100000000;
+  };
+  const pick = (xs) => xs[Math.floor(rng() * xs.length)];
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  const errors = [];
+  const failures = [];
+  const sceneTrail = [];
+  let actions = 0;
+  let shotSaved = false;
+
+  const shotDir = path.join(gameDir, ...SHOT_DIR);
+  const failShot = async (label) => {
+    if (shotSaved) return; // first failure is the interesting one
+    shotSaved = true;
+    try {
+      mkdirSync(shotDir, { recursive: true });
+      await page.screenshot({ path: path.join(shotDir, `fuzz-fail-${label}.png`) });
+    } catch {
+      /* screenshot is best-effort */
+    }
+  };
+
+  const onConsole = (msg) => {
+    if (msg.type() === 'error') errors.push(`console: ${msg.text()}`);
+  };
+  const onPageError = (err) => {
+    errors.push(`pageerror: ${err?.message ?? String(err)}`);
+  };
+  page.on('console', onConsole);
+  page.on('pageerror', onPageError);
+
+  /** Main-world probe: alive + active scenes + a loop-progress stamp. */
+  const probe = () =>
+    tab.evaluate(() => {
+      const g = window.__GAME__;
+      if (!g) return null;
+      return {
+        scenes: g.scene.scenes.filter((s) => s.scene.isActive()).map((s) => s.scene.key),
+        loopTime: g.loop.time,
+      };
+    });
+
+  const waitForBoot = async (label) => {
+    const deadline = Date.now() + 20000;
+    while (Date.now() < deadline) {
+      const p = await probe().catch(() => null);
+      if (p && p.scenes.length > 0) return true;
+      await sleep(250);
+    }
+    failures.push(`${label}: no active scene within 20s of navigation`);
+    await failShot(label);
+    return false;
+  };
+
+  try {
+    await tab.goto(baseUrl, { waitUntil: 'networkidle2' });
+    // Purge any service worker + caches a previous game left on this
+    // origin:port (template sw.js registers in PROD builds), then reload so
+    // the boot under test is served from the network.
+    await tab
+      .evaluate(async () => {
+        if ('serviceWorker' in navigator) {
+          const regs = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(regs.map((r) => r.unregister()));
+        }
+        if (typeof caches !== 'undefined') {
+          const keys = await caches.keys();
+          await Promise.all(keys.map((k) => caches.delete(k)));
+        }
+      })
+      .catch(() => {});
+    await tab.goto(baseUrl, { waitUntil: 'networkidle2' });
+    const booted = await waitForBoot('boot');
+
+    if (booted) {
+      const rect = await tab.evaluate(() => {
+        const c = document.querySelector('canvas');
+        if (!c) return null;
+        const r = c.getBoundingClientRect();
+        return { x: r.x, y: r.y, w: r.width, h: r.height };
+      });
+      if (!rect) {
+        failures.push('boot: no canvas element on the page');
+        await failShot('no-canvas');
+      } else {
+        const KEYS = ['Escape', 'KeyP', 'Space', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'];
+        const px = () => rect.x + rect.w * (0.05 + rng() * 0.9);
+        const py = () => rect.y + rect.h * (0.05 + rng() * 0.9);
+        const deadline = Date.now() + seconds * 1000;
+        let lastProbe = { at: 0, loopTime: -1 };
+
+        while (Date.now() < deadline) {
+          const roll = rng();
+          try {
+            if (roll < 0.62) {
+              await page.mouse.click(px(), py());
+            } else if (roll < 0.78) {
+              const x0 = px();
+              const y0 = py();
+              await page.mouse.move(x0, y0);
+              await page.mouse.down();
+              await page.mouse.move(px(), py(), { steps: 4 });
+              await page.mouse.up();
+            } else if (roll < 0.9) {
+              await page.keyboard.press(pick(KEYS));
+            } else {
+              const x = px();
+              const y = py();
+              await page.mouse.click(x, y);
+              await page.mouse.click(x, y, { delay: 40 });
+            }
+          } catch (err) {
+            // A dead click target is a finding only if the page itself broke;
+            // input-dispatch hiccups (detached frame mid-transition) are noise.
+            if (!page.isClosed?.()) continue;
+            failures.push(`input: ${err.message}`);
+            break;
+          }
+          actions += 1;
+          await sleep(60 + rng() * 180);
+
+          if (Date.now() - lastProbe.at > 2000) {
+            const p = await probe().catch(() => null);
+            if (!p || p.scenes.length === 0) {
+              failures.push(`invariant: no active scene after ${actions} action(s)`);
+              await failShot('no-scene');
+              break;
+            }
+            // The driven tab is always visible in this harness, so a frozen
+            // loop.time between probes means the game loop wedged.
+            if (p.loopTime === lastProbe.loopTime) {
+              failures.push(`invariant: game loop wedged (loop.time frozen) after ${actions} action(s)`);
+              await failShot('wedged');
+              break;
+            }
+            sceneTrail.push(p.scenes.join('+'));
+            lastProbe = { at: Date.now(), loopTime: p.loopTime };
+          }
+        }
+
+        // The storm is only half the test: the save it mutated must still boot.
+        await tab.goto(baseUrl, { waitUntil: 'networkidle2' });
+        await waitForBoot('boot-after-fuzz');
+      }
+    }
+  } finally {
+    page.off('console', onConsole);
+    page.off('pageerror', onPageError);
+  }
+
+  for (const e of errors) failures.push(e);
+  if (errors.length > 0) await failShot('page-error');
+
+  const report = {
+    kind: 'fuzz',
+    passed: failures.length === 0,
+    seconds,
+    seed,
+    actions,
+    failures,
+    sceneTrail: sceneTrail.slice(-20),
+    finishedAt: new Date().toISOString(),
+  };
+  const out = path.join(gameDir, 'fuzz-report.json');
+  writeFileSync(out, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
+  logger(`fuzz: ${report.passed ? 'PASS' : 'FAIL'} — ${actions} action(s), ${failures.length} failure(s) -> ${out}`);
+  return { ...report, reportPath: out };
 }

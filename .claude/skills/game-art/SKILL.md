@@ -145,12 +145,55 @@ direction; ui-engineer implements it verbatim and never re-derives it:
    first at arm's length), 88px tap targets, and the reserved bands for
    coach cards / banners / floaters so juice never collides with chrome.
 3. **Chrome spec.** Panel fill/stroke/alpha/radius, button fills per state,
-   armour tone (`INK_STROKE`/shadow colour derived from the darkest anchor
-   tone), scrim strength for text-over-art bands.
+   text armour (the stroke + shadow the game's `TEXT` presets in
+   `src/config.ts` carry, derived from the darkest anchor tone; labels that
+   sit on their own pill/panel/disc strip it), scrim strength for
+   text-over-art bands.
 4. **Deliverable.** The PRD's §11 palette table and §14 HUD plan updated to
    the authored values (they were the game-designer's DRAFT until now) —
    this is the contract ui-engineer codes against; disagreements route
    back here, not into ad-hoc code values.
+
+### Step 1d — Audio identity (music + sfx brief; art-director owns)
+
+Sound is part of the same identity, and it is briefed from the SAME locked
+profile — right after the style/vision/UI lock, before generation fans out, so
+the audio brief cannot drift from what the art turned out to be. A game with
+no audio files is still finished (`core/audio.ts` synthesises every voice and
+`core/music.ts` the score); this step is how a game gets a VOICE of its own.
+
+1. **Brief from `art/style.json`.** Translate the locked profile into audio
+   terms and write the brief down: mood (from `artStyle` + `lighting`), tempo
+   (from the PRD's session pacing — menu calm, run pressure), instrumentation
+   and timbre (from `plan.materials` and `plan.temperature`: chunky wooden
+   percussion for a rustic set, glassy synths for neon retro). One paragraph
+   per track, one line per sfx.
+2. **Music (`generate_music`).** Three stems at most, all seamless loops,
+   30-60s, mono, ~96 kbps: `menu` (calm, under the menu mood), `game-low` and
+   `game-high` (same key, same tempo, same bar length — `core/music.ts`
+   crossfades them on `setMusicIntensity` around 0.55, so they MUST be
+   interchangeable at any bar). Shipping only `game-low` is fine: its level
+   then tracks intensity.
+3. **SFX (`generate_sfx`).** One short file per event name in `SfxName`
+   (`core/audio.ts`): `ui`, `tap`, `pickup`, `combo`, `jump`, `hit`, `die`,
+   `levelup`, `whoosh`. Generate only the ones the genre actually fires; every
+   name left unregistered keeps its synth voice, so a partial set is a valid
+   deliverable. Keep them dry and short (<0.5s for taps/hits) — `juice.ts`
+   layers them, the file must not carry its own tail or reverb.
+4. **Files + registry.** Write everything under `public/assets/audio/`
+   (`music/`, `sfx/`), then register the paths in `src/data/audio.ts` —
+   relative to `public/`, one file per entry. That registry is the ONLY switch:
+   a registered name plays its file, an unregistered one synthesises.
+   Registration is fx-artist's integration step (it owns `src/data/audio.ts`),
+   handed over with the file list; the art-director does not edit engine code.
+5. **Budget <= 6 MB total.** `node scripts/release-check.mjs <slug>` reports
+   the tree as the `audio` finding and WARNS above 6 MB. Music loops are the
+   weight — re-encode (shorter loop, mono, lower bitrate) rather than dropping
+   the sfx set.
+6. **No audio provider, offline, or a failed generation?** Ship no files and
+   leave the registry empty: the synth score and voices are the designed
+   fallback, not a defect. FLAG it in the Step 7 report ("audio: synth only,
+   reason") so the integrator knows the silence is intentional.
 
 ### Step 2 — Asset manifest (`art/manifest.json`)
 
@@ -267,14 +310,15 @@ project's own style profile.
 `src/data/art.ts` is generated, not hand-edited. Follow
 `references/phaser-integration.md`:
 
-- Run `node scripts/gen-art-registry.mjs` from `template/` after every export
-  or manifest edit; it reads `art/manifest.json` plus every asset's
-  `sprite-metadata.json` and writes the registry — texture key, sheet path,
-  frame geometry, animation key, duration, loop flag, per-action `scale` and
-  `facesRight`. Never hand-edit `src/data/art.ts`; a manual edit is silently
-  overwritten by the next regeneration and `verify.sh`'s
-  `gen-art-registry.mjs --check` step fails the build the moment it drifts
-  from the manifest.
+- Run `node scripts/gen-art-registry.mjs` from the current game project root
+  (`games/<slug>/` during a build; `template/` only when editing the template
+  itself) after every export or manifest edit; it reads `art/manifest.json`
+  plus every asset's `sprite-metadata.json` and writes the registry — texture
+  key, sheet path, frame geometry, animation key, duration, loop flag,
+  per-action `scale` and `facesRight`. Never hand-edit `src/data/art.ts`; a
+  manual edit is silently overwritten by the next regeneration and
+  `verify.sh`'s `gen-art-registry.mjs --check` step fails the build the moment
+  it drifts from the manifest.
 - `PreloadScene` loads a registry row only when its `group` is listed in the
   active slice's `ART_GROUPS` (re-exported through `src/scenes/game.ts`), and
   creates animations in one loop; the loading bar already exists. **New art for

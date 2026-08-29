@@ -1,4 +1,5 @@
 import { getAudioContext, isMuted, onMuteChange, unlockAudio } from './audio';
+import { AUDIO, type MusicTrack } from '../data/audio';
 
 /**
  * Zero-asset background music. Everything is synthesised with WebAudio using
@@ -24,11 +25,22 @@ import { getAudioContext, isMuted, onMuteChange, unlockAudio } from './audio';
  * is wired to the same mute state via `onMuteChange` so a single mute toggle
  * silences both buses.
  *
- * Do NOT: load audio files (this stays a zero-asset module), or schedule
- * anything from `update`/`requestAnimationFrame` — the lookahead timer is the
- * only clock. Do NOT reference `window`/`AudioContext` at module scope; the
- * context is created lazily by `core/audio.ts` on the first user gesture, so
- * importing this module in a non-browser environment (Node, tests) is safe.
+ * When the game DOES ship music files (registered in `src/data/audio.ts`, empty
+ * in the template) this module plays those loops instead of synthesising: the
+ * 'menu' stem under the menu mood, and a `game-low` <-> `game-high` equal-power
+ * crossfade driven by `setMusicIntensity` under the run mood (a single game
+ * stem just rides its level with intensity). Each stem is a looping
+ * `AudioBufferSourceNode` on the SAME context — decoded up front, so a loop is
+ * gapless where an `<audio>` element would tick — on its own gain, summed
+ * through a stem bus that mirrors the synth bus. Same API, same mute wiring,
+ * same fade-out; the synth scheduler simply never starts. Both engines are
+ * per-mood: a game may ship a menu loop and synthesise its run.
+ *
+ * Do NOT: schedule anything from `update`/`requestAnimationFrame` — the
+ * lookahead timer is the only clock. Do NOT reference `window`/`AudioContext`
+ * at module scope; the context is created lazily by `core/audio.ts` on the
+ * first user gesture and every stem node is created with it, so importing this
+ * module in a non-browser environment (Node, tests) is safe.
  */
 
 export type MusicMood = 'menu' | 'run';
@@ -73,6 +85,18 @@ const ARP_PEAK = 0.6;
 const PERC_PEAK = 0.8;
 const BOSS_PEAK = 0.7;
 
+/**
+ * File-stem bus level. Generated loops arrive near full scale, so they need a
+ * far lower bus than the synth's summed peaks to sit under sfx the same way.
+ */
+const STEM_MASTER_GAIN = 0.5;
+/** Intensity at which the run mood is half `game-low`, half `game-high`. */
+const STEM_CROSSFADE_CENTER = 0.55;
+/** Intensity span the crossfade takes: full low below 0.35, full high above 0.75. */
+const STEM_CROSSFADE_WIDTH = 0.4;
+/** Boss layer has no stem of its own, so it drives the mix as near-peak pressure. */
+const STEM_BOSS_DRIVE = 0.85;
+
 /** MIDI note number to frequency in Hz (A4 = 69 = 440Hz). */
 export function midiToFreq(midi: number): number {
   return 440 * 2 ** ((midi - 69) / 12);
@@ -109,6 +133,23 @@ export function lowpassHzForIntensity(intensity: number, calm: boolean): number 
   return base + clamped * span;
 }
 
+/**
+ * Equal-power `game-low`/`game-high` weights around the crossfade threshold:
+ * the pair always sums to constant power, so the run mood gets a smooth
+ * handover instead of a dip in the middle or a jump at the threshold.
+ */
+export function stemCrossfade(intensity: number): { low: number; high: number } {
+  const clamped = Math.min(1, Math.max(0, intensity));
+  const start = STEM_CROSSFADE_CENTER - STEM_CROSSFADE_WIDTH / 2;
+  const t = Math.min(1, Math.max(0, (clamped - start) / STEM_CROSSFADE_WIDTH));
+  return { low: Math.cos((t * Math.PI) / 2), high: Math.sin((t * Math.PI) / 2) };
+}
+
+/** A lone game stem has nothing to trade against, so intensity rides its level. */
+export function soloStemLevel(intensity: number): number {
+  return 0.6 + Math.min(1, Math.max(0, intensity)) * 0.4;
+}
+
 interface MusicNodes {
   master: GainNode;
   bassGain: GainNode;
@@ -119,7 +160,31 @@ interface MusicNodes {
   percBuffer: AudioBuffer;
 }
 
+/**
+ * The file-stem engine: one looping `AudioBufferSourceNode` per registered
+ * stem, each on its own gain so the run mood can crossfade, all summed through
+ * one bus that mirrors the synth bus (mute, fade-out, "under the sfx").
+ */
+interface StemNodes {
+  master: GainNode;
+  gains: Map<MusicTrack, GainNode>;
+  sources: Map<MusicTrack, AudioBufferSourceNode>;
+}
+
+/** Which stems each mood plays, in `stemCrossfade` order (low then high). */
+const MOOD_TRACKS: Record<MusicMood, readonly MusicTrack[]> = {
+  menu: ['menu'],
+  run: ['game-low', 'game-high'],
+};
+
 let nodes: MusicNodes | null = null;
+let stems: StemNodes | null = null;
+/** Decoded loops, kept across `stopMusic` so a restart is instant. */
+const stemBuffers = new Map<MusicTrack, AudioBuffer>();
+/** Fetched or fetching, so a mood switch never re-requests a file. */
+const stemRequested = new Set<MusicTrack>();
+/** Unreachable or undecodable stems — treated as unregistered, so the mood synthesises. */
+const stemFailed = new Set<MusicTrack>();
 let mood: MusicMood | null = null;
 let intensity = 0.3;
 let bossOn = false;
@@ -128,13 +193,24 @@ let nextStepTime = 0;
 let currentStep = 0;
 let muteSubscribed = false;
 
+/**
+ * Registered, still-usable stems for a mood. Empty means "synthesise this
+ * mood": no registry rows, or every candidate failed to load. Both engines are
+ * per-mood, so a game may ship only a menu loop and synthesise its run.
+ */
+function moodStems(target: MusicMood): MusicTrack[] {
+  return MOOD_TRACKS[target].filter((track) => AUDIO.music[track] !== undefined && !stemFailed.has(track));
+}
+
 function ensureMuteSubscription(): void {
   if (muteSubscribed) return;
   muteSubscribed = true;
   onMuteChange((mutedNow) => {
     const ctx = getAudioContext();
-    if (!ctx || !nodes) return;
-    nodes.master.gain.setTargetAtTime(mutedNow || mood === null ? 0 : MASTER_GAIN, ctx.currentTime, 0.02);
+    if (!ctx) return;
+    const silent = mutedNow || mood === null;
+    if (nodes) nodes.master.gain.setTargetAtTime(silent ? 0 : MASTER_GAIN, ctx.currentTime, 0.02);
+    if (stems) stems.master.gain.setTargetAtTime(silent ? 0 : STEM_MASTER_GAIN, ctx.currentTime, 0.02);
   });
 }
 
@@ -331,37 +407,193 @@ function updateMix(): void {
   nodes.bossGain.gain.setTargetAtTime(bossOn && !calm ? BOSS_LEVEL : 0, now, MIX_RAMP_TC);
 }
 
+// --- file stems -------------------------------------------------------------
+
+/** Ramp a bus to silence over `fadeMs` and release it once it is inaudible. */
+function fadeOutBus(ctx: AudioContext, bus: GainNode, fadeMs: number): void {
+  bus.gain.cancelScheduledValues(ctx.currentTime);
+  bus.gain.setTargetAtTime(0, ctx.currentTime, Math.max(0.01, Math.max(0, fadeMs) / 3000));
+  setTimeout(() => bus.disconnect(), fadeMs + 50);
+}
+
+/**
+ * Fetch and decode the mood's stems once. A stem that arrives (or fails)
+ * re-enters `startMusic` for the mood still playing: on success its loop joins
+ * the mix, on failure the mood falls back to the synth arrangement.
+ */
+function loadStems(tracks: readonly MusicTrack[]): void {
+  for (const track of tracks) {
+    const url = AUDIO.music[track];
+    if (url === undefined || stemRequested.has(track)) continue;
+    stemRequested.add(track);
+    void fetch(url)
+      .then((res) => (res.ok ? res.arrayBuffer() : Promise.reject(new Error(`HTTP ${res.status}`))))
+      .then((bytes) => {
+        const ctx = getAudioContext();
+        if (!ctx) throw new Error('no audio context');
+        return ctx.decodeAudioData(bytes);
+      })
+      .then((buffer) => {
+        stemBuffers.set(track, buffer);
+        if (mood !== null) startMusic(mood);
+      })
+      .catch((err: unknown) => {
+        stemFailed.add(track);
+        console.warn(`music: stem "${track}" (${url}) unavailable, synthesising instead`, err);
+        if (mood !== null) startMusic(mood);
+      });
+  }
+}
+
+/**
+ * Per-stem target level for the current mood: the menu loop plays flat, a
+ * `game-low`/`game-high` pair crossfades on intensity, a lone game stem rides
+ * its level, and any stem the mood does not use is released.
+ */
+function updateStemMix(): void {
+  const ctx = getAudioContext();
+  if (!ctx || !stems) return;
+  const active = mood !== null ? moodStems(mood) : [];
+  const solo = active.length === 1;
+  const drive = bossOn ? Math.max(intensity, STEM_BOSS_DRIVE) : intensity;
+  const mix = stemCrossfade(drive);
+
+  for (const track of [...stems.gains.keys()]) {
+    if (!active.includes(track)) {
+      releaseStem(ctx, track);
+      continue;
+    }
+    let level = 1;
+    if (mood === 'run') level = solo ? soloStemLevel(drive) : (track === 'game-high' ? mix.high : mix.low);
+    stems.gains.get(track)!.gain.setTargetAtTime(level, ctx.currentTime, MIX_RAMP_TC);
+  }
+}
+
+/** Fade a stem out and drop its source; a returning mood creates a fresh one. */
+function releaseStem(ctx: AudioContext, track: MusicTrack): void {
+  const graph = stems;
+  if (!graph) return;
+  const gain = graph.gains.get(track);
+  const source = graph.sources.get(track);
+  graph.gains.delete(track);
+  graph.sources.delete(track);
+  if (!gain || !source) return;
+  gain.gain.cancelScheduledValues(ctx.currentTime);
+  gain.gain.setTargetAtTime(0, ctx.currentTime, MIX_RAMP_TC);
+  source.stop(ctx.currentTime + MIX_RAMP_TC * 4);
+  source.onended = () => {
+    source.disconnect();
+    gain.disconnect();
+  };
+}
+
+/**
+ * Loop every already-decoded stem of `tracks` and assert the stem bus. Stems
+ * still downloading simply join later (`loadStems` re-enters here); a stem
+ * already looping is left alone, so re-asserting a mood never clicks or
+ * restarts a loop mid-phrase.
+ */
+function startStems(ctx: AudioContext, tracks: readonly MusicTrack[]): void {
+  if (!stems) {
+    const master = ctx.createGain();
+    master.gain.value = 0;
+    master.connect(ctx.destination);
+    stems = { master, gains: new Map(), sources: new Map() };
+  }
+  const graph = stems;
+  for (const track of tracks) {
+    const buffer = stemBuffers.get(track);
+    if (!buffer || graph.sources.has(track)) continue;
+    const gain = ctx.createGain();
+    gain.gain.value = 0;
+    gain.connect(graph.master);
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    source.loop = true;
+    source.connect(gain);
+    source.start();
+    graph.gains.set(track, gain);
+    graph.sources.set(track, source);
+  }
+  graph.master.gain.setTargetAtTime(isMuted() ? 0 : STEM_MASTER_GAIN, ctx.currentTime, MIX_RAMP_TC);
+  updateStemMix();
+}
+
+/** Hand the mood over to the stems: stop scheduling and fade the synth bus out. */
+function stopSynth(ctx: AudioContext): void {
+  if (timerId !== null) {
+    clearInterval(timerId);
+    timerId = null;
+  }
+  const graph = nodes;
+  if (!graph) return;
+  nodes = null;
+  fadeOutBus(ctx, graph.master, 400);
+}
+
+/** Hand the mood back to the synth: release every loop and fade the stem bus out. */
+function stopStems(ctx: AudioContext): void {
+  const graph = stems;
+  if (!graph) return;
+  stems = null;
+  for (const source of graph.sources.values()) source.stop(ctx.currentTime + MIX_RAMP_TC * 4);
+  fadeOutBus(ctx, graph.master, 400);
+}
+
 /**
  * Start (or crossfade into) a mood. Idempotent: calling it again with the
  * same mood is a no-op beyond re-asserting the mix; switching mood ramps the
  * mix and master gain over `MIX_RAMP_TC` (~0.4s settle), never restarting
  * the scheduler or clicking.
+ *
+ * Plays the mood's registered file stems when it has any (see
+ * `src/data/audio.ts`) and synthesises it otherwise — the template registry is
+ * empty, so the synth path is the only one that runs there.
  */
 export function startMusic(newMood: MusicMood): void {
   unlockAudio();
   const ctx = getAudioContext();
   if (!ctx) return;
   ensureMuteSubscription();
-  const graph = ensureGraph(ctx);
   mood = newMood;
+
+  const tracks = moodStems(newMood);
+  if (tracks.length > 0) {
+    loadStems(tracks);
+    stopSynth(ctx);
+    startStems(ctx, tracks);
+    return;
+  }
+
+  stopStems(ctx);
+  const graph = ensureGraph(ctx);
   ensureScheduler(ctx);
   graph.master.gain.setTargetAtTime(isMuted() ? 0 : MASTER_GAIN, ctx.currentTime, MIX_RAMP_TC);
   updateMix();
 }
 
-/** 0 (barely present) to 1 (full arrangement); ignored while mood is 'menu'. */
+/**
+ * 0 (barely present) to 1 (full arrangement); ignored while mood is 'menu'.
+ * On file stems this is the `game-low` -> `game-high` crossfade position.
+ */
 export function setMusicIntensity(value: number): void {
   intensity = Math.min(1, Math.max(0, value));
+  if (stems) updateStemMix();
   updateMix();
 }
 
-/** Toggle an additional layer on top of the current mood/intensity mix. */
+/**
+ * Toggle an additional layer on top of the current mood/intensity mix. File
+ * stems carry no separate boss loop, so there the layer drives the crossfade
+ * to near-peak instead.
+ */
 export function setMusicLayer(layer: MusicLayer, on: boolean): void {
   if (layer === 'boss') bossOn = on;
+  if (stems) updateStemMix();
   updateMix();
 }
 
-/** Fade out and tear down the scheduler/graph; releases every node. */
+/** Fade out and tear down both engines; releases every node. */
 export function stopMusic(fadeMs = 400): void {
   if (timerId !== null) {
     clearInterval(timerId);
@@ -370,11 +602,16 @@ export function stopMusic(fadeMs = 400): void {
   mood = null;
   const ctx = getAudioContext();
   const graph = nodes;
+  const stemGraph = stems;
   nodes = null;
-  if (!ctx || !graph) return;
+  stems = null;
+  if (!ctx) return;
 
-  const fadeSeconds = Math.max(0, fadeMs) / 1000;
-  graph.master.gain.cancelScheduledValues(ctx.currentTime);
-  graph.master.gain.setTargetAtTime(0, ctx.currentTime, Math.max(0.01, fadeSeconds / 3));
-  setTimeout(() => graph.master.disconnect(), fadeMs + 50);
+  if (graph) fadeOutBus(ctx, graph.master, fadeMs);
+  if (stemGraph) {
+    const stopAt = ctx.currentTime + Math.max(0, fadeMs) / 1000 + 0.05;
+    for (const source of stemGraph.sources.values()) source.stop(stopAt);
+    fadeOutBus(ctx, stemGraph.master, fadeMs);
+  }
 }
+

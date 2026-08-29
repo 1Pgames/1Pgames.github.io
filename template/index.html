@@ -6,8 +6,12 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
     />
-    <meta name="theme-color" content="#0b0f1a" />
+    <meta name="theme-color" content="#05070d" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <!-- Installable: home-screen launch, standalone portrait, offline shell
+         (public/sw.js, registered from src/main.ts in production builds). -->
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="icon-192.png" />
     <title>GAME_TITLE</title>
     <style>
       :root {
@@ -39,7 +43,7 @@
         display: block;
         image-rendering: auto;
       }
-      /* Boot splash: removed by the Boot scene once Phaser owns the screen. */
+      /* Boot splash: removed by src/main.ts once Phaser reports READY. */
       #splash {
         position: fixed;
         inset: 0;

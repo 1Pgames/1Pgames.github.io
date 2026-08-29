@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Scaffold a new game from template/ into games/<slug>/.
-#   scripts/new-game.sh <slug> ["Game Title"] [--family <code>] [--prompt "text"] \
+#   scripts/new-game.sh <slug> ["Game Title"] [--family <slice>] [--prompt "text"] \
 #     [--genre "text"] [--desc "text"] [--prd path/to/PRD.md] [--no-install]
 #
 # --family picks the gameplay slice (a dir under template/src/slices/, e.g.
@@ -80,6 +80,16 @@ pkg_path.write_text(json.dumps(pkg, indent=2) + '\n')
 
 html_path = dest / 'index.html'
 html_path.write_text(html_path.read_text().replace('GAME_TITLE', title))
+
+# PWA identity: the installed home-screen name. json round-trip so a title with
+# quotes/backslashes is escaped correctly instead of breaking the manifest.
+manifest_path = dest / 'public' / 'manifest.webmanifest'
+if manifest_path.is_file():
+    manifest = json.loads(manifest_path.read_text())
+    manifest['name'] = title
+    # `short_name` is what fits under a home-screen icon (~12 chars).
+    manifest['short_name'] = title if len(title) <= 12 else title.split()[0][:12]
+    manifest_path.write_text(json.dumps(manifest, indent=2) + '\n')
 
 menu_path = dest / 'src' / 'scenes' / 'menu.ts'
 words = title.upper().split()
@@ -259,3 +269,12 @@ fi
 
 echo "created $dest"
 echo "next: cd games/$slug && npm run dev"
+if [[ $install -eq 1 ]]; then
+  echo "note: the root package-lock.json now registers games/$slug —"
+  echo "      commit it TOGETHER with the game folder, or CI 'npm ci' fails"
+  echo "      in both jobs (release-check enforces this as the 'lock' check)."
+else
+  echo "note: --no-install skipped the root npm install; before committing run"
+  echo "      'npm install' at the repo root so package-lock.json registers"
+  echo "      games/$slug (CI 'npm ci' fails otherwise)."
+fi

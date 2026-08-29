@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { CSS, PALETTE, SAFE, TEXT, VIEW } from '../../config';
 import { SCENES, TEX } from '../../core/keys';
 import { Rng } from '../../core/rng';
+import { sessionSeed } from '../../core/daily';
 import { LevelDirector } from '../../core/level';
 import type { SessionOutcome } from '../../core/session';
 import { load, save } from '../../core/storage';
@@ -138,7 +139,7 @@ export class GameScene extends Phaser.Scene {
    */
   init(data: { seed?: string; levelIndex?: number } = {}): void {
     this.replay = data.seed !== undefined;
-    this.seed = data.seed ?? Date.now().toString(36);
+    this.seed = data.seed ?? sessionSeed();
     this.requestedLevel = data.levelIndex === undefined ? null : clampLevelIndex(data.levelIndex);
   }
 

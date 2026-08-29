@@ -1,9 +1,16 @@
 import { load, save } from './storage';
 import { STORE } from './keys';
+import { AUDIO } from '../data/audio';
 
 /**
- * Zero-asset sound. Everything is synthesised with WebAudio at runtime, so a
- * generated game ships with no audio files and still has full game feel.
+ * Sound. Every voice is synthesised with WebAudio at runtime, so a generated
+ * game ships with no audio files and still has full game feel.
+ *
+ * A game that DOES ship samples registers them in `src/data/audio.ts`:
+ * `initGeneratedAudio()` (called once from `PreloadScene`) fetches and decodes
+ * them into the same context, and `sfx()` plays the sample for a registered
+ * name and the synth voice for every other one. A fetch/decode failure warns
+ * once and stays on the synth voice.
  *
  * Usage:  sfx('pickup')  /  sfx('hit', { rate: 1.2 })  /  toggleMute()
  */
@@ -80,6 +87,12 @@ let noiseBuffer: AudioBuffer | null = null;
 type MuteListener = (muted: boolean) => void;
 const muteListeners = new Set<MuteListener>();
 
+/** Decoded generated samples; a name in here plays instead of its synth voice. */
+const samples = new Map<SfxName, AudioBuffer>();
+/** Fetched bytes waiting for a context — `initGeneratedAudio()` runs before the first gesture. */
+const fetched = new Map<SfxName, ArrayBuffer>();
+let samplesRequested = false;
+
 /** Browsers require a user gesture; call once from a pointer/key handler. */
 export function unlockAudio(): void {
   if (!ctx) {
@@ -95,6 +108,47 @@ export function unlockAudio(): void {
     for (let i = 0; i < frames; i += 1) data[i] = Math.random() * 2 - 1;
   }
   if (ctx.state === 'suspended') void ctx.resume();
+  void decodeFetched();
+}
+
+/** Decode everything fetched so far; a no-op until a context exists. */
+async function decodeFetched(): Promise<void> {
+  if (!ctx || fetched.size === 0) return;
+  const target = ctx;
+  for (const [name, bytes] of [...fetched]) {
+    // Delete first: decodeAudioData detaches the buffer, so it is single-use.
+    fetched.delete(name);
+    try {
+      samples.set(name, await target.decodeAudioData(bytes));
+    } catch (err) {
+      console.warn(`audio: sample "${name}" failed to decode, using the synth voice`, err);
+    }
+  }
+}
+
+/**
+ * Load the samples registered in `src/data/audio.ts` (empty in the template —
+ * then this is a no-op and every voice stays synthesised). Call once from
+ * `PreloadScene.create()`: fetching starts immediately and each sample is
+ * decoded into the shared context as soon as `unlockAudio()` has created it,
+ * so nothing here needs a user gesture. Unreachable or undecodable files warn
+ * once and leave that voice on the synth.
+ */
+export function initGeneratedAudio(): void {
+  if (samplesRequested) return;
+  samplesRequested = true;
+  for (const [name, url] of Object.entries(AUDIO.sfx) as [SfxName, string][]) {
+    if (!url) continue;
+    void fetch(url)
+      .then((res) => (res.ok ? res.arrayBuffer() : Promise.reject(new Error(`HTTP ${res.status}`))))
+      .then((bytes) => {
+        fetched.set(name, bytes);
+        return decodeFetched();
+      })
+      .catch((err) => {
+        console.warn(`audio: sample "${name}" (${url}) unavailable, using the synth voice`, err);
+      });
+  }
 }
 
 /**
@@ -127,10 +181,30 @@ export function toggleMute(): boolean {
   return muted;
 }
 
+/**
+ * One-shot playback of a decoded sample. `rate` retunes it (playbackRate),
+ * `volume` scales it; mute is already handled by the shared master gain.
+ */
+function playSample(target: AudioContext, destination: AudioNode, buffer: AudioBuffer, options: PlayOptions): void {
+  const src = target.createBufferSource();
+  src.buffer = buffer;
+  src.playbackRate.value = options.rate ?? 1;
+  const gain = target.createGain();
+  gain.gain.value = options.volume ?? 1;
+  src.connect(gain).connect(destination);
+  src.start(target.currentTime + (options.delay ?? 0));
+}
+
 export function sfx(name: SfxName, options: PlayOptions = {}): void {
   if (muted) return;
   unlockAudio();
   if (!ctx || !master) return;
+
+  const sample = samples.get(name);
+  if (sample) {
+    playSample(ctx, master, sample, options);
+    return;
+  }
 
   const voice: Voice = VOICES[name];
   const rate = options.rate ?? 1;

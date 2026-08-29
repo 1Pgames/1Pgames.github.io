@@ -11,7 +11,7 @@ export const SCENES = {
 
 export type SceneKey = (typeof SCENES)[keyof typeof SCENES];
 
-/** Procedural textures registered in Preload. See core/textures.ts. */
+/** Procedural textures registered by BootScene. See core/textures.ts. */
 export const TEX = {
   disc: 'tex-disc',
   ring: 'tex-ring',

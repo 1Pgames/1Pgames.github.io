@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { CSS, PALETTE, SAFE, TEXT, VIEW } from '../../config';
 import { SCENES, TEX } from '../../core/keys';
 import { Rng } from '../../core/rng';
+import { sessionSeed } from '../../core/daily';
 import { sfx } from '../../core/audio';
 import { setMusicIntensity, startMusic } from '../../core/music';
 import { burst, flash, floatText, pop, shake } from '../../core/juice';
@@ -106,7 +107,7 @@ export class GameScene extends Phaser.Scene {
    */
   init(data: { seed?: string } = {}): void {
     this.replay = data.seed !== undefined;
-    this.seed = data.seed ?? Date.now().toString(36);
+    this.seed = data.seed ?? sessionSeed();
   }
 
   create(): void {

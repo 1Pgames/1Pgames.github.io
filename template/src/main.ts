@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { PALETTE, VIEW } from './config';
+import { armWakeLock } from './core/wake';
 import { BootScene } from './scenes/boot';
 import { PreloadScene } from './scenes/preload';
 import { MenuScene } from './scenes/menu';
@@ -61,6 +62,19 @@ game.events.once(Phaser.Core.Events.READY, () => {
   splash.classList.add('hidden');
   window.setTimeout(() => splash.remove(), 260);
 });
+
+// Offline shell (public/sw.js). PROD-only on purpose: a worker caching the dev
+// server would serve stale modules and break HMR. `vite preview` on localhost
+// is a secure context, so the install path is testable locally. Relative URL
+// keeps the scope at `/play/<slug>/` when several games share a host.
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {
+    /* unsupported, blocked by policy or already claimed — game plays online */
+  });
+}
+
+// Keep the screen awake once the player actually touches the game.
+armWakeLock();
 
 // Pause when the tab/app loses focus so recordings never desync.
 document.addEventListener('visibilitychange', () => {
