@@ -1,0 +1,220 @@
+{
+  "source": {
+    "file": "raw-source.jpg",
+    "width": 1024,
+    "height": 1024
+  },
+  "grid": {
+    "rows": 2,
+    "cols": 2
+  },
+  "output": {
+    "cellSize": 256,
+    "align": "feet",
+    "scaleMode": "fit",
+    "fit": 0.44,
+    "sampling": "nearest",
+    "durationMs": 100,
+    "componentMode": "all",
+    "componentPadding": 0,
+    "minComponentArea": 16
+  },
+  "qc": {
+    "strict": true,
+    "passed": true,
+    "failures": [],
+    "postureChange": [
+      "body-scale-cv:0.2360>0.0800",
+      "anchor-y-std:0.0943>0.0500"
+    ],
+    "summary": {
+      "frameCount": 4,
+      "validFrameCount": 4,
+      "emptyCount": 0,
+      "sourceEdgeTouchCount": 0,
+      "outputEdgeTouchCount": 0,
+      "pasteClampedCount": 0,
+      "bodyScaleMean": 0.4541015625,
+      "bodyScaleCv": 0.2360208930356766,
+      "anchorXStd": 0.06297692484834816,
+      "anchorYStd": 0.09428128066930123,
+      "anchorYMean": 0.77099609375,
+      "outputSubjectHeightMean": 59.5
+    },
+    "retryHints": [],
+    "background": {
+      "keyedFraction": 0.8619136810302734,
+      "edgeKeyFraction": 1,
+      "foreignRegionCount": 0,
+      "cellCoverage": [
+        0.139801025390625,
+        0.13452529907226562,
+        0.1636810302734375,
+        0.11433792114257812
+      ],
+      "emptyCells": [],
+      "cell": {
+        "width": 512,
+        "height": 512,
+        "aspect": 1
+      },
+      "geometryMismatch": false,
+      "contaminated": false,
+      "findings": []
+    }
+  },
+  "frames": [
+    {
+      "index": 0,
+      "file": "frames/frame-000.png",
+      "sourceBox": {
+        "left": 0,
+        "top": 0,
+        "width": 512,
+        "height": 512
+      },
+      "subjectBox": {
+        "left": 110,
+        "top": 151,
+        "width": 308,
+        "height": 297
+      },
+      "alignedBox": {
+        "left": 99,
+        "top": 109,
+        "width": 79,
+        "height": 76
+      },
+      "sourceAnchor": {
+        "x": 225,
+        "y": 445
+      },
+      "targetAnchor": {
+        "x": 128,
+        "y": 184
+      },
+      "empty": false,
+      "componentCount": 1,
+      "subjectArea": 36023,
+      "bodyScale": 0.580078125,
+      "sourceEdgeTouch": false,
+      "outputEdgeTouch": false,
+      "pasteClamped": false,
+      "scale": 0.256
+    },
+    {
+      "index": 1,
+      "file": "frames/frame-001.png",
+      "sourceBox": {
+        "left": 512,
+        "top": 0,
+        "width": 512,
+        "height": 512
+      },
+      "subjectBox": {
+        "left": 19,
+        "top": 252,
+        "width": 434,
+        "height": 196
+      },
+      "alignedBox": {
+        "left": 58,
+        "top": 136,
+        "width": 111,
+        "height": 50
+      },
+      "sourceAnchor": {
+        "x": 294,
+        "y": 441
+      },
+      "targetAnchor": {
+        "x": 128,
+        "y": 184
+      },
+      "empty": false,
+      "componentCount": 1,
+      "subjectArea": 34783,
+      "bodyScale": 0.3828125,
+      "sourceEdgeTouch": false,
+      "outputEdgeTouch": false,
+      "pasteClamped": false,
+      "scale": 0.256
+    },
+    {
+      "index": 2,
+      "file": "frames/frame-002.png",
+      "sourceBox": {
+        "left": 0,
+        "top": 512,
+        "width": 512,
+        "height": 512
+      },
+      "subjectBox": {
+        "left": 79,
+        "top": 83,
+        "width": 318,
+        "height": 274
+      },
+      "alignedBox": {
+        "left": 85,
+        "top": 116,
+        "width": 81,
+        "height": 70
+      },
+      "sourceAnchor": {
+        "x": 246,
+        "y": 347
+      },
+      "targetAnchor": {
+        "x": 128,
+        "y": 184
+      },
+      "empty": false,
+      "componentCount": 1,
+      "subjectArea": 42357,
+      "bodyScale": 0.53515625,
+      "sourceEdgeTouch": false,
+      "outputEdgeTouch": false,
+      "pasteClamped": false,
+      "scale": 0.256
+    },
+    {
+      "index": 3,
+      "file": "frames/frame-003.png",
+      "sourceBox": {
+        "left": 512,
+        "top": 512,
+        "width": 512,
+        "height": 512
+      },
+      "subjectBox": {
+        "left": 19,
+        "top": 189,
+        "width": 440,
+        "height": 163
+      },
+      "alignedBox": {
+        "left": 80,
+        "top": 144,
+        "width": 113,
+        "height": 42
+      },
+      "sourceAnchor": {
+        "x": 208,
+        "y": 346
+      },
+      "targetAnchor": {
+        "x": 128,
+        "y": 184
+      },
+      "empty": false,
+      "componentCount": 1,
+      "subjectArea": 29623,
+      "bodyScale": 0.318359375,
+      "sourceEdgeTouch": false,
+      "outputEdgeTouch": false,
+      "pasteClamped": false,
+      "scale": 0.256
+    }
+  ]
+}

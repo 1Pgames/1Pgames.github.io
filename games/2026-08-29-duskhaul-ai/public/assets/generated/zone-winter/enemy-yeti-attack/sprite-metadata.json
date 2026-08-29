@@ -1,0 +1,228 @@
+{
+  "source": {
+    "file": "raw-source.jpg",
+    "width": 1024,
+    "height": 1024
+  },
+  "grid": {
+    "rows": 2,
+    "cols": 2
+  },
+  "output": {
+    "cellSize": 256,
+    "align": "feet",
+    "scaleMode": "preserve",
+    "fit": 0.86,
+    "sampling": "nearest",
+    "durationMs": 100,
+    "componentMode": "largest",
+    "componentPadding": 0,
+    "minComponentArea": 1
+  },
+  "qc": {
+    "strict": true,
+    "passed": true,
+    "failures": [],
+    "postureChange": [
+      "body-scale-cv:0.0882>0.0800",
+      "profile-body-scale-drift:0.1334>0.0800",
+      "output-subject-height-drift:0.1325>0.0800"
+    ],
+    "summary": {
+      "frameCount": 4,
+      "validFrameCount": 4,
+      "emptyCount": 0,
+      "sourceEdgeTouchCount": 0,
+      "outputEdgeTouchCount": 0,
+      "pasteClampedCount": 0,
+      "bodyScaleMean": 0.69140625,
+      "bodyScaleCv": 0.0882288004900645,
+      "anchorXStd": 0.004979511243742954,
+      "anchorYStd": 0.02413413741456523,
+      "anchorYMean": 0.83837890625,
+      "outputSubjectHeightMean": 152.25,
+      "profileBodyScaleDrift": 0.1334149326805385,
+      "outputSubjectHeightDrift": 0.13247863247863245
+    },
+    "retryHints": [],
+    "background": {
+      "keyedFraction": 0.698786735534668,
+      "edgeKeyFraction": 1,
+      "foreignRegionCount": 0,
+      "cellCoverage": [
+        0.3177299499511719,
+        0.3072395324707031,
+        0.29156494140625,
+        0.2883186340332031
+      ],
+      "emptyCells": [],
+      "cell": {
+        "width": 512,
+        "height": 512,
+        "aspect": 1
+      },
+      "geometryMismatch": false,
+      "contaminated": false,
+      "findings": []
+    }
+  },
+  "scaleProfile": {
+    "path": "/Users/tmwh/homework/1Pgames/games/2026-08-29-duskhaul/public/assets/generated/zone-winter/yeti-scale.json",
+    "name": "yeti",
+    "version": 2
+  },
+  "frames": [
+    {
+      "index": 0,
+      "file": "frames/frame-000.png",
+      "sourceBox": {
+        "left": 0,
+        "top": 0,
+        "width": 512,
+        "height": 512
+      },
+      "subjectBox": {
+        "left": 69,
+        "top": 69,
+        "width": 364,
+        "height": 375
+      },
+      "alignedBox": {
+        "left": 51,
+        "top": 79,
+        "width": 157,
+        "height": 161
+      },
+      "sourceAnchor": {
+        "x": 248,
+        "y": 438
+      },
+      "targetAnchor": {
+        "x": 128,
+        "y": 238
+      },
+      "empty": false,
+      "componentCount": 1,
+      "subjectArea": 82709,
+      "bodyScale": 0.732421875,
+      "sourceEdgeTouch": false,
+      "outputEdgeTouch": false,
+      "pasteClamped": false,
+      "scale": 0.43
+    },
+    {
+      "index": 1,
+      "file": "frames/frame-001.png",
+      "sourceBox": {
+        "left": 512,
+        "top": 0,
+        "width": 512,
+        "height": 512
+      },
+      "subjectBox": {
+        "left": 15,
+        "top": 72,
+        "width": 479,
+        "height": 371
+      },
+      "alignedBox": {
+        "left": 26,
+        "top": 81,
+        "width": 206,
+        "height": 160
+      },
+      "sourceAnchor": {
+        "x": 253,
+        "y": 437
+      },
+      "targetAnchor": {
+        "x": 128,
+        "y": 238
+      },
+      "empty": false,
+      "componentCount": 1,
+      "subjectArea": 79934,
+      "bodyScale": 0.724609375,
+      "sourceEdgeTouch": false,
+      "outputEdgeTouch": false,
+      "pasteClamped": false,
+      "scale": 0.43
+    },
+    {
+      "index": 2,
+      "file": "frames/frame-002.png",
+      "sourceBox": {
+        "left": 0,
+        "top": 512,
+        "width": 512,
+        "height": 512
+      },
+      "subjectBox": {
+        "left": 73,
+        "top": 70,
+        "width": 356,
+        "height": 370
+      },
+      "alignedBox": {
+        "left": 52,
+        "top": 81,
+        "width": 153,
+        "height": 159
+      },
+      "sourceAnchor": {
+        "x": 249,
+        "y": 434
+      },
+      "targetAnchor": {
+        "x": 128,
+        "y": 238
+      },
+      "empty": false,
+      "componentCount": 1,
+      "subjectArea": 75932,
+      "bodyScale": 0.72265625,
+      "sourceEdgeTouch": false,
+      "outputEdgeTouch": false,
+      "pasteClamped": false,
+      "scale": 0.43
+    },
+    {
+      "index": 3,
+      "file": "frames/frame-003.png",
+      "sourceBox": {
+        "left": 512,
+        "top": 512,
+        "width": 512,
+        "height": 512
+      },
+      "subjectBox": {
+        "left": 75,
+        "top": 113,
+        "width": 358,
+        "height": 300
+      },
+      "alignedBox": {
+        "left": 51,
+        "top": 111,
+        "width": 154,
+        "height": 129
+      },
+      "sourceAnchor": {
+        "x": 254,
+        "y": 408
+      },
+      "targetAnchor": {
+        "x": 128,
+        "y": 238
+      },
+      "empty": false,
+      "componentCount": 1,
+      "subjectArea": 75176,
+      "bodyScale": 0.5859375,
+      "sourceEdgeTouch": false,
+      "outputEdgeTouch": false,
+      "pasteClamped": false,
+      "scale": 0.43
+    }
+  ]
+}

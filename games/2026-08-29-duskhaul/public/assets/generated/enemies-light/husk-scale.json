@@ -1,0 +1,31 @@
+{
+  "version": 2,
+  "name": "husk",
+  "processing": {
+    "cellSize": 256,
+    "align": "feet",
+    "scaleMode": "preserve",
+    "fit": 0.86,
+    "threshold": 180,
+    "feather": 0,
+    "edgeThreshold": 210,
+    "sampling": "nearest",
+    "componentMode": "largest",
+    "componentPadding": 0,
+    "minComponentArea": 1
+  },
+  "reference": {
+    "rows": 2,
+    "cols": 2,
+    "bodyScaleMean": 0.7121212121212122,
+    "bodyScaleCv": 0.06689933720601951,
+    "anchorYMean": 0.8464912280701754,
+    "sourceToOutputScale": 0.3511323763955343,
+    "sourceCellWidth": 627,
+    "sourceCellHeight": 627,
+    "outputSubjectHeightMean": 157
+  },
+  "qc": {
+    "maxBodyScaleDrift": 0.08
+  }
+}

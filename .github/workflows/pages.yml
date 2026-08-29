@@ -66,10 +66,20 @@ jobs:
           done
       - name: Verify template
         run: cd template && bash scripts/verify.sh
+      # Family gates measure whether a game is TUNED WELL. A variant is a
+      # frozen historical build (`variantOf` in its game.json) that is
+      # deliberately never improved — holding it to a bar that keeps rising
+      # would turn it into permanent CI failure for doing exactly its job. It
+      # still has to COMPILE and RUN: the typecheck loop above covers it, and
+      # build-site.mjs builds it like any other workspace.
       - name: Verify games (family gates)
         run: |
           for dir in games/*/; do
             [ -f "$dir/package.json" ] || continue
+            if [ -f "$dir/game.json" ] && node -e "process.exit(JSON.parse(require('fs').readFileSync('$dir/game.json','utf8')).variantOf?0:1)"; then
+              echo "== skip $dir (frozen variant — gates are a record, not a bar)"
+              continue
+            fi
             echo "== verify $dir"
             (cd "$dir" && bash scripts/verify.sh)
           done

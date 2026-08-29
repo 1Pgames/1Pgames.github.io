@@ -1,0 +1,24 @@
+{
+  "slug": "2026-08-29-duskhaul-ai",
+  "title": "Duskhaul \u2014 AI Original",
+  "family": "arena",
+  "genre": "Survivor extraction roguelite",
+  "description": "Carve through the horde, stuff your bag with cursed relics, and reach an extraction gate before the dark swallows you. This is the unedited first cut: built end to end from a single prompt with zero human feedback applied.",
+  "prompt": "A hybrid of a Vampire Survivors-style horde survivor and an extraction shooter: fight through swarming horrors, loot as much as you can carry, and escape through an extraction gate before you die. Grimdark fantasy, dirty pixel-art look, meta progression between runs, and multiple zones \u2014 castles, outlands, desert, winter mountains.",
+  "date": "2026-08-29",
+  "tags": [
+    "arena",
+    "ai-original"
+  ],
+  "cover": "cover.png",
+  "screenshots": [
+    "shots/01-zone-select.png",
+    "shots/02-arena-gate.png",
+    "shots/03-draft.png",
+    "shots/04-results.png"
+  ],
+  "status": "variant",
+  "variantOf": "2026-08-29-duskhaul",
+  "versionLabel": "AI original",
+  "versionNote": "Exactly what came out of the pipeline before any human played it. Frozen on 2026-08-29 and never patched, so the two builds stay comparable."
+}

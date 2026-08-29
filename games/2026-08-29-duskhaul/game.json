@@ -1,0 +1,22 @@
+{
+  "slug": "2026-08-29-duskhaul",
+  "title": "Duskhaul",
+  "family": "arena",
+  "genre": "Survivor extraction roguelite",
+  "description": "Carve through the horde, stuff your bag with cursed relics, and reach an extraction gate before the dark swallows you.",
+  "prompt": "A hybrid of a Vampire Survivors-style horde survivor and an extraction shooter: fight through swarming horrors, loot as much as you can carry, and escape through an extraction gate before you die. Grimdark fantasy, dirty pixel-art look, meta progression between runs, and multiple zones \u2014 castles, outlands, desert, winter mountains.",
+  "date": "2026-08-29",
+  "tags": [
+    "arena"
+  ],
+  "cover": "cover.png",
+  "screenshots": [
+    "shots/01-zone-select.png",
+    "shots/02-arena-gate.png",
+    "shots/03-draft.png",
+    "shots/04-results.png"
+  ],
+  "status": "draft",
+  "versionLabel": "Polished cut",
+  "versionNote": "The build that takes the human feedback loop. Currently identical to the AI original \u2014 it diverges the moment the first round of playtest notes lands."
+}

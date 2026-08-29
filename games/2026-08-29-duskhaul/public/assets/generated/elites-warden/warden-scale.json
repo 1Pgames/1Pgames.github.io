@@ -1,0 +1,31 @@
+{
+  "version": 2,
+  "name": "warden",
+  "processing": {
+    "cellSize": 256,
+    "align": "feet",
+    "scaleMode": "preserve",
+    "fit": 0.86,
+    "threshold": 150,
+    "feather": 0,
+    "edgeThreshold": 150,
+    "sampling": "nearest",
+    "componentMode": "largest",
+    "componentPadding": 0,
+    "minComponentArea": 1
+  },
+  "reference": {
+    "rows": 2,
+    "cols": 2,
+    "bodyScaleMean": 0.7496012759170654,
+    "bodyScaleCv": 0,
+    "anchorYMean": 0.8548644338118022,
+    "sourceToOutputScale": 0.3511323763955343,
+    "sourceCellWidth": 627,
+    "sourceCellHeight": 627,
+    "outputSubjectHeightMean": 165
+  },
+  "qc": {
+    "maxBodyScaleDrift": 0.08
+  }
+}

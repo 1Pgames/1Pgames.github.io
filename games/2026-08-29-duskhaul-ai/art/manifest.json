@@ -1,0 +1,1183 @@
+{
+  "styleProfile": "art/style.json",
+  "outputRoot": "public/assets/generated",
+  "conventions": {
+    "bodyCellSize": 256,
+    "fxCellSize": 128,
+    "uiCellSize": 256,
+    "bodyProfile": "pixel-art-body",
+    "fxProfile": "pixel-art-fx",
+    "canvas": {
+      "image_size": "1024x1024",
+      "aspect_ratio": "1:1"
+    },
+    "visionAnchors": [
+      "games/2026-08-29-duskhaul/art/refs/vision-1.png",
+      "games/2026-08-29-duskhaul/art/refs/vision-2.png"
+    ],
+    "note": "Gritty-pixel set: pixel-art-* profiles (nearest sampling, hard magenta key). Non-NxN grids (1x2, 2x3, 2x4) have non-square source cells: never lock them to a scale profile - hold consistency with maxBodyScaleCv 0.08 / maxAnchorYStd 0.05 plus an anchor guide. Exported sheets normalise to square cellSize frames regardless. Generation briefs live in art/briefs/<group>.md."
+  },
+  "assetSchema": {
+    "groupNote": "Each `groups[]` entry's `group` name is both the directory under outputRoot and the registry row group. PreloadScene loads a row only when its group is in the arena slice's ART_GROUPS (integrator's edit). A missing asset inside a present group is a hard error.",
+    "id": "Directory name under outputRoot/<group>/<id>/. Also the default texture/animation key.",
+    "kind": "'body' | 'fx' | 'ui' | 'bg' - documentation only.",
+    "facesRight": "Optional, default true.",
+    "baseAction": "Optional, true on exactly one asset of a multi-action single-character group.",
+    "loop": "Optional, default true.",
+    "duration": "Optional ms-per-frame override. 0 = sheet addressed by frame index, no animation.",
+    "textureAlias": "Optional TEXTURE.<alias> constant.",
+    "animAlias": "Optional ANIM.<alias> constant.",
+    "icons": "Optional string[] on an icon/prop sheet; index = frame number, each name adds ICON.<name>."
+  },
+  "groups": [
+    {
+      "group": "hero",
+      "owner": "gen-hero",
+      "scaleProfile": "public/assets/generated/hero/hero-scale.json",
+      "assets": [
+        {
+          "id": "hero-idle",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 150,
+          "action": "Duskhauler idle: 4f breathing sway with 2px dead-stutter",
+          "writeScaleProfile": "games/2026-08-29-duskhaul/public/assets/generated/hero/hero-scale.json",
+          "baseAction": true,
+          "animAlias": "heroIdle",
+          "profileName": "hero"
+        },
+        {
+          "id": "hero-run",
+          "kind": "body",
+          "rows": 2,
+          "cols": 3,
+          "duration": 110,
+          "action": "6f hunched loping run",
+          "animAlias": "heroRun"
+        },
+        {
+          "id": "hero-hurt",
+          "kind": "body",
+          "rows": 1,
+          "cols": 2,
+          "duration": 90,
+          "loop": false,
+          "action": "2f hurt flash-recoil",
+          "animAlias": "heroHurt"
+        },
+        {
+          "id": "hero-channel",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 140,
+          "action": "4f kneeling extraction rite loop",
+          "animAlias": "heroChannel"
+        },
+        {
+          "id": "hero-death",
+          "kind": "body",
+          "rows": 2,
+          "cols": 3,
+          "duration": 100,
+          "loop": false,
+          "action": "6f collapse, pack spills",
+          "animAlias": "heroDeath"
+        },
+        {
+          "id": "hero-extract",
+          "kind": "body",
+          "rows": 2,
+          "cols": 3,
+          "duration": 110,
+          "loop": false,
+          "action": "6f dissolve into violet light",
+          "animAlias": "heroExtract"
+        }
+      ]
+    },
+    {
+      "group": "enemies-light",
+      "owner": "gen-enemies-light",
+      "assets": [
+        {
+          "id": "enemy-husk-move",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 140,
+          "action": "Grave Husk shuffle",
+          "writeScaleProfile": "games/2026-08-29-duskhaul/public/assets/generated/enemies-light/husk-scale.json",
+          "profileName": "husk"
+        },
+        {
+          "id": "enemy-husk-death",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 100,
+          "loop": false,
+          "action": "Grave Husk crumble"
+        },
+        {
+          "id": "enemy-wretch-move",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 110,
+          "action": "Gloam Wretch ragged sprint",
+          "writeScaleProfile": "games/2026-08-29-duskhaul/public/assets/generated/enemies-light/wretch-scale.json",
+          "profileName": "wretch"
+        },
+        {
+          "id": "enemy-wretch-death",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 100,
+          "loop": false,
+          "action": "Gloam Wretch folds and skids"
+        },
+        {
+          "id": "enemy-ratking-move",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 120,
+          "action": "Rot Ratking scuttle",
+          "writeScaleProfile": "games/2026-08-29-duskhaul/public/assets/generated/enemies-light/ratking-scale.json",
+          "profileName": "ratking"
+        },
+        {
+          "id": "enemy-ratking-death",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 90,
+          "loop": false,
+          "action": "Ratking scatters"
+        },
+        {
+          "id": "enemy-bonecaster-move",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 150,
+          "action": "Bonecaster hover-shamble",
+          "writeScaleProfile": "games/2026-08-29-duskhaul/public/assets/generated/enemies-light/bonecaster-scale.json",
+          "profileName": "bonecaster"
+        },
+        {
+          "id": "enemy-bonecaster-attack",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 110,
+          "loop": false,
+          "action": "Bonecaster marrow-dart lob with amber windup"
+        },
+        {
+          "id": "enemy-bonecaster-death",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 100,
+          "loop": false,
+          "action": "Bonecaster robes drop over collapsing bones"
+        },
+        {
+          "id": "enemy-thornhound-move",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 110,
+          "action": "Thornhound circling trot",
+          "writeScaleProfile": "games/2026-08-29-duskhaul/public/assets/generated/enemies-light/thornhound-scale.json",
+          "profileName": "thornhound"
+        },
+        {
+          "id": "enemy-thornhound-attack",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 90,
+          "loop": false,
+          "action": "Thornhound crouch telegraph then lunge"
+        },
+        {
+          "id": "enemy-thornhound-death",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 100,
+          "loop": false,
+          "action": "Thornhound briars unravel"
+        },
+        {
+          "id": "enemy-shroudmoth-move",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 130,
+          "action": "Shroudmoth drift",
+          "writeScaleProfile": "games/2026-08-29-duskhaul/public/assets/generated/enemies-light/shroudmoth-scale.json",
+          "profileName": "shroudmoth"
+        },
+        {
+          "id": "enemy-shroudmoth-death",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 90,
+          "loop": false,
+          "action": "Shroudmoth tears to silk scraps"
+        },
+        {
+          "id": "enemy-pyreling-move",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 120,
+          "action": "Pyreling bob",
+          "writeScaleProfile": "games/2026-08-29-duskhaul/public/assets/generated/enemies-light/pyreling-scale.json",
+          "profileName": "pyreling"
+        },
+        {
+          "id": "enemy-pyreling-death",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 80,
+          "loop": false,
+          "action": "Pyreling cinder death-burst"
+        },
+        {
+          "id": "enemy-ashwraith-move",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 130,
+          "action": "Ashwraith glide",
+          "writeScaleProfile": "games/2026-08-29-duskhaul/public/assets/generated/enemies-light/ashwraith-scale.json",
+          "profileName": "ashwraith"
+        },
+        {
+          "id": "enemy-ashwraith-death",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 90,
+          "loop": false,
+          "action": "Ashwraith disperses to ash"
+        }
+      ]
+    },
+    {
+      "group": "enemies-heavy",
+      "owner": "gen-enemies-heavy",
+      "assets": [
+        {
+          "id": "enemy-paleknight-move",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 160,
+          "action": "Pale Knight stomp",
+          "writeScaleProfile": "games/2026-08-29-duskhaul/public/assets/generated/enemies-heavy/paleknight-scale.json",
+          "profileName": "paleknight"
+        },
+        {
+          "id": "enemy-paleknight-death",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 110,
+          "loop": false,
+          "action": "Pale Knight armour falls apart empty"
+        },
+        {
+          "id": "enemy-marrowworm-move",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 140,
+          "action": "Marrowworm burrow-surge",
+          "writeScaleProfile": "games/2026-08-29-duskhaul/public/assets/generated/enemies-heavy/marrowworm-scale.json",
+          "profileName": "marrowworm"
+        },
+        {
+          "id": "enemy-marrowworm-death",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 100,
+          "loop": false,
+          "action": "Marrowworm splits and goes limp"
+        },
+        {
+          "id": "enemy-dirgebell-move",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 150,
+          "action": "Dirgebell float, clapper swing",
+          "writeScaleProfile": "games/2026-08-29-duskhaul/public/assets/generated/enemies-heavy/dirgebell-scale.json",
+          "profileName": "dirgebell"
+        },
+        {
+          "id": "enemy-dirgebell-death",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 100,
+          "loop": false,
+          "action": "Dirgebell cracks and drops"
+        },
+        {
+          "id": "enemy-gildedghoul-move",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 110,
+          "action": "Gilded Ghoul flee-scamper",
+          "writeScaleProfile": "games/2026-08-29-duskhaul/public/assets/generated/enemies-heavy/gildedghoul-scale.json",
+          "profileName": "gildedghoul"
+        },
+        {
+          "id": "enemy-gildedghoul-death",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 100,
+          "loop": false,
+          "action": "Gilded Ghoul bursts into gilt shards"
+        }
+      ]
+    },
+    {
+      "group": "elites-warden",
+      "owner": "gen-elites-warden",
+      "scaleProfile": "public/assets/generated/elites-warden/warden-scale.json",
+      "assets": [
+        {
+          "id": "elite-reaper-move",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 140,
+          "action": "Sorrow Reaper stride",
+          "writeScaleProfile": "games/2026-08-29-duskhaul/public/assets/generated/elites-warden/reaper-scale.json",
+          "profileName": "reaper"
+        },
+        {
+          "id": "elite-reaper-attack",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 110,
+          "loop": false,
+          "action": "Sorrow Reaper telegraphed sweep"
+        },
+        {
+          "id": "elite-reaper-death",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 110,
+          "loop": false,
+          "action": "Sorrow Reaper folds over the scythe"
+        },
+        {
+          "id": "elite-matron-move",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 150,
+          "action": "Widow Matron drag",
+          "writeScaleProfile": "games/2026-08-29-duskhaul/public/assets/generated/elites-warden/matron-scale.json",
+          "profileName": "matron"
+        },
+        {
+          "id": "elite-matron-attack",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 110,
+          "loop": false,
+          "action": "Widow Matron web spray"
+        },
+        {
+          "id": "elite-matron-death",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 110,
+          "loop": false,
+          "action": "Widow Matron bursts and shrivels"
+        },
+        {
+          "id": "elite-herald-move",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 140,
+          "action": "Dread Herald march",
+          "writeScaleProfile": "games/2026-08-29-duskhaul/public/assets/generated/elites-warden/herald-scale.json",
+          "profileName": "herald"
+        },
+        {
+          "id": "elite-herald-attack",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 110,
+          "loop": false,
+          "action": "Dread Herald banner-plant rally"
+        },
+        {
+          "id": "elite-herald-death",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 110,
+          "loop": false,
+          "action": "Dread Herald falls, banner snaps"
+        },
+        {
+          "id": "boss-warden-idle",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 160,
+          "action": "Gate Warden idle, castle skin",
+          "writeScaleProfile": "games/2026-08-29-duskhaul/public/assets/generated/elites-warden/warden-scale.json",
+          "baseAction": true,
+          "profileName": "warden",
+          "animAlias": "wardenIdle"
+        },
+        {
+          "id": "boss-warden-sweep",
+          "kind": "body",
+          "rows": 2,
+          "cols": 3,
+          "duration": 100,
+          "loop": false,
+          "action": "Gate Warden 6f mace sweep",
+          "animAlias": "wardenSweep"
+        },
+        {
+          "id": "boss-warden-summon",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 130,
+          "loop": false,
+          "action": "Gate Warden summon sigils + chain shield",
+          "animAlias": "wardenSummon"
+        },
+        {
+          "id": "boss-warden-enrage",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 110,
+          "action": "Gate Warden enrage loop",
+          "animAlias": "wardenEnrage"
+        },
+        {
+          "id": "boss-warden-death",
+          "kind": "body",
+          "rows": 2,
+          "cols": 4,
+          "duration": 110,
+          "loop": false,
+          "action": "Gate Warden 8f death, chains snap",
+          "animAlias": "wardenDeath"
+        },
+        {
+          "id": "boss-warden-idle-outlands",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 160,
+          "action": "Warden outlands skin idle",
+          "animAlias": "wardenIdleOutlands"
+        },
+        {
+          "id": "boss-warden-idle-desert",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 160,
+          "action": "Warden desert skin idle",
+          "animAlias": "wardenIdleDesert"
+        },
+        {
+          "id": "boss-warden-idle-winter",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 160,
+          "action": "Warden winter skin idle",
+          "animAlias": "wardenIdleWinter"
+        }
+      ]
+    },
+    {
+      "group": "pickups-fx",
+      "owner": "gen-pickups-fx",
+      "assets": [
+        {
+          "id": "shard-glint",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 90,
+          "action": "Gilt shard 4f glint",
+          "textureAlias": "shard",
+          "animAlias": "shard"
+        },
+        {
+          "id": "xp-mote",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 100,
+          "action": "Soul mote 4f pulse — the XP pickup (objects/xporb.ts)",
+          "animAlias": "xpOrb"
+        },
+        {
+          "id": "bolt-arcane",
+          "kind": "fx",
+          "rows": 1,
+          "cols": 1,
+          "action": "Arcane bolt, static, pointing right — the projectile (objects/projectile.ts)",
+          "textureAlias": "bullet"
+        },
+        {
+          "id": "relic-hover-t1",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 140,
+          "action": "Tarnished relic 4f hover-bob",
+          "textureAlias": "relicT1"
+        },
+        {
+          "id": "relic-hover-t2",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 140,
+          "action": "Burnished relic 4f hover-bob",
+          "textureAlias": "relicT2"
+        },
+        {
+          "id": "relic-hover-t3",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 140,
+          "action": "Gilded relic 4f hover-bob",
+          "textureAlias": "relicT3"
+        },
+        {
+          "id": "relic-hover-t4",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 140,
+          "action": "Dread relic 4f hover-bob",
+          "textureAlias": "relicT4"
+        },
+        {
+          "id": "chest-open",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 110,
+          "loop": false,
+          "action": "Coffin chest 4f open",
+          "textureAlias": "chest"
+        },
+        {
+          "id": "casket-sparkle",
+          "kind": "fx",
+          "rows": 1,
+          "cols": 2,
+          "duration": 160,
+          "action": "Casket pin 2f sparkle",
+          "textureAlias": "casket"
+        }
+      ]
+    },
+    {
+      "group": "gates-collapse",
+      "owner": "gen-gates-collapse",
+      "assets": [
+        {
+          "id": "gate-closed",
+          "kind": "fx",
+          "rows": 1,
+          "cols": 1,
+          "action": "Extraction gate closed, barred grey arch",
+          "textureAlias": "gateClosed"
+        },
+        {
+          "id": "gate-opening",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 3,
+          "duration": 110,
+          "loop": false,
+          "action": "Gate 6f grind open, violet kindles",
+          "animAlias": "gateOpening"
+        },
+        {
+          "id": "gate-open",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 130,
+          "action": "Gate open 4f violet flame loop",
+          "animAlias": "gateOpen"
+        },
+        {
+          "id": "gate-closing",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 110,
+          "action": "Gate closing 4f amber-flicker warning",
+          "animAlias": "gateClosing"
+        },
+        {
+          "id": "collapse-ring",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 90,
+          "action": "Collapse dusk-fire wall segment, 4f, tileable",
+          "animAlias": "collapseRing"
+        }
+      ]
+    },
+    {
+      "group": "zone-castle",
+      "owner": "gen-zone-castle",
+      "assets": [
+        {
+          "id": "enemy-chapelghast-move",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 120,
+          "action": "Chapel Ghast prowl",
+          "writeScaleProfile": "games/2026-08-29-duskhaul/public/assets/generated/zone-castle/chapelghast-scale.json",
+          "profileName": "chapelghast"
+        },
+        {
+          "id": "enemy-chapelghast-death",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 100,
+          "loop": false,
+          "action": "Chapel Ghast shreds to grave-cloth"
+        },
+        {
+          "id": "enemy-gargoyle-move",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 150,
+          "action": "Rust Gargoyle perch-shift",
+          "writeScaleProfile": "games/2026-08-29-duskhaul/public/assets/generated/zone-castle/gargoyle-scale.json",
+          "profileName": "gargoyle"
+        },
+        {
+          "id": "enemy-gargoyle-attack",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 90,
+          "loop": false,
+          "action": "Rust Gargoyle dive"
+        },
+        {
+          "id": "enemy-gargoyle-death",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 110,
+          "loop": false,
+          "action": "Rust Gargoyle shatters to rubble"
+        },
+        {
+          "id": "floor-castle",
+          "kind": "bg",
+          "rows": 1,
+          "cols": 1,
+          "strict": false,
+          "action": "Bleakspire flagstone floor, seamless tile",
+          "textureAlias": "floorCastle"
+        },
+        {
+          "id": "border-castle",
+          "kind": "bg",
+          "rows": 1,
+          "cols": 1,
+          "strict": false,
+          "action": "Bleakspire rampart border band, tileable",
+          "textureAlias": "borderCastle"
+        },
+        {
+          "id": "props-castle-a",
+          "kind": "ui",
+          "rows": 3,
+          "cols": 3,
+          "icons": [
+            "brazier-lit",
+            "brazier-cold",
+            "banner",
+            "coffin",
+            "pew",
+            "rubble",
+            "torch",
+            "statue",
+            "bones"
+          ],
+          "action": "Castle props A"
+        },
+        {
+          "id": "props-castle-b",
+          "kind": "ui",
+          "rows": 3,
+          "cols": 3,
+          "icons": [
+            "font",
+            "gatepiece",
+            "candles",
+            "tomb",
+            "fence",
+            "column",
+            "shrine",
+            "hook",
+            "shield"
+          ],
+          "action": "Castle props B"
+        }
+      ]
+    },
+    {
+      "group": "zone-outlands",
+      "owner": "gen-zone-outlands",
+      "assets": [
+        {
+          "id": "enemy-kite-move",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 100,
+          "action": "Carrion Kite swoop-circle",
+          "writeScaleProfile": "games/2026-08-29-duskhaul/public/assets/generated/zone-outlands/kite-scale.json",
+          "profileName": "kite"
+        },
+        {
+          "id": "enemy-kite-death",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 90,
+          "loop": false,
+          "action": "Carrion Kite tumbles in feathers"
+        },
+        {
+          "id": "enemy-giant-move",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 170,
+          "action": "Sloughed Giant trudge",
+          "writeScaleProfile": "games/2026-08-29-duskhaul/public/assets/generated/zone-outlands/giant-scale.json",
+          "profileName": "giant"
+        },
+        {
+          "id": "enemy-giant-attack",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 110,
+          "loop": false,
+          "action": "Sloughed Giant ground slam"
+        },
+        {
+          "id": "enemy-giant-death",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 120,
+          "loop": false,
+          "action": "Sloughed Giant topples"
+        },
+        {
+          "id": "floor-outlands",
+          "kind": "bg",
+          "rows": 1,
+          "cols": 1,
+          "strict": false,
+          "action": "Ashen mudflat floor, seamless tile",
+          "textureAlias": "floorOutlands"
+        },
+        {
+          "id": "border-outlands",
+          "kind": "bg",
+          "rows": 1,
+          "cols": 1,
+          "strict": false,
+          "action": "Dead bramble border band, tileable",
+          "textureAlias": "borderOutlands"
+        },
+        {
+          "id": "props-outlands-a",
+          "kind": "ui",
+          "rows": 3,
+          "cols": 3,
+          "icons": [
+            "ribcage",
+            "gibbet",
+            "bramble",
+            "dune",
+            "cart",
+            "cairn",
+            "tree",
+            "mudpool",
+            "wheel"
+          ],
+          "action": "Outlands props A"
+        },
+        {
+          "id": "props-outlands-b",
+          "kind": "ui",
+          "rows": 3,
+          "cols": 3,
+          "icons": [
+            "cage",
+            "scarecrow",
+            "vent",
+            "bonefence",
+            "milestone",
+            "perch",
+            "tent",
+            "firepit",
+            "shrine-ash"
+          ],
+          "action": "Outlands props B"
+        }
+      ]
+    },
+    {
+      "group": "zone-desert",
+      "owner": "gen-zone-desert",
+      "assets": [
+        {
+          "id": "enemy-leech-move",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 130,
+          "action": "Dune Leech sand-swim",
+          "writeScaleProfile": "games/2026-08-29-duskhaul/public/assets/generated/zone-desert/leech-scale.json",
+          "profileName": "leech"
+        },
+        {
+          "id": "enemy-leech-attack",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 90,
+          "loop": false,
+          "action": "Dune Leech surfaces mouth-first"
+        },
+        {
+          "id": "enemy-leech-death",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 100,
+          "loop": false,
+          "action": "Dune Leech deflates into sand"
+        },
+        {
+          "id": "enemy-scarab-move",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 110,
+          "action": "Gilt Scarab skitter",
+          "writeScaleProfile": "games/2026-08-29-duskhaul/public/assets/generated/zone-desert/scarab-scale.json",
+          "profileName": "scarab"
+        },
+        {
+          "id": "enemy-scarab-death",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 90,
+          "loop": false,
+          "action": "Gilt Scarab cracks open spilling shards"
+        },
+        {
+          "id": "floor-desert",
+          "kind": "bg",
+          "rows": 1,
+          "cols": 1,
+          "strict": false,
+          "action": "Bone-white dune floor, seamless tile",
+          "textureAlias": "floorDesert"
+        },
+        {
+          "id": "border-desert",
+          "kind": "bg",
+          "rows": 1,
+          "cols": 1,
+          "strict": false,
+          "action": "High dune ridge border band, tileable",
+          "textureAlias": "borderDesert"
+        },
+        {
+          "id": "props-desert-a",
+          "kind": "ui",
+          "rows": 3,
+          "cols": 3,
+          "icons": [
+            "statuehead",
+            "well",
+            "canopy",
+            "ribs",
+            "pit",
+            "obelisk",
+            "urns",
+            "palm",
+            "skulls"
+          ],
+          "action": "Desert props A"
+        },
+        {
+          "id": "props-desert-b",
+          "kind": "ui",
+          "rows": 3,
+          "cols": 3,
+          "icons": [
+            "wreck",
+            "sunbanner",
+            "mound",
+            "cistern",
+            "lintel",
+            "salt",
+            "vulture",
+            "awning",
+            "shrine-sun"
+          ],
+          "action": "Desert props B"
+        }
+      ]
+    },
+    {
+      "group": "zone-winter",
+      "owner": "gen-zone-winter",
+      "assets": [
+        {
+          "id": "enemy-widow-move",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 140,
+          "action": "Frost Widow creep",
+          "writeScaleProfile": "games/2026-08-29-duskhaul/public/assets/generated/zone-winter/widow-scale.json",
+          "profileName": "widow"
+        },
+        {
+          "id": "enemy-widow-attack",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 100,
+          "loop": false,
+          "action": "Frost Widow rears, lays web"
+        },
+        {
+          "id": "enemy-widow-death",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 100,
+          "loop": false,
+          "action": "Frost Widow curls and frosts over"
+        },
+        {
+          "id": "enemy-yeti-move",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 160,
+          "action": "Hollow Yeti lumber",
+          "writeScaleProfile": "games/2026-08-29-duskhaul/public/assets/generated/zone-winter/yeti-scale.json",
+          "profileName": "yeti"
+        },
+        {
+          "id": "enemy-yeti-attack",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 100,
+          "loop": false,
+          "action": "Hollow Yeti enrage flurry"
+        },
+        {
+          "id": "enemy-yeti-death",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 110,
+          "loop": false,
+          "action": "Hollow Yeti collapses, ribcage caves"
+        },
+        {
+          "id": "floor-winter",
+          "kind": "bg",
+          "rows": 1,
+          "cols": 1,
+          "strict": false,
+          "action": "Blue snowfield floor with corpses under ice, seamless tile",
+          "textureAlias": "floorWinter"
+        },
+        {
+          "id": "border-winter",
+          "kind": "bg",
+          "rows": 1,
+          "cols": 1,
+          "strict": false,
+          "action": "Shattered shrine wall border band, tileable",
+          "textureAlias": "borderWinter"
+        },
+        {
+          "id": "props-winter-a",
+          "kind": "ui",
+          "rows": 3,
+          "cols": 3,
+          "icons": [
+            "torchring",
+            "frozencorpse",
+            "wallshard",
+            "icesheet",
+            "drift",
+            "frozenwell",
+            "pine",
+            "sled",
+            "icicle"
+          ],
+          "action": "Winter props A"
+        },
+        {
+          "id": "props-winter-b",
+          "kind": "ui",
+          "rows": 3,
+          "cols": 3,
+          "icons": [
+            "bellshrine",
+            "frostcairn",
+            "fountain",
+            "buriedgate",
+            "lantern",
+            "webpatch",
+            "bonetree",
+            "stormstone",
+            "shrine-ice"
+          ],
+          "action": "Winter props B"
+        }
+      ]
+    },
+    {
+      "group": "ui-icons",
+      "owner": "gen-ui-icons",
+      "assets": [
+        {
+          "id": "icons",
+          "kind": "ui",
+          "rows": 4,
+          "cols": 4,
+          "icons": [
+            "shard",
+            "relic-t1",
+            "relic-t2",
+            "relic-t3",
+            "relic-t4",
+            "casket",
+            "gate-arrow",
+            "pause",
+            "gear-blade",
+            "gear-shroud",
+            "gear-trinket",
+            "zone-castle",
+            "zone-outlands",
+            "zone-desert",
+            "zone-winter",
+            "skull"
+          ],
+          "action": "HUD glyph sheet, 16 glyphs, equal optical size and stroke weight"
+        },
+        {
+          "id": "emblem",
+          "kind": "ui",
+          "rows": 1,
+          "cols": 1,
+          "action": "Duskhaul wordless title crest",
+          "textureAlias": "logo"
+        },
+        {
+          "id": "bg-menu",
+          "kind": "bg",
+          "rows": 1,
+          "cols": 1,
+          "strict": false,
+          "aspect_ratio": "9:16",
+          "action": "Menu backdrop, portrait 9:16, dusk horizon over ruined province",
+          "textureAlias": "bgMenu"
+        }
+      ]
+    }
+  ],
+  "qcExceptions": [
+    {
+      "id": "zone-*/floor-*",
+      "reason": "Full-bleed seamless floor tiles deliberately touch every canvas edge; strict background QC cannot pass by design (documented strict:false exception, same class as template arena/floor)."
+    },
+    {
+      "id": "zone-*/border-*",
+      "reason": "Tileable border bands touch the canvas edge on purpose; strict:false by design."
+    },
+    {
+      "id": "ui-icons/bg-menu",
+      "reason": "Full-bleed 9:16 backdrop; strict:false by design (template bg/arena precedent)."
+    },
+    {
+      "id": "elites-warden/boss-warden-idle-*",
+      "reason": "Zone skins ship as fully generated idle sheets (shoulder/crown silhouette swap per PRD §11); sweep/summon/enrage/death sheets are shared from the castle base — at boss render size skin identity reads from idle/crown, and 4x5 fully-skinned action sets would spend ~17 extra generations on frames visible <10s per run."
+    },
+    {
+      "id": "zone-winter/floor-winter",
+      "reason": "Palette meanDistance 44.48 (inside the profile's 48 cap, but over the zone brief's stricter 36): style.json's 18-colour list contains NO cold blue, so a correct Widow's Crown snowfield cannot score near 36. This REPLACES the previous tile, which scored 48.46 — actually over the cap — because it had been compromised toward the plum-grey palette until it read as grey slate rock rather than snow, which is the defect the pre-handoff critic flagged. Regenerated to hold the zone's cold-blue snow identity; the gate, not the tile, is what cannot be satisfied here."
+    },
+    {
+      "id": "zone-desert/floor-desert",
+      "reason": "art_review value-tier-absent:dark (0.4% dark against a planned 60%). This is the DESERT MIRROR RISK the zone brief names explicitly: the zone inverts figure/ground on purpose — a light bone field so the dark actors read as holes in the sand — so style.json's actor-authored 60/32/8 valuePlan cannot apply to this tile. Verified non-discriminating for floors: the same art_review call fails value-tier-absent:light on the castle and outlands floors, the two tiles the critic judged excellent, and reports silhouette distance 0.000 between all four because a full-bleed tile's occupancy is identically 1.0. Hard gates all pass: minAlpha 255, no black mass (0.01% under luma 60, all of it the style's own 1px bone-chip outlines), palette meanDistance 29.55, and actor figure/ground clash 0.63% against the old tile's 27.45%. Residual weakness kept knowingly: the violet trough mid tier reads thinner than the briefed one third (mid 5.6%)."
+    }
+  ],
+  "integration": {
+    "note": "scripts/gen-art-registry.mjs is the only writer of src/data/art.ts. Integrator must add groups hero, enemies-light, enemies-heavy, elites-warden, pickups-fx, gates-collapse, zone-castle, zone-outlands, zone-desert, zone-winter, ui-icons to the arena slice's ART_GROUPS.",
+    "registry": "node scripts/gen-art-registry.mjs"
+  }
+}

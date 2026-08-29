@@ -1,0 +1,64 @@
+{
+  "schema": "sprite-forge.style.v1",
+  "name": "duskhaul-grit",
+  "artStyle": "Grimdark gritty pixel art: chunky low-resolution sprites drawn on a 16px silhouette grid and rendered crisp at 2x cells, with a 1px hard outline in the darkest palette colour around every silhouette. Dithered two-step shading only, no anti-aliasing, no smooth gradients, no painterly edges. Surfaces are dirty and wet: rusted iron, mud-caked bone, moss-seamed stone, each carrying exactly one small wet-surface specular where torchlight strikes. Everything dead sags and slumps; proportions are heavy-shouldered and hunched, never heroic or cute. Orthographic 3/4 top-down camera at constant distance and constant standing-equivalent scale. Forbidden: clean saturated cartoon colour, glossy plastic finish, anti-aliased curves, lettering, texture noise finer than the pixel grid.",
+  "palette": [
+    "#0d0b10",
+    "#1a1520",
+    "#2b2431",
+    "#4a4452",
+    "#6e6875",
+    "#8a9a5b",
+    "#57663a",
+    "#5b4bff",
+    "#37307d",
+    "#c084fc",
+    "#f0ccfc",
+    "#d9a24b",
+    "#8a6428",
+    "#c0392b",
+    "#7b2418",
+    "#e8c547",
+    "#e8e0d0",
+    "#a89f8c"
+  ],
+  "camera": "Orthographic 3/4 top-down view, subject centred, constant camera distance and constant standing-equivalent scale across every frame and every asset in the set.",
+  "lighting": "Single guttering torch key light from the upper left in warm amber, cool dusk ambient from everywhere else, one small wet-surface specular per material where the torchlight strikes. Lights are confined to metal edges, flame, arcane glow and loot glints. No cast shadow, no ground contact shading, no ground plane.",
+  "outline": "Uniform 1px outline in near-black #0d0b10 on the outer silhouette; internal separation lines only between overlapping body parts, also #0d0b10. Never a light or coloured outline.",
+  "maxPaletteDistance": 48,
+  "plan": {
+    "valuePlan": {
+      "dark": 0.6,
+      "mid": 0.32,
+      "light": 0.08
+    },
+    "temperature": "Gameplay colour code, non-negotiable per asset: threat is dried-blood red #c0392b glows and telegraphs; reward is gilt #d9a24b shimmer on shards, relics and chests; extraction and arcane are dusk-violet #5b4bff light; the player and allies carry a gloam-green #8a9a5b rim; hazard telegraphs are torch-amber #e8c547. The world itself stays cold desaturated plum-grey so every coded hue reads at thumbnail size.",
+    "saturationHierarchy": [
+      "gilt reward shimmer",
+      "dusk-violet gate and arcane light",
+      "dried-blood threat glow",
+      "torch-amber hazard telegraphs",
+      "gloam-green player rim",
+      "bone-parchment neutrals",
+      "plum-grey stone and background"
+    ],
+    "focal": {
+      "primary": "the single glowing element of the sprite: eyes, arcane light, flame, or the icon glyph",
+      "secondary": "the silhouette-defining prop: scythe, banner, crown, bell, ribcage",
+      "rest": "large unbroken masses of dark plum-grey body, mud and stone"
+    },
+    "materials": {
+      "bone": "dry porous bone in parchment tones, chipped edges, two value steps, mud in the joints",
+      "metal": "rusted pitted iron, one thin wet specular along the struck edge, dark red-brown rust bloom",
+      "cloth": "rotten sodden cloth hanging heavy, ragged hems, two value steps, never a clean fold",
+      "stone": "wet cracked stone with moss seams, one damp highlight band where torchlight lands",
+      "flesh": "grey-green cadaver flesh, sunken, matte, darkest at the joints",
+      "energy": "hard-edged pixel glow in dusk violet or torch amber, a bright core and one dithered fringe step, never a soft bloom",
+      "wood": "split rain-black timber, straight sparse grain, iron nails"
+    },
+    "renderScale": 48
+  },
+  "references": [
+    "games/2026-08-29-duskhaul/art/refs/vision-1.png"
+  ]
+}

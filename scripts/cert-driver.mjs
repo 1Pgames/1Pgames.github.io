@@ -102,6 +102,11 @@
  *                    `window.__GAME__`. They take at most one JSON argument.
  *   adapter.<method> Node-side orchestration (`enterLevel`, `completeGate`,
  *                    `playLevel`, ...) which uses the `ctx` helpers below.
+ *   adapter.phases   The ordered tour `runCert` drives after the generic cold
+ *                    boot — one async function per phase, each taking `ctx`.
+ *                    The engine knows scenes and clocks; the ORDER of a
+ *                    family's loop (win path, loss path, shop/meta, re-entry)
+ *                    is family knowledge and lives here.
  *
  * `ctx` gives an adapter: `tap`, `drag`, `tapLabel`, `stableControl`, `buttons`,
  * `shot`, `waitFor`, `settle`, `settleUntil`, `sceneKeys`, `state`, `evalPage`,
@@ -174,13 +179,19 @@ const REPORT_NAME = 'cert-report.json';
  * durations composed from a tap timestamp and a frame timestamp are exact
  * rather than round-trip-inflated.
  */
-const pgInstall = () => {
+const pgInstall = (arg) => {
   const g = window.__GAME__;
   if (!g) return { ok: false, why: 'no window.__GAME__' };
   if (window.__CERT__ && window.__CERT__.installed) return { ok: true, reused: true };
 
   const cert = {
     installed: true,
+    /**
+     * The family's live simulation scene. Its labels change every frame (a run
+     * clock, a score, a shard count), so it is the one screen where TEXT is not
+     * evidence that a tap was acknowledged.
+     */
+    gameScene: arg && arg.gameScene ? arg.gameScene : null,
     t0: performance.now(),
     /** Armed ack probe: { label, base, down, ack, changed }. */
     pending: null,
@@ -191,6 +202,16 @@ const pgInstall = () => {
     busyProbe: null,
     lastFpsAt: 0,
     frames: 0,
+    /**
+     * Page-clock windows the fps scan must ignore. A `page.screenshot` stalls
+     * the compositor for a few hundred ms and `loop.actualFps` is a SMOOTHED
+     * average, so a capture depresses the reading well after the capture is
+     * over — measured at a 3s median of 51.5fps across a burst of surface
+     * screenshots on a build that held 110fps either side of them. Billing the
+     * measuring instrument to the game is the same mistake as measuring a
+     * transition across the driver's own round trip.
+     */
+    blackouts: [],
     /** Page-clock time of the most recent pointerup — the "decision" instant. */
     lastPointerUp: null,
     /** Where the browser actually delivered the last events, in DESIGN space. */
@@ -251,9 +272,28 @@ const pgInstall = () => {
         if (o.list) walk(o.list);
       }
     };
+    /**
+     * Label content, for every screen that is NOT the live simulation.
+     *
+     * Half the controls in this template answer a tap by REPAINTING rather
+     * than by moving: a gear cell that swaps "TAP TO EQUIP" for a relic name,
+     * a shop row whose price becomes a level, a mute toggle. Those repaints
+     * rebuild objects at the same coordinates, so a geometry-only signature
+     * reads them as "no reaction at all" and the driver invents a dead
+     * control. (Measured: the arena cert's gear cell equipped correctly and
+     * was still reported as a silent tap.) Excluded on the game scene, where a
+     * running clock would forge an instant acknowledgment for every tap.
+     */
+    const walkText = (list) => {
+      for (const o of list) {
+        if (typeof o.text === 'string' && o.text.length > 0) sig += `|t:${o.text}`;
+        if (o.list) walkText(o.list);
+      }
+    };
     for (const s of active) {
       sig += `#${s.scene.key}`;
       walk(s.children.list);
+      if (s.scene.key !== cert.gameScene) walkText(s.children.list);
       if (s.selector) sig += `|sel:${s.selector.visible ? 1 : 0},${Math.round(s.selector.x)},${Math.round(s.selector.y)}`;
       if (s.selected) sig += `|selc:${s.selected.col},${s.selected.row}`;
       if (Array.isArray(s.views)) {
@@ -328,7 +368,20 @@ const pgMark = (name) => {
 const pgCollect = () => {
   const c = window.__CERT__;
   if (!c) return null;
-  return { acks: c.acks, fps: c.fps, scenes: c.scenes, marks: c.marks, frames: c.frames };
+  return { acks: c.acks, fps: c.fps, scenes: c.scenes, marks: c.marks, frames: c.frames, blackouts: c.blackouts };
+};
+
+/** Opens an fps blackout; the returned page-clock instant closes it. */
+const pgBlackoutStart = () => performance.now();
+
+/** Closes one, with a tail long enough for the smoothed fps to recover. */
+const pgBlackoutEnd = (from) => {
+  const c = window.__CERT__;
+  if (!c) return null;
+  const window_ = [from, performance.now() + 700];
+  c.blackouts.push(window_);
+  if (c.blackouts.length > 400) c.blackouts.shift();
+  return window_;
 };
 
 /** Design-space geometry of the canvas plus the live active-scene key list. */
@@ -432,6 +485,8 @@ const boardAdapter = {
   gameScene: 'Game',
   /** Names of the beats fps is scored over. */
   heavyBeats: ['combo-cascade', 'win-finale'],
+  /** The phase sequence `runCert` drives after the generic cold boot. */
+  phases: [phaseWinSession, phaseShop, phaseLossSession, phaseMenuReentry],
 
   page: {
     state: () => {
@@ -1055,9 +1110,1542 @@ const boardAdapter = {
   },
 };
 
+// --- arena family adapter ---------------------------------------------------
+
+/**
+ * Survivor/extraction arenas (`src/slices/arena/`, family A). Written against
+ * Duskhaul, whose loop is the family's hardest shape to certify: a real-time
+ * horde with an 8-slot bag, three scheduled extraction gates, a hold-to-extract
+ * channel and a 480s Collapse. A run ends ONLY by extraction or by death.
+ *
+ * WHAT THE DRIVING POLICY IS
+ * The arena sim's skilled bot policy is "head for the gate you decided on,
+ * otherwise kite the crowd" (`src/sim/families/arena.ts`). `steerTo` mirrors
+ * the first half through the game's own documented keyboard axis (§3 WASD /
+ * arrows, `core/controls.ts`) — real input, never a teleport.
+ *
+ * WHAT IS FAST-FORWARDED, AND WHY THAT IS HONEST
+ * Gate A opens at 120s, Gate B at 240s, Gate C plus the Warden at 420s and the
+ * Collapse at 480s. A cert that waited for those organically would be an
+ * eight-minute lethality test whose outcome is a balance question — and balance
+ * is the SIM's job, which already gates it with 25/27 arena gates. So the
+ * clocks are driven and the player's hp is sustained:
+ *
+ *   - `page.fastForward` moves the director's and the extraction system's own
+ *     elapsed clocks and then RESYNCS the director's pending spawn slots. The
+ *     resync is not cosmetic: `RunDirector.tickPendingSpawns` catches a slot up
+ *     with `while (nextFireAtMs <= elapsedMs)`, so a clock jump over a live
+ *     drip would spawn the whole skipped interval in one frame and wedge the
+ *     page. Endless drips are re-based to "now" and finite backlogs are
+ *     retired, so the field the late beats are photographed on is THINNER than
+ *     a real 480s run, never denser.
+ *   - `page.sustain` tops the player's hp up from the game loop's own poststep.
+ *
+ * Everything those two enable — the gate windows, the channel, the Warden's
+ * entrance, the Collapse ignition, the two settlements — is certified as
+ * PRESENTATION and STATE TRANSITIONS: does the state machine reach the state,
+ * does the view agree with the model when it gets there, does the screen say
+ * the right thing, is the frame budget held. Neither lethality nor economy
+ * balance is asserted anywhere in this adapter.
+ */
+const arenaAdapter = {
+  name: 'arena',
+  gameScene: 'Game',
+  /**
+   * PRD §13's two named peak beats plus the draft, which is the ceremony the
+   * player meets most often. fps is scored over a 3s window from each.
+   */
+  heavyBeats: ['warden-spawn', 'collapse-ignition', 'draft-open'],
+  phases: [
+    arenaPhaseFirstRun,
+    arenaPhasePause,
+    arenaPhaseExtraction,
+    arenaPhaseLateGameDeath,
+    arenaPhaseSurfaces,
+  ],
+
+  page: {
+    /**
+     * The engine's contract fields plus the arena's own. `busy` is false by
+     * construction: a board has a resolve cascade to wait out, an arena does
+     * not — every frame reconciles the whole model into the view, so any frame
+     * is a legal moment to sweep. The states where the HUD feed is
+     * DELIBERATELY not running (draft, pause, coach beat, ended) are reported
+     * so `invariants` can skip them rather than read a frozen mirror.
+     */
+    state: () => {
+      const g = window.__GAME__;
+      const active = g.scene.scenes.filter((s) => s.scene.isActive()).map((s) => s.scene.key);
+      const s = g.scene.getScene('Game');
+      const live = active.includes('Game');
+      const started = live && !!s.combat && !!s.extraction && !!s.director;
+      if (!started) {
+        return {
+          active,
+          live,
+          started: false,
+          busy: false,
+          paused: false,
+          ended: false,
+          coachActive: false,
+          coachId: null,
+          gated: null,
+          acceptsInput: false,
+        };
+      }
+      const x = s.extraction;
+      const p = s.combat.player;
+      // A beat is identified by WHICH handle is live, not by a scene field the
+      // slice does not keep: `ui/coachBeats.ts` runs goal -> stick as one
+      // handle and `coachStickLive` is the handover flag between them.
+      let coachId = null;
+      if (s.gateCoach) coachId = 'gate';
+      else if (s.openingCoach) coachId = s.coachStickLive ? 'stick' : 'goal';
+      const collapse = x.collapse;
+      return {
+        active,
+        live,
+        started: true,
+        busy: false,
+        paused: !!s.paused,
+        ended: !!s.ended,
+        drafting: !!s.drafting,
+        pauseOpen: !!s.pauseOverlay,
+        coachActive: !!s.coachHold,
+        coachId,
+        // The stick beat ends on the taught MOVE and on nothing else, which is
+        // exactly the engine's "gated beat" shape.
+        gated: coachId === 'stick' ? { kind: 'move' } : null,
+        runS: Math.round(s.director.elapsedSeconds * 100) / 100,
+        extractionS: Math.round(x.elapsedS * 100) / 100,
+        phase: s.director.phase ? s.director.phase.name : null,
+        level: p.level,
+        hp: Math.round(p.health.hp * 10) / 10,
+        hpMax: p.health.max,
+        kills: s.kills,
+        taken: s.taken.length,
+        enemies: s.combat.aliveEnemies(),
+        bossActive: !!s.bossActive,
+        bag: {
+          slots: s.bag.slots,
+          used: s.bag.relics.length,
+          casketSlots: s.bag.casketSlots,
+          casket: s.bag.casket.map((r) => r.id),
+          shards: s.bag.shards,
+        },
+        gates: s.zoneGates.map((gt) => x.gateState(gt.id)).join(''),
+        channel: {
+          gate: x.channelingGate,
+          progress: Math.round(x.channelProgress * 1000) / 1000,
+          accumMs: Math.round(x.channelMsAccum),
+          effectiveMs: x.channelMsEffective,
+          rate: x.channelRate,
+        },
+        collapsing: collapse !== null && collapse.active === true,
+        extracted: !!x.extracted,
+        pendingDrafts: s.pendingDrafts,
+        acceptsInput: !!(live && !s.paused && !s.ended && !s.drafting && !s.coachHold),
+      };
+    },
+
+    /** Player, gates and the arena bounds — everything `steerTo` needs. */
+    field: () => {
+      const s = window.__GAME__.scene.getScene('Game');
+      if (!s || !s.combat || !s.extraction) return null;
+      const p = s.combat.player;
+      const x = s.extraction;
+      return {
+        player: { x: Math.round(p.x), y: Math.round(p.y), hp: Math.round(p.health.hp) },
+        gates: s.zoneGates.map((gt) => ({
+          id: gt.id,
+          x: Math.round(gt.x),
+          y: Math.round(gt.y),
+          state: x.gateState(gt.id),
+          opensS: gt.opensS,
+          closesS: gt.closesS,
+          dist: Math.round(Math.hypot(p.x - gt.x, p.y - gt.y)),
+        })),
+        channelRadius: x.suppressRadius,
+        arena: { w: s.arena.width, h: s.arena.height },
+        collapse:
+          x.collapse === null
+            ? null
+            : {
+                active: x.collapse.active,
+                radius: Math.round(x.collapse.ringRadius),
+                x: Math.round(x.collapseRingCenter.x),
+                y: Math.round(x.collapseRingCenter.y),
+              },
+        ended: !!s.ended,
+      };
+    },
+
+    /**
+     * LAST RESORT for the walk to a gate, and never silent: the caller files a
+     * major with the obstacle field first. Places the hero on the gate's own
+     * ring through the arena's clamp so the CHANNEL beats — the thing this
+     * phase exists to certify — are still exercised when the driver's pathing
+     * loses to a prop pocket. Reachability is a distance question the arena SIM
+     * owns and already gates; nothing here asserts it.
+     */
+    placeAtGate: (arg) => {
+      const s = window.__GAME__.scene.getScene('Game');
+      const gate = s.zoneGates.find((g) => g.id === arg.id);
+      if (gate === undefined) return null;
+      const out = { x: 0, y: 0 };
+      s.arena.clamp(gate.x, gate.y, 60, out);
+      // `setPosition` alone is undone on the next physics step: Arcade writes
+      // the GameObject back from the BODY every frame, so the hero snapped
+      // straight back to the prop he was stuck on and no channel ever started.
+      s.combat.player.body.reset(out.x, out.y);
+      return { placedAt: { x: Math.round(out.x), y: Math.round(out.y) }, gate: arg.id };
+    },
+
+    /**
+     * A heading toward a world point that steers AROUND the arena's props.
+     *
+     * The sim's skilled policy is geometry-free — it moves a point at a target
+     * on an empty plane — but the browser build scatters impassable circular
+     * props, and a straight hold walks the hero into one and holds him there.
+     * Measured: two of four cert runs pinned on a prop ~330px short of Gate A
+     * and burned the whole travel budget shuffling against it. So the blocker
+     * nearest along the line gets the heading rotated away from it, which is
+     * the smallest honest amount of pathing this needs: it changes WHERE the
+     * driver walks, never what the game does.
+     */
+    heading: (arg) => {
+      const s = window.__GAME__.scene.getScene('Game');
+      const p = s.combat.player;
+      const dx = arg.x - p.x;
+      const dy = arg.y - p.y;
+      const dist = Math.hypot(dx, dy) || 1;
+      let hx = dx / dist;
+      let hy = dy / dist;
+      const look = Math.min(320, dist);
+      const clearance = 58; // the hero's own half-width plus a margin
+      let nearest = null;
+      for (const obj of s.arena.obstacles.getChildren()) {
+        const b = obj.body;
+        if (!b) continue;
+        // Border walls are long rectangles the hero never has to round; only
+        // the scattered props are treated as blockers.
+        if (Math.max(b.width, b.height) > 400) continue;
+        const r = (b.isCircle ? b.radius : Math.max(b.halfWidth, b.halfHeight)) + clearance;
+        const relx = b.center.x - p.x;
+        const rely = b.center.y - p.y;
+        const along = relx * hx + rely * hy;
+        if (along < -r || along > look) continue;
+        const side = -relx * hy + rely * hx;
+        if (Math.abs(side) > r) continue;
+        if (nearest === null || along < nearest.along) nearest = { along, side };
+      }
+      const cert = window.__CERT__;
+      if (nearest !== null) {
+        // Commit to a side for a beat. Re-deciding every tick against a prop
+        // PAIR flips the heading left, right, left and the hero oscillates in
+        // the pocket between them — measured as a walk that stalled 468px short
+        // of an open gate with the whole travel budget spent.
+        const now = performance.now();
+        if (!cert.avoidSide || now > cert.avoidSide.until) {
+          cert.avoidSide = { side: nearest.side > 0 ? -1 : 1, until: now + 1400 };
+        }
+        const angle = Math.atan2(hy, hx) + cert.avoidSide.side * 1.2;
+        hx = Math.cos(angle);
+        hy = Math.sin(angle);
+      } else {
+        cert.avoidSide = null;
+      }
+      return {
+        hx: Math.round(hx * 1000) / 1000,
+        hy: Math.round(hy * 1000) / 1000,
+        dist: Math.round(dist),
+        blocked: nearest !== null,
+        player: { x: Math.round(p.x), y: Math.round(p.y) },
+        ended: !!s.ended,
+      };
+    },
+
+    /**
+     * View/model coherence sweep. Every entry has a shipped failure mode
+     * behind it: a gate arch left on the wrong state art after a close, a bag
+     * pip row that stopped repainting, a channel bar housing loitering in the
+     * band with nothing channelling, a pooled enemy handed out twice, and the
+     * pause affordance promising a tap the scene refuses.
+     *
+     * Skipped whenever the HUD feed is deliberately halted (draft, pause,
+     * coach beat, ended run): the mirror is frozen ON PURPOSE there, and
+     * reading it would report the design.
+     */
+    invariants: () => {
+      const s = window.__GAME__.scene.getScene('Game');
+      if (!s || !s.scene.isActive() || !s.combat || !s.extraction) {
+        return { skipped: true, reason: 'game scene not live', violations: [] };
+      }
+      if (s.drafting || s.paused || s.coachHold || s.ended) {
+        return { skipped: true, reason: 'hud feed intentionally halted', violations: [] };
+      }
+      const x = s.extraction;
+      const out = [];
+
+      // 1. gate visuals mirror the gate state machine.
+      for (const gate of s.zoneGates) {
+        const model = x.gateState(gate.id);
+        const shown = s.gateRingState ? s.gateRingState[gate.id] : null;
+        if (shown !== null && shown !== model) {
+          out.push(`gate-visual: ${gate.id} model=${model} drawn=${shown}`);
+        }
+        const sprite = s.gateSprites ? s.gateSprites[gate.id] : null;
+        if (sprite && (sprite.scene === null || sprite.scene === undefined)) {
+          out.push(`gate-visual: ${gate.id} arch was destroyed but is still referenced`);
+        }
+      }
+
+      // 2. the compass is fed only live gates, each with its true state.
+      const ids = new Set(s.zoneGates.map((g) => g.id));
+      for (const fed of s.compassGates) {
+        if (!ids.has(fed.id)) out.push(`compass: fed unknown gate ${fed.id}`);
+        else if (fed.state !== x.gateState(fed.id)) {
+          out.push(`compass: ${fed.id} fed as ${fed.state}, model says ${x.gateState(fed.id)}`);
+        }
+      }
+
+      // 3. the bag pips painted what the bag holds.
+      const pips = s.bagPips;
+      if (pips) {
+        if (pips.lastUsed !== s.bag.relics.length) {
+          out.push(`bag-pips: painted ${pips.lastUsed} used, bag holds ${s.bag.relics.length}`);
+        }
+        if (pips.lastSlots !== s.bag.slots) {
+          out.push(`bag-pips: painted ${pips.lastSlots} slots, bag has ${s.bag.slots}`);
+        }
+        if (pips.lastShards !== s.bag.shards) {
+          out.push(`bag-pips: shard readout ${pips.lastShards}, bag holds ${s.bag.shards}`);
+        }
+      }
+
+      // 4. the channel bar exists exactly while a channel is bound.
+      const bar = s.channelBar;
+      if (bar) {
+        const wanted = !x.extracted && x.channelingGate !== null;
+        if (bar.visible !== wanted) {
+          out.push(`channel-bar: visible=${bar.visible} but channellingGate=${x.channelingGate}`);
+        }
+      }
+
+      // 5. the enemy pool never hands the same body out twice, and never
+      //    leaves a despawned one in the live list.
+      const seen = new Set();
+      for (const enemy of s.combat.enemies) {
+        if (seen.has(enemy)) out.push('enemy-pool: one Enemy instance is in the live list twice');
+        seen.add(enemy);
+        if (enemy.active === false) out.push('enemy-pool: an inactive Enemy is still in the live list');
+      }
+
+      // 6. same for ground relics and shard caches.
+      const relicSeen = new Set();
+      for (const pickup of s.relics) {
+        if (relicSeen.has(pickup)) out.push('relic-pool: one RelicPickup is on the field twice');
+        relicSeen.add(pickup);
+      }
+      for (const cache of s.caches) {
+        if (!cache.img || cache.img.scene === null || cache.img.scene === undefined) {
+          out.push('cache: a destroyed image is still in the cache list');
+        }
+      }
+
+      // 7. the Collapse curtain only exists during the Collapse.
+      const collapsing = x.collapse !== null && x.collapse.active === true;
+      if (!collapsing) {
+        const lit = s.collapseSegments.filter((seg) => seg.visible).length;
+        if (lit > 0) out.push(`collapse: ${lit} curtain segment(s) visible with no Collapse running`);
+      }
+
+      // 8. §14b overlay exclusivity — exactly one overlay owns the screen.
+      if (s.cards && s.pauseOverlay) out.push('overlay: a draft and the pause overlay are both up');
+      if (s.pauseOverlay && s.coachHold) out.push('overlay: the pause overlay is up over a coach beat');
+
+      // 9. the pause affordance is as tappable as pausing is legal.
+      const legal = !s.drafting && !s.coachHold && !s.ended;
+      if (s.pauseAffordanceLive !== legal) {
+        out.push(`pause-affordance: mirror=${s.pauseAffordanceLive} legal=${legal}`);
+      }
+      const btn = s.pauseButton;
+      if (btn) {
+        const interactive = !!(btn.input && btn.input.enabled !== false);
+        if (interactive !== legal) {
+          out.push(`pause-affordance: interactive=${interactive} but pausing is ${legal ? '' : 'not '}legal`);
+        }
+        if (legal && btn.alpha < 0.99) out.push(`pause-affordance: legal but drawn at alpha ${btn.alpha}`);
+        if (!legal && btn.alpha > 0.5) out.push(`pause-affordance: refused but drawn at alpha ${btn.alpha}`);
+      }
+
+      // 10. tween leak guard — an arena runs thousands of one-shots a run and
+      //     an unremoved infinite loop is how a scene dies quietly.
+      const tweens = s.tweens.getTweens().length;
+      if (tweens > 400) out.push(`tween-leak: ${tweens} live tweens on the game scene`);
+
+      return { skipped: false, settled: true, violations: out.slice(0, 12), count: out.length, tweens };
+    },
+
+    /**
+     * Drives the run clock forward WITHOUT replaying the skipped minutes as one
+     * spawn burst. See the adapter header for why this is a legitimate cert
+     * move and what it does and does not claim.
+     */
+    fastForward: (arg) => {
+      const s = window.__GAME__.scene.getScene('Game');
+      const d = s.director;
+      const x = s.extraction;
+      const toMs = arg.toS * 1000;
+      if (toMs <= d.elapsedMs) return { skipped: true, atS: d.elapsedSeconds };
+      const fromMs = d.elapsedMs;
+
+      // Scripted one-shots inside the skipped window are consumed, not fired:
+      // three chest drafts arriving in one frame is a harness artefact, not a
+      // beat the game would ever produce.
+      let events = 0;
+      while (d.nextEventIndex < d.events.length && d.events[d.nextEventIndex].at <= arg.toS) {
+        d.nextEventIndex += 1;
+        events += 1;
+      }
+
+      d.elapsedMs = toMs;
+
+      // Register the waves whose start time we skipped so their endless drips
+      // exist, then retire every finite backlog and re-base every drip to now.
+      while (d.nextWaveIndex < d.waves.length && d.waves[d.nextWaveIndex].at <= arg.toS) {
+        const wave = d.waves[d.nextWaveIndex];
+        for (let i = 0; i < wave.spawns.length; i += 1) {
+          d.pending.push({ wave, spawnIndex: i, spawned: 0, nextFireAtMs: toMs });
+        }
+        d.nextWaveIndex += 1;
+      }
+      let drips = 0;
+      let retired = 0;
+      for (let i = d.pending.length - 1; i >= 0; i -= 1) {
+        const entry = d.pending[i];
+        const spec = entry.wave.spawns[entry.spawnIndex];
+        const endless = entry.wave.until !== undefined && (spec.everyMs ?? 0) > 0;
+        if (endless && entry.wave.until > arg.toS) {
+          entry.nextFireAtMs = toMs;
+          drips += 1;
+        } else {
+          d.pending.splice(i, 1);
+          retired += 1;
+        }
+      }
+
+      x.elapsedMs = toMs;
+      // The damage clock is sim time; leaving it behind would freeze i-frames
+      // and expiry windows relative to a clock that just moved ten minutes.
+      s.simTimeMs += toMs - fromMs;
+      return {
+        atS: d.elapsedSeconds,
+        jumpedS: Math.round((toMs - fromMs) / 100) / 10,
+        eventsSkipped: events,
+        dripsRebased: drips,
+        backlogRetired: retired,
+      };
+    },
+
+    /**
+     * Keeps the player alive from the game loop's own poststep so the late
+     * beats can be photographed. Never touches max hp, damage or i-frames — it
+     * refills, it does not armour.
+     */
+    sustain: (arg) => {
+      const g = window.__GAME__;
+      const c = window.__CERT__;
+      if (c.hpHook) {
+        g.events.off('poststep', c.hpHook);
+        c.hpHook = null;
+      }
+      if (!arg.on) return { on: false };
+      c.hpHook = () => {
+        const s = g.scene.getScene('Game');
+        if (!s || !s.scene.isActive() || !s.combat || s.ended) return;
+        const h = s.combat.player.health;
+        if (h.hp < h.max) h.hp = h.max;
+      };
+      g.events.on('poststep', c.hpHook);
+      return { on: true };
+    },
+
+    /** The draft overlay's real geometry and contents, off the scene tree. */
+    draft: () => {
+      const s = window.__GAME__.scene.getScene('Game');
+      if (!s || !s.cards) return null;
+      const root = s.children.list.find((o) => o.depth === 2000 && Array.isArray(o.list));
+      if (!root) return { cards: [], reroll: null, drafting: !!s.drafting, missingRoot: true };
+      const textsOf = (o) => {
+        const acc = [];
+        const walk = (list) => {
+          for (const child of list) {
+            if (typeof child.text === 'string' && child.text.length > 0) acc.push(child.text);
+            if (child.list) walk(child.list);
+          }
+        };
+        walk(o.list ?? []);
+        return acc;
+      };
+      const cards = [];
+      let reroll = null;
+      for (const child of root.list) {
+        if (!Array.isArray(child.list)) continue;
+        const label = child.getData ? child.getData('label') : undefined;
+        if (label !== undefined && label !== null) {
+          reroll = {
+            x: Math.round(child.x),
+            y: Math.round(child.y),
+            text: label.text,
+            alpha: Math.round(child.alpha * 100) / 100,
+          };
+          continue;
+        }
+        if (!child.input) continue;
+        cards.push({
+          x: Math.round(child.x),
+          y: Math.round(child.y),
+          w: Math.round(child.width ?? 0),
+          h: Math.round(child.height ?? 0),
+          texts: textsOf(child),
+        });
+      }
+      return {
+        cards,
+        reroll,
+        drafting: !!s.drafting,
+        rerollsUsed: s.rerollsUsedThisDraft,
+        rerollsAllowed: s.loadout ? s.loadout.rerollsPerDraft : null,
+        taken: s.taken.slice(),
+        pending: s.pendingDrafts,
+      };
+    },
+
+    /**
+     * Arms the channel-setback probe INSIDE the page, because the assertion is
+     * a per-frame one: a hit costs `extract.hitSetbackMs` off the accrual and
+     * stalls it, and must NEVER reset it to zero (PRD §7's completability law).
+     * The hit is injected at the same seam `onPlayerHit` writes — the scene's
+     * one-frame `tookHitSinceTick` flag — so the system under test sees exactly
+     * what a real contact produces.
+     */
+    armChannelHit: (arg) => {
+      const g = window.__GAME__;
+      const c = window.__CERT__;
+      const s = g.scene.getScene('Game');
+      if (c.channelHook) g.events.off('poststep', c.channelHook);
+      c.channelProbe = { armed: true, at: arg.atProgress, before: null, after: null, fired: false, peak: 0 };
+      c.channelHook = () => {
+        const p = c.channelProbe;
+        const x = s.extraction;
+        if (!x || s.ended) return;
+        p.peak = Math.max(p.peak, x.channelProgress);
+        if (p.fired) {
+          if (p.after === null) {
+            p.after = {
+              accumMs: x.channelMsAccum,
+              progress: x.channelProgress,
+              stallMs: x.channelStallMs,
+              interrupted: x.channelInterrupted,
+            };
+            g.events.off('poststep', c.channelHook);
+            c.channelHook = null;
+          }
+          return;
+        }
+        if (x.channelingGate === null || x.channelProgress < p.at) return;
+        p.before = { accumMs: x.channelMsAccum, progress: x.channelProgress };
+        // One frame of contact, delivered through the scene's own hit seam.
+        s.tookHitSinceTick = true;
+        p.fired = true;
+      };
+      g.events.on('poststep', c.channelHook);
+      return { armed: true, atProgress: arg.atProgress };
+    },
+
+    readChannelHit: () => {
+      const c = window.__CERT__;
+      return c.channelProbe ?? null;
+    },
+
+    /**
+     * Arms the "input during a ceremony" probe. The arena's ceremony is the
+     * level-up draft, and the control a player will aim at during one is the
+     * pause icon. `syncPauseAffordance` is supposed to have dimmed and deafened
+     * it BEFORE the tap — a legible refusal rather than a silent drop.
+     */
+    pauseProbeArm: () => {
+      const s = window.__GAME__.scene.getScene('Game');
+      if (!s.drafting) return null;
+      const b = s.pauseButton;
+      return {
+        drafting: true,
+        alpha: Math.round(b.alpha * 100) / 100,
+        interactive: !!(b.input && b.input.enabled !== false),
+        affordanceLive: !!s.pauseAffordanceLive,
+        pauseOpen: !!s.pauseOverlay,
+        cardTexts: s.cards ? 1 : 0,
+      };
+    },
+
+    pauseProbeRead: () => {
+      const s = window.__GAME__.scene.getScene('Game');
+      const b = s.pauseButton;
+      return {
+        stillDrafting: !!s.drafting,
+        pauseOpen: !!s.pauseOverlay,
+        paused: !!s.paused,
+        alpha: Math.round(b.alpha * 100) / 100,
+        interactive: !!(b.input && b.input.enabled !== false),
+      };
+    },
+
+    /**
+     * Lands `count` relics at the player's feet through the game's own drop
+     * path (`dropRelics`, the same call the Shrine and the chest use), so the
+     * casket-pin and the death-settlement beats do not depend on the ambient
+     * drip's timing. The ROLL is the game's; only the moment is the cert's.
+     */
+    dropRelicsAtFeet: (arg) => {
+      const s = window.__GAME__.scene.getScene('Game');
+      const p = s.combat.player;
+      s.dropRelics(p.x, p.y, arg.count, 0, arg.minTier ?? 0);
+      return { dropped: arg.count, onField: s.relics.length };
+    },
+
+    /** The pause overlay's bag row, as the player sees it. */
+    bagRow: () => {
+      const s = window.__GAME__.scene.getScene('Game');
+      if (!s.pauseOverlay) return null;
+      const row = s.readBagRow().map((r) => ({ id: r.id, name: r.name, tier: r.tier, pinned: r.pinned }));
+      // §14.5 geometry, read back from the same rule the overlay draws with.
+      const pitch = Math.min(88, 640 / Math.max(1, row.length));
+      const left = 360 - (pitch * (row.length - 1)) / 2;
+      return {
+        casketSlots: s.bag.casketSlots,
+        relics: row.map((r, i) => ({ ...r, x: Math.round(left + i * pitch), y: 1004 })),
+      };
+    },
+
+    /**
+     * Ends the run the way the Collapse ends an idler's: one frame of dusk fire,
+     * delivered at the scene's OWN hazard seam (`onHazardDrain`, the call
+     * `tickCollapse` makes every frame the hero stands outside the ring). That
+     * seam drains hp directly, still offers Last Gasp its refusal, and calls
+     * `die()` — so the settlement this certifies is the shipped one.
+     *
+     * Injected rather than walked into: the ring's start radius is derived from
+     * the hero's own distance to Gate C and can exceed the arena's remaining
+     * width, so "walk out of the ring" is not always geometrically available
+     * (measured: two runs in four never got outside it). Lethality is the sim's
+     * gate; this cert only needs the LOSS SETTLEMENT to happen.
+     */
+    duskFireKill: () => {
+      const s = window.__GAME__.scene.getScene('Game');
+      const before = Math.round(s.combat.player.health.hp);
+      s.onHazardDrain(before + 1);
+      return { hpBefore: before, ended: !!s.ended, collapsing: s.extraction.collapse?.active === true };
+    },
+
+    /** The results payload, verbatim. */
+    results: () => {
+      const s = window.__GAME__.scene.getScene('GameOver');
+      if (!s || !s.scene.isActive()) return null;
+      const texts = [];
+      const walk = (list) => {
+        for (const o of list) {
+          if (typeof o.text === 'string' && o.text.length > 0) texts.push(o.text);
+          if (o.list) walk(o.list);
+        }
+      };
+      walk(s.children.list);
+      return { result: { ...s.result }, texts: texts.slice(0, 20) };
+    },
+
+    /** The meta save, straight out of storage — the bank the haul lands in. */
+    meta: (slug) => {
+      const raw = localStorage.getItem(`${slug}:meta`);
+      if (raw === null) return null;
+      const meta = JSON.parse(raw);
+      return {
+        currency: meta.currency ?? 0,
+        stash: meta.stash ?? [],
+        gear: meta.gear ?? null,
+        upgrades: meta.upgrades ?? {},
+        stats: meta.stats ?? null,
+      };
+    },
+
+    /** Stash/gear/upgrade rows in design space, with the list band they live in. */
+    stash: () => {
+      const s = window.__GAME__.scene.getScene('Meta');
+      if (!s || !s.scene.isActive() || !s.content) return null;
+      const absolute = (o) => {
+        let x = o.x;
+        let y = o.y;
+        let p = o.parentContainer;
+        while (p) {
+          x += p.x;
+          y += p.y;
+          p = p.parentContainer;
+        }
+        return { x: Math.round(x), y: Math.round(y) };
+      };
+      const gear = [];
+      for (const child of s.content.list) {
+        if (!Array.isArray(child.list)) continue;
+        const label = child.list.find((o) => typeof o.text === 'string' && /^(BLADE|SHROUD|TRINKET)$/.test(o.text));
+        if (!label) continue;
+        const texts = child.list.filter((o) => typeof o.text === 'string' && o.text.length > 0).map((o) => o.text);
+        // §14b gives an empty cell two DIFFERENT copies, and the difference is
+        // the whole answer to "should a tap here do anything": nothing banked
+        // that fits this slot, or one tap away from equipping.
+        const offersEquip = texts.some((t) => t.includes('TAP TO'));
+        const nothingFits = texts.some((t) => t.includes('NO RELIC'));
+        gear.push({ slot: label.text, texts, offersEquip, nothingFits, equipped: !offersEquip && !nothingFits, ...absolute(child) });
+      }
+      const rows = s.upgradeRows.map((r) => ({
+        id: r.def.id,
+        name: r.def.name,
+        price: r.buyButton.label ? r.buyButton.label.text : '',
+        alpha: Math.round(r.buyButton.alpha * 100) / 100,
+        level: r.levelText ? r.levelText.text : '',
+        ...absolute(r.buyButton),
+      }));
+      return {
+        currency: Number(s.shardText ? s.shardText.text : 0),
+        scrollY: Math.round(s.scrollY),
+        maxScroll: Math.round(s.maxScroll),
+        band: { top: s.viewportTop, bottom: s.viewportTop + s.viewportHeight },
+        gear,
+        rows,
+      };
+    },
+  },
+
+  // --- node-side orchestration ---------------------------------------------
+
+  /**
+   * The stick beat's gate is the taught MOVE (`swap-gate` mode dismisses on
+   * nothing else), and §3 makes the keyboard axis a first-class input, so this
+   * presses a real key rather than faking a joystick vector.
+   */
+  async completeGate(ctx, gated) {
+    if (!gated || gated.kind !== 'move') return;
+    await ctx.page.keyboard.down('KeyD');
+    await ctx.sleep(420);
+    await ctx.page.keyboard.up('KeyD');
+  },
+
+  /** Releases anything `steerTo` might still be holding. Safe to over-call. */
+  async releaseKeys(ctx) {
+    for (const code of ['KeyW', 'KeyA', 'KeyS', 'KeyD']) {
+      await ctx.page.keyboard.up(code).catch(() => {});
+    }
+  },
+
+  /**
+   * Walks the player to a world point with the documented movement keys — the
+   * sim's "head for the gate" policy, driven through real input.
+   *
+   * `stuck` recovery is not decoration: the arena has walls and props, and a
+   * straight-line hold can pin the hero on a corner forever. Two seconds of no
+   * progress buys a 500ms strafe, which is what a player does.
+   */
+  async steerTo(ctx, pick, { withinPx = 80, timeoutMs = 40000, label = 'steer' } = {}) {
+    const deadline = Date.now() + timeoutMs;
+    let held = new Set();
+    let best = Infinity;
+    let stuckSince = Date.now();
+    /** While `now < recoverUntil`, `recoverKey` is held instead of the line. */
+    let recoverUntil = 0;
+    let recoverKey = null;
+    const hold = async (want) => {
+      for (const code of held) if (!want.has(code)) await ctx.page.keyboard.up(code);
+      for (const code of want) if (!held.has(code)) await ctx.page.keyboard.down(code);
+      held = want;
+    };
+    const opening = await ctx.evalPage(this.page.field);
+    if (opening === null) return { arrived: false, reason: 'no field' };
+    const target = pick(opening);
+    if (target === null || target === undefined) return { arrived: false, reason: 'no target' };
+    let blocked = 0;
+    try {
+      for (;;) {
+        const head = await ctx.evalPage(this.page.heading, { x: target.x, y: target.y });
+        if (head === null || head.ended) return { arrived: false, reason: 'run ended' };
+        if (head.dist <= withinPx) {
+          await hold(new Set());
+          return { arrived: true, dist: head.dist, player: head.player, avoided: blocked };
+        }
+        if (head.blocked) blocked += 1;
+        const now = Date.now();
+        if (head.dist < best - 20) {
+          best = head.dist;
+          stuckSince = now;
+        }
+        const want = new Set();
+        if (now < recoverUntil) {
+          // Mid-strafe: hold the recovery key for the whole burst. Re-deciding
+          // every tick is what turns a recovery into a permanent shimmy — the
+          // first draft of this loop re-armed itself every 500ms and walked the
+          // hero sideways for the full 40s budget without ever resuming the line.
+          want.add(recoverKey);
+        } else if (now - stuckSince > 2500) {
+          // Wedged despite the avoidance heading (a prop pocket, two props in a
+          // row): back out sideways for one bounded burst, alternating the side
+          // so a symmetric trap cannot hold the hero forever.
+          const across = Math.abs(head.hx) > Math.abs(head.hy);
+          const options = across ? ['KeyW', 'KeyS'] : ['KeyA', 'KeyD'];
+          recoverKey = options[blocked % 2];
+          recoverUntil = now + 900;
+          stuckSince = now + 900;
+          want.add(recoverKey);
+        } else {
+          if (head.hx > 0.35) want.add('KeyD');
+          else if (head.hx < -0.35) want.add('KeyA');
+          if (head.hy > 0.35) want.add('KeyS');
+          else if (head.hy < -0.35) want.add('KeyW');
+        }
+        await hold(want);
+        if (now > deadline) {
+          await hold(new Set());
+          const field = await ctx.evalPage(this.page.field);
+          ctx.major('arena:unreachable', `${label}: never came within ${withinPx}px in ${timeoutMs}ms`, {
+            closest: Math.round(best),
+            avoidedProps: blocked,
+            target,
+            field,
+          });
+          return { arrived: false, reason: 'timeout', closest: Math.round(best) };
+        }
+        await ctx.sleep(140);
+      }
+    } finally {
+      await this.releaseKeys(ctx);
+    }
+  },
+
+  /**
+   * Kites in a slow orbit while waiting for something the run has to produce on
+   * its own (the first level-up). Movement is what keeps the hero alive, so
+   * "wait" in an arena has to be an ACTION.
+   */
+  async kiteUntil(ctx, done, { timeoutMs = 90000, label = 'kite' } = {}) {
+    const ring = ['KeyD', 'KeyS', 'KeyA', 'KeyW'];
+    const deadline = Date.now() + timeoutMs;
+    let i = 0;
+    try {
+      for (;;) {
+        const st = await ctx.state();
+        if (await done(st)) return st;
+        if (!st.live || st.ended) return st;
+        if (st.acceptsInput) {
+          const code = ring[i % ring.length];
+          i += 1;
+          await ctx.page.keyboard.down(code);
+          await ctx.sleep(520);
+          await ctx.page.keyboard.up(code);
+        } else {
+          await ctx.sleep(160);
+        }
+        if (Date.now() > deadline) {
+          ctx.blocker('arena:loop-stalled', `${label}: the run never produced the awaited state in ${timeoutMs}ms`, { state: st });
+          return st;
+        }
+      }
+    } finally {
+      await this.releaseKeys(ctx);
+    }
+  },
+
+  /** Turns the hp sustain on or off, re-arming it after a reload if needed. */
+  async sustain(ctx, on) {
+    const r = await ctx.evalPage(this.page.sustain, { on });
+    ctx.note(`sustain:${on ? 'on' : 'off'}`, r);
+    return r;
+  },
+
+  /**
+   * The level-up draft: pick-1-of-3 with one reroll. Certifies that the reroll
+   * really redraws (and then refuses a second use), that a pick applies and
+   * hands the field back, and that the pause icon refuses legibly while the
+   * cards are up.
+   */
+  /**
+   * The draft's geometry, SETTLED.
+   *
+   * Cards and the reroll chip enter through `enterPinningHitArea`: the hit rect
+   * is live at the FINAL position from frame one while the drawn position is
+   * still sliding in. A coordinate read mid-entrance and then tapped therefore
+   * lands somewhere else entirely — measured, it put a "reroll" tap 60px low,
+   * onto the first card, which picked it and closed the draft. Two identical
+   * samples mean the entrance is done and drawn == tappable.
+   */
+  async settledDraft(ctx, { tries = 16, settleMs = 120 } = {}) {
+    let lastKey = null;
+    let last = null;
+    for (let i = 0; i < tries; i += 1) {
+      const now = await ctx.evalPage(this.page.draft);
+      if (now === null) return null;
+      const key = JSON.stringify([
+        now.cards.map((c) => [c.x, c.y]),
+        now.reroll === null ? null : [now.reroll.x, now.reroll.y, now.reroll.alpha],
+      ]);
+      if (lastKey === key) return now;
+      lastKey = key;
+      last = now;
+      await ctx.sleep(settleMs);
+    }
+    ctx.major('draft:never-settles', 'the draft overlay was still moving after its entrance budget', last);
+    return last;
+  },
+
+  /**
+   * Picks through any draft that is currently open, without touring it.
+   *
+   * A draft PAUSES the director, the combat and the extraction clock, so a
+   * level-up that lands while the driver is waiting on a run-state change
+   * stalls that change forever. Measured: the hero stood dead centre in an open
+   * Gate A with the cards up and the channel never started, three cert runs in
+   * ten. Every later wait therefore pumps drafts the way the engine pumps
+   * coach beats.
+   */
+  async clearDraft(ctx, { max = 5 } = {}) {
+    for (let i = 0; i < max; i += 1) {
+      const st = await ctx.state();
+      if (!st.live || !st.drafting) return st;
+      const draft = await this.settledDraft(ctx);
+      if (draft === null || draft.cards.length === 0) return st;
+      await ctx.tap(draft.cards[0].x, draft.cards[0].y, { label: 'draft pick (clearing)' });
+      await ctx.sleep(340);
+    }
+    ctx.major('draft:will-not-clear', `${max} picks did not close the draft stack`, await ctx.state());
+    return ctx.state();
+  },
+
+  /**
+   * Waits for a run-state predicate while KEEPING THE RUN RUNNING — the arena's
+   * answer to the engine's `settleUntil`, which only knows how to wait.
+   */
+  async waitRunning(ctx, pred, { label = 'run state', timeout = 45000 } = {}) {
+    const deadline = Date.now() + timeout;
+    for (;;) {
+      const st = await ctx.state();
+      if (await pred(st)) return st;
+      if (!st.live) return st;
+      if (st.drafting) await this.clearDraft(ctx);
+      else if (st.coachActive) await ctx.pumpCoaches();
+      else await ctx.sleep(200);
+      if (Date.now() > deadline) {
+        ctx.blocker('harness:timeout', `timed out waiting for ${label} (${timeout}ms)`, { state: st });
+        throw new Error(`timeout waiting for ${label}`);
+      }
+    }
+  },
+
+  async tourDraft(ctx) {
+    const before = await this.settledDraft(ctx);
+    if (before === null) {
+      ctx.blocker('draft:absent', 'the scene reported drafting but no card overlay was on screen');
+      return;
+    }
+    ctx.mark('draft-open');
+    await ctx.shot('draft');
+    if (before.cards.length !== 3) {
+      ctx.blocker('draft:card-count', `the draft offered ${before.cards.length} card(s), not 3`, before);
+      return;
+    }
+    ctx.note('draftCards', before.cards.map((c) => c.texts.join(' / ')));
+
+    // Input during the ceremony, measured once.
+    if (!ctx.report.measurements.swallowedInput.probed) await this.probeSwallowedInput(ctx);
+
+    // The reroll: one per draft, and it must actually redraw.
+    // Re-settle: the probe above spent time on the overlay, and the chip is the
+    // last thing to arrive.
+    const armed = await this.settledDraft(ctx);
+    if (armed === null || armed.reroll === null) {
+      ctx.blocker('draft:no-reroll', 'the draft offered no reroll chip', armed ?? before);
+    } else {
+      await ctx.tap(armed.reroll.x, armed.reroll.y, { label: 'draft reroll', measureAck: true });
+      await ctx.sleep(420);
+      const after = await this.settledDraft(ctx);
+      if (after === null) {
+        ctx.blocker('draft:reroll-closed-the-draft', 'the reroll chip resolved the draft instead of redrawing it', armed);
+        return;
+      }
+      await ctx.shot('draft-rerolled');
+      const same = JSON.stringify(before.cards.map((c) => c.texts)) === JSON.stringify(after.cards.map((c) => c.texts));
+      if (same) {
+        ctx.blocker('draft:reroll-noop', 'the reroll redrew the same three cards', {
+          before: before.cards.map((c) => c.texts.join(' / ')),
+          after: after.cards.map((c) => c.texts.join(' / ')),
+        });
+      } else {
+        ctx.note('draftReroll', {
+          used: after.rerollsUsed,
+          allowed: after.rerollsAllowed,
+          chip: after.reroll ? after.reroll.text : null,
+          after: after.cards.map((c) => c.texts.join(' / ')),
+        });
+      }
+      if (after.reroll !== null && after.rerollsUsed >= after.rerollsAllowed && after.reroll.text !== 'REROLLED') {
+        ctx.major('draft:reroll-label', `the spent reroll chip still reads "${after.reroll.text}"`, after.reroll);
+      }
+    }
+
+    // The pick. Card centres come off the scene tree, never a remembered
+    // coordinate: this layout moved twice during the build.
+    const now = await this.settledDraft(ctx);
+    if (now === null) {
+      ctx.blocker('draft:vanished', 'the draft overlay disappeared before a card could be picked');
+      return;
+    }
+    const card = now.cards[0];
+    const takenBefore = now.taken.length;
+    await ctx.tap(card.x, card.y, { label: 'draft pick card 1', measureAck: true });
+    const settled = await ctx.settleUntil(async () => {
+      const st = await ctx.state();
+      return !st.drafting;
+    }, { label: 'draft closes on a pick' });
+    if (settled.taken !== takenBefore + 1) {
+      ctx.blocker('draft:pick-lost', `picking a card left ${settled.taken} upgrade(s) taken, expected ${takenBefore + 1}`, settled);
+    }
+    await ctx.waitFor(async () => (await ctx.state()).acceptsInput, { label: 'field resumes after the draft' });
+    await ctx.shot('after-draft');
+    ctx.note('draftPick', { taken: settled.taken, level: settled.level, card: card.texts.join(' / ') });
+  },
+
+  /**
+   * "Input during animation" for an arena. The ceremony is the draft; the
+   * control a player aims at during one is the pause icon; and the contract
+   * (`syncPauseAffordance`) is that the refusal is READABLE BEFORE THE TAP —
+   * dimmed to 0.28 and with its hit area dropped — rather than a lit button
+   * that silently eats the press.
+   */
+  async probeSwallowedInput(ctx) {
+    const m = ctx.report.measurements.swallowedInput;
+    const armed = await ctx.evalPage(this.page.pauseProbeArm);
+    if (armed === null) return;
+    m.probed = true;
+    m.surface = 'pause icon during the level-up draft';
+    await ctx.tap(636, 44, { label: 'pause tap during draft' });
+    await ctx.sleep(BUDGETS.ackMs + 60);
+    const after = await ctx.evalPage(this.page.pauseProbeRead);
+    m.detail = { armed, after };
+    // A legible refusal: the affordance was already dim and deaf, the draft
+    // still owns the screen, and no second overlay stacked.
+    const legible = armed.alpha <= 0.5 && !armed.interactive && !armed.affordanceLive;
+    const heldTheLine = after.stillDrafting && !after.pauseOpen && !after.paused;
+    m.reacted = legible && heldTheLine;
+    m.verdict = m.reacted ? 'pass' : 'fail';
+    if (!m.reacted) {
+      ctx.blocker(
+        'budget:swallowed-input',
+        legible
+          ? 'a pause tap during the draft was accepted anyway — two overlays can stack'
+          : `the pause icon was lit (alpha ${armed.alpha}, interactive ${armed.interactive}) during a draft that refuses it: the tap is silently dropped`,
+        m.detail,
+      );
+    }
+  },
+
+  /**
+   * Opens the pause overlay and proves the DIRECTOR clock stops while the wall
+   * clock does not — the distinction the whole run economy rests on.
+   */
+  async assertClockHeld(ctx, { label, dwellMs = 1600, expectFrozen = true }) {
+    const before = await ctx.state();
+    const wall0 = Date.now();
+    await ctx.sleep(dwellMs);
+    const after = await ctx.state();
+    const wall = Date.now() - wall0;
+    const drift = Math.round((after.runS - before.runS) * 1000);
+    ctx.note(`clock:${label}`, { fromS: before.runS, toS: after.runS, driftMs: drift, wallMs: wall });
+    if (expectFrozen && drift > 120) {
+      ctx.blocker('clock:not-held', `${label}: the director advanced ${drift}ms while the run was supposed to be held`, {
+        before: before.runS,
+        after: after.runS,
+        wallMs: wall,
+      });
+    }
+    if (!expectFrozen && drift < 300) {
+      ctx.blocker('clock:not-running', `${label}: the director advanced only ${drift}ms over ${wall}ms of wall clock`, {
+        before: before.runS,
+        after: after.runS,
+      });
+    }
+    return { drift, wall };
+  },
+};
+
+// --- arena phases ------------------------------------------------------------
+
+/**
+ * Cold boot on a wiped save -> zone select -> the three FTUE beats -> the first
+ * level-up draft. This is the only phase that may see a coach beat: a repeat in
+ * any later phase is the engine's `ftue:repeat` blocker.
+ */
+async function arenaPhaseFirstRun(ctx) {
+  const { adapter, report } = ctx;
+  ctx.log('phase: FTUE + first run');
+  await ctx.shot('menu-zone-select');
+  const buttons = await ctx.buttons();
+  ctx.note('menuControls', buttons.map((b) => `${b.label}@${b.x},${b.y}`));
+
+  // PLAY is one tap from boot — the zone is pre-selected, so tap depth is 1.
+  await ctx.navigate('PLAY', 'Game', { label: 'menu->run' });
+  report.measurements.tapDepth.taps = 1;
+  await ctx.waitFor(async () => (await ctx.state()).started, { label: 'the arena boots' });
+
+  // The opening beats hold the DIRECTOR, not just the spawner: a gate window
+  // that ticked away under the tutorial would be the tutorial killing the run.
+  const held = await ctx.state();
+  if (!held.coachActive || held.coachId !== 'goal') {
+    ctx.blocker('ftue:missing', `run 1 on a wiped save opened with coachId=${held.coachId} (hold=${held.coachActive})`, held);
+  } else {
+    await adapter.assertClockHeld(ctx, { label: 'coach beat holds the director' });
+  }
+  await ctx.pumpCoaches();
+  if (!ctx.seenBeats.has('goal') || !ctx.seenBeats.has('stick')) {
+    ctx.blocker('ftue:incomplete', 'the opening sequence did not deliver both goal and stick beats', {
+      seen: [...ctx.seenBeats],
+    });
+  }
+  await ctx.waitFor(async () => (await ctx.state()).acceptsInput, { label: 'the run starts after the FTUE' });
+  await adapter.assertClockHeld(ctx, { label: 'director runs once the FTUE is done', expectFrozen: false });
+  await ctx.shot('arena-field');
+  await ctx.sweep('field after the FTUE');
+
+  // The first level-up is the run's own product: kite until it lands.
+  await adapter.sustain(ctx, true);
+  const drafted = await adapter.kiteUntil(ctx, async (st) => st.drafting, { label: 'first level-up' });
+  if (drafted.drafting) await adapter.tourDraft(ctx);
+  await ctx.sweep('after the first draft');
+  ctx.note('firstRunState', await ctx.state());
+}
+
+/** RESUME / RESTART / MENU — every exit the pause overlay owes the player. */
+async function arenaPhasePause(ctx) {
+  const { adapter } = ctx;
+  ctx.log('phase: pause tour');
+
+  await ctx.tapLabel('II', { label: 'pause open', measureAck: true });
+  await ctx.waitFor(async () => (await ctx.state()).pauseOpen, { label: 'pause overlay' });
+  await ctx.shot('pause');
+  // The run's clock stops; the wall clock plainly does not.
+  await adapter.assertClockHeld(ctx, { label: 'pause holds the director' });
+  ctx.note('pauseBagRow', await ctx.evalPage(adapter.page.bagRow));
+
+  await ctx.tapLabel('RESUME', { label: 'pause RESUME' });
+  const resumeAt = await ctx.lastUpAt();
+  await ctx.waitFor(async () => !(await ctx.state()).pauseOpen, { label: 'RESUME closes the overlay' });
+  const playable = await ctx.waitFor(async () => {
+    const st = await ctx.state();
+    return st.acceptsInput ? ctx.evalPage(() => performance.now()) : false;
+  }, { label: 'playable after RESUME' });
+  ctx.report.measurements.retryToPlayable.samples.push({ label: 'pause RESUME -> playable', ms: Math.round(playable - resumeAt) });
+  await adapter.assertClockHeld(ctx, { label: 'director runs again after RESUME', expectFrozen: false });
+  await ctx.sweep('after RESUME');
+
+  // RESTART: the same run, from zero, inside the retry budget.
+  await ctx.tapLabel('II', { label: 'pause open #2' });
+  await ctx.waitFor(async () => (await ctx.state()).pauseOpen, { label: 'pause overlay #2' });
+  await ctx.tapLabel('RESTART', { label: 'pause RESTART' });
+  const restartAt = await ctx.lastUpAt();
+  const restarted = await ctx.waitFor(async () => {
+    const st = await ctx.state();
+    return st.acceptsInput && !st.pauseOpen && st.runS < 5 ? ctx.evalPage(() => performance.now()) : false;
+  }, { label: 'RESTART reaches a playable run' });
+  ctx.report.measurements.retryToPlayable.samples.push({ label: 'pause RESTART -> playable', ms: Math.round(restarted - restartAt) });
+  await ctx.shot('after-restart');
+  const fresh = await ctx.state();
+  if (fresh.coachId !== null) {
+    ctx.blocker('ftue:repeat', `coach beat "${fresh.coachId}" came back on a restart in the same save`, fresh);
+  }
+  await ctx.sweep('after RESTART');
+
+  // MENU: the pause path always reaches the menu, and the menu goes back in.
+  await ctx.tapLabel('II', { label: 'pause open #3' });
+  await ctx.waitFor(async () => (await ctx.state()).pauseOpen, { label: 'pause overlay #3' });
+  await ctx.navigate('MENU', 'Menu', { label: 'pause MENU' });
+  await ctx.shot('menu-from-pause');
+  await ctx.navigate('PLAY', 'Game', { label: 'menu->run #2' });
+  await ctx.waitFor(async () => (await ctx.state()).acceptsInput, { label: 'the second run is playable' });
+  await ctx.sweep('run re-entered from the menu');
+}
+
+/**
+ * The extraction half of the loop: Gate A opens, the channel runs, a hit sets
+ * it BACK rather than resetting it, and the completed rite banks the haul.
+ *
+ * The gate window is reached by driving the clocks (see the adapter header):
+ * Gate A opens at 120s and a cert that kited there organically would be
+ * measuring lethality, which the sim owns.
+ */
+async function arenaPhaseExtraction(ctx) {
+  const { adapter, report } = ctx;
+  ctx.log('phase: extraction through Gate A');
+  await adapter.sustain(ctx, true);
+
+  const jumped = await ctx.evalPage(adapter.page.fastForward, { toS: 116 });
+  ctx.note('fastForward:gateA', jumped);
+  const opened = await ctx.settleUntil(async () => {
+    const st = await ctx.state();
+    return st.gates.startsWith('open') || st.gates.startsWith('closing');
+  }, { label: 'Gate A opens on its own schedule', timeout: 30000 });
+  ctx.note('gateAOpen', { runS: opened.runS, gates: opened.gates });
+  await ctx.shot('gate-a-open');
+  // The first open gate teaches `tut:gate`; it holds the run like the others.
+  await ctx.pumpCoaches();
+
+  // Gate A's window is 120s-210s and the hero crosses the whole arena in ten
+  // seconds, so the walk gets 30 of them. The budget is deliberately a third of
+  // the window rather than most of it: a walk that eats the window leaves the
+  // fallback below standing on a gate that has already gone spent, which is a
+  // harness failure dressed up as a game one (measured, once).
+  const walked = await adapter.steerTo(ctx, (f) => f.gates.find((g) => g.id === 'a'), {
+    withinPx: 70,
+    timeoutMs: 30000,
+    label: 'walk to Gate A',
+  });
+  ctx.note('walkToGateA', walked);
+  if (!walked.arrived) {
+    // The walk is already filed as `arena:unreachable` with the obstacle field
+    // that beat it. It is NOT promoted to a blocker here: gate reachability is
+    // a distance question the arena sim owns and gates, and failing the whole
+    // cert on the driver's own pathing would stop it certifying the channel,
+    // the settlement and the late-game states — which nothing else covers.
+    const placed = await ctx.evalPage(adapter.page.placeAtGate, { id: 'a' });
+    ctx.note('gateAFallbackPlacement', placed);
+    const stillOpen = await ctx.state();
+    if (!/^(open|closing)/.test(stillOpen.gates)) {
+      ctx.blocker('extract:window-missed', 'the cert reached Gate A only after its window had closed', {
+        gates: stillOpen.gates,
+        runS: stillOpen.runS,
+      });
+    }
+    ctx.log('walk to Gate A lost to the prop field; placed on the ring to certify the channel');
+  }
+
+  // The setback law: a hit costs `extract.hitSetbackMs` and stalls accrual, and
+  // NEVER resets the channel (PRD §7 completability invariant).
+  await adapter.clearDraft(ctx);
+  await ctx.evalPage(adapter.page.armChannelHit, { atProgress: 0.45 });
+  const channelling = await adapter.waitRunning(ctx, (st) => st.channel.gate !== null && st.channel.progress > 0.05, {
+    label: 'the channel starts in the ring',
+    timeout: 25000,
+  });
+  ctx.note('channelStart', channelling.channel);
+  await ctx.shot('channel-running');
+
+  await ctx.waitFor(async () => {
+    const probe = await ctx.evalPage(adapter.page.readChannelHit);
+    return probe !== null && probe.after !== null;
+  }, { label: 'the channel takes a hit', timeout: 25000 });
+  const hit = await ctx.evalPage(adapter.page.readChannelHit);
+  ctx.note('channelHit', hit);
+  await ctx.shot('channel-after-hit');
+  if (hit.after.accumMs >= hit.before.accumMs) {
+    ctx.blocker('extract:no-setback', 'a hit during the channel cost nothing', hit);
+  } else if (hit.after.accumMs <= 0) {
+    ctx.blocker(
+      'extract:channel-reset',
+      `a hit RESET the channel to ${hit.after.accumMs}ms instead of setting it back from ${Math.round(hit.before.accumMs)}ms`,
+      hit,
+    );
+  } else {
+    ctx.note('channelSetbackMs', Math.round(hit.before.accumMs - hit.after.accumMs));
+  }
+
+  const extracted = await adapter.waitRunning(ctx, (st) => st.extracted || !st.active.includes('Game'), {
+    label: 'the channel completes and the run ends',
+    timeout: 40000,
+  });
+  ctx.note('extractedAt', { runS: extracted.runS, channel: extracted.channel });
+
+  await ctx.waitFor(async () => (await ctx.sceneKeys()).includes('GameOver'), { label: 'the results screen' });
+  const res = await ctx.evalPage(adapter.page.results);
+  await ctx.shot('results-extracted');
+  if (!res.result.won) {
+    ctx.blocker('extract:not-a-win', 'a completed channel did not resolve as an extraction', res.result);
+    return;
+  }
+  if (!res.texts.includes('HAULED OUT')) {
+    ctx.blocker('extract:wrong-headline', 'the extraction results screen never says HAULED OUT', res.texts);
+  }
+  const meta = await ctx.evalPage(adapter.page.meta, ctx.slug);
+  if (res.result.bankedShards > 0 && meta.currency < res.result.bankedShards) {
+    ctx.blocker('extract:haul-not-banked', `banked ${res.result.bankedShards} shards but the stash holds ${meta.currency}`, {
+      result: res.result,
+      meta,
+    });
+  }
+  report.outcomes.win = {
+    via: 'extraction',
+    gate: res.result.gateUsed,
+    timeMs: res.result.timeMs,
+    bankedShards: res.result.bankedShards,
+    relics: res.result.banked.length,
+    headline: res.texts[0] ?? null,
+  };
+  ctx.note('stashAfterExtraction', meta);
+  await adapter.sustain(ctx, false);
+}
+
+/**
+ * The late game and the other settlement. The Warden's 420s entrance and the
+ * 480s Collapse ignition are the PRD §13 peak beats fps is scored over; the
+ * casket pin and the death are the loss half of the loop.
+ */
+async function arenaPhaseLateGameDeath(ctx) {
+  const { adapter, report } = ctx;
+  ctx.log('phase: late game + death settlement');
+
+  // RUN AGAIN is the extraction screen's CTA: same zone, fresh seed.
+  const nav = await ctx.navigate('RUN AGAIN', 'Game', { label: 'results RUN AGAIN' });
+  const playableAt = await ctx.waitFor(async () => {
+    const st = await ctx.state();
+    return st.acceptsInput ? ctx.evalPage(() => performance.now()) : false;
+  }, { label: 'RUN AGAIN reaches a playable run' });
+  report.measurements.retryToPlayable.samples.push({ label: 'results RUN AGAIN -> playable', ms: Math.round(playableAt - nav.t0) });
+  const reentered = await ctx.state();
+  if (reentered.coachId !== null) {
+    ctx.blocker('ftue:repeat', `coach beat "${reentered.coachId}" came back on run 3 of the same save`, reentered);
+  }
+  await adapter.sustain(ctx, true);
+
+  // Two relics on the ground: one to pin, one to lose. The roll is the game's.
+  await ctx.evalPage(adapter.page.dropRelicsAtFeet, { count: 2 });
+  const carried = await adapter.waitRunning(ctx, (st) => st.bag.used >= 2, {
+    label: 'the hero picks the relics up',
+    timeout: 25000,
+  });
+  ctx.note('bagBeforePin', carried.bag);
+
+  // The casket is the only thing a death banks, and it is manual-pin-only.
+  await adapter.clearDraft(ctx);
+  await ctx.tapLabel('II', { label: 'pause open for the casket' });
+  await ctx.waitFor(async () => (await ctx.state()).pauseOpen, { label: 'pause overlay for the casket' });
+  const row = await ctx.evalPage(adapter.page.bagRow);
+  await ctx.shot('pause-bag-row');
+  if (row === null || row.relics.length === 0) {
+    ctx.blocker('bag:no-row', 'the pause overlay showed no bag row for a bag holding relics', { row, bag: carried.bag });
+  } else {
+    const pip = row.relics.find((r) => !r.pinned);
+    await ctx.tap(pip.x, pip.y, { label: `pin relic ${pip.id}`, measureAck: true });
+    await ctx.sleep(420);
+    const pinned = await ctx.state();
+    await ctx.shot('pause-bag-pinned');
+    if (!pinned.bag.casket.includes(pip.id)) {
+      ctx.blocker('bag:pin-noop', `tapping ${pip.id} in the bag row did not pin it to the casket`, {
+        casket: pinned.bag.casket,
+        row,
+      });
+    } else {
+      ctx.note('casketPinned', { id: pip.id, casket: pinned.bag.casket, carried: pinned.bag.used });
+    }
+  }
+  await ctx.tapLabel('RESUME', { label: 'pause RESUME after the pin' });
+  await ctx.waitFor(async () => (await ctx.state()).acceptsInput, { label: 'playable after the pin' });
+  await ctx.sweep('after the casket pin');
+
+  // --- the Warden, at 420s ---------------------------------------------------
+  ctx.note('fastForward:warden', await ctx.evalPage(adapter.page.fastForward, { toS: 415 }));
+  const warden = await adapter.waitRunning(ctx, (st) => st.bossActive, {
+    label: 'the Warden takes Gate C',
+    timeout: 40000,
+  });
+  ctx.mark('warden-spawn');
+  ctx.note('wardenSpawn', { runS: warden.runS, enemies: warden.enemies, gates: warden.gates });
+  await ctx.sleep(3200); // let the fps window fill on the beat itself
+  await adapter.clearDraft(ctx);
+  await ctx.shot('warden-spawned');
+  await ctx.sweep('the Warden beat');
+
+  // --- the Collapse, at 480s -------------------------------------------------
+  ctx.note('fastForward:collapse', await ctx.evalPage(adapter.page.fastForward, { toS: 476 }));
+  const collapse = await adapter.waitRunning(ctx, (st) => st.collapsing, {
+    label: 'the Collapse ignites',
+    timeout: 40000,
+  });
+  ctx.mark('collapse-ignition');
+  ctx.note('collapseIgnition', { runS: collapse.runS, enemies: collapse.enemies, gates: collapse.gates });
+  await ctx.sleep(3200);
+  await adapter.clearDraft(ctx);
+  await ctx.shot('collapse');
+  await ctx.sweep('the Collapse beat');
+
+  // --- the death settlement --------------------------------------------------
+  // Lethality is the sim's gate, not this one's: the cert brings the hero to
+  // the brink through the game's own health and lets the real damage path
+  // finish it, so the settlement it certifies is the shipped one.
+  await adapter.sustain(ctx, false);
+  const bagAtDeath = await ctx.state();
+  ctx.note('duskFire', await ctx.evalPage(adapter.page.duskFireKill));
+  await ctx.waitFor(async () => (await ctx.sceneKeys()).includes('GameOver'), {
+    label: 'the death results screen',
+    timeout: 60000,
+  });
+  const res = await ctx.evalPage(adapter.page.results);
+  await ctx.shot('results-death');
+  if (res.result.won) {
+    ctx.blocker('death:resolved-as-win', 'the run that ended in death settled as an extraction', res.result);
+    return;
+  }
+  if (!res.texts.includes('SWALLOWED BY THE DARK')) {
+    ctx.blocker('death:wrong-headline', 'the death results screen never says SWALLOWED BY THE DARK', res.texts);
+  }
+  const pinnedIds = bagAtDeath.bag.casket;
+  const savedIds = res.result.casketSaved.map((r) => r.id);
+  for (const id of pinnedIds) {
+    if (!savedIds.includes(id)) {
+      ctx.blocker('death:casket-lost', `the pinned casket relic ${id} did not survive the death`, {
+        casket: pinnedIds,
+        saved: savedIds,
+        banked: res.result.banked.map((r) => r.id),
+      });
+    }
+  }
+  if (res.result.lost.length === 0 && res.result.carriedShards <= res.result.bankedShards) {
+    ctx.major('death:nothing-lost', 'a death cost the run nothing it was carrying', res.result);
+  }
+  report.outcomes.loss = {
+    via: 'death',
+    timeMs: res.result.timeMs,
+    bankedShards: res.result.bankedShards,
+    carriedShards: res.result.carriedShards,
+    lost: res.result.lost.map((r) => r.id),
+    casketSaved: savedIds,
+    headline: res.texts[0] ?? null,
+  };
+}
+
+/**
+ * The meta surfaces the loop feeds — stash, gear, upgrades — plus the road back
+ * into a fresh run. Re-entered twice, because a screen that only survives its
+ * first visit is the template's oldest trap.
+ */
+async function arenaPhaseSurfaces(ctx) {
+  const { adapter, report } = ctx;
+  ctx.log('phase: stash / gear / upgrades tour');
+
+  await ctx.navigate('STASH', 'Meta', { label: 'results STASH' });
+  await ctx.shot('stash');
+  const first = await ctx.evalPage(adapter.page.stash);
+  if (first === null) {
+    ctx.blocker('stash:absent', 'STASH did not open a Meta scene with a list');
+    return;
+  }
+  ctx.note('stashOpening', first);
+
+  // GEAR: a tap cycles the slot, reversibly and with no modal (§14.5).
+  const metaBefore = await ctx.evalPage(adapter.page.meta, ctx.slug);
+  const inBandCell = (g) => g.y > first.band.top + 60 && g.y < first.band.bottom - 60;
+  // Prefer a cell the game itself says is one tap from equipping; a slot with
+  // nothing banked that FITS it is correctly inert, and asserting otherwise
+  // would report the design.
+  const cell =
+    first.gear.find((g) => inBandCell(g) && (g.offersEquip || g.equipped)) ?? first.gear.find(inBandCell);
+  if (cell) {
+    await ctx.tap(cell.x, cell.y, { label: `gear cycle ${cell.slot}`, measureAck: true });
+    await ctx.sleep(420);
+    const metaAfter = await ctx.evalPage(adapter.page.meta, ctx.slug);
+    await ctx.shot('stash-gear-cycled');
+    const slot = cell.slot.toLowerCase();
+    const changed = metaBefore.gear[slot] !== metaAfter.gear[slot];
+    ctx.note('gearCycle', {
+      slot,
+      cell: { offersEquip: cell.offersEquip, nothingFits: cell.nothingFits, equipped: cell.equipped, texts: cell.texts },
+      before: metaBefore.gear[slot],
+      after: metaAfter.gear[slot],
+      stash: metaAfter.stash,
+    });
+    if (!changed && (cell.offersEquip || cell.equipped)) {
+      ctx.major('gear:cycle-noop', `the ${cell.slot} cell advertised a one-tap equip and the tap changed nothing`, {
+        cell: cell.texts,
+        before: metaBefore.gear,
+        after: metaAfter.gear,
+      });
+    }
+  } else {
+    ctx.note('gearNoCellInBand', first.gear);
+  }
+
+  // UPGRADES: buy at the boundary the wallet actually sits on.
+  await ctx.drag(360, first.band.bottom - 60, 360, first.band.top + 60);
+  await ctx.sleep(360);
+  const scrolled = await ctx.evalPage(adapter.page.stash);
+  if (scrolled.scrollY <= first.scrollY && first.maxScroll > 0) {
+    ctx.major('stash:no-scroll', 'the stash list did not move on a drag', { before: first.scrollY, after: scrolled.scrollY });
+  }
+  await ctx.shot('stash-scrolled');
+  const inBand = scrolled.rows.filter((r) => r.y > scrolled.band.top + 50 && r.y < scrolled.band.bottom - 50 && r.price !== 'MAX');
+  const row = inBand.find((r) => r.alpha === 1) ?? inBand[0];
+  if (row) {
+    const before = scrolled.currency;
+    await ctx.tap(row.x, row.y, { label: `stash buy ${row.id}`, measureAck: true });
+    await ctx.sleep(460);
+    const post = await ctx.evalPage(adapter.page.stash);
+    await ctx.shot('stash-after-buy');
+    ctx.note('stashPurchase', {
+      id: row.id,
+      price: row.price,
+      affordable: row.alpha === 1,
+      currencyBefore: before,
+      currencyAfter: post.currency,
+      level: post.rows.find((r) => r.id === row.id)?.level ?? null,
+    });
+    if (row.alpha === 1 && post.currency >= before) {
+      ctx.blocker('stash:buy-noop', `buying ${row.id} at ${row.price} spent nothing`, { before, after: post.currency });
+    }
+    if (row.alpha < 1) {
+      // The empty-wallet state is a real surface: §14b keeps an unaffordable
+      // price LEGIBLE at 40% so the goal still reads, and the tap answers with
+      // NOT ENOUGH SHARDS rather than nothing. A row that looked affordable and
+      // then charged nothing would be the silent version of the same tap.
+      ctx.note('stashRefusal', { id: row.id, price: row.price, alpha: row.alpha, currency: before });
+      if (row.alpha > 0.6) {
+        ctx.major('stash:refusal-not-legible', `${row.id} costs ${row.price} the player cannot pay but is drawn at alpha ${row.alpha}`, row);
+      }
+    }
+  } else {
+    ctx.note('stashNoRowInBand', scrolled.rows.length);
+  }
+
+  // Re-entry, twice.
+  for (let i = 1; i <= 2; i += 1) {
+    await ctx.navigate('BACK', 'Menu', { label: `stash BACK #${i}` });
+    await ctx.navigate('STASH', 'Meta', { label: `stash re-enter #${i}` });
+    const again = await ctx.evalPage(adapter.page.stash);
+    if (again === null || again.rows.length !== first.rows.length) {
+      ctx.blocker('stash:reentry', `stash re-entry #${i} did not rebuild its rows`, { again });
+    }
+    await ctx.shot(`stash-reentry-${i}`);
+  }
+  await ctx.navigate('BACK', 'Menu', { label: 'stash BACK final' });
+
+  // ...and back into a fresh run, which is where the loop closes.
+  await ctx.navigate('PLAY', 'Game', { label: 'menu->run (final)' });
+  const final = await ctx.waitFor(async () => {
+    const st = await ctx.state();
+    return st.acceptsInput ? st : false;
+  }, { label: 'the final run is playable' });
+  if (final.coachId !== null) {
+    ctx.blocker('ftue:repeat', `coach beat "${final.coachId}" came back on the last run of the save`, final);
+  }
+  await ctx.shot('final-run-playable');
+  await ctx.sweep('final run');
+  report.notes.finalRunState = { runS: final.runS, level: final.level, bag: final.bag, gates: final.gates };
+  report.notes.metaAtEnd = await ctx.evalPage(adapter.page.meta, ctx.slug);
+  await adapter.releaseKeys(ctx);
+}
+
 // --- engine -----------------------------------------------------------------
 
-export const adapters = { board: boardAdapter };
+export const adapters = { board: boardAdapter, arena: arenaAdapter };
 
 const median = (xs) => {
   if (xs.length === 0) return null;
@@ -1146,10 +2734,9 @@ export async function runCert({
 
   try {
     await phaseBoot(ctx);
-    await phaseWinSession(ctx);
-    await phaseShop(ctx);
-    await phaseLossSession(ctx);
-    await phaseMenuReentry(ctx);
+    // The cold boot is family-agnostic; everything after it is the adapter's
+    // own tour of the loop it understands.
+    for (const phase of adapter.phases) await phase(ctx);
   } catch (err) {
     ctx.blocker('harness:aborted', `cert aborted: ${String(err && err.message ? err.message : err)}`, {
       stack: String(err && err.stack ? err.stack : ''),
@@ -1237,7 +2824,7 @@ function makeCtx({ tab, page, slug, baseUrl, shotsDir, report, adapter, log }) {
     },
 
     async install() {
-      const r = await tab.evaluate(pgInstall);
+      const r = await tab.evaluate(pgInstall, { gameScene: adapter.gameScene });
       if (!r || !r.ok) throw new Error(`instrumentation failed: ${r ? r.why : 'no result'}`);
       await ctx.refreshView();
       return r;
@@ -1510,7 +3097,10 @@ function makeCtx({ tab, page, slug, baseUrl, shotsDir, report, adapter, log }) {
       ctx.shotSeq += 1;
       const file = `${String(ctx.shotSeq).padStart(2, '0')}-${name.replace(/[^a-z0-9._-]+/gi, '-')}.png`;
       const out = path.join(shotsDir, file);
+      // Fence the capture out of the fps record: see `blackouts` in pgInstall.
+      const from = await tab.evaluate(pgBlackoutStart).catch(() => null);
       await page.screenshot({ path: out });
+      if (from !== null) await tab.evaluate(pgBlackoutEnd, from).catch(() => null);
       // A capture can emulate viewport metrics for a moment; give Scale.FIT a
       // couple of frames to land back on the real canvas size before the next
       // tap reads the rect.
@@ -1952,7 +3542,10 @@ async function scoreMeasurements(ctx) {
   // every epoch so a heavy beat the adapter forgot to name still gets seen.
   const heavy = new Set(ctx.adapter.heavyBeats ?? []);
   epochs.forEach((epoch, ei) => {
-    const fps = epoch.fps;
+    const blackouts = epoch.blackouts ?? [];
+    // Samples taken while the harness was capturing a screenshot measure the
+    // capture, not the build.
+    const fps = epoch.fps.filter((sample) => !blackouts.some(([a, b]) => sample.t >= a && sample.t <= b));
     const stats = (label, t0) => {
       const xs = fps.filter((s) => s.t >= t0 && s.t <= t0 + 3000).map((s) => s.fps);
       if (xs.length < 10) return null;

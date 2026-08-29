@@ -1,0 +1,31 @@
+{
+  "version": 2,
+  "name": "yeti",
+  "processing": {
+    "cellSize": 256,
+    "align": "feet",
+    "scaleMode": "preserve",
+    "fit": 0.86,
+    "threshold": 180,
+    "feather": 0,
+    "edgeThreshold": 210,
+    "sampling": "nearest",
+    "componentMode": "largest",
+    "componentPadding": 0,
+    "minComponentArea": 1
+  },
+  "reference": {
+    "rows": 2,
+    "cols": 2,
+    "bodyScaleMean": 0.7978515625,
+    "bodyScaleCv": 0.0012239902080783353,
+    "anchorYMean": 0.8818359375,
+    "sourceToOutputScale": 0.43,
+    "sourceCellWidth": 512,
+    "sourceCellHeight": 512,
+    "outputSubjectHeightMean": 175.5
+  },
+  "qc": {
+    "maxBodyScaleDrift": 0.08
+  }
+}

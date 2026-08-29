@@ -1,0 +1,31 @@
+{
+  "version": 2,
+  "name": "shroudmoth",
+  "processing": {
+    "cellSize": 256,
+    "align": "feet",
+    "scaleMode": "preserve",
+    "fit": 0.86,
+    "threshold": 180,
+    "feather": 0,
+    "edgeThreshold": 210,
+    "sampling": "nearest",
+    "componentMode": "largest",
+    "componentPadding": 0,
+    "minComponentArea": 1
+  },
+  "reference": {
+    "rows": 2,
+    "cols": 2,
+    "bodyScaleMean": 0.45813397129186606,
+    "bodyScaleCv": 0.2305860663010136,
+    "anchorYMean": 0.7527910685805423,
+    "sourceToOutputScale": 0.3511323763955343,
+    "sourceCellWidth": 627,
+    "sourceCellHeight": 627,
+    "outputSubjectHeightMean": 100.75
+  },
+  "qc": {
+    "maxBodyScaleDrift": 0.08
+  }
+}

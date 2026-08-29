@@ -1,0 +1,1070 @@
+{
+  "passed": true,
+  "slug": "2026-08-29-duskhaul",
+  "family": "arena",
+  "baseUrl": "http://localhost:5173/",
+  "startedAt": "2026-08-29T19:19:46.496Z",
+  "finishedAt": "2026-08-29T19:21:30.605Z",
+  "durationMs": 104109,
+  "blockers": [],
+  "majors": [
+    {
+      "id": "arena:unreachable",
+      "message": "walk to Gate A: never came within 70px in 30000ms",
+      "evidence": {
+        "closest": 419,
+        "avoidedProps": 0,
+        "target": {
+          "id": "a",
+          "x": 378,
+          "y": 405,
+          "state": "open",
+          "opensS": 120,
+          "closesS": 210,
+          "dist": 757
+        },
+        "field": {
+          "player": {
+            "x": 529,
+            "y": 796,
+            "hp": 110
+          },
+          "gates": [
+            {
+              "id": "a",
+              "x": 378,
+              "y": 405,
+              "state": "open",
+              "opensS": 120,
+              "closesS": 210,
+              "dist": 419
+            },
+            {
+              "id": "b",
+              "x": 1080,
+              "y": 1215,
+              "state": "closed",
+              "opensS": 240,
+              "closesS": 360,
+              "dist": 692
+            },
+            {
+              "id": "c",
+              "x": 1305,
+              "y": 1958,
+              "state": "closed",
+              "opensS": 420,
+              "closesS": null,
+              "dist": 1397
+            }
+          ],
+          "channelRadius": 400,
+          "arena": {
+            "w": 1440,
+            "h": 2160
+          },
+          "collapse": null,
+          "ended": false
+        }
+      }
+    }
+  ],
+  "measurements": {
+    "ack": {
+      "budgetMs": 100,
+      "worstMs": 63.8,
+      "samples": [
+        {
+          "label": "menu->run",
+          "ms": 3.4,
+          "frames": 1,
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "coach goal continue",
+          "ms": 4.3,
+          "frames": 1,
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "draft reroll",
+          "ms": 42.3,
+          "frames": 5,
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "draft pick card 1",
+          "ms": 38.8,
+          "frames": 5,
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "pause open",
+          "ms": 5.7,
+          "frames": 1,
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "pause MENU",
+          "ms": 5.4,
+          "frames": 1,
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "menu->run #2",
+          "ms": 4.3,
+          "frames": 1,
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "coach gate continue",
+          "ms": 5.5,
+          "frames": 1,
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "results RUN AGAIN",
+          "ms": 4.8,
+          "frames": 1,
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "pin relic r_rustbuckle",
+          "ms": 39.4,
+          "frames": 5,
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "results STASH",
+          "ms": 6.2,
+          "frames": 1,
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "gear cycle SHROUD",
+          "ms": 63.8,
+          "frames": 3,
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "stash buy m_vitality",
+          "ms": 8.8,
+          "frames": 1,
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "stash BACK #1",
+          "ms": 4.9,
+          "frames": 1,
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "stash re-enter #1",
+          "ms": 3.7,
+          "frames": 1,
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "stash BACK #2",
+          "ms": 7.2,
+          "frames": 1,
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "stash re-enter #2",
+          "ms": 4.7,
+          "frames": 1,
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "stash BACK final",
+          "ms": 8.9,
+          "frames": 1,
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "menu->run (final)",
+          "ms": 5.2,
+          "frames": 1,
+          "epoch": "until:end of run"
+        }
+      ],
+      "verdict": "pass",
+      "worstLabel": "gear cycle SHROUD"
+    },
+    "swallowedInput": {
+      "budgetMs": 100,
+      "probed": true,
+      "reacted": true,
+      "verdict": "pass",
+      "detail": {
+        "armed": {
+          "drafting": true,
+          "alpha": 0.28,
+          "interactive": false,
+          "affordanceLive": false,
+          "pauseOpen": false,
+          "cardTexts": 1
+        },
+        "after": {
+          "stillDrafting": true,
+          "pauseOpen": false,
+          "paused": false,
+          "alpha": 0.28,
+          "interactive": false
+        }
+      },
+      "surface": "pause icon during the level-up draft"
+    },
+    "transitions": {
+      "budgetMs": 400,
+      "worstMs": 218,
+      "samples": [
+        {
+          "from": "menu->run",
+          "to": "Game",
+          "ms": 218,
+          "cold": true,
+          "trail": [
+            "Game"
+          ]
+        },
+        {
+          "from": "pause MENU",
+          "to": "Menu",
+          "ms": 23,
+          "cold": true,
+          "trail": [
+            "Menu"
+          ]
+        },
+        {
+          "from": "menu->run #2",
+          "to": "Game",
+          "ms": 208,
+          "cold": false,
+          "trail": [
+            "Game"
+          ]
+        },
+        {
+          "from": "results RUN AGAIN",
+          "to": "Game",
+          "ms": 17,
+          "cold": false,
+          "trail": [
+            "Game"
+          ]
+        },
+        {
+          "from": "results STASH",
+          "to": "Meta",
+          "ms": 52,
+          "cold": true,
+          "trail": [
+            "Meta"
+          ]
+        },
+        {
+          "from": "stash BACK #1",
+          "to": "Menu",
+          "ms": 34,
+          "cold": false,
+          "trail": [
+            "Menu"
+          ]
+        },
+        {
+          "from": "stash re-enter #1",
+          "to": "Meta",
+          "ms": 31,
+          "cold": false,
+          "trail": [
+            "Meta"
+          ]
+        },
+        {
+          "from": "stash BACK #2",
+          "to": "Menu",
+          "ms": 18,
+          "cold": false,
+          "trail": [
+            "Menu"
+          ]
+        },
+        {
+          "from": "stash re-enter #2",
+          "to": "Meta",
+          "ms": 32,
+          "cold": false,
+          "trail": [
+            "Meta"
+          ]
+        },
+        {
+          "from": "stash BACK final",
+          "to": "Menu",
+          "ms": 22,
+          "cold": false,
+          "trail": [
+            "Menu"
+          ]
+        },
+        {
+          "from": "menu->run (final)",
+          "to": "Game",
+          "ms": 209,
+          "cold": false,
+          "trail": [
+            "Game"
+          ]
+        }
+      ],
+      "verdict": "pass",
+      "worstLabel": "menu->run -> Game"
+    },
+    "retryToPlayable": {
+      "budgetMs": 2000,
+      "worstMs": 101,
+      "samples": [
+        {
+          "label": "pause RESUME -> playable",
+          "ms": 6
+        },
+        {
+          "label": "pause RESTART -> playable",
+          "ms": 99
+        },
+        {
+          "label": "results RUN AGAIN -> playable",
+          "ms": 101
+        }
+      ],
+      "verdict": "pass",
+      "worstLabel": "results RUN AGAIN -> playable"
+    },
+    "fps": {
+      "medianMin": 55,
+      "windows": [
+        {
+          "label": "warden-spawn",
+          "epoch": "until:end of run",
+          "samples": 29,
+          "min": 117.5,
+          "median": 118.4,
+          "fromMs": 81133
+        },
+        {
+          "label": "collapse-ignition",
+          "epoch": "until:end of run",
+          "samples": 29,
+          "min": 117.7,
+          "median": 118.3,
+          "fromMs": 88785
+        },
+        {
+          "label": "worst-3s-window",
+          "epoch": "until:end of run",
+          "samples": 20,
+          "min": 60,
+          "median": 78.7,
+          "fromMs": 919
+        }
+      ],
+      "verdict": "pass"
+    },
+    "tapDepth": {
+      "budget": 2,
+      "taps": 1,
+      "verdict": "pass"
+    }
+  },
+  "beats": [
+    {
+      "id": "goal",
+      "shot": "shots/cert/03-ftue-goal.png",
+      "gated": false
+    },
+    {
+      "id": "stick",
+      "shot": "shots/cert/04-ftue-stick.png",
+      "gated": true
+    },
+    {
+      "id": "gate",
+      "shot": "shots/cert/13-ftue-gate.png",
+      "gated": false
+    }
+  ],
+  "surfaces": [
+    {
+      "name": "menu-cold-boot",
+      "shot": "shots/cert/01-menu-cold-boot.png"
+    },
+    {
+      "name": "menu-zone-select",
+      "shot": "shots/cert/02-menu-zone-select.png"
+    },
+    {
+      "name": "ftue-goal",
+      "shot": "shots/cert/03-ftue-goal.png"
+    },
+    {
+      "name": "ftue-stick",
+      "shot": "shots/cert/04-ftue-stick.png"
+    },
+    {
+      "name": "arena-field",
+      "shot": "shots/cert/05-arena-field.png"
+    },
+    {
+      "name": "draft",
+      "shot": "shots/cert/06-draft.png"
+    },
+    {
+      "name": "draft-rerolled",
+      "shot": "shots/cert/07-draft-rerolled.png"
+    },
+    {
+      "name": "after-draft",
+      "shot": "shots/cert/08-after-draft.png"
+    },
+    {
+      "name": "pause",
+      "shot": "shots/cert/09-pause.png"
+    },
+    {
+      "name": "after-restart",
+      "shot": "shots/cert/10-after-restart.png"
+    },
+    {
+      "name": "menu-from-pause",
+      "shot": "shots/cert/11-menu-from-pause.png"
+    },
+    {
+      "name": "gate-a-open",
+      "shot": "shots/cert/12-gate-a-open.png"
+    },
+    {
+      "name": "ftue-gate",
+      "shot": "shots/cert/13-ftue-gate.png"
+    },
+    {
+      "name": "channel-running",
+      "shot": "shots/cert/14-channel-running.png"
+    },
+    {
+      "name": "channel-after-hit",
+      "shot": "shots/cert/15-channel-after-hit.png"
+    },
+    {
+      "name": "results-extracted",
+      "shot": "shots/cert/16-results-extracted.png"
+    },
+    {
+      "name": "pause-bag-row",
+      "shot": "shots/cert/17-pause-bag-row.png"
+    },
+    {
+      "name": "pause-bag-pinned",
+      "shot": "shots/cert/18-pause-bag-pinned.png"
+    },
+    {
+      "name": "warden-spawned",
+      "shot": "shots/cert/19-warden-spawned.png"
+    },
+    {
+      "name": "collapse",
+      "shot": "shots/cert/20-collapse.png"
+    },
+    {
+      "name": "results-death",
+      "shot": "shots/cert/21-results-death.png"
+    },
+    {
+      "name": "stash",
+      "shot": "shots/cert/22-stash.png"
+    },
+    {
+      "name": "stash-gear-cycled",
+      "shot": "shots/cert/23-stash-gear-cycled.png"
+    },
+    {
+      "name": "stash-scrolled",
+      "shot": "shots/cert/24-stash-scrolled.png"
+    },
+    {
+      "name": "stash-after-buy",
+      "shot": "shots/cert/25-stash-after-buy.png"
+    },
+    {
+      "name": "stash-reentry-1",
+      "shot": "shots/cert/26-stash-reentry-1.png"
+    },
+    {
+      "name": "stash-reentry-2",
+      "shot": "shots/cert/27-stash-reentry-2.png"
+    },
+    {
+      "name": "final-run-playable",
+      "shot": "shots/cert/28-final-run-playable.png"
+    }
+  ],
+  "outcomes": {
+    "win": {
+      "via": "extraction",
+      "gate": "a",
+      "timeMs": 130817.97000000009,
+      "bankedShards": 11,
+      "relics": 1,
+      "headline": "HAULED OUT"
+    },
+    "loss": {
+      "via": "death",
+      "timeMs": 483383.1200000053,
+      "bankedShards": 0,
+      "carriedShards": 6,
+      "lost": [
+        "r_waxseal"
+      ],
+      "casketSaved": [
+        "r_rustbuckle"
+      ],
+      "headline": "SWALLOWED BY THE DARK"
+    }
+  },
+  "invariantSweeps": 9,
+  "consoleErrors": [],
+  "notes": {
+    "wipedKeys": [],
+    "storageAfterColdBoot": [],
+    "menuControls": [
+      "@360,420",
+      "@360,586",
+      "@560,586",
+      "@360,752",
+      "@560,752",
+      "@360,918",
+      "@560,918",
+      "PLAY@360,1060",
+      "STASH@141,1190",
+      "SOUND ON@360,1190",
+      "DAILY OFF@579,1190"
+    ],
+    "clock:coach beat holds the director": {
+      "fromS": 0,
+      "toS": 0,
+      "driftMs": 0,
+      "wallMs": 1603
+    },
+    "clock:director runs once the FTUE is done": {
+      "fromS": 0.42,
+      "toS": 2.02,
+      "driftMs": 1600,
+      "wallMs": 1602
+    },
+    "sustain:on": {
+      "on": true
+    },
+    "draftCards": [
+      "COMMON / Bone Halo / WEAPON / RANK 1/4 / 6 DMG  ·  CONTINUOUS / Femurs circling the hauler in a slow wheel",
+      "COMMON / Ashen Reach / STAT / RANK 1/5 / +15% AREA / Your curses spread like windblown ash",
+      "RARE / Gilt Hunger / STAT / RANK 1/3 / +30 PICKUP RANGE  ·  +10% SHARDS / Shards leap to a hungrier hand"
+    ],
+    "draftReroll": {
+      "used": 1,
+      "allowed": 1,
+      "chip": "REROLLED",
+      "after": [
+        "COMMON / Grave Might / STAT / RANK 1/5 / +12% DAMAGE / Marrow-deep strength for every blow",
+        "COMMON / Thorn Hex / WEAPON / RANK 1/4 / 9 DMG  ·  EVERY 1.4S / A curse that leaps between up to 4 horrors",
+        "COMMON / Ash Ring / WEAPON / RANK 1/4 / 10 DMG  ·  EVERY 1.6S / A burst of cinders in all directions"
+      ]
+    },
+    "draftPick": {
+      "taken": 1,
+      "level": 2,
+      "card": "COMMON / Grave Might / STAT / RANK 1/5 / +12% DAMAGE / Marrow-deep strength for every blow"
+    },
+    "firstRunState": {
+      "active": [
+        "Game"
+      ],
+      "live": true,
+      "started": true,
+      "busy": false,
+      "paused": false,
+      "ended": false,
+      "drafting": false,
+      "pauseOpen": false,
+      "coachActive": false,
+      "coachId": null,
+      "gated": null,
+      "runS": 9.92,
+      "extractionS": 9.92,
+      "phase": "Grace",
+      "level": 2,
+      "hp": 110,
+      "hpMax": 110,
+      "kills": 4,
+      "taken": 1,
+      "enemies": 2,
+      "bossActive": false,
+      "bag": {
+        "slots": 8,
+        "used": 0,
+        "casketSlots": 1,
+        "casket": [],
+        "shards": 4
+      },
+      "gates": "closedclosedclosed",
+      "channel": {
+        "gate": null,
+        "progress": 0,
+        "accumMs": 0,
+        "effectiveMs": 4000,
+        "rate": 0
+      },
+      "collapsing": false,
+      "extracted": false,
+      "pendingDrafts": 0,
+      "acceptsInput": true
+    },
+    "clock:pause holds the director": {
+      "fromS": 10.28,
+      "toS": 10.28,
+      "driftMs": 0,
+      "wallMs": 1603
+    },
+    "pauseBagRow": {
+      "casketSlots": 1,
+      "relics": []
+    },
+    "clock:director runs again after RESUME": {
+      "fromS": 10.29,
+      "toS": 11.89,
+      "driftMs": 1600,
+      "wallMs": 1603
+    },
+    "fastForward:gateA": {
+      "atS": 116,
+      "jumpedS": 115.9,
+      "eventsSkipped": 0,
+      "dripsRebased": 4,
+      "backlogRetired": 1
+    },
+    "gateAOpen": {
+      "runS": 120.01,
+      "gates": "openclosedclosed"
+    },
+    "walkToGateA": {
+      "arrived": false,
+      "reason": "timeout",
+      "closest": 419
+    },
+    "gateAFallbackPlacement": {
+      "placedAt": {
+        "x": 378,
+        "y": 405
+      },
+      "gate": "a"
+    },
+    "channelStart": {
+      "gate": "a",
+      "progress": 0.085,
+      "accumMs": 342,
+      "effectiveMs": 4000,
+      "rate": 1
+    },
+    "channelHit": {
+      "armed": true,
+      "at": 0.45,
+      "before": {
+        "accumMs": 1801.290000000001,
+        "progress": 0.4503225000000003
+      },
+      "after": {
+        "accumMs": 1601.290000000001,
+        "progress": 0.40032250000000025,
+        "stallMs": 191.67999999999955,
+        "interrupted": true
+      },
+      "fired": true,
+      "peak": 0.4503225000000003
+    },
+    "channelSetbackMs": 200,
+    "extractedAt": {
+      "runS": 130.82,
+      "channel": {
+        "gate": "a",
+        "progress": 1,
+        "accumMs": 4000,
+        "effectiveMs": 4000,
+        "rate": 0.7
+      }
+    },
+    "stashAfterExtraction": {
+      "currency": 11,
+      "stash": [
+        "r_bonedice"
+      ],
+      "gear": {
+        "blade": null,
+        "shroud": null,
+        "trinket": null
+      },
+      "upgrades": {},
+      "stats": {
+        "runs": 3,
+        "wins": 1,
+        "bestScore": 11,
+        "bestTimeMs": 130817.97000000009,
+        "wardenKills": 0
+      }
+    },
+    "sustain:off": {
+      "on": false
+    },
+    "bagBeforePin": {
+      "slots": 8,
+      "used": 2,
+      "casketSlots": 1,
+      "casket": [],
+      "shards": 0
+    },
+    "casketPinned": {
+      "id": "r_rustbuckle",
+      "casket": [
+        "r_rustbuckle"
+      ],
+      "carried": 1
+    },
+    "transientAt:after the casket pin": [
+      "bag-pips: painted 2 used, bag holds 1"
+    ],
+    "fastForward:warden": {
+      "atS": 415,
+      "jumpedS": 412.8,
+      "eventsSkipped": 2,
+      "dripsRebased": 9,
+      "backlogRetired": 12
+    },
+    "wardenSpawn": {
+      "runS": 420.08,
+      "enemies": 26,
+      "gates": "spentspentopen"
+    },
+    "fastForward:collapse": {
+      "atS": 476,
+      "jumpedS": 52.6,
+      "eventsSkipped": 0,
+      "dripsRebased": 9,
+      "backlogRetired": 0
+    },
+    "collapseIgnition": {
+      "runS": 480.05,
+      "enemies": 68,
+      "gates": "spentspentopen"
+    },
+    "duskFire": {
+      "hpBefore": 110,
+      "ended": true,
+      "collapsing": true
+    },
+    "stashOpening": {
+      "currency": 11,
+      "scrollY": 0,
+      "maxScroll": 1768,
+      "band": {
+        "top": 200,
+        "bottom": 964
+      },
+      "gear": [
+        {
+          "slot": "BLADE",
+          "texts": [
+            "BLADE",
+            "NO RELIC\nBANKED"
+          ],
+          "offersEquip": false,
+          "nothingFits": true,
+          "equipped": false,
+          "x": 140,
+          "y": 368
+        },
+        {
+          "slot": "SHROUD",
+          "texts": [
+            "SHROUD",
+            "TAP TO\nEQUIP"
+          ],
+          "offersEquip": true,
+          "nothingFits": false,
+          "equipped": false,
+          "x": 360,
+          "y": 368
+        },
+        {
+          "slot": "TRINKET",
+          "texts": [
+            "TRINKET",
+            "TAP TO\nEQUIP"
+          ],
+          "offersEquip": true,
+          "nothingFits": false,
+          "equipped": false,
+          "x": 580,
+          "y": 368
+        }
+      ],
+      "rows": [
+        {
+          "id": "m_vitality",
+          "name": "Husk Vigor",
+          "price": "50",
+          "alpha": 0.4,
+          "level": "0/5",
+          "x": 584,
+          "y": 930
+        },
+        {
+          "id": "m_haste",
+          "name": "Gloam Pace",
+          "price": "60",
+          "alpha": 0.4,
+          "level": "0/5",
+          "x": 584,
+          "y": 1086
+        },
+        {
+          "id": "m_might",
+          "name": "Marrow Might",
+          "price": "70",
+          "alpha": 0.4,
+          "level": "0/5",
+          "x": 584,
+          "y": 1242
+        },
+        {
+          "id": "m_greed",
+          "name": "Gilt Sense",
+          "price": "55",
+          "alpha": 0.4,
+          "level": "0/5",
+          "x": 584,
+          "y": 1398
+        },
+        {
+          "id": "m_magnet",
+          "name": "Grave Pull",
+          "price": "40",
+          "alpha": 0.4,
+          "level": "0/4",
+          "x": 584,
+          "y": 1554
+        },
+        {
+          "id": "m_bag",
+          "name": "Marrow Sack",
+          "price": "70",
+          "alpha": 0.4,
+          "level": "0/2",
+          "x": 584,
+          "y": 1710
+        },
+        {
+          "id": "m_extract",
+          "name": "Bleak Haste",
+          "price": "65",
+          "alpha": 0.4,
+          "level": "0/3",
+          "x": 584,
+          "y": 1866
+        },
+        {
+          "id": "m_reroll",
+          "name": "Second Dirge",
+          "price": "80",
+          "alpha": 0.4,
+          "level": "0/2",
+          "x": 584,
+          "y": 2022
+        },
+        {
+          "id": "m_casket",
+          "name": "Widow's Casket",
+          "price": "400",
+          "alpha": 0.4,
+          "level": "0/1",
+          "x": 584,
+          "y": 2178
+        },
+        {
+          "id": "m_tithe",
+          "name": "Rot Tithe",
+          "price": "300",
+          "alpha": 0.4,
+          "level": "0/1",
+          "x": 584,
+          "y": 2334
+        },
+        {
+          "id": "m_ward",
+          "name": "Gate Ward",
+          "price": "90",
+          "alpha": 0.4,
+          "level": "0/2",
+          "x": 584,
+          "y": 2490
+        },
+        {
+          "id": "m_revive",
+          "name": "Last Rite",
+          "price": "500",
+          "alpha": 0.4,
+          "level": "0/1",
+          "x": 584,
+          "y": 2646
+        }
+      ]
+    },
+    "gearCycle": {
+      "slot": "shroud",
+      "cell": {
+        "offersEquip": true,
+        "nothingFits": false,
+        "equipped": false,
+        "texts": [
+          "SHROUD",
+          "TAP TO\nEQUIP"
+        ]
+      },
+      "before": null,
+      "after": "r_rustbuckle",
+      "stash": [
+        "r_bonedice",
+        "r_rustbuckle"
+      ]
+    },
+    "stashPurchase": {
+      "id": "m_vitality",
+      "price": "50",
+      "affordable": false,
+      "currencyBefore": 11,
+      "currencyAfter": 11,
+      "level": "0/5"
+    },
+    "stashRefusal": {
+      "id": "m_vitality",
+      "price": "50",
+      "alpha": 0.4,
+      "currency": 11
+    },
+    "finalRunState": {
+      "runS": 0.09,
+      "level": 1,
+      "bag": {
+        "slots": 8,
+        "used": 0,
+        "casketSlots": 1,
+        "casket": [],
+        "shards": 0
+      },
+      "gates": "closedclosedclosed"
+    },
+    "metaAtEnd": {
+      "currency": 11,
+      "stash": [
+        "r_bonedice",
+        "r_rustbuckle"
+      ],
+      "gear": {
+        "blade": null,
+        "shroud": "r_rustbuckle",
+        "trinket": null
+      },
+      "upgrades": {},
+      "stats": {
+        "runs": 4,
+        "wins": 1,
+        "bestScore": 11,
+        "bestTimeMs": 483383.1200000053,
+        "wardenKills": 0
+      }
+    },
+    "epochs": [
+      {
+        "label": "until:end of run",
+        "frames": 11430,
+        "fpsSamples": 942,
+        "marks": [
+          "draft-open",
+          "warden-spawn",
+          "collapse-ignition"
+        ],
+        "sceneTrail": [
+          "919:Menu",
+          "1900:Game",
+          "24136:Menu",
+          "25071:Game",
+          "71274:GameOver",
+          "72355:Game",
+          "92898:GameOver",
+          "94046:Meta",
+          "97679:Menu",
+          "98761:Meta",
+          "99462:Menu",
+          "100553:Meta",
+          "101245:Menu",
+          "102263:Game"
+        ]
+      }
+    ]
+  },
+  "phases": [
+    {
+      "t": 2,
+      "msg": "phase: boot on a wiped save"
+    },
+    {
+      "t": 2489,
+      "msg": "phase: FTUE + first run"
+    },
+    {
+      "t": 5650,
+      "msg": "FTUE beat \"goal\""
+    },
+    {
+      "t": 6629,
+      "msg": "FTUE beat \"stick\" (gated)"
+    },
+    {
+      "t": 20041,
+      "msg": "phase: pause tour"
+    },
+    {
+      "t": 26517,
+      "msg": "phase: extraction through Gate A"
+    },
+    {
+      "t": 31663,
+      "msg": "FTUE beat \"gate\""
+    },
+    {
+      "t": 61926,
+      "msg": "major arena:unreachable: walk to Gate A: never came within 70px in 30000ms"
+    },
+    {
+      "t": 61935,
+      "msg": "walk to Gate A lost to the prop field; placed on the ring to certify the channel"
+    },
+    {
+      "t": 72858,
+      "msg": "phase: late game + death settlement"
+    },
+    {
+      "t": 94510,
+      "msg": "phase: stash / gear / upgrades tour"
+    }
+  ]
+}

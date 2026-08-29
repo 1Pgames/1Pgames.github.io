@@ -1,0 +1,31 @@
+{
+  "version": 2,
+  "name": "leech",
+  "processing": {
+    "cellSize": 256,
+    "align": "feet",
+    "scaleMode": "preserve",
+    "fit": 0.86,
+    "threshold": 180,
+    "feather": 0,
+    "edgeThreshold": 210,
+    "sampling": "nearest",
+    "componentMode": "largest",
+    "componentPadding": 0,
+    "minComponentArea": 1
+  },
+  "reference": {
+    "rows": 2,
+    "cols": 2,
+    "bodyScaleMean": 0.31140350877192985,
+    "bodyScaleCv": 0.09150227565020679,
+    "anchorYMean": 0.7268740031897927,
+    "sourceToOutputScale": 0.3511323763955343,
+    "sourceCellWidth": 627,
+    "sourceCellHeight": 627,
+    "outputSubjectHeightMean": 68.75
+  },
+  "qc": {
+    "maxBodyScaleDrift": 0.08
+  }
+}

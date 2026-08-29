@@ -79,7 +79,11 @@ function loadGames() {
       continue;
     }
     const status = manifest.status ?? 'draft';
-    if (status !== 'released' && !includeDrafts) {
+    // A variant is not independently releasable: it ships when its parent
+    // ships. Filtering it on its own status would let a released game quietly
+    // lose one of its play buttons, so the parent's decision governs and the
+    // orphan check below drops it if that parent never made the cut.
+    if (!manifest.variantOf && status !== 'released' && !includeDrafts) {
       console.log(`skip ${slug}: status "${status}" (use --include-drafts to preview)`);
       continue;
     }
@@ -250,6 +254,28 @@ function storeHtml(g, m) {
              poster="${cover}" aria-label="${esc(g.title)} gameplay preview"></video>
     </section>`
     : '';
+
+  // One game, one card, one page — but possibly several playable builds. With
+  // no variants this collapses back to the single original CTA; with variants
+  // the default build keeps the solid button and each alternate gets a ghost
+  // one, so the page never implies they are different games.
+  const allVersions = [g, ...(g.variants ?? [])];
+  const versions = allVersions.length === 1
+    ? `
+        <div class="cta">
+          <a class="btn" href="../../play/${g.slug}/">&#9654; Play in browser</a>
+        </div>`
+    : `
+        <div class="cta">
+          ${allVersions
+            .map((v, i) => `<a class="btn${i ? ' ghost' : ''}" href="../../play/${v.slug}/">&#9654; ${esc(v.versionLabel ?? v.title)}</a>`)
+            .join('\n          ')}
+        </div>
+        <dl class="versions">
+          ${allVersions
+            .map((v) => `<dt>${esc(v.versionLabel ?? v.title)}</dt><dd>${esc(v.versionNote ?? '')}</dd>`)
+            .join('\n          ')}
+        </dl>`;
   const description = g.description || `${g.title} — a ${label.toLowerCase()} generated from a single prompt.`;
   const body = `
   <main class="wrap">
@@ -270,9 +296,7 @@ function storeHtml(g, m) {
           <div class="label">Original prompt</div>
           <p>&ldquo;${esc(g.prompt)}&rdquo;</p>
         </div>` : ''}
-        <div class="cta">
-          <a class="btn" href="../../play/${g.slug}/">&#9654; Play in browser</a>
-        </div>
+        ${versions}
       </div>
     </section>${preview}
     ${shots ? `
@@ -294,6 +318,19 @@ function storeHtml(g, m) {
     image: m.ogImage,
     noindex: g.status !== 'released',
   });
+}
+
+/** A variant has no store page of its own — send it to the parent's. */
+function variantRedirectHtml(v) {
+  const target = `${ORIGIN}/game/${v.variantOf}/`;
+  return `<!doctype html>
+<html lang="en"><head><meta charset="utf-8" />
+<meta http-equiv="refresh" content="0; url=../${v.variantOf}/" />
+<link rel="canonical" href="${target}" />
+<meta name="robots" content="noindex" />
+<title>${esc(v.title)} — 1PGAMES</title></head>
+<body><p><a href="../${v.variantOf}/">${esc(v.title)} is a build of another game — continue to its page</a>.</p></body></html>
+`;
 }
 
 function notFoundHtml() {
@@ -369,7 +406,32 @@ function sourceHash(dir) {
 
 // --- assemble -------------------------------------------------------------
 
-const games = loadGames();
+const allGames = loadGames();
+
+// A game whose manifest carries `variantOf: "<parent-slug>"` is a second
+// PLAYABLE BUILD of another game, not a game in its own right: it is built and
+// served at /play/<its-slug>/, but it never gets a catalog card, a store page
+// or a sitemap entry. The parent's store page offers every version behind one
+// switcher, so "the AI original vs the polished cut" is one entry with two
+// buttons rather than two entries competing in the catalog.
+//
+// An orphan variant (parent absent, e.g. filtered out as a draft) is dropped
+// rather than published unreachable — nothing should ship with no way back to
+// its own store page.
+const games = allGames.filter((g) => !g.variantOf);
+const bySlug = new Map(games.map((g) => [g.slug, g]));
+const variants = [];
+for (const v of allGames) {
+  if (!v.variantOf) continue;
+  const parent = bySlug.get(v.variantOf);
+  if (!parent) {
+    console.warn(`skip ${v.slug}: variantOf "${v.variantOf}" is not a published game`);
+    continue;
+  }
+  (parent.variants ??= []).push(v);
+  variants.push(v);
+}
+
 const media = new Map(games.map((g) => [g.slug, mediaOf(g)]));
 rmSync(OUT, { recursive: true, force: true });
 mkdirSync(OUT, { recursive: true });
@@ -383,7 +445,7 @@ writeFileSync(path.join(OUT, 'sitemap.xml'), sitemapXml(games));
 writeFileSync(path.join(OUT, 'robots.txt'), `User-agent: *\nAllow: /\n\nSitemap: ${ORIGIN}/sitemap.xml\n`);
 writeFileSync(path.join(OUT, '.nojekyll'), '');
 
-for (const g of games) {
+for (const g of [...games, ...variants]) {
   const dist = path.join(g.dir, 'dist');
   const hashFile = path.join(dist, '.buildhash');
 
@@ -418,6 +480,16 @@ for (const g of games) {
     }
   }
 
+  // A variant stops here: it is a playable build only. Its media lives on the
+  // parent's page, and /game/<variant>/ redirects there so the URL is never a
+  // dead end for anyone who bookmarked it during a preview.
+  if (g.variantOf) {
+    const stub = path.join(OUT, 'game', g.slug);
+    mkdirSync(stub, { recursive: true });
+    writeFileSync(path.join(stub, 'index.html'), variantRedirectHtml(g));
+    continue;
+  }
+
   // 2. Store media: cover from public/, screenshots + og/preview from shots/.
   const m = media.get(g.slug);
   const mediaDir = path.join(OUT, 'media', g.slug);
@@ -435,4 +507,5 @@ for (const g of games) {
   writeFileSync(path.join(pageDir, 'index.html'), storeHtml(g, m));
 }
 
-console.log(`\n_site ready: ${games.length} game(s) -> ${OUT}`);
+const versionNote = variants.length ? ` (+ ${variants.length} alternate build(s))` : '';
+console.log(`\n_site ready: ${games.length} game(s)${versionNote} -> ${OUT}`);

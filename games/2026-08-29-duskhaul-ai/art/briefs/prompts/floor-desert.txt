@@ -1,0 +1,11 @@
+Image 1 is a desert ground tile from this game. Keep its warm colour, its pixel density and its craft: warm sun-bleached ivory and cream, chunky low-resolution PIXEL ART with hard square pixels, 1px outline weight, dithered two-step shading, flat straight-down framing filling the whole canvas. Image 2 fixes craft only.
+
+FIRST CHANGE, STRUCTURE: replace Image 1's network of cracked polygonal plates with WIND RIPPLES. The whole surface becomes smooth unbroken loose sand combed into long soft crescent ripple ridges, irregular, curving in several different directions and frequently interrupted. No crack network, no polygonal plate mosaic, no horizontal strata banding.
+
+SECOND CHANGE, VALUE: Image 1 is too flat and pale. Keep the field BRIGHT overall - dark creatures stand on this sand and must read as dark holes in it - but give it a real middle tone. The ripple crests stay bright warm ivory #e8e0d0, about three fifths. Between every pair of ridges the TROUGH carries a clear band of dusty plum-violet shade, about a third of the surface, unmistakably darker than the crests at a glance: a MID tone, never dark, never black. A DARK tier of a few percent sits only in a potsherd hollow and a bone socket. It must not look like blank pale paper.
+
+DETAIL: pale salt-crust plates lifting at their edges, each with a hard violet cast-shadow sliver on its lee; patches of coarser grit; a few small scattered bleached bone chips; one broken potsherd flush with the surface - all small, none near the centre.
+
+CRITICAL: the output is a GROUND TEXTURE - a flat overhead surface covering the canvas edge to edge, full-bleed, NO magenta anywhere. Nothing stands up out of this ground; no creature, figure, face or skull.
+
+SEAM: put the canvas edges exactly ONE FULL WIND-RIPPLE PERIOD apart, a whole number of ripple crests across width and height. Left edge continues into the right, top into the bottom. No feature reading as a centre or focal point; it must repeat 5x5 times with no visible seam. Not a grid - no divider, separator or cross line, do not draw the line across the middle; no border, gradient, vignette, text or watermark.

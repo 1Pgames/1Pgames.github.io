@@ -1,0 +1,31 @@
+{
+  "version": 2,
+  "name": "kite",
+  "processing": {
+    "cellSize": 256,
+    "align": "feet",
+    "scaleMode": "preserve",
+    "fit": 0.86,
+    "threshold": 180,
+    "feather": 0,
+    "edgeThreshold": 210,
+    "sampling": "nearest",
+    "componentMode": "largest",
+    "componentPadding": 0,
+    "minComponentArea": 1
+  },
+  "reference": {
+    "rows": 2,
+    "cols": 2,
+    "bodyScaleMean": 0.53662109375,
+    "bodyScaleCv": 0.12367859162027467,
+    "anchorYMean": 0.7587890625,
+    "sourceToOutputScale": 0.43,
+    "sourceCellWidth": 512,
+    "sourceCellHeight": 512,
+    "outputSubjectHeightMean": 118
+  },
+  "qc": {
+    "maxBodyScaleDrift": 0.08
+  }
+}

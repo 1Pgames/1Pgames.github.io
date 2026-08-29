@@ -1,0 +1,228 @@
+{
+  "source": {
+    "file": "raw-source.jpg",
+    "width": 1024,
+    "height": 1024
+  },
+  "grid": {
+    "rows": 2,
+    "cols": 2
+  },
+  "output": {
+    "cellSize": 256,
+    "align": "feet",
+    "scaleMode": "preserve",
+    "fit": 0.86,
+    "sampling": "nearest",
+    "durationMs": 90,
+    "componentMode": "largest",
+    "componentPadding": 0,
+    "minComponentArea": 1
+  },
+  "qc": {
+    "strict": true,
+    "passed": true,
+    "failures": [],
+    "postureChange": [
+      "anchor-y-std:0.0630>0.0500",
+      "profile-body-scale-drift:0.2942>0.0800",
+      "output-subject-height-drift:0.2981>0.0800"
+    ],
+    "summary": {
+      "frameCount": 4,
+      "validFrameCount": 4,
+      "emptyCount": 0,
+      "sourceEdgeTouchCount": 0,
+      "outputEdgeTouchCount": 0,
+      "pasteClampedCount": 0,
+      "bodyScaleMean": 0.3408203125,
+      "bodyScaleCv": 0.004962896296758961,
+      "anchorXStd": 0.02224226948033276,
+      "anchorYStd": 0.0629920662622469,
+      "anchorYMean": 0.66748046875,
+      "outputSubjectHeightMean": 74.75,
+      "profileBodyScaleDrift": 0.29423660262891815,
+      "outputSubjectHeightDrift": 0.2981220657276995
+    },
+    "retryHints": [],
+    "background": {
+      "keyedFraction": 0.8989429473876953,
+      "edgeKeyFraction": 1,
+      "foreignRegionCount": 0,
+      "cellCoverage": [
+        0.10268402099609375,
+        0.1000823974609375,
+        0.10126495361328125,
+        0.10019683837890625
+      ],
+      "emptyCells": [],
+      "cell": {
+        "width": 512,
+        "height": 512,
+        "aspect": 1
+      },
+      "geometryMismatch": false,
+      "contaminated": false,
+      "findings": []
+    }
+  },
+  "scaleProfile": {
+    "path": "/Users/tmwh/homework/1Pgames/games/2026-08-29-duskhaul/public/assets/generated/enemies-light/thornhound-scale.json",
+    "name": "thornhound",
+    "version": 2
+  },
+  "frames": [
+    {
+      "index": 0,
+      "file": "frames/frame-000.png",
+      "sourceBox": {
+        "left": 0,
+        "top": 0,
+        "width": 512,
+        "height": 512
+      },
+      "subjectBox": {
+        "left": 74,
+        "top": 203,
+        "width": 337,
+        "height": 175
+      },
+      "alignedBox": {
+        "left": 55,
+        "top": 164,
+        "width": 145,
+        "height": 75
+      },
+      "sourceAnchor": {
+        "x": 243,
+        "y": 374
+      },
+      "targetAnchor": {
+        "x": 128,
+        "y": 238
+      },
+      "empty": false,
+      "componentCount": 1,
+      "subjectArea": 26417,
+      "bodyScale": 0.341796875,
+      "sourceEdgeTouch": false,
+      "outputEdgeTouch": false,
+      "pasteClamped": false,
+      "scale": 0.43
+    },
+    {
+      "index": 1,
+      "file": "frames/frame-001.png",
+      "sourceBox": {
+        "left": 512,
+        "top": 0,
+        "width": 512,
+        "height": 512
+      },
+      "subjectBox": {
+        "left": 74,
+        "top": 203,
+        "width": 335,
+        "height": 175
+      },
+      "alignedBox": {
+        "left": 49,
+        "top": 164,
+        "width": 144,
+        "height": 75
+      },
+      "sourceAnchor": {
+        "x": 257,
+        "y": 374
+      },
+      "targetAnchor": {
+        "x": 128,
+        "y": 238
+      },
+      "empty": false,
+      "componentCount": 1,
+      "subjectArea": 25730,
+      "bodyScale": 0.341796875,
+      "sourceEdgeTouch": false,
+      "outputEdgeTouch": false,
+      "pasteClamped": false,
+      "scale": 0.43
+    },
+    {
+      "index": 2,
+      "file": "frames/frame-002.png",
+      "sourceBox": {
+        "left": 0,
+        "top": 512,
+        "width": 512,
+        "height": 512
+      },
+      "subjectBox": {
+        "left": 75,
+        "top": 139,
+        "width": 339,
+        "height": 173
+      },
+      "alignedBox": {
+        "left": 62,
+        "top": 165,
+        "width": 146,
+        "height": 74
+      },
+      "sourceAnchor": {
+        "x": 229,
+        "y": 309
+      },
+      "targetAnchor": {
+        "x": 128,
+        "y": 238
+      },
+      "empty": false,
+      "componentCount": 1,
+      "subjectArea": 26095,
+      "bodyScale": 0.337890625,
+      "sourceEdgeTouch": false,
+      "outputEdgeTouch": false,
+      "pasteClamped": false,
+      "scale": 0.43
+    },
+    {
+      "index": 3,
+      "file": "frames/frame-003.png",
+      "sourceBox": {
+        "left": 512,
+        "top": 512,
+        "width": 512,
+        "height": 512
+      },
+      "subjectBox": {
+        "left": 74,
+        "top": 139,
+        "width": 335,
+        "height": 175
+      },
+      "alignedBox": {
+        "left": 50,
+        "top": 164,
+        "width": 144,
+        "height": 75
+      },
+      "sourceAnchor": {
+        "x": 256,
+        "y": 310
+      },
+      "targetAnchor": {
+        "x": 128,
+        "y": 238
+      },
+      "empty": false,
+      "componentCount": 1,
+      "subjectArea": 25747,
+      "bodyScale": 0.341796875,
+      "sourceEdgeTouch": false,
+      "outputEdgeTouch": false,
+      "pasteClamped": false,
+      "scale": 0.43
+    }
+  ]
+}

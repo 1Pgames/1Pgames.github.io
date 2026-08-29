@@ -1,0 +1,31 @@
+{
+  "version": 2,
+  "name": "thornhound",
+  "processing": {
+    "cellSize": 256,
+    "align": "feet",
+    "scaleMode": "preserve",
+    "fit": 0.86,
+    "threshold": 180,
+    "feather": 0,
+    "edgeThreshold": 210,
+    "sampling": "nearest",
+    "componentMode": "largest",
+    "componentPadding": 0,
+    "minComponentArea": 1
+  },
+  "reference": {
+    "rows": 2,
+    "cols": 2,
+    "bodyScaleMean": 0.48291015625,
+    "bodyScaleCv": 0.007766578107046115,
+    "anchorYMean": 0.7421875,
+    "sourceToOutputScale": 0.43,
+    "sourceCellWidth": 512,
+    "sourceCellHeight": 512,
+    "outputSubjectHeightMean": 106.5
+  },
+  "qc": {
+    "maxBodyScaleDrift": 0.08
+  }
+}

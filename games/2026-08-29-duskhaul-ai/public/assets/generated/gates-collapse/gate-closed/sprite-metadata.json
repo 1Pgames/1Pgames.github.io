@@ -1,0 +1,99 @@
+{
+  "source": {
+    "file": "omp-image-156aaa3629b8f636.webp",
+    "width": 1254,
+    "height": 1254
+  },
+  "grid": {
+    "rows": 1,
+    "cols": 1
+  },
+  "output": {
+    "cellSize": 128,
+    "align": "center",
+    "scaleMode": "fit",
+    "fit": 0.86,
+    "sampling": "nearest",
+    "durationMs": 120,
+    "componentMode": "all",
+    "componentPadding": 0,
+    "minComponentArea": 1
+  },
+  "qc": {
+    "strict": true,
+    "passed": true,
+    "failures": [],
+    "summary": {
+      "frameCount": 1,
+      "validFrameCount": 1,
+      "emptyCount": 0,
+      "sourceEdgeTouchCount": 0,
+      "outputEdgeTouchCount": 0,
+      "pasteClampedCount": 0,
+      "bodyScaleMean": 0.8819776714513556,
+      "bodyScaleCv": 0,
+      "anchorXStd": 0,
+      "anchorYStd": 0,
+      "anchorYMean": 0.5023923444976076,
+      "outputSubjectHeightMean": 110
+    },
+    "retryHints": [],
+    "background": {
+      "keyedFraction": 0.48169939129395184,
+      "edgeKeyFraction": 1,
+      "foreignRegionCount": 0,
+      "cellCoverage": [
+        0.5183006087060481
+      ],
+      "emptyCells": [],
+      "cell": {
+        "width": 1254,
+        "height": 1254,
+        "aspect": 1
+      },
+      "geometryMismatch": false,
+      "contaminated": false,
+      "findings": []
+    }
+  },
+  "frames": [
+    {
+      "index": 0,
+      "file": "frames/frame-000.png",
+      "sourceBox": {
+        "left": 0,
+        "top": 0,
+        "width": 1254,
+        "height": 1254
+      },
+      "subjectBox": {
+        "left": 152,
+        "top": 77,
+        "width": 913,
+        "height": 1106
+      },
+      "alignedBox": {
+        "left": 19,
+        "top": 9,
+        "width": 91,
+        "height": 110
+      },
+      "sourceAnchor": {
+        "x": 608.5,
+        "y": 630
+      },
+      "targetAnchor": {
+        "x": 64,
+        "y": 64
+      },
+      "empty": false,
+      "componentCount": 2,
+      "subjectArea": 814164,
+      "bodyScale": 0.8819776714513556,
+      "sourceEdgeTouch": false,
+      "outputEdgeTouch": false,
+      "pasteClamped": false,
+      "scale": 0.09952983725135624
+    }
+  ]
+}

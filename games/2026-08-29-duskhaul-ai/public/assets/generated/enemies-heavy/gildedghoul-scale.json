@@ -1,0 +1,31 @@
+{
+  "version": 2,
+  "name": "gildedghoul",
+  "processing": {
+    "cellSize": 256,
+    "align": "feet",
+    "scaleMode": "preserve",
+    "fit": 0.86,
+    "threshold": 180,
+    "feather": 0,
+    "edgeThreshold": 210,
+    "sampling": "nearest",
+    "componentMode": "largest",
+    "componentPadding": 0,
+    "minComponentArea": 1
+  },
+  "reference": {
+    "rows": 2,
+    "cols": 2,
+    "bodyScaleMean": 0.47314453125,
+    "bodyScaleCv": 0.10104564178527921,
+    "anchorYMean": 0.71533203125,
+    "sourceToOutputScale": 0.43,
+    "sourceCellWidth": 512,
+    "sourceCellHeight": 512,
+    "outputSubjectHeightMean": 104.25
+  },
+  "qc": {
+    "maxBodyScaleDrift": 0.08
+  }
+}

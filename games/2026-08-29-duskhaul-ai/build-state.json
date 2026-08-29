@@ -1,0 +1,249 @@
+{
+  "wave": "awaiting user playtest",
+  "release": {
+    "status": "draft",
+    "releaseCheck": "1 blocking issue, 0 warnings \u2014 game.json.playtest missing (the user playtest gate). Everything else passes.",
+    "cert": "passed 2026-08-29T19:21:30Z \u2014 arenaAdapter written for family A and registered in CERT_ADAPTED; the warning is now a hard gate for every future arena game",
+    "fuzz": "passed \u2014 274 actions / 45s, zero failures",
+    "preview": "shots/preview.webm captured, 10.9s"
+  },
+  "tasks": [
+    {
+      "name": "PrdDesigner",
+      "ownershipGlobs": [
+        "PRD.md",
+        "(scaffold)"
+      ],
+      "status": "done"
+    },
+    {
+      "name": "FlowMap",
+      "ownershipGlobs": [
+        "PRD.md#14b"
+      ],
+      "status": "done"
+    },
+    {
+      "name": "GreyboxTwist",
+      "ownershipGlobs": [
+        "src/slices/arena/**",
+        "src/systems/{extraction,bag}.ts"
+      ],
+      "status": "done"
+    },
+    {
+      "name": "GreyboxCritic",
+      "ownershipGlobs": [],
+      "status": "done",
+      "note": "verdict FUN; job exited 1 after my broadcasts repeatedly interrupted its yield \u2014 report recovered via IRC"
+    },
+    {
+      "name": "ArtDirector",
+      "ownershipGlobs": [
+        "art/**"
+      ],
+      "status": "dead",
+      "note": "context limit mid-write; delivered style.json + manifest + vision lock + 4 briefs; remainder respawned split three ways"
+    },
+    {
+      "name": "ArtBriefsFx",
+      "ownershipGlobs": [
+        "art/briefs/{pickups-fx,gates-collapse,ui-icons,cover}.md"
+      ],
+      "status": "done"
+    },
+    {
+      "name": "ArtBriefsZones",
+      "ownershipGlobs": [
+        "art/briefs/zone-*.md"
+      ],
+      "status": "done"
+    },
+    {
+      "name": "ArtInterface",
+      "ownershipGlobs": [
+        "PRD.md#11",
+        "PRD.md#14",
+        "art/{probe.py,coherence-audit.md,style.json}"
+      ],
+      "status": "done",
+      "note": "final audit: 102 assets, reject list EMPTY, verdict = reads as one game"
+    },
+    {
+      "name": "BriefFix",
+      "ownershipGlobs": [
+        "art/briefs/*.md"
+      ],
+      "status": "done",
+      "note": "19 substitutions; caught the blue token inside my own mandated palette clause"
+    },
+    {
+      "name": "DesignFix",
+      "ownershipGlobs": [
+        "PRD.md"
+      ],
+      "status": "done"
+    },
+    {
+      "name": "ContentData",
+      "ownershipGlobs": [
+        "src/data/*.ts"
+      ],
+      "status": "done"
+    },
+    {
+      "name": "ExtractBank",
+      "ownershipGlobs": [
+        "src/systems/{extraction,bag}.ts"
+      ],
+      "status": "done"
+    },
+    {
+      "name": "CombatZones",
+      "ownershipGlobs": [
+        "src/slices/arena/game.ts",
+        "src/systems/{zone,combat}.ts",
+        "src/objects/{relic,enemy}.ts"
+      ],
+      "status": "done"
+    },
+    {
+      "name": "UiMeta",
+      "ownershipGlobs": [
+        "src/ui/**",
+        "src/scenes/{meta,menu,gameover}.ts",
+        "src/core/progression.ts"
+      ],
+      "status": "done"
+    },
+    {
+      "name": "SimGates",
+      "ownershipGlobs": [
+        "src/sim/**",
+        "src/data/waves.ts"
+      ],
+      "status": "done",
+      "note": "3-iteration balance loop; deleted the template timer model; falsified its own Collapse prediction"
+    },
+    {
+      "name": "GenHero/EnemiesLightA/EnemiesLightB/EnemiesHeavy/Elites/Warden/PickupsFx/GatesUi/ZoneCastle/ZoneOutlands/ZoneDesert/ZoneWinter",
+      "ownershipGlobs": [
+        "public/assets/generated/**"
+      ],
+      "status": "done",
+      "note": "12 generation agents, 103/103 assets, zero unshipped"
+    },
+    {
+      "name": "ReviewGate",
+      "ownershipGlobs": [],
+      "status": "done",
+      "note": "found 5 BLOCKERs \u2014 every one a seam where a workstream built its half and the other half was never connected"
+    },
+    {
+      "name": "Integrator",
+      "ownershipGlobs": [
+        "src/**",
+        "art/manifest.json"
+      ],
+      "status": "done"
+    },
+    {
+      "name": "SliceWiring",
+      "ownershipGlobs": [
+        "src/slices/arena/game.ts",
+        "src/config.ts#PLAYER_BASE_STATS"
+      ],
+      "status": "done"
+    },
+    {
+      "name": "UiPolish",
+      "ownershipGlobs": [
+        "src/ui/**"
+      ],
+      "status": "done"
+    },
+    {
+      "name": "PropWiring",
+      "ownershipGlobs": [
+        "src/data/props.ts",
+        "src/systems/{zone,arena}.ts"
+      ],
+      "status": "done"
+    },
+    {
+      "name": "FeelPass",
+      "ownershipGlobs": [
+        "src/core/{juice,audio}.ts",
+        "src/config.ts#caps"
+      ],
+      "status": "done"
+    },
+    {
+      "name": "UiAdapt",
+      "ownershipGlobs": [
+        "src/ui/**",
+        "src/scenes/**"
+      ],
+      "status": "done",
+      "note": "per-zone measured floor grading against the canonical sprite pair"
+    },
+    {
+      "name": "QaSweep",
+      "ownershipGlobs": [],
+      "status": "done",
+      "note": "golden path completable; banking/casket/channel/abandon all verified"
+    },
+    {
+      "name": "FlowAudit",
+      "ownershipGlobs": [],
+      "status": "done"
+    },
+    {
+      "name": "ShipCritic",
+      "ownershipGlobs": [],
+      "status": "done",
+      "note": "NOT-SHIP on 2 blockers; both fixed and re-verified since"
+    },
+    {
+      "name": "SliceFix",
+      "ownershipGlobs": [
+        "src/slices/arena/game.ts",
+        "src/core/juice.ts",
+        "src/ui/joystick.ts"
+      ],
+      "status": "done"
+    },
+    {
+      "name": "CardsUi",
+      "ownershipGlobs": [
+        "src/ui/**",
+        "src/scenes/{menu,gameover,meta}.ts"
+      ],
+      "status": "done"
+    },
+    {
+      "name": "ZoneArt",
+      "ownershipGlobs": [
+        "public/assets/generated/zone-{desert,winter}/**"
+      ],
+      "status": "done"
+    },
+    {
+      "name": "CertAdapter",
+      "ownershipGlobs": [
+        "scripts/cert-driver.mjs",
+        "scripts/release-check.mjs"
+      ],
+      "status": "done",
+      "note": "wrote family-A arenaAdapter; made the cert phase sequence adapter-owned rather than board-shaped"
+    }
+  ],
+  "shippedDebt": [
+    "sim: win-rate spread 0.40 vs a 0.35 bound (courier 85% / reaper 45% / lance 50%) \u2014 3 balance iterations spent, best shipped",
+    "sim: no run reaches the Collapse. Measured cause is survival, not incentive \u2014 only ~4 of 20 deep runs are alive at 420s and they arrive at 6-13% HP, so extract.collapseHaulBonus is currently unclaimable. Kept as a monitored no-op with a postCollapse% column in the lane table",
+    "PRD \u00a77 amended DOWN on measurement: weapon.slots 4\u21923 and maxRank 5\u21924 (4 slots dropped deep-lane extraction 45%\u219220%)",
+    "no cert-report.json \u2014 family 'arena' has no cert adapter in scripts/cert-driver.mjs yet",
+    "audio is synth-only: no image/audio provider was available for music or sfx, which core/audio.ts and core/music.ts are designed to cover",
+    "bag overflow (9th relic) never observed live \u2014 needs ~4min survival; present in code and covered by a sim gate"
+  ]
+}

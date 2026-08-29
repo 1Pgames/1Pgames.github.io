@@ -144,7 +144,7 @@ function checkPlaytest(m) {
  * adapter yet only warn; grow CERT_ADAPTED together with
  * `export const adapters` in scripts/cert-driver.mjs.
  */
-const CERT_ADAPTED = new Set(['board']);
+const CERT_ADAPTED = new Set(['board', 'arena']);
 
 function checkCert(m, dir) {
   const certPath = path.join(dir, 'cert-report.json');
@@ -351,7 +351,7 @@ function report(exitCode, extra = {}) {
     if (extra.error) console.log(`FAIL  ${extra.error}`);
     console.log(
       ok
-        ? `\nPASS — ${slug} is release-ready${warnings.length ? ` (${warnings.length} warning(s))` : ''}\n`
+        ? `\nPASS — ${extra.variantOf ? `${slug} is a valid alternate build of ${extra.variantOf} — it ships when that game ships` : `${slug} is release-ready`}${warnings.length ? ` (${warnings.length} warning(s))` : ''}\n`
         : `\nNOT RELEASABLE — ${errors.length + (extra.error ? 1 : 0)} blocking issue(s), ${warnings.length} warning(s)\n`,
     );
   }
@@ -377,6 +377,32 @@ try {
   manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
 } catch (err) {
   report(1, { error: `games/${slug}/game.json is not valid JSON: ${err.message}` });
+}
+
+// A variant is a second playable build of another game, not a storefront
+// entry: no card, no store page, no independent release. The parent's
+// release-check decides whether the pair ships, so the storefront gates
+// (status, playtest, screenshots, cover, cert) genuinely do not apply — only
+// the checks that decide whether this build is honest and playable. Running
+// the full list here would report blockers that can never legitimately be
+// cleared: you cannot playtest-sign-off a build that is frozen by definition.
+if (typeof manifest.variantOf === 'string' && manifest.variantOf) {
+  if (!existsSync(path.join(ROOT, 'games', manifest.variantOf))) {
+    fail('variant:parent', `game.json: variantOf "${manifest.variantOf}" is not a game in games/`);
+  } else {
+    pass('variant:parent', `game.json: alternate build of ${manifest.variantOf}`);
+  }
+  const versionLabel = typeof manifest.versionLabel === 'string' ? manifest.versionLabel.trim() : '';
+  if (!versionLabel) {
+    fail('variant:label', 'game.json: "versionLabel" is required on a variant — it names the button on the parent\'s page');
+  } else {
+    pass('variant:label', `game.json: versionLabel "${versionLabel}"`);
+  }
+  checkWorkspaceLock(slug);
+  checkPlaceholders(manifest, dir, slug);
+  checkArt(manifest, dir);
+  checkAudio(dir);
+  report(findings.some((f) => f.level === 'error') ? 1 : 0, { variantOf: manifest.variantOf });
 }
 
 checkManifest(manifest);
