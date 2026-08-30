@@ -302,6 +302,35 @@ creates it) and its clear pattern, and each booster's price and effect.
 - F: the generator/upgrade unlock ladder with thresholds and the prestige
   threshold formula.
 
+### 5.5 Claimability ledger (every authored payout, and what makes it reachable)
+
+One row per authored reward, bonus, drop, unlock and effect id anywhere in this
+PRD. A value nobody can claim, or nobody reads, is a defect at PRD time — not a
+discovery at cert. Provenance: a build shipped an extraction bonus of `0.5`
+behind a gate no run structurally reached (cert measured closest approach 419px
+against the 70px needed; the sim reported no run reaching the stage; the critic's
+four pilots died before ever seeing a gate), an effect id registered nowhere, and
+a threat key asserted by a contract check yet read by no source file — 12
+dead-content classes in one build.
+
+| Authored value | Where it is defined | Claim condition (what the player must do) | Reachability proof | Read by (file:symbol) |
+| --- | --- | --- | --- | --- |
+| `extract.haulBonus` = 0.5 | §7 `TUNING` | reach an extraction gate and bank | sim lane `deep` reaches a gate in ≥1 of 20 runs | `scenes/game.ts:bankHaul()` |
+| `fx_lastgasp` | §13 juice table | HP crosses 0 with a shield charge held | reproduced in the browser loop | `ui/fx.ts:EFFECTS` |
+| … | | | | |
+
+- **Claim condition must be a player action, not a code path.** "when
+  `collapseGate` is true" is not a claim condition; "walk into the gate ring
+  after the 420s collapse starts" is.
+- **Reachability proof names the gate that proves it** — a sim lane, a cert
+  step, or a browser-loop screenshot. `[unproven]` in this column is a blocker,
+  and the row's value stays out of the build until it is proven or the row is
+  cut.
+- **`Read by` is mandatory and machine-checked.** `npm run verify`'s
+  consumer-edge stage (`node --import ./scripts/ts-resolve.mjs
+  scripts/consumer-edge-check.mjs`) fails on any §7 `TUNING` path with zero
+  readers in `src/`, so a row whose reader is a guess fails the build.
+
 ## 6. Progression math — **variant**
 
 - A/D: XP curve formula + worked thresholds for levels 1-12 and the level the
@@ -326,13 +355,22 @@ Every key the code reads, with units. Maps 1:1 onto `TUNING` in `src/config.ts`.
 Group by system (player/board, threat, economy, curve, feel). Minimum 25 keys;
 every key that appears in code must appear here.
 
-| Key | Value | Unit | Note |
-| --- | --- | --- | --- |
-| `player.moveSpeed` | 330 | px/s | |
-| `curve.movesOverPar` | 4 | moves | per level band (§2B) |
-| `ramp.speedCap` | 1.70 | multiplier | hard cap (§2C) |
-| `economy.costGrowth` | 1.12 | multiplier | per generator level (§2D) |
-| … | | | |
+Reverse direction too: **every key here must have at least one reader in
+`src/`.** `npm run verify`'s consumer-edge stage fails the build on a `TUNING`
+path the contract names and nothing reads — an asserted-but-unread key is dead
+tuning that reads as a shipped feature (§5.5).
+
+| Key | Value | Unit | Read by (file:symbol) | Note |
+| --- | --- | --- | --- | --- |
+| `player.moveSpeed` | 330 | px/s | `objects/player.ts:applyStats` | |
+| `curve.movesOverPar` | 4 | moves | `systems/director.ts:budgetFor` | per level band (§2B) |
+| `ramp.speedCap` | 1.70 | multiplier | `core/ramp.ts:speed` | hard cap (§2C) |
+| `economy.costGrowth` | 1.12 | multiplier | `data/generators.ts:cost` | per generator level (§2D) |
+| … | | | | |
+
+Any key whose value is amended after a measurement is logged in §18's amendment
+table and updated in **every** section that quotes it in the same pass
+(`../SKILL.md` rule 14).
 
 ## 8. Variety proof
 
@@ -429,7 +467,9 @@ At PRD time this is the game-designer's DRAFT. After the art vision lock
 (game-art Step 1b/1c) the art-director re-authors it — palette table
 (role, hex, source in the anchor image, contrast vs bgTop ≥4.5:1), HUD
 coordinates, chrome spec — and the revised section is the contract
-ui-engineer implements verbatim.
+ui-engineer implements verbatim. The re-author **carries the band-ownership
+table forward and re-validates every rect it moves**; a re-authored §14 that
+drops the band table has removed the only arbitration path the UI has.
 
 - HUD inventory with coordinates in the 720x1280 frame, respecting SAFE.
 - Board families: the board's rect inside the playfield band, tile px at the
@@ -439,6 +479,42 @@ ui-engineer implements verbatim.
   dismissed. The level-complete overlay (goal, stars, next) is mandatory for
   saga-map families.
 - Menu, pause, results, saga-map and meta screens: copy and element list.
+
+**Band-ownership table (mandatory).** Authored coordinates collide when two
+widgets are authored independently against the same y-range. Every horizontal
+band of the frame gets exactly one owner and an arbitration path, so a new
+widget has somewhere to go other than on top of an existing one:
+
+| Band | y-range | Owner widget | Occupancy | If a new widget wants this band |
+| --- | --- | --- | --- | --- |
+| Status | 0-140 (SAFE top) | HP + XP bars, run timer | full | group into the existing readout, never stack |
+| Banner | 140-260 | phase/objective banner | full | **arbitrate** — see below |
+| Playfield | 260-1000 | gameplay | full | overlay only, dismissible |
+| Tray | 1000-1060 | card/booster row | full | replace, do not overlap |
+| Controls | 1060-1280 (SAFE bottom) | full-width buttons | 88px min targets | full-width only |
+
+- **Arbitration path** (the thing whose absence caused the collisions): a
+  widget that wants an occupied band must do exactly one of — (a) take a
+  vacated band because the current owner was retired in the same edit, (b)
+  merge into the current owner's widget as a second line/pill inside its rect,
+  or (c) become a transient overlay with a stated dismissal. "Author it 23px
+  higher and hope" is not an option; a reroll chip authored that way overlapped
+  the first card by 23px in shipped play.
+- **§7.6's noise ceiling is a hard cap, not a guideline:** max 7 simultaneous
+  distinct HUD widgets. The 8th widget does not get authored — one of the seven
+  is merged or retired first, and the band table records which.
+- **Scrim vs panel is decided once, here, and §14b repeats no contradiction.**
+  State per overlay: `scrim` (translucent dim over a live playfield) or `panel`
+  (opaque `TEX.panel` rect). Two sections disagreeing on this for the same
+  overlay is a defect — the ui-engineer implements one of them and the flow
+  audit fails the other.
+- **Authored coordinates are VALIDATED, not asserted.** Before this section is
+  called done, every rect in it is checked against the real HUD — a running
+  build screenshot with the band rects overlaid, or a CDP display-list dump of
+  `x/y/width/height` per widget. Record the check (`validated against <build>
+  at <date>`), and record any rect that could not be validated as
+  `[unvalidated]` so the ui-engineer knows it is a guess. A pixel plan that was
+  never compared to pixels is a draft, whatever the numbers say.
 
 ## 14b. Flow map (ux-flow-designer owns; "the flow map is law")
 
@@ -452,6 +528,12 @@ ui-engineer implements verbatim.
 - Edge-state inventory: empty / zero / maxed / last-content per surface,
   each with designed behavior.
 - Confirmation policy: which actions confirm, which never nag.
+- **Retirement is one edit.** Cutting a node removes it from the graph, the
+  tap-depth table, the interruption matrix, the edge-state inventory and every
+  §14 coordinate that referenced it, in the same edit that cuts it
+  (`../SKILL.md` rule 16). A retired node left in the matrix reads as a shipping
+  requirement: one build kept a retired pause-draft node in the matrix and the
+  flow audit certified a state that no longer existed.
 
 ## 15. Performance plan
 
@@ -463,16 +545,19 @@ ui-engineer implements verbatim.
 
 ## 16. Build plan (parallel workstreams)
 
-4-6 workstreams that can run simultaneously. One owner per file — no shared files.
+4-6 workstreams that can run simultaneously. One owner per file — no shared
+files. Every workstream also names **who consumes its output**: a workstream
+whose Consumed-by cell is empty has no seam to connect and will deliver a
+perfectly-built module with zero importers (`../SKILL.md` rule 10).
 
-| Workstream | Owns files | Delivers | Depends on contract |
-| --- | --- | --- | --- |
-| Core mechanic | `src/slices/<family>/*`, `src/objects/*` | the family's verb + rules loop | §16.1 |
-| Content data | `src/data/*.ts` | atoms, upgrades, levels/waves/tracks | §16.1 |
-| UI/meta | `src/ui/*.ts`, `src/scenes/meta.ts`, `src/scenes/map.ts` | HUD, overlays, saga map, results, shop | §16.1 |
-| Director/generation | `src/systems/director.ts`, generator + validator | session driver, level/board/track generation | §16.1 |
-| Sim/verification | `src/sim/families/<family>.ts` | the family bot/solver and its gate | §16.1 |
-| Integration/balance | `src/scenes/game.ts`, `src/config.ts` | wiring, TUNING, playtest | all |
+| Workstream | Owns files | Delivers | Consumed by (file:call-site) | Depends on contract |
+| --- | --- | --- | --- | --- |
+| Core mechanic | `src/slices/<family>/*`, `src/objects/*` | the family's verb + rules loop | `src/scenes/game.ts` (Integration) | §16.1 |
+| Content data | `src/data/*.ts` | atoms, upgrades, levels/waves/tracks | Core mechanic + Director + `ui/cards.ts` (UI) | §16.1 |
+| UI/meta | `src/ui/*.ts`, `src/scenes/meta.ts`, `src/scenes/map.ts` | HUD, overlays, saga map, results, shop | `src/scenes/game.ts` + `src/main.ts` scene list (Integration) | §16.1 |
+| Director/generation | `src/systems/director.ts`, generator + validator | session driver, level/board/track generation | `src/scenes/game.ts` (Integration) + Sim | §16.1 |
+| Sim/verification | `src/sim/families/<family>.ts` | the family bot/solver and its gate | `src/sim/cli.ts` family registry + `verify.sh` | §16.1 |
+| Integration/balance | `src/scenes/game.ts`, `src/config.ts` | wiring, TUNING, playtest | the player | all |
 
 ### 16.1 Interface contracts (real TypeScript)
 
@@ -503,15 +588,54 @@ Replace/extend the domain contracts with the family's own (board move + result,
 level def + solver verdict, generator params, ramp dial set, generator/prestige
 economy state, question + answer key) — `SessionDirector` is fixed and shared.
 
-These contracts **must also freeze the design-heuristics §12.2 drift surface**:
-the full `TUNING` key list (§7), the `StatKey` union, every event name in
-`core/keys.ts`, and every content id set (atom/upgrade/level/track ids). The
-integrator (Integration/balance workstream above) is the **only** editor of
-that surface once the batch starts — every other workstream requests an
-addition through the integrator rather than editing `src/config.ts` or
-`core/keys.ts` directly (§12.3). `src/data/art.ts` is a **generated**
-artifact (`scripts/gen-art-registry.mjs`, produced by the art pipeline's
-integration step) and is never a workstream deliverable to hand-author.
+These contracts freeze **two** things, and the second is the one builds forget:
+the TYPE and the EDGE.
+
+**(a) The drift surface** (design-heuristics §12.2): the full `TUNING` key list
+(§7), the `StatKey` union, every event name in `core/keys.ts`, and every content
+id set (atom/upgrade/level/track ids). The integrator (Integration/balance
+workstream above) is the **only** editor of that surface once the batch starts —
+every other workstream requests an addition through the integrator rather than
+editing `src/config.ts` or `core/keys.ts` directly (§12.3). `src/data/art.ts` is
+a **generated** artifact (`scripts/gen-art-registry.mjs`, produced by the art
+pipeline's integration step) and is never a workstream deliverable to
+hand-author.
+
+**(b) The producer→consumer edge table.** Every frozen entry names the file that
+PRODUCES it and the call-site that CONSUMES it. A contract row with no consumer
+call-site is not a contract, it is a wish — and it is the defect that survives
+every green gate:
+
+> A symbol exported by a workstream-owned module with zero importers outside its
+> own directory and selftests is a BLOCKER, not dead code.
+
+| Frozen entry | Producer file (owner) | Consumer call-site (owner) | Wiring proof |
+| --- | --- | --- | --- |
+| run-end payload | `core/run.ts:outcome` (Director) | `scenes/game.ts:finish()` → `GameOverScene.init(payload)` (Integrator) | field-for-field identical on both sides, listed here |
+| `StatKey` union | `core/stats.ts` (Core) | `data/upgrades.ts` modifiers + HUD readout (Content, UI) | every key has ≥1 modifier AND ≥1 reader |
+| coach-beat feed | `ui/coachBeats.ts` (UI) | `scenes/game.ts:onBeat()` (Integrator) | import exists outside `src/ui/` |
+| bag/inventory API | `core/bag.ts:pinCasket()` (Core) | `ui/bagPanel.ts` tap handler (UI) | a real tap reaches it in the browser loop |
+| meta perk rows | `core/progression.ts` (Core) | `scenes/meta.ts` row renderer (UI) | every authored row rendered and applied |
+| … | | | |
+
+Measured provenance: a build froze producer types only. Five workstreams each
+satisfied the contract 100% while their output had no reader, and **all five**
+review-gate BLOCKERs were that one shape (payload mismatch across a scene
+boundary, a union implemented twice against disjoint key sets, a fully-built UI
+module with zero importers, an API with no call-site, two save surfaces read by
+nobody). Freezing types alone cannot catch it; the edge table can.
+
+Machine check, so this is not a review opinion — `npm run verify` runs both,
+each independently reported:
+
+- `node --import ./scripts/ts-resolve.mjs scripts/w1-contract-check.mjs` —
+  every content id and `TUNING` key the contract asserts actually exists.
+- `node --import ./scripts/ts-resolve.mjs scripts/consumer-edge-check.mjs` —
+  every export has an importer outside its own directory and selftests, and
+  every `TUNING` path has a reader in `src/`.
+
+Every row above must survive `consumer-edge-check.mjs`. Write the table so the
+edges exist by construction; do not leave them to be argued about at review.
 
 Integration order: contracts → data + core mechanic + director in parallel →
 integrator wires `GameScene` → balance pass driven by the family sim gate.
@@ -531,7 +655,7 @@ integrator wires `GameScene` → balance pass driven by the family sim gate.
 Minimum 5 excluded features with the reason. An empty cut list means the scope is
 unbounded — do not ship the PRD.
 
-## 18. Assumptions
+## 18. Assumptions and amendments
 
 Every deferred decision with the value chosen. One line each (interactive
 mode); in `auto` mode every axis's `Auto rule:` outcome, one line each in
@@ -539,11 +663,32 @@ mode); in `auto` mode every axis's `Auto rule:` outcome, one line each in
 if pattern I was used, the HYBRID DEFAULT rationale (with its numbers) are the
 first two entries.
 
+**Amendment log.** Every number this PRD changed after a measurement, with its
+provenance. A number amended here is amended in **every** section that quotes it
+in the same pass (`../SKILL.md` rule 14) — this table is the record, never the
+only place the new value lives:
+
+| Key | Old → new | Measured | Sections updated in the same pass |
+| --- | --- | --- | --- |
+| `player.invulnMs` | 400 → 700 | 3 pilots chain-stunned in the 240-330s band | §5.1, §7, §13 |
+| `gear.slots` | 4 → 3 | lane win-rate spread blew 0.40 → 0.75 at 4 slots | §5.3, §7, §8 |
+| … | | | |
+
+Before an amendment counts as done, grep the whole PRD for the old value: a hit
+outside this table is an unfinished amendment, and the next retune will read it
+and put the measured-wrong number back.
+
 ## 19. Acceptance criteria
 
-- [ ] `npm run verify` passes: typecheck + `npm run sim -- --family <slice>`
-  gates + `node scripts/gen-art-registry.mjs --check` + every
-  `src/sim/kits/*.selftest.ts`.
+- [ ] `npm run verify` passes all six stages (each independently reported, none
+  short-circuiting the rest): typecheck → `scripts/w1-contract-check.mjs` →
+  `scripts/consumer-edge-check.mjs` → `node scripts/gen-art-registry.mjs
+  --check` → every `src/sim/kits/*.selftest.ts` → `npm run sim -- --family
+  <slice>` gates.
+- [ ] Consumer-edge stage green: every §16.1 frozen entry has its named
+  consumer call-site in the built code, no export in a workstream-owned
+  directory lacks an importer outside it, and every §7 `TUNING` key has a
+  reader in `src/`.
 - [ ] The family gate passes (`src/sim/families/<family>.ts`):
   - A/D: arena/fight bot — per-lane winrates, `firstUpgradeS`, decision
     cadence for every named route (§8); win-rate spread ≤ 0.35.
@@ -571,6 +716,14 @@ first two entries.
 - [ ] Every juice-table event produces its visual and sound.
 - [ ] Nothing interactive under the bottom 220px except full-width controls.
 - [ ] Retry latency measured: J/C-endless under 2s from fail to playable.
+- [ ] Every §5.5 claimability row was actually claimed once — in the sim lane,
+  the cert run or the browser loop — and the run that claimed it is named. A
+  row nobody claimed is cut before release, not shipped dark.
+- [ ] §14's band-ownership table matches the built HUD: a screenshot or CDP
+  display-list dump shows no two widgets overlapping, ≤7 simultaneous widgets,
+  and every rect within its band.
+- [ ] Every node reachable in the built game appears in §14b, and every §14b
+  node is reachable in the built game — no retired node, no undocumented state.
 - Advisory only, not a gate: a muted 30s clip of the session should read as a
   game with escalating stakes.
 
@@ -621,11 +774,13 @@ Refuse to hand off until all hold:
    60/180/300/480s; B/G/H per level band; C-endless/J at the §2C band edges;
    E per rival tier; F at the §2D stages).
 6. ≥ 3 named routes with a non-domination argument each.
-7. Build plan has 4-6 workstreams, one owner per file, real TS contracts, and
-   the `SessionDirector` contract verbatim.
+7. Build plan has 4-6 workstreams, one owner per file, a non-empty `Consumed
+   by` cell per workstream, real TS contracts, and the `SessionDirector`
+   contract verbatim.
 8. Juice table covers every gameplay event named anywhere in the PRD, with caps.
-9. UI plan gives pixel coordinates inside SAFE and ≥ 88px tap targets; board
-   families prove the board fits without scrolling.
+9. UI plan gives pixel coordinates inside SAFE and ≥ 88px tap targets, each
+   inside its owning band (§14's band table); board families prove the board
+   fits without scrolling.
 10. Performance plan states peak counts and pooling mandates.
 11. Cut list ≥ 5 entries; Assumptions lists every deferred decision, with the
     family classification (and the HYBRID DEFAULT rationale if pattern I) first.
@@ -649,3 +804,22 @@ Refuse to hand off until all hold:
 18. §14b Flow map present: mermaid scene graph, tap-depth table (boot →
     core action ≤2 taps), a complete interruption matrix, edge-state
     inventory and confirmation policy — no undefined cells.
+19. §16.1 carries the **producer→consumer edge table**: every frozen entry
+    names its producer file, its consumer call-site and the wiring proof, and
+    no row's consumer column is empty or `TBD`. An export with no importer
+    outside its own directory is a BLOCKER, and `npm run verify`'s
+    consumer-edge stage fails on it.
+20. §18's amendment log lists every number changed after a measurement, and a
+    grep for each old value finds no hit outside that log — no section still
+    quotes a superseded number (`../SKILL.md` rule 14).
+21. §5.5 claimability ledger covers every authored reward/bonus/drop/effect id,
+    each with a player-action claim condition, a named reachability proof (no
+    `[unproven]` rows) and a `Read by` file:symbol; §7's every key has a
+    `Read by` entry.
+22. §14 carries the band-ownership table with an arbitration path per band, ≤7
+    simultaneous HUD widgets, one scrim-or-panel decision per overlay that §14b
+    does not contradict, and every coordinate marked validated against a real
+    build (no `[unvalidated]` rects).
+23. §14b contains no retired node: every node in the graph, tap-depth table,
+    interruption matrix and edge-state inventory still exists in §14
+    (`../SKILL.md` rule 16).

@@ -69,8 +69,12 @@ export const PANEL = {
   wideFrom: 600,
 } as const;
 
-/** Bar housings: HP, XP, channel, progress (§14.4 "Bar housings"). */
-export const BAR_HOUSING = {
+/**
+ * Bar housings: HP, XP, channel, progress (§14.4 "Bar housings"). Internal —
+ * `paintBar` below is the surface; a caller that reads the housing spec itself
+ * is about to draw a second, drifting copy of it.
+ */
+const BAR_HOUSING = {
   fill: DEEP_INK,
   fillAlpha: 0.85,
   stroke: 0x7e7376,
@@ -100,8 +104,11 @@ export const SCRIM = {
  * Button states (§14.4 "Buttons"), each with the contrast it was signed off
  * at. `primary` and `destructive` are FILLS carrying a deep-ink label: that is
  * the §11 escape hatch for a tone that fails as text.
+ *
+ * Internal: `BUTTON_STYLE` at the bottom of this file is what callers consume,
+ * because a `Button` takes fill/stroke/textColor and nothing else.
  */
-export const BUTTON = {
+const BUTTON = {
   idle: { fill: 0x19212e, fillAlpha: 0.95, stroke: 0x7e7376, strokeAlpha: 0.8 },
   /** Whole button offsets +2px y while held. */
   pressed: { fill: 0x2c3848, fillAlpha: 1, stroke: 0xeae1bf, strokeAlpha: 0.5, offsetY: 2 },
@@ -182,7 +189,7 @@ export const FLOOR_GRADE: Record<ZoneId, number> = {
  * the fill is identity-only. Tier NAMES always render in `ink`/`inkSoft` on
  * the tier-coloured surface, never as tier-coloured text.
  */
-export const TIER_COLOR: readonly [number, number, number, number] = [
+const TIER_COLOR: readonly [number, number, number, number] = [
   0xa5a38b, // 1 Tarnished
   0x835d2f, // 2 Burnished
   0xf3ca67, // 3 Gilded
@@ -354,7 +361,7 @@ export const DISABLED_ALPHA = 0.4;
  * `tierColorCss` is the rule's live caller: tier 4 Dread IS `secondary`, and
  * it is the only tone in the game that reaches a text style by computation.
  */
-export function textToneIsLegal(tone: number, over: TextSurface): boolean {
+function textToneIsLegal(tone: number, over: TextSurface): boolean {
   if (tone !== PALETTE.secondary && tone !== PALETTE.bad) return true;
   return over !== 'art';
 }

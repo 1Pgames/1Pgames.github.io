@@ -68,6 +68,9 @@ export interface OpeningCoach {
  * The director must NOT be ticking when this is called.
  */
 export function startOpeningCoach(scene: Phaser.Scene, hooks: CoachHooks): OpeningCoach | null {
+  // The opening is taught exactly once ever. A `null` return IS the "already
+  // taught" answer the slice reads, which is why there is no separate exported
+  // predicate for it — one would be a second copy of this line.
   if (hasSeenCoach('goal') && hasSeenCoach('stick')) return null;
 
   let live: CoachHandle | null = null;
@@ -182,9 +185,4 @@ export function showGateCoach(
       }
     },
   };
-}
-
-/** Has this run already taught the whole opening? Cheap enough to call in `create`. */
-export function openingCoachDone(): boolean {
-  return hasSeenCoach('goal') && hasSeenCoach('stick');
 }

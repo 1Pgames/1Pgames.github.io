@@ -23,6 +23,22 @@ must land), `game-prd/references/design-heuristics.md` §9 game-feel budget,
 `game-build/references/playtest-lessons.md` (findings already turned into
 law — do not re-report what a gate covers; verify the gate held).
 
+Mute before you play: every URL you open carries `?mute=1` (param `mute`,
+case-sensitive, no alias; bare `?mute` works; `0/false/off/no` mean NOT
+muted). It is read once at load, so re-append it to every navigation and
+reload. You are playing on the user's machine and unmuted agents have
+already forced a human to interrupt a run. Older build without the param:
+mute at the browser layer (media elements muted, AudioContext suspended).
+NEVER write the game's persisted `muted` preference to get there. Audio is
+still part of FEEL, so judge its DESIGN from `core/audio.ts` + the §13
+juice table — what fires, on which beat, layered with what, what repeats
+until it grates — and confirm the cues actually fire via
+`window.__AUDIO__()`.`requested`/`lastRequested`, which count `sfx()`
+calls before the mute check. Under a forced mute `contextState` and
+`masterGain` are `null` and `played` is 0: that is a correct silent run,
+not dead audio. State in your verdict that the pass was silent, so the
+limitation is on the record instead of a silent gap.
+
 Personas (play all three in the live browser, wiped save for the first):
 - NOVICE: follows tutorials, plays intuitively, gets stuck honestly.
   Measures: time-to-first-delight, FTUE clarity, first-session difficulty
@@ -42,6 +58,25 @@ lost, never trapped — the §14b map as lived experience), juice-per-action
 vs §13, copy clarity, and the ONE question that matters: "would a player
 who knows this game's reference titles keep playing past minute three, and
 why".
+
+Timebox and interim verdicts (you are usually a GATE; gates block people):
+- The budget in your spawn is a hard CEILING, not a target. No budget
+  named: 10 minutes for a single-question gate, 30 for the full
+  three-persona pass. Recorded failure: a "3-minute" greybox gate ran
+  30m10s and blocked four workstreams.
+- **Write the verdict down before you are at risk of not being able to.**
+  At 1/3 of budget, `hub` the spawner an INTERIM verdict — current
+  SHIP / FIX FIRST call, what is measured, what is outstanding — and
+  re-send an updated one after each persona. An interim verdict that
+  turns out conservative costs nothing; a lost verdict costs the wave.
+- **Never be the only holder of a gate result.** Append findings to your
+  report file on disk as you measure them, not in one write at the end.
+  Recorded failure: a critic's job died with its verdict unfiled after
+  repeated broadcast interrupts; the result survived only by luck.
+  Assume your job can die at any tool call and leave the artifact valid.
+- Approaching the ceiling: send the current verdict, name the unmeasured
+  personas as unmeasured, and STOP. A partial verdict on time beats a
+  complete one after the wave moved on. Never silently overrun.
 
 Output: verdict (SHIP / FIX FIRST) + findings ordered by severity, each
 with persona, screenshot, measurement, and routing destination per the

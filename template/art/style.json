@@ -1,6 +1,8 @@
 {
   "schema": "sprite-forge.style.v1",
-  "name": "vibrant-chibi",
+  "scaffold": true,
+  "scaffoldNote": "PLACEHOLDER — this is the scaffold's style lock, not your game's. game-art Step 1 replaces it: write this game's own artStyle/palette/lighting/outline, set a new kebab `name`, list the Step 1b vision anchors in `references`, and DELETE the `scaffold` and `scaffoldNote` keys. scripts/release-check.mjs fails while they are here, because a game generated against this file is a game with no art direction of its own. The prose below is a real, working vibrant-chibi profile (the template's own art was generated from it) — keep it only if this game genuinely IS vibrant chibi, and even then re-name it and add your anchors.",
+  "name": "scaffold-placeholder-vibrant-chibi",
   "artStyle": "Vibrant 2D chibi game art: two-heads-tall proportions, oversized round head, huge expressive eyes with a single bright specular dot, tiny stubby limbs, no visible neck. Clean vector-like cel shading with exactly two shadow steps and one hard highlight, thick dark navy outline of even weight around every silhouette, and a soft inner rim light on the upper-left. Saturated candy colours on near-black backgrounds, glossy plastic-toy finish, chunky readable shapes with no fine linework or texture noise. Consistent 3/4 front-facing camera, no perspective distortion, no photographic detail, no gradients larger than a single body part.",
   "palette": [
     "#05070d",

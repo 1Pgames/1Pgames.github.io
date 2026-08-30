@@ -34,10 +34,43 @@ export function shake(scene: Phaser.Scene, intensity = 0.008, durationMs = 160):
   buzz(12);
 }
 
-/** Full-screen color flash. Use sparingly: damage, death, milestone. */
-export function flash(scene: Phaser.Scene, color: number = PALETTE.bad, durationMs = 140): void {
+/**
+ * Full-screen colour flash. Use sparingly: damage, death, milestone.
+ *
+ * NEVER OPAQUE. Phaser's `Camera.flash` starts its overlay at alpha 1, which
+ * paints the ENTIRE frame one flat colour: on the 2026-08-29 build one of six
+ * verification screenshots came back as a solid sheet with no game in it, and
+ * the same effect hides the frame in which the player is trying to read what
+ * just hit them. The peak alpha is therefore authored (`peakAlpha`) and HARD
+ * CLAMPED to `MAX_FLASH_ALPHA`, so no call site — and no generated game — can
+ * blank a frame. The tint still reads: 0.4 over the play field is a clear
+ * colour wash at 24fps capture.
+ *
+ * Capped in count as well as in strength. `force` is false, so a running flash
+ * is never restarted, and `FLASH_GAP_MS` drops any flash that lands too soon
+ * after the last one — 30 simultaneous damage events are one flash, not a
+ * strobe (same throttle shape as `HAPTIC_GAP_MS` above).
+ */
+const MAX_FLASH_ALPHA = 0.6;
+const FLASH_GAP_MS = 220;
+let lastFlash = 0;
+
+export function flash(
+  scene: Phaser.Scene,
+  color: number = PALETTE.bad,
+  durationMs = 140,
+  peakAlpha = 0.4,
+): void {
+  const now = Date.now();
+  if (now - lastFlash < FLASH_GAP_MS) return;
+  lastFlash = now;
   const c = Phaser.Display.Color.IntegerToRGB(color);
-  scene.cameras.main.flash(durationMs, c.r, c.g, c.b, false);
+  const effect = scene.cameras.main.flashEffect;
+  // `start` snapshots `alpha` as the effect's PEAK and fades from it, so the
+  // ceiling has to be written before starting — and rewritten every call,
+  // because a completed effect restores whatever peak it last ran with.
+  effect.alpha = Phaser.Math.Clamp(peakAlpha, 0, MAX_FLASH_ALPHA);
+  effect.start(durationMs, c.r, c.g, c.b, false);
 }
 
 /** Squash-and-stretch punch. Returns the tween so callers can chain. */
@@ -170,9 +203,22 @@ export function countTo(
   });
 }
 
-/** Slide-in entrance for UI. Call on every menu/HUD element for polish. */
 type Movable = Phaser.GameObjects.GameObject & { x: number; y: number; alpha: number };
 
+/**
+ * Slide-in entrance for INERT DECOR ONLY — headings, labels, panels, art.
+ *
+ * DO NOT USE ON ANYTHING TAPPABLE. This tweens the object's own `y`, and
+ * Phaser hit-tests against the live transform, so the tap target slides with
+ * the pixels and — because `alpha` starts at 0, which clears `willRender` —
+ * the control is not in the hit map at all until the tween moves it off zero.
+ * Measured on the 2026-08-29 build: the primary CTA ate the first 1-3 taps
+ * across four cold starts, plus one 300s automated hang tapping the button's
+ * final rest position.
+ *
+ * For interactive objects use `ui/entrance.ts`'s `enterPinningHitArea`, which
+ * runs the same slide with the hit areas pinned at their landing rects.
+ */
 export function enterFromBottom(
   scene: Phaser.Scene,
   target: Movable,
@@ -192,7 +238,15 @@ export function enterFromBottom(
   });
 }
 
-/** Infinite idle breathing — keeps menus from looking like a static PNG. */
+/**
+ * Infinite idle breathing — keeps menus from looking like a static PNG.
+ *
+ * Same hit-area caveat as `enterFromBottom`, permanently: this tweens `y`, so
+ * an interactive target's tap rect breathes with it and is up to `amplitude` px
+ * off its painted position at any moment. Bob the DECOR (a logo, a plate, an
+ * illustration), not the control; if a control has to breathe, bob a child
+ * sprite and leave the interactive parent still.
+ */
 export function idleBob(
   scene: Phaser.Scene,
   target: Movable,

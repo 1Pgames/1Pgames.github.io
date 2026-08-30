@@ -56,14 +56,21 @@
  * A group's `note` (if present) becomes the doc-comment above that group's
  * block in the generated file, so `art/manifest.json` stays the single place
  * that explains what an asset is for.
+ *
+ * The registry must also still COMPILE against its readers: before anything is
+ * written, every `TEXTURE`/`ANIM`/`ICON` alias that `src/` reads must exist in
+ * the registry this run would emit. An art run that drops an asset the code
+ * still addresses fails HERE, by name, instead of emitting a registry that
+ * produces TS2339 errors later (see `assertConsumersResolve`).
  * ---------------------------------------------------------------------------
  */
 
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { readdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { relative, resolve } from 'node:path';
 
 const ROOT = process.cwd();
 const MANIFEST_PATH = resolve(ROOT, 'art/manifest.json');
+const SRC_DIR = resolve(ROOT, 'src');
 const OUTPUT_PATH = resolve(ROOT, 'src/data/art.ts');
 const CHECK = process.argv.includes('--check');
 
@@ -107,6 +114,107 @@ function formatAsset(fields) {
 
 function round3(n) {
   return Math.round(n * 1000) / 1000;
+}
+
+/** Every `.ts` file under `src/`, minus the generated registry itself. */
+function sourceFiles(dir = SRC_DIR, out = []) {
+  if (!existsSync(dir)) return out;
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = resolve(dir, entry.name);
+    if (entry.isDirectory()) sourceFiles(full, out);
+    else if (entry.isFile() && entry.name.endsWith('.ts') && full !== OUTPUT_PATH) out.push(full);
+  }
+  return out;
+}
+
+/**
+ * `KIND.alias` -> the files that read it, for every `TEXTURE`/`ANIM`/`ICON`
+ * member access in the game's own code (dot or quoted-bracket form).
+ */
+function aliasReads() {
+  const reads = new Map();
+  for (const file of sourceFiles()) {
+    const text = readFileSync(file, 'utf8');
+    for (const m of text.matchAll(/\b(TEXTURE|ANIM|ICON)(?:\.([A-Za-z_$][\w$]*)|\[\s*'([^']+)'\s*\])/g)) {
+      const id = `${m[1]}.${m[2] ?? m[3]}`;
+      const at = reads.get(id);
+      if (at) at.add(file);
+      else reads.set(id, new Set([file]));
+    }
+  }
+  return reads;
+}
+
+/** The alias names the CURRENT src/data/art.ts declares, per map. */
+function declaredInExistingRegistry() {
+  const out = new Set();
+  if (!existsSync(OUTPUT_PATH)) return out;
+  const text = readFileSync(OUTPUT_PATH, 'utf8');
+  for (const kind of ['TEXTURE', 'ICON', 'ANIM']) {
+    const m = new RegExp(`export const ${kind} = \\{([\\s\\S]*?)\\n\\} as const;`).exec(text);
+    if (!m) continue;
+    for (const row of m[1].matchAll(/^\s*'?([\w$-]+)'?:/gm)) out.add(`${kind}.${row[1]}`);
+  }
+  return out;
+}
+
+/**
+ * A regenerated registry must still COMPILE against the code that reads it.
+ * Measured failure: an art run rewrote `art/manifest.json` without the
+ * template's `coin`, `xpOrb`, `bullet`, `hitSpark`, `heart` and `backdrop`
+ * aliases, this script happily emitted a registry without them, and the 8
+ * resulting TS2339 errors surfaced only after twelve art agents had finished.
+ * The generator knew every removed alias and said nothing.
+ *
+ * So: every `TEXTURE`/`ANIM`/`ICON` member the code reads must exist in the
+ * registry about to be written. Referenced-but-removed is a hard error naming
+ * the aliases, their readers, and whether the previous registry had them.
+ * Referenced-but-PRUNED (the group's directory is gone, the alias survives as
+ * a compile stub) is a warning: cross-family dead code legitimately reads
+ * those, and `ArtSlot` consumers guard with `scene.textures.exists`.
+ */
+function assertConsumersResolve(textureAliases, animAliases, iconEntries) {
+  const declared = new Set();
+  const pruned = new Set();
+  for (const [kind, rows, groupAt] of [
+    ['TEXTURE', textureAliases, 2],
+    ['ANIM', animAliases, 2],
+    ['ICON', iconEntries, 3],
+  ]) {
+    for (const row of rows) {
+      const id = `${kind}.${row[0]}`;
+      declared.add(id);
+      // A pruned row carries the group name in a trailing slot (see
+      // `notShipped`): [alias, key, group] for TEXTURE/ANIM, [name, key,
+      // frame, group] for ICON. Indexed, not "last element" — an icon's
+      // `frame` is a number and frame 3 is not a group name.
+      if (row[groupAt]) pruned.add(id);
+    }
+  }
+
+  const reads = aliasReads();
+  const previously = declaredInExistingRegistry();
+  const missing = [...reads].filter(([id]) => !declared.has(id));
+  if (missing.length > 0) {
+    const lines = missing.map(([id, files]) => {
+      const where = [...files].map((f) => relative(ROOT, f)).sort().join(', ');
+      const note = previously.has(id) ? ' — declared by the CURRENT registry, so this run REMOVES it' : '';
+      return `  ${id}  read by ${where}${note}`;
+    });
+    throw new Error(
+      `art/manifest.json no longer declares ${missing.length} art alias(es) that src/ still reads.\n` +
+        `${lines.join('\n')}\n\n` +
+        'Writing this registry would produce exactly that many TS2339 errors. Either restore the\n' +
+        'asset rows (with their `textureAlias` / `animAlias` / `icons` names) in art/manifest.json,\n' +
+        'or update the reader(s) above to the aliases this game actually ships.',
+    );
+  }
+
+  const stubs = [...reads].filter(([id]) => pruned.has(id));
+  for (const [id, files] of stubs) {
+    const where = [...files].map((f) => relative(ROOT, f)).sort().join(', ');
+    console.warn(`warn: ${id} belongs to a pruned art group — nothing loads it; ${where} renders the fallback.`);
+  }
 }
 
 function main() {
@@ -240,6 +348,10 @@ function main() {
       imageBlocks.push(`  // ${heading}\n${imageLines.join('\n')}`);
     }
   }
+
+  // Before anything is written: the registry this run would emit must still
+  // satisfy the code that reads it (see `assertConsumersResolve`).
+  assertConsumersResolve(textureAliases, animAliases, iconEntries);
 
   // A pruned group's aliases stay in the constant maps (dead code from another
   // family still has to compile) but are flagged: nothing loads them, so using

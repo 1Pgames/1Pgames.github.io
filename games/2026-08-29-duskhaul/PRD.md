@@ -44,7 +44,7 @@ Every named entity in §5 draws from this set.
 
 | Title | Why it is the benchmark | What we take / reject |
 | --- | --- | --- |
-| Vampire Survivors | The survivor-genre king: 6 weapon slots, evolutions via maxed weapon + catalyst + boss chest, movement-only input | Take: auto-attack kit, level-up pick-1-of-3, evolution as the mid-run power spike. Reject: 30-min runs (browser scope is 480s) and the 6+6 slot economy (compressed to 4 weapon slots) |
+| Vampire Survivors | The survivor-genre king: 6 weapon slots, evolutions via maxed weapon + catalyst + boss chest, movement-only input | Take: auto-attack kit, level-up pick-1-of-3, evolution as the mid-run power spike. Reject: 30-min runs (browser scope is 480s) and the 6+6 slot economy (compressed to **3** weapon slots — AMENDED from 4 on measurement, §7 `weapon.slots`) |
 | Escape from Duckov | The fun bar named in the pitch; single-player extraction loop with stash, base upgrades, and dog-bag insurance | Take: raid→stash→upgrade cycle, secure-slot insurance ("casket"), lose-carried-loot-on-death. Reject: manual aiming/ammo economy (survivor auto-fire replaces it), base building (out of browser scope) |
 | Halls of Torment | Proof the survivor loop and per-run item extraction fuse: gear found in-run must be sent up the Well (1 use/run) to keep it | Take: relics-as-extractable-gear, limited banking capacity as the tension source. Reject: quest-gated unlock of the mechanic (Duskhaul's gates work from run 1) |
 | Escape from Tarkov / Dark and Darker | Extraction-genre conventions: guaranteed vs conditional extracts, extraction channel timers, portals opening on a schedule, shrinking endgame | Take: multiple gates with open/close windows, hold-to-extract channel, late-run collapse pressure. Reject: PvP, netcode, ammo/insurance economy in currency |
@@ -53,8 +53,8 @@ Every named entity in §5 draws from this set.
 
 | Staple | Reference implementation | This game |
 | --- | --- | --- |
-| Auto-attack weapon kit + level-up draft | VS: 6 weapons, XP orbs, pick-1-of-3 per level | adapt — 4 weapon slots, 6 weapons, pick-1-of-3 with 1 free reroll (§5.3) |
-| Weapon evolution matrix | VS: max weapon + passive catalyst + boss chest; 20MTD: pick at level 20 | adapt — 20MTD's simpler rule: weapon at max rank (5) + the tagged stat card owned → next draft offers the evolution (§5.3 evolution table) |
+| Auto-attack weapon kit + level-up draft | VS: 6 weapons, XP orbs, pick-1-of-3 per level | adapt — **3** weapon slots (AMENDED from 4 on measurement, §7 `weapon.slots`), 6 weapons, pick-1-of-3 with 1 free reroll (§5.3) |
+| Weapon evolution matrix | VS: max weapon + passive catalyst + boss chest; 20MTD: pick at level 20 | adapt — 20MTD's simpler rule: weapon at max rank (**4**, AMENDED from 5 on measurement, §7 `weapon.maxRank`) + the tagged stat card owned → next draft offers the evolution (§5.3 evolution table) |
 | Elite/boss taxonomy with telegraphs | VS/Halls: timed elites, boss at run end | adopt — elites at 150s/270s/390s, the Gate Warden at 420s guarding Gate C (§5.2, §5.4) |
 | Loot rarity tiers + drop tables | Tarkov: location-tier loot tables; Duckov: value-density looting | adopt — 4 relic tiers (Tarnished/Burnished/Gilded/Dread), zone-biased drop tables (§5.5, §5.7) |
 | Bag capacity pressure | Duckov encumbrance; Tarkov grid inventory | adapt — 8 relic slots (shards weightless); overflow forces drop-lowest choice; +2/stack meta (§9) |
@@ -71,7 +71,8 @@ Every named entity in §5 draws from this set.
 | Number | Value here | Source signal |
 | --- | --- | --- |
 | Run length | 480s frame + ≤60s Collapse | VS 30 min / Brotato 25 min compressed to family A's 480s reference |
-| Weapon slots | 4 | VS 6, scaled to a 480s draft cadence (~13 picks) |
+| Weapon slots | **3** | VS 6, scaled to a 480s draft cadence (~13 picks); AMENDED from 4 on measurement — see §7 `weapon.slots` |
+| Weapon max rank | **4** (3 boosts) | 20MTD-style max-rank evolution gate; AMENDED from 5 on measurement — see §7 `weapon.maxRank` |
 | Weapons at launch | 6 (+6 evolutions) | 20MTD's 13, halved for browser scope |
 | Upgrade card pool | 26 | VS-style pool ≥4x the 3 choices offered (§5.3) |
 | Enemy roster | 12 shared + 8 zone-exclusive + 3 elites + 1 Warden (4 zone skins) | VS launch breadth scaled; playbook floor 5 |
@@ -331,10 +332,14 @@ names the game-art pass fills (`NEW` = new manifest entry). Value = shards.
 
 ### 5.3 Weapons, upgrade cards, evolutions
 
-**Weapons** (4 slots; each ranks 1-5 via its boost card; template patterns in
+**Weapons** (**3** slots; each ranks **1-4** via its boost card — both AMENDED
+DOWN on measurement (4 slots → 3, rank 5 → 4); §7 `weapon.slots` /
+`weapon.maxRank` are authoritative and carry the measured numbers. Retuning
+back to 4 slots / rank 5 from this line re-blows the lane spread 0.40 → 0.75
+and drops deep-lane extraction 45% → 20%. Template patterns in
 `systems/combat.ts`, two `NEW` patterns):
 
-| id | Flavor name | Flavor desc | Pattern | Base dmg | Cooldown ms | Evolution (at rank 5 + tagged stat card owned) |
+| id | Flavor name | Flavor desc | Pattern | Base dmg | Cooldown ms | Evolution (at rank **4** = max rank, AMENDED from 5 on measurement, + tagged stat card owned) |
 | --- | --- | --- | --- | --- | --- | --- |
 | bolt | Rustspike | A nail of grave-iron flung at the nearest horror | template `bolt` | 8 | 900 | **Coffin Nail** (pierce 3, dmg 20) — needs a Might card |
 | orbit | Bone Halo | Femurs circling the hauler in a slow wheel | template `orbit` | 6/tick | continuous | **Marrow Wheel** (2x radius, +2 bones) — needs an Area card |
@@ -350,9 +355,9 @@ their gate condition holds — no dead drafts, §8):
 
 | id | Flavor name | Flavor desc | Rarity | Effect | Stack limit | Synergy tag |
 | --- | --- | --- | --- | --- | --- | --- |
-| w_unlock_* (6) | weapon names above | adds the weapon at rank 1 | common | new weapon | 4 slots | per-weapon |
-| w_boost_* (6) | Whetted (weapon name) pattern, e.g. Whetted Rustspike | +1 rank: +25% dmg or +1 projectile per rank | common | rank +1 | 4 | per-weapon |
-| w_evo_* (6) | evolution names above | replaces the rank-5 weapon | epic | evolution | 1 | per-weapon |
+| w_unlock_* (6) | weapon names above | adds the weapon at rank 1 | common | new weapon | **3** slots (AMENDED from 4 on measurement, §7 `weapon.slots`) | per-weapon |
+| w_boost_* (6) | Whetted (weapon name) pattern, e.g. Whetted Rustspike | +1 rank: +25% dmg or +1 projectile per rank | common | rank +1 | **3** (= `weapons.maxBoosts`; AMENDED from 4 on measurement, §7 `weapon.maxRank`) | per-weapon |
+| w_evo_* (6) | evolution names above | replaces the rank-**4** (max-rank) weapon — AMENDED from rank-5 on measurement, §7 | epic | evolution | 1 | per-weapon |
 | stat_might | Grave Might | Marrow-deep strength for every blow | common | `damageMul +12%` | 5 | offense |
 | stat_haste | Dirge Tempo | The dead march faster to your drum | common | `cooldownMul -8%` | 5 | offense |
 | stat_area | Ashen Reach | Your curses spread like windblown ash | common | `area +15%` | 5 | area |
@@ -484,6 +489,55 @@ Zone-exclusive enemies enter the local spawn table from 60s (light) and 240s
 with the stats above. Each zone is a separate run arena with its own backdrop
 art (§11); no mid-run zone travel.
 
+### 5.8 Claimability ledger
+
+One row per authored payout: where the number lives, the PLAYER ACTION that
+claims it, the named measurement proving that action is reachable, and the file
+that reads it. A payout with no proof is not shipped dark — it is cut and
+logged in §17 with the proof needed to reinstate it. Sim quotes are from
+`npm run sim -- --runs 20 --seed balance` (120 runs over the three §8 lanes),
+2026-08-30; cert quotes from `cert-report.json`.
+
+| Payout (authored key / id) | Where defined | Claim condition (a player action) | Reachability proof | Read by |
+| --- | --- | --- | --- | --- |
+| Kill shards (`value` per archetype) | `data/enemies.ts` §5.2/5.2b | kill an enemy, then walk inside `player.pickupRadius` of the drop | sim: "every one of the 16 spawned archetypes is engaged by the ceiling bot in a median run"; "avoidant income floor: courier shards/s Early 2.47 / Mid 1.84 (must clear 1.0/s)" | `slices/arena/game.ts:933,980` → `systems/bag.ts addShards`; `ui/bagPips.ts` |
+| XP orbs (`xp.orbValue` 3, `curveBase` 12, `curveGrowth` 1.28) | `config.ts` §7 | walk over an orb; each level opens a draft | sim: "median firstUpgradeS = 10.5 (<= 50)" | `systems/combat.ts:888` → `objects/player.ts:97 addXp`; draft in `slices/arena/game.ts` |
+| Shard caches (`loot.cacheEveryS` 30, `cacheValue` 18, `cacheMinDist/MaxDist`, `cacheLingerS` 45) | `config.ts` §7 | walk onto the cache marker before `cacheLingerS` expires | sim: "avoidant income floor: courier shards/s Early 2.47 / Mid 1.84" — the non-kill income source is the gate that proves it | `slices/arena/game.ts:1294,1328-1329` |
+| Ambient relic drip (`loot.firstRelicS` 35, `relicDripS` 26) | `config.ts` §7 | walk over the relic pickup; accept the drop-lowest swap once the bag is full | sim: "deep lane hit bag capacity before 400s in 100% of runs (>= 60%)" | `slices/arena/game.ts:1334-1346` |
+| Elite / Warden relics (`loot.eliteRelics` 2, `eliteTierBias`, `bossTierBias`) | `config.ts` §7 | kill an elite (150/270/390s) or the Warden (420s), then collect | sim: "live enemies at the 420s Warden beat: max 98, median 42"; "every one of the 16 spawned archetypes is engaged" | `slices/arena/game.ts:937-938 dropRelics` |
+| Per-enemy relic rolls (`params.relicRolls`, `relicTierBias` — Gilded Ghoul) | `data/enemies.ts:248` | kill the Gilded Ghoul (spawns 1 per 60s from 200s), then collect | sim: same archetype-engagement gate — the ghoul is one of the 16 | `slices/arena/game.ts:941` |
+| Timed chests (`chest.at` 165/345, `chest.relics`, `chest.tierBias`) | `config.ts` §7, `data/waves.ts:254-255` | walk into the chest marker when the timeline beat fires | sim: "every run ended by extraction or death, never by a clock: 120/120" — both beats sit inside the measured run span | `slices/arena/game.ts:1155` |
+| Dread Shrine relic (`shrine.atS` 300, `densityMul` 2.5, `radiusPx`) | `config.ts` §7 | from 300s, walk into the marked pocket and survive its density bubble | sim: "late-game pressure rises: damage taken/s Late 0.13 -> Climax 1.71 across the 19 runs that spanned both bands" — 19 runs were alive inside the shrine window | `slices/arena/game.ts:1218-1240 tickShrine` |
+| Extraction haul (banking on `extracted`) | `systems/bag.ts settle`, §5.6 | hold a gate ring for the effective `channelMs` | sim: "all 12 zone/gate pairs reachable from spawn at base moveSpeed inside their window"; "clean channel at Gate A completed in 4.0s"; "haul is monotone in greed: A 263 < B 561 < C 1610 shards" | `slices/arena/game.ts:1750`; `scenes/gameover.ts` |
+| Casket pin (`bag.casketSlots` 1, `bag.autoPinHighest` false) | `config.ts` §7, §5.6 | tap a bag pip on the pause overlay to pin (tap again to unpin) | §14b tap-depth: pause is 1 tap from combat; sim: "death costs relics: 100% of relic-carrying deaths lost something (>= 80%)" — the pin is the only exception path | `systems/bag.ts pinCasket`; `ui/bagPips.ts:196`; pause overlay §14.5 |
+| Rot Tithe death-keep (`meta.deathKeepPct` 25, `PERKS.tithePct`) | `config.ts` §7, `core/progression.ts:476` | buy `m_tithe` (flat 300) in the shop, then die carrying shards | resolves at run start into `RunLoadout.deathKeepPct` and is passed to settlement on the death path | `core/progression.ts:524-527` → `slices/arena/game.ts:1750 bag.settle(…, loadout.deathKeepPct)` |
+| Relic salvage (`salvage` per tier, §5.5) | `data/relics.ts salvageFor` | tap SALVAGE on a stash row in Meta (Dread arms first) | §14b tap-depth: run end → STASH is 1 tap; every banked relic renders a salvage button | `core/progression.ts salvageFromStash`; `scenes/meta.ts:628` |
+| Equipped gear effects (3 gear slots, 16 relic `gear` blocks + 3 rider kinds) | `data/relics.ts`, §5.5 | tap a GEAR cell in Meta to cycle a banked relic into the slot | every `gear` entry is pushed as a `gear:<id>` modifier and the 3 rider kinds land in named `RunLoadout` fields; boot-time `validateUpgradeStats` asserts each key is in the frozen §16.1 union | `core/progression.ts:538-561`; `slices/arena/game.ts:514-534` |
+| 7 stat meta rows (`m_vitality`, `m_haste`, `m_might`, `m_greed`, `m_magnet`, `m_bag`, `m_extract`) | `data/upgrades.ts:400-468 META_UPGRADES`, §10 | buy a level in the shop UPGRADES group | `metaModifiers()` walks `META_UPGRADES`; sim: "every upgrade-card modifier targets a stat the run model reads"; `bagSlots` and `channelMs` are consumed as deltas, not dropped | `core/progression.ts:451-459`; `slices/arena/game.ts:521,533-534` |
+| 5 perk meta rows (`m_reroll`, `m_casket`, `m_tithe`, `m_ward`, `m_revive`) | `core/progression.ts:470-481 PERKS`, §10 | buy the row in the shop UPGRADES group | each perk has exactly one `RunLoadout` field and one consumer: rerolls → draft, casket slots → `resolveBagCapacity`, keep% → settlement, gate window → `game.ts:530`, revive → `game.ts:466-470` | `core/progression.ts:516-533`; the five sites above |
+| `fx_lastgasp` / effect id `last-gasp` (`effects.lastGasp` 0.3 / 2000ms) | `data/upgrades.ts:194-204`, `config.ts:272` | pick the epic Last Gasp card in a draft, then take a lethal blow | the hook IS registered (`EFFECT_HOOKS['last-gasp']`) and both damage routes consult the same charge — `Health.apply` and the hazard/Collapse drains that bypass i-frames | `core/effects.ts:64-70`; applied `slices/arena/game.ts:1535`; consumed `systems/combat.ts:960-969 consumeLastGasp` |
+| 6 weapon evolutions (`w_evo_*`) | `data/weapons.ts`, `data/upgrades.ts`, §5.3 | take all 3 boosts on the weapon and its tagged stat card, then pick the evolution card | `evolutionEligible` is derived from `taken` alone so scene and sim agree; `sim/kits/content.selftest.ts:411-420` asserts the gate in both directions; sim: widows-lance lane extracts 50% with the evolution in its plan | `data/upgrades.ts:233-243`; `systems/combat.ts:263-271` |
+| Zone unlocks (`zone.unlockShards` 0/300/800/1600) | `config.ts` §7, `data/zones.ts`, §5.7 | tap a locked zone card's price with enough stash shards | §14b tap-depth: change zone → run is 2 taps; lock state is computed from the same predicate in both surfaces | `scenes/menu.ts:71,323,347`; `scenes/meta.ts:266` |
+| `elite.gateGuardAdds` (threat, not a payout — listed because it was filed as read-by-nothing) | `config.ts:255` | none: it sizes the Gate B guard pack that gates the payouts above | read on the Gate B beat and again for the absorb count; the "asserted by the contract check, read by nothing" report was mined mid-build and is stale | `slices/arena/game.ts:881,884` |
+
+**CUT for want of a reachability proof — `extract.collapseHaulBonus` (0.5).**
+The key is NOT dead code and has NOT been deleted: it is defined at
+`config.ts:407` and genuinely read by the settlement path at
+`slices/arena/game.ts:1758-1762`, which multiplies the banked shards by it
+whenever a run is won at or after `collapse.atS`. What has never happened is
+the condition. Measured 2026-08-30: the sim reports `[FAIL] no run reached the
+Collapse — overtime escalation unmeasurable` (0 of 20 deep runs), and
+`cert-report.json` still carries the `arena:unreachable` major — the driver got
+within 377px of Gate A against a 70px requirement (an earlier report said
+419px, so it moved and is still nowhere near). A 50% haul premium behind a
+condition no run has ever met is a reward the spec promises and no player can
+collect, so it is CUT FROM SPEC (§17) while remaining in the build.
+**Reinstatement requires BOTH:** a sim run that reaches the Collapse at all,
+and a cert walk that reaches a gate by real navigation rather than by
+`placeAtGate`. The underlying defect — the player cannot reach the extraction
+content — is a balance matter for the playtest, not a spec matter; the spec's
+only job here is to stop advertising the premium.
+
 ## 6. Progression math (family A)
 
 **XP curve:** `xpNeeded(L) = 12 * 1.28^(L-1)` (playbook default). Worked:
@@ -535,13 +589,13 @@ slots by 300s; the bag binds at ~217s, inside the Gate B window.
 | --- | --- | --- | --- |
 | `player.moveSpeed` | 270 | px/s | |
 | `player.maxHp` | 100 | hp | |
-| `player.invulnMs` | 700 | ms | contact i-frames — **authoritative** (`config.ts` already ships 700; §5.1's 400 is stale). The §2A channel invariant is computed against this value |
+| `player.invulnMs` | 700 | ms | contact i-frames — **authoritative**. `config.ts` ships 700 and §5.1 quotes 700; the 400 that once sat in §5.1 was the stale copy and is corrected (§18a). The §2A channel invariant is computed against this value |
 | `player.pickupRadius` | 90 | px | |
 | `xp.curveBase` | 12 | xp | §6 |
 | `xp.curveGrowth` | 1.28 | mult/level | |
 | `xp.orbValue` | 3 | xp | |
-| `weapon.slots` (`weapons.maxSlots`) | **3** | count | AMENDED from 4 on measurement. A 4th slot dilutes the draft across more weapons, so in a 480s run no weapon reaches evolution power: deep-lane extraction fell 45% → 20% and the lane spread blew out 0.40 → 0.75. §8's three routes each use 1-2 weapons, so 3 slots does not constrain the variety proof |
-| `weapon.maxRank` (`weapons.maxBoosts` + 1) | **4** (3 boosts) | rank | AMENDED from 5 on measurement. A 4th boost delays every evolution by one draft, which the burst route depends on landing before the Warden: Widow's Lance extraction fell 50% → 25% and spread went 0.40 → 0.60. `WEAPON_MAX_RANK` and `evolutionEligible` both DERIVE from `maxBoosts`, so the evolution gate moves with it and no evolution card is stranded — the curve is 4 steps instead of 5, which is a flavour change, not lost content |
+| `weapon.slots` (`weapons.maxSlots`) | **3** | count | AMENDED from 4 on measurement. A 4th slot dilutes the draft across more weapons, so in a 480s run no weapon reaches evolution power: deep-lane extraction fell 45% → 20% and the lane spread blew out 0.40 → 0.75. §8's three routes each use 1-2 weapons, so 3 slots does not constrain the variety proof. MIRRORED (all in sync, retune together or not at all): §1b references row, §1b staples row, §1b numbers row, §5.3 preamble, §5.3 `w_unlock_*` stack limit, §8 no-dead-draft rules |
+| `weapon.maxRank` (`weapons.maxBoosts` + 1) | **4** (3 boosts) | rank | AMENDED from 5 on measurement. A 4th boost delays every evolution by one draft, which the burst route depends on landing before the Warden: Widow's Lance extraction fell 50% → 25% and spread went 0.40 → 0.60. `WEAPON_MAX_RANK` and `evolutionEligible` both DERIVE from `maxBoosts`, so the evolution gate moves with it and no evolution card is stranded — the curve is 4 steps instead of 5, which is a flavour change, not lost content. MIRRORED (all in sync, retune together or not at all): §1b staples row, §1b numbers row, §5.3 preamble, §5.3 weapons-table Evolution header, §5.3 `w_boost_*` stack limit, §5.3 `w_evo_*` effect |
 | `enemy.spawnMsStart` | 1400 | ms | |
 | `enemy.spawnMsFloor` | 140 | ms | 100 in Collapse |
 | `enemy.spawnDecay` | 0.985 | /s | |
@@ -614,9 +668,10 @@ slots by 300s; the bag binds at ~217s, inside the Gate B window.
 | Widow's Lance (burst duelist) | Widow's Lance → Sorrow Piercer, Dread Edge x4, Grave Might | thin the horde, delete elites/Warden fast, extract right after the kill | weak vs swarm density in Collapse; a missed evolution roll (~20% of runs) leaves it underpowered at 420s |
 
 No-dead-draft rules: 1 free reroll per draft; a card at stack limit leaves the
-pool; weapon-unlock cards stop appearing at 4 slots; evolution cards appear
-only when their gate holds and are guaranteed within the next 2 drafts once
-eligible; at least one non-weapon stat card in every 3-choice hand.
+pool; weapon-unlock cards stop appearing at **3** slots (AMENDED from 4 on
+measurement, §7 `weapon.slots`); evolution cards appear only when their gate
+holds and are guaranteed within the next 2 drafts once eligible; at least one
+non-weapon stat card in every 3-choice hand.
 
 ## 9. Economy
 
@@ -1002,10 +1057,10 @@ Menu titling stays below y=200, keeping the shell corner clear.
 ## 14b. Flow map (definitive — the flow map is law)
 
 Screens: Boot, Preload, Menu (zone select lives here), Meta, Game, Results
-(one scene, two variants). Overlays inside Game: Draft, Pause,
-Pause-over-Draft, and three run-1 coach beats. In-run states that change what
-inputs mean: Channel and Collapse. Every node below ships, and nothing ships
-that is not below.
+(one scene, two variants). Overlays inside Game: Draft, Pause, and three run-1
+coach beats — exactly ONE of them may own the screen at a time (see the
+amendment below). In-run states that change what inputs mean: Channel and
+Collapse. Every node below ships, and nothing ships that is not below.
 
 ```mermaid
 graph TD
@@ -1125,8 +1180,7 @@ rule above):
 | --- | --- | --- | --- | --- |
 | Mid-combat | pause overlay; director + tweens + physics paused, field dim 15% | death settlement on next boot | same; menu then shows the settled stash | loop sleeps (`main.ts`); on wake the pause overlay is up (auto-pause) — no ambush frame |
 | Mid-channel | pause; channel progress frozen at its value, ring keeps its fill | death settlement | same | loop sleep + auto-pause; progress frozen exactly |
-| Draft open | pause stacks over the draft; RESUME returns to the SAME 3 cards + reroll state | death settlement | same | draft already halts the run; on wake the draft is still up, no extra overlay |
-| Pause-over-draft | second ESC resumes to the draft, never past it; RESTART/MENU tear down both layers | death settlement | same | already paused; wake changes nothing |
+| Draft open | pause tap / ESC / P is REFUSED — the affordance is deafened and dimmed while the draft owns the screen (§14b amendment); the draft stays up with the SAME 3 cards + reroll state | death settlement | same | draft already halts the run; on wake the draft is still up, no extra overlay |
 | Results tally | tap anywhere skips `countTo` to final values; pause disabled (nothing runs) | settlement committed at outcome — nothing lost | reload lands on Menu; stash already holds the haul | tally sleeps, finishes on wake |
 | Meta purchase / equip / salvage | n/a (inert scene) | each action saved synchronously before its feedback plays | safe: last committed action persisted | inert; nothing to protect |
 | Collapse | pause works; clock, ring radius and threat step resume exactly | death settlement | same | loop sleep + auto-pause; Collapse state is a pure function of elapsed time, resumes exactly |
@@ -1307,8 +1361,41 @@ arena sim lanes (§19).
    keeps the gate schedule legible; logged as the v2 depth hook.
 7. Daily-modifier runs beyond the template daily seed — seed already ships;
    bespoke mutators are post-launch.
+8. The Collapse haul premium (`extract.collapseHaulBonus` 0.5) — CUT FROM SPEC
+   on 2026-08-30, not from the build: the key stays at `config.ts:407` and the
+   settlement path at `slices/arena/game.ts:1758-1762` still reads it. Cut
+   because its claim condition has never occurred — sim `[FAIL] no run reached
+   the Collapse` (0 of 20 deep runs) and cert's standing `arena:unreachable`
+   major (377px closest approach to Gate A against a 70px requirement; an
+   earlier report said 419px). Reinstate ONLY on both proofs: a sim run that
+   reaches the Collapse, and a cert walk that reaches a gate by real
+   navigation rather than `placeAtGate`. See §5.8.
 
 ## 18. Assumptions (auto mode — every axis, `axis → value — rationale`)
+
+### 18a. Amendment log (numbers changed after a measurement)
+
+Every row is a number this PRD once stated and measurement disproved. The last
+column is the load-bearing one: an amendment that lands in one section and not
+the others leaves the superseded number live somewhere, and the next retune
+reads the stale copy. Rule: change a measured number and update every quoting
+section in the SAME pass, then add the row here.
+
+| Key | Old → new | Measured what, where | Sections updated in the same pass |
+| --- | --- | --- | --- |
+| `weapons.maxSlots` (§7 `weapon.slots`) | 4 → **3** | a 4th slot dilutes the draft so no weapon reaches evolution power in 480s: deep-lane extraction 45% → 20%, lane spread 0.40 → 0.75 (arena sim, 20 runs/lane) | §1b references row, §1b staples row, §1b numbers row, §5.3 preamble, §5.3 `w_unlock_*` stack limit, §7, §8 no-dead-draft rules |
+| `weapons.maxBoosts` (§7 `weapon.maxRank`) | 4 boosts / rank 5 → **3 boosts / rank 4** | a 4th boost delays every evolution by one draft, which the burst route needs before the Warden: Widow's Lance extraction 50% → 25%, spread 0.40 → 0.60 (arena sim) | §1b staples row, §1b numbers row, §5.3 preamble, §5.3 weapons-table Evolution header, §5.3 `w_boost_*` stack limit, §5.3 `w_evo_*` effect, §7 |
+| `player.invulnMs` | 400 → **700** | at 400 the channel law `(invulnMs - hitStallMs) * minRate > hitSetbackMs` reads `110 < 200` and the extraction channel is arithmetically UNCOMPLETABLE under contact; at 700 it reads `275 > 200` | §2A invariant + worked cases, §3.2 damage/channel rows, §5.1 `maxHp` note, §7, §18.24 |
+| `extract` channel rule | "any hit zeroes progress" → **setback 200ms + stall 200ms + contested rate** (`contestedRate` 0.70, `eliteContestPenalty` 0.10, `minRate` 0.55, `suppressRadius` 400) | the reset rule caps analytic progress under contact at 17.5%; the greybox plateaued at 0.13-0.22 across 115 continuous seconds inside Gate B's ring, so Gates B and C were unusable by the greedy player they exist for | §2A, §5.6, §7 `extract.*`, §14b Channel edges, §18.24, §19 |
+| `bag.autoPinHighest` | true → **false** (casket starts empty, manual pin only) | auto-pinning the highest-tier carried relic means what you lose on death is by definition your worst loot; 3 of 5 measured runs produced a death that cost zero relics | §5.6 casket row, §7 (`false is law`), §14.5 pause overlay, §14b interruption matrix, §18.26 |
+| `loot.relicDripS` / `loot.firstRelicS` | 55s drip → **26s**, first relic → **35s** | at 55s the bag first hit 8/8 at t=497s of a 509s run, so the drop-lowest overflow decision could not occur before ~440s and capacity was a footnote instead of mid-run tension | §5.6 drip math, §6 bag-pressure line, §7 `loot.*`, §18.27, §19 capacity gate |
+| `gate.previewS` | 30 → **60** | the first extraction-layer event of any run was Gate A opening at 120.0s, with nothing between t=0 and t=119 against §13's ≤20s payoff cadence | §2A, §7, §18.28 |
+| `collapse` geometry | static corner-to-corner ring (2340px) → **Gate-C-centred ring derived from player distance** (`ringSpeedPxPerS` 22, `ringAccel` 0.8, `ringSpeedMax` 90, `fireDpsMax` 60, `eliteEveryS` 6) | the old ring never reached the player in 29s of overtime while `maxAlive` 220 was already saturated from t=283s, so the threat ramp bought nothing visible | §2A Collapse, §3.3 Collapse band, §7 `collapse.*`, §14b Collapse edges, §18.25 |
+| `wave.compositionFromS` | absent → **285** (with `eliteSwapEveryS` 20, `eliteShareMax` 0.25) | the live pool pegged `maxAlive` 220 at t=283s and stayed flat to t=509s — 226 seconds of unchanging density, with player hp still RISING at 470s | §3.3 Late band, §5.4, §7 `wave.*`, §18.30 |
+| §14b `PauseDraft` node | designed state → **retired** (pause affordance deafened while a draft or coach beat owns the screen) | two overlays both claiming the screen drew PAUSED/RESUME/RESTART/MENU over "CHOOSE AN UPGRADE" with card text bleeding between the buttons, one tap from a state entered ~13 times a run | §14b node inventory, §14b graph edge, §14b amendment, §14b interruption matrix |
+| `extract.collapseHaulBonus` | 0.5 → **CUT FROM SPEC** (key and reader remain in the build) | claim condition never occurred: sim `[FAIL] no run reached the Collapse` (0 of 20 deep runs) and cert's standing `arena:unreachable` major, 377px closest approach to Gate A against 70px (earlier report 419px) | §5.8 claimability ledger, §17 cut list entry 8 |
+
+### 18b. Resolved axes
 
 1. family → **A real-time arena** — locked by the orchestrator; the pitch's
    second-to-second loop is real-time avoidance of an escalating horde.
@@ -1388,9 +1475,11 @@ item below replaces a spec rule that measurement disproved.**
     floor, 4.0s with the ring clear. Guaranteed by the law
     `(player.invulnMs - extract.hitStallMs) * extract.minRate >
     extract.hitSetbackMs` (700 → `500*0.55 = 275 > 200`), which makes progress
-    strictly monotone-positive under any contact. NOTE for the integrator:
-    §5.1's `invulnMs` 400 is stale — `config.ts` and §7 both say 700, and the
-    invariant is computed against 700; at 400 the numbers must be re-derived.
+    strictly monotone-positive under any contact. NOTE for the integrator: 700
+    is the only live value — `config.ts`, §2A, §3.2, §5.1 and §7 all quote it,
+    and §5.1's earlier 400 is corrected (§18a). At 400 the invariant reads
+    `110 < 200` and the channel becomes uncompletable, so it may not be
+    lowered without re-deriving every number in this item.
 25. Collapse geometry → **Gate-C-centred ring derived from player distance,
     with a speed ramp and elite injection** (`collapse.centerGate` 'c',
     `startPad` 240, `minStart` 700, `maxStart` 1200, `minRadius` 140,

@@ -234,8 +234,14 @@ function ownsWeapon(taken: readonly string[], weapon: WeaponPattern): boolean {
  * (`TUNING.weapons.maxBoosts` boost cards taken), its tagged stat card is
  * owned, and it has not evolved yet. Derived from `taken` alone so the rule is
  * identical in the scene and the headless sim.
+ *
+ * INTERNAL. Both consumers reach it through `rollUpgradeChoices` — that is the
+ * only way the game asks the question, so it is the only way anything should:
+ * a second entry point to the same rule is a second thing to keep in step.
+ * PRD §7 `weapon.maxRank` names this function as deriving from `maxBoosts`;
+ * that derivation is the line below and nothing else.
  */
-export function evolutionEligible(taken: readonly string[], weapon: WeaponPattern): boolean {
+function evolutionEligible(taken: readonly string[], weapon: WeaponPattern): boolean {
   if (!ownsWeapon(taken, weapon)) return false;
   if (taken.includes(`w_evo_${weapon}`)) return false;
   if (countTaken(taken, `w_boost_${weapon}`) < TUNING.weapons.maxBoosts) return false;

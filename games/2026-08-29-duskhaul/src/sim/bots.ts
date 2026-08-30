@@ -51,7 +51,14 @@ export type GateId = 'a' | 'b' | 'c';
  */
 export const FLOOR_SKILL = 0.35;
 export const CEILING_SKILL = 0.9;
-export const SKILL_LEVELS: readonly number[] = [FLOOR_SKILL, CEILING_SKILL];
+/**
+ * The skill sweep `families/arena.ts` iterates. ORDER IS LOAD-BEARING: the
+ * arena sim draws one child seed per (lane, skill, index) off a single
+ * sequential seeder, so reordering this array silently re-seeds every measured
+ * run and moves the §19 gate numbers. Ceiling first, exactly as the sweep was
+ * calibrated.
+ */
+export const SKILL_LEVELS: readonly number[] = [CEILING_SKILL, FLOOR_SKILL];
 
 /** Per-route play profile. Read by `families/arena.ts`; every field is bot behaviour. */
 export interface RouteProfile {
@@ -118,7 +125,8 @@ export interface RouteProfile {
   leavesOnFullBag: boolean;
 }
 
-export const ROUTES: Record<LanePolicy, RouteProfile> = {
+/** Route table. Reached through `routeProfile`/`pickUpgrade` — the accessor is the API. */
+const ROUTES: Record<LanePolicy, RouteProfile> = {
   // §8 row 1: full-clock greed, kills the Warden, extracts Gate C. Highest
   // haul EV, highest death rate — it only ever plans for C.
   'ash-reaper': {

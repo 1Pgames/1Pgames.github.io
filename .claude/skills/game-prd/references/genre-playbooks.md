@@ -2064,6 +2064,27 @@ mid-room).
 5. A carry-capacity limit that's never actually reached in normal play
    removes the "what do I drop" tension the genre relies on — tune capacity
    against the worked loot-value math so it binds by mid-run.
+6. **An extraction bonus authored against a gate no run reaches.** Measured on
+   a shipped build: a haul bonus of `0.5` behind a gate whose closest approach
+   across 20 cert runs was 419px against the 70px needed; the sim reported no
+   run reaching the stage and the critic's four pilots died before ever seeing
+   a gate — yet every gate was green because each system reported the defect in
+   its own vocabulary. Every payout gets a claim condition, a reachability
+   proof and a reader in the PRD's §5.5 claimability ledger
+   (`design-heuristics.md` §19.2), and gate reachability is proven by real
+   navigation, never by a teleport the cert driver performs to certify the
+   channel.
+7. **Thinning the late-run threat to make extraction survivable.** It measures
+   the wrong way round: deep-lane survival fell 45% → 35% → 30% across three
+   thinning passes, because enemies are the run's XP/loot/heal income as well
+   as its threat. Move `threatMult`, per-hit damage and i-frames first
+   (`design-heuristics.md` §2.7); if density must fall, raise per-enemy yield
+   in the same pass and re-measure the lane the change was for.
+8. **A `danger`/`collapse` phase whose rewards are only claimable by a player
+   who already survived it.** State, in numbers, the fraction of runs the
+   pipeline expects to reach the phase (and the sim lane that proves it) before
+   authoring any content behind it — content behind a sub-5% gate is a cut-list
+   entry, not a feature.
 
 ### Video hook
 

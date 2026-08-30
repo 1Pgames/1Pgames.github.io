@@ -56,6 +56,27 @@ function optionalParam(def: EnemyDef, key: string): number | undefined {
   return def.params?.[key];
 }
 
+/**
+ * The action-key contract `data/art.ts` already ships: every generated actor
+ * has `<actor>-move` (or `<actor>-idle` for the Warden, whose four zone skins
+ * append the zone), and optionally `<actor>-attack`, `<actor>-death` and — boss
+ * only — `<actor>-sweep`/`-summon`/`-enrage`. So an action key is DERIVED from
+ * the sheet this body actually spawned with instead of being declared a second
+ * time on every `EnemyDef` row: `enemy-husk-move` -> `enemy-husk-death`,
+ * `boss-warden-idle-desert` -> `boss-warden-sweep`.
+ *
+ * Nothing here asserts the sheet exists. 37 of these animations were generated,
+ * bundled and shipped while this class only ever played the `-move` key, and a
+ * row whose action sheet was never drawn must keep walking rather than throw —
+ * `Enemy.playAction` is the gate.
+ */
+function actorBase(key: string): string {
+  const move = key.indexOf('-move');
+  if (move > 0) return key.slice(0, move);
+  const idle = key.indexOf('-idle');
+  return idle > 0 ? key.slice(0, idle) : key;
+}
+
 export class Enemy extends Phaser.Physics.Arcade.Sprite {
   def!: EnemyDef;
   health!: Health;
@@ -76,6 +97,12 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
    * rather than the row.
    */
   artKey = '';
+  /**
+   * The DEATH animation for this body's sheet — read by the combat system,
+   * which spawns the corpse: the body itself is returned to the pool the frame
+   * it dies, so it cannot play its own death.
+   */
+  deathKey = '';
 
   /** Ranged archetypes fire through this callback, owned by the combat system. */
   onShoot: ((enemy: Enemy) => void) | null = null;
@@ -103,6 +130,20 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   /** Remaining ms of an `aura` haste buff, and the multiplier it grants. */
   private hasteMs = 0;
   private hasteMul = 0;
+
+  /**
+   * The looping animation this body returns to between one-shot actions.
+   * Normally `artKey`; the Warden replaces it with its `-enrage` loop for the
+   * whole of phase 3, because phase 3 is a STATE and not a beat.
+   */
+  private loopKey = '';
+  /** Remaining ms of a one-shot action animation; 0 means `loopKey` is showing. */
+  private actionMs = 0;
+  /** Derived action keys for the sheet this body spawned with. */
+  private attackKey = '';
+  private sweepKey = '';
+  private summonKey = '';
+  private enrageKey = '';
 
   /** Generic ability cadence: counts down to the next signature move. */
   private abilityMs = 0;
@@ -167,12 +208,18 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.splitBudget = def.behaviour === 'split' ? requireParam(def, 'splitGenerations') : 0;
 
     this.artKey = skin !== null && this.scene.textures.exists(skin) ? skin : def.texture;
+    // Every action this body can show, resolved ONCE per spawn from its own
+    // sheet name — no per-frame string building in `tickAi`.
+    const base = actorBase(this.artKey);
+    this.attackKey = `${base}-attack`;
+    this.deathKey = `${base}-death`;
+    this.sweepKey = `${base}-sweep`;
+    this.summonKey = `${base}-summon`;
+    this.enrageKey = `${base}-enrage`;
+    this.loopKey = this.artKey;
+    this.actionMs = 0;
     this.setTexture(this.artKey);
     this.setPosition(x, y);
-    // Per-asset scale keeps archetypes visually consistent even when a sheet
-    // does not fill its cell to the same height.
-    const size = def.size * artScale(this.artKey);
-    this.setDisplaySize(size, size);
     // Generated art is already coloured; tinting it would fight the style
     // profile, so this body is NEVER tinted. `def.tint` colours particles,
     // telegraph glows and the enrage rim — things drawn beside the body.
@@ -187,8 +234,9 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.setVelocity(0, 0);
     // `drift` passes THROUGH props and walls — that is the whole archetype.
     this.setPassesWalls(def.behaviour === 'drift');
-    // Pooled sprites keep the previous animation's frame: always restart.
-    if (this.scene.anims.exists(this.artKey)) this.play(this.artKey, true);
+    // Pooled sprites keep the previous animation's frame: always restart, and
+    // re-apply this action's own display scale.
+    this.showAnim(this.loopKey);
 
     // HP bars only for the enemies whose HP the player actually tracks.
     if (def.behaviour === 'elite' || def.behaviour === 'boss') {
@@ -244,6 +292,47 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.clearTelegraph();
     this.clearEnrageRim();
     this.clearRingTelegraph();
+    this.actionMs = 0;
+  }
+
+  /**
+   * Shows one animation: re-applies THAT action's own display scale (generated
+   * actions do not fill their cell to the same height, so switching without
+   * this visibly resizes the character — that is what `SpriteAsset.scale` is
+   * for) and restarts it, because a pooled sprite otherwise keeps whatever
+   * frame the previous archetype left in the slot.
+   */
+  private showAnim(key: string): void {
+    const size = this.def.size * artScale(key);
+    this.setDisplaySize(size, size);
+    if (this.scene.anims.exists(key)) this.play(key, true);
+  }
+
+  /**
+   * Plays a one-shot action animation and returns to `loopKey` when it ends.
+   * False when this actor's sheet for that action was never generated, so the
+   * caller still fires its gameplay effect either way.
+   *
+   * The return is timed off the animation's OWN duration rather than an
+   * `animationcomplete` listener: this body is pooled, and a per-play listener
+   * on a recycled sprite fires against whichever archetype holds the slot next.
+   */
+  private playAction(key: string): boolean {
+    const anim = this.scene.anims.get(key);
+    // `exists` and `get` are the same lookup; taking the record itself is what
+    // makes the duration readable, and an absent record is the "sheet was never
+    // generated" branch rather than a defaulted guess.
+    if (anim === null || anim === undefined) return false;
+    this.actionMs = anim.duration > 0 ? anim.duration : anim.msPerFrame * anim.frames.length;
+    this.showAnim(key);
+    return true;
+  }
+
+  /** Drops back to the loop animation once the current action has played out. */
+  private tickAction(deltaMs: number): void {
+    if (this.actionMs <= 0) return;
+    this.actionMs -= deltaMs;
+    if (this.actionMs <= 0) this.showAnim(this.loopKey);
   }
 
   /** Refreshes the elite/boss HP bar after damage. No-op for swarm enemies. */
@@ -254,6 +343,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   tickAi(deltaMs: number, targetX: number, targetY: number): void {
     this.stateMs += deltaMs;
     this.tickHaste(deltaMs);
+    this.tickAction(deltaMs);
     const dx = targetX - this.x;
     const dy = targetY - this.y;
     const dist = Math.hypot(dx, dy) || 1;
@@ -378,6 +468,8 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.abilityMs -= deltaMs;
     if (this.abilityMs > 0) return;
     this.abilityMs = requireParam(this.def, 'fireEveryMs');
+    // The cast IS the tell: `<actor>-attack` plays over the shot leaving.
+    this.playAction(this.attackKey);
     this.onShoot?.(this);
   }
 
@@ -454,6 +546,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.abilityMs -= deltaMs;
     if (this.abilityMs > 0) return;
     this.abilityMs = slamEveryS * 1000;
+    this.playAction(this.attackKey);
     this.onAreaStrike?.(this, 'slam', slamRadius, this.damage);
   }
 
@@ -493,7 +586,9 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.body?.reset(nx, ny);
     void targetX;
     void targetY;
-    // The arrival is the tell — a bright bloom where the body reappears.
+    // The arrival is the tell — the actor's own strike frames plus a bright
+    // bloom where the body reappears.
+    this.playAction(this.attackKey);
     this.flashArrival();
   }
 
@@ -523,6 +618,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
 
     if (slickEveryS !== undefined) {
       this.abilityMs = slickEveryS * 1000;
+      this.playAction(this.attackKey);
       this.onGroundZone?.(
         this,
         requireParam(this.def, 'slickRadiusPx'),
@@ -547,6 +643,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.abilityMs -= deltaMs;
     if (this.abilityMs > 0) return;
     this.abilityMs = webEveryS * 1000;
+    this.playAction(this.attackKey);
     this.onGroundZone?.(
       this,
       requireParam(this.def, 'webRadiusPx'),
@@ -561,6 +658,10 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
    */
   private startTelegraph(dx: number, dy: number, dist: number, windupMs: number, reach: number): void {
     this.telegraphMs = windupMs;
+    // The windup the player reads is the actor's own attack animation, played
+    // over the ground smear below. Rows whose `-attack` sheet does not exist
+    // (kite, chapelghast) keep their walk cycle and read from the smear alone.
+    this.playAction(this.attackKey);
     // The telegraph is the SMEAR ON THE GROUND below; the body stays untinted.
     const cx = this.x + (dx / dist) * reach * 0.5;
     const cy = this.y + (dy / dist) * reach * 0.5;
@@ -635,8 +736,22 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     const nextPhase: BossPhase = ratio <= TUNING.boss.phase3At ? 3 : ratio <= TUNING.boss.phase2At ? 2 : 1;
     if (nextPhase !== this.bossPhase) {
       this.bossPhase = nextPhase;
-      if (nextPhase === 2) this.onBossAttack?.(this, 'phase2');
-      if (nextPhase === 3) this.onBossAttack?.(this, 'phase3');
+      if (nextPhase === 2) {
+        // The shield goes up behind a real summon animation, not a flash alone.
+        this.playAction(this.summonKey);
+        this.onBossAttack?.(this, 'phase2');
+      }
+      if (nextPhase === 3) {
+        // Phase 3 is a STATE, not a beat: the enrage sheet loops, so it
+        // REPLACES the idle loop for the rest of the fight instead of playing
+        // once and handing the frame back to a calm Warden.
+        if (this.scene.anims.exists(this.enrageKey)) {
+          this.loopKey = this.enrageKey;
+          this.actionMs = 0;
+          this.showAnim(this.loopKey);
+        }
+        this.onBossAttack?.(this, 'phase3');
+      }
     }
 
     const enrageMul = this.bossPhase === 3 ? TUNING.boss.enrageSpeedMul : 1;
@@ -652,6 +767,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.bossAttackMs -= deltaMs;
     if (this.bossAttackMs <= 0) {
       this.bossAttackMs = TUNING.boss.volleyCooldownMs;
+      this.playAction(this.sweepKey);
       this.onBossAttack?.(this, 'volley');
     }
   }
@@ -661,6 +777,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
       this.ringTelegraphMs -= deltaMs;
       if (this.ringTelegraphMs <= 0) {
         this.clearRingTelegraph();
+        this.playAction(this.sweepKey);
         this.onBossAttack?.(this, 'ring');
         this.bossAttackMs = TUNING.boss.ringCooldownMs;
       }

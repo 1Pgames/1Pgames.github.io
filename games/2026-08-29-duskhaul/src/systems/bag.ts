@@ -53,7 +53,12 @@ export interface BagTuning {
   dropLingerS: number;
 }
 
-export const BAG_DEFAULTS: BagTuning = {
+/**
+ * MODULE-PRIVATE: a copy of `TUNING.bag`, kept only so an omitted key in the
+ * optional `tuning` argument has a defined meaning. Exporting it would publish
+ * a second source of truth for two numbers config already owns.
+ */
+const BAG_DEFAULTS: BagTuning = {
   autoPinHighest: false,
   dropLingerS: 10,
 };
@@ -66,7 +71,7 @@ export interface BagAddResult {
   dropLingerMs: number;
 }
 
-/** Result of a deliberate (re-)pin — `pinCasket`'s detailed form. */
+/** What `pinCasket` did: the pin, what it displaced, and what fell on the floor. */
 export interface BagPinResult {
   pinned: boolean;
   /** The relic a full casket had to give up, if any. */
@@ -181,17 +186,16 @@ export class Bag {
 
   /**
    * Deliberately pins a carried relic into the casket (PRD §5.6: tap a bag pip
-   * on the pause overlay). False if the relic is not carried or is already
-   * pinned. A full casket gives up its OLDEST pin, which returns to the bag —
-   * and is dropped (with the linger window) only if the bag has no room, since
-   * the player chose the swap.
+   * on the pause overlay). A full casket gives up its OLDEST pin, which returns
+   * to the bag — and is dropped (with the linger window) only if the bag has no
+   * room, since the player chose the swap.
+   *
+   * Reports the whole outcome rather than a bare boolean because the caller has
+   * to sell all three of them: the pin, the relic it displaced, and the relic
+   * that fell on the floor. A boolean `pinCasket` sat beside this for the whole
+   * build with no product call site precisely because no UI could use it.
    */
-  pinCasket(relicId: string): boolean {
-    return this.repin(relicId).pinned;
-  }
-
-  /** `pinCasket` with the full outcome the HUD toast needs. */
-  repin(relicId: string): BagPinResult {
+  pinCasket(relicId: string): BagPinResult {
     const miss: BagPinResult = {
       pinned: false,
       unpinned: null,

@@ -9,6 +9,7 @@ import { isDailyMode, setDailyMode } from '../core/daily';
 import { track } from '../core/telemetry';
 import { Button } from '../ui/button';
 import { addBackground } from '../ui/background';
+import { enterPinningHitArea } from '../ui/entrance';
 import { ICON, TEXTURE } from '../data/art';
 import { drawPanel } from '../ui/primitives';
 
@@ -170,10 +171,15 @@ export class MenuScene extends Phaser.Scene {
     enterFromBottom(this, currencyIcon, 80);
     enterFromBottom(this, currencyText, 80);
     enterFromBottom(this, howTo, 120);
-    enterFromBottom(this, play, 160);
-    enterFromBottom(this, shop, 200);
-    enterFromBottom(this, muteButton, 240);
-    enterFromBottom(this, dailyButton, 240);
+    // Interactive controls pin their hit areas at the landing rect instead of
+    // sliding them with the pixels (`ui/entrance.ts`): a menu whose PLAY button
+    // ignores the first tap of a cold start is the single most expensive
+    // defect this template has shipped. The labels above stay on
+    // `enterFromBottom` — they are inert, and that is what it is for.
+    enterPinningHitArea(this, play, { delayMs: 160 });
+    enterPinningHitArea(this, shop, { delayMs: 200 });
+    enterPinningHitArea(this, muteButton, { delayMs: 240 });
+    enterPinningHitArea(this, dailyButton, { delayMs: 240 });
 
     // SPACE also starts the game — same handler as PLAY, so the funnel event
     // fires and the empty data object clears any previous seed/levelIndex.

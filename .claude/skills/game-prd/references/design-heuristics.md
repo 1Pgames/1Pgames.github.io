@@ -14,7 +14,7 @@ Scope map — read the section your family needs, not all of them:
 | §15 | Families B, G, H and C-levels (level curves, win-rate bands, move budgets) |
 | §16 | Family J and C-endless (score ramps, session length, near misses) |
 | §17 | Family F (cost growth, prestige sizing, offline progress) |
-| §7-§14, §18 | All families (UI density, input, feel, performance, meta, parallel build, verification map) |
+| §7-§14, §18, §19 | All families (UI density, input, feel, performance, meta, parallel build, verification map, spec hygiene) |
 
 Shared contract with `references/genre-playbooks.md` and
 `references/casual-playbooks.md`: portrait **720x1280**; `SAFE` top **140px** /
@@ -192,6 +192,30 @@ spawn interval scales inversely, floored at 260ms.
 | Late | 2.3 | 46 | 9.1 | 609 |
 | Climax/Boss | 3.2 | 64 | 10.7 | 438 |
 | Resolution | 3.2 | 64 | 10.7 | 438 |
+
+### 2.7 Density is fuel as well as threat (families A and D)
+
+The reflex fix for "the climax kills everyone" is to thin the climax. On an
+arena/extraction loop that reflex is **backwards**, and it was measured
+backwards: thinning the late-phase spawn density moved deep-lane survival
+45% → 35% → 30% across three passes. Enemies are the source of XP, pickups,
+currency and kill-triggered heals — cutting density cuts the player's income
+at exactly the phase where their build needs it, so they arrive at the finale
+weaker than before the "fix".
+
+Before reaching for density, exhaust the levers that do not also cut income:
+
+| Symptom | Reach for this | Not this |
+| --- | --- | --- |
+| Deaths clustered in one phase | that phase's `threatMult` step (§2.3), enemy damage (`sqrt` term, §2.6) | spawn count |
+| Player chain-stunned / bursted | i-frames (`invulnMs`), damage cap per hit | spawn count |
+| Player under-levelled at the finale | XP per kill, pickup radius, drop rate — i.e. RAISE income | spawn count |
+| Screen unreadable at peak | the §2.5 fairness ceiling and the 260ms spawn floor | ad-hoc thinning |
+
+If density genuinely must fall, raise per-enemy yield in the same pass so
+income per second is flat or higher, and re-measure the lane the change was
+meant to help. A density change whose income effect was not measured is not a
+balance fix.
 
 ---
 
@@ -492,6 +516,47 @@ Maximum **7 simultaneous distinct HUD widgets** on screen at once
 separately in §9). Above 7, group secondary readouts (e.g. combine wave +
 phase into one label) rather than adding an 8th persistent widget.
 
+### 7.7 Band ownership and the arbitration path
+
+The noise ceiling says how many widgets; this says *where*, and what happens
+when two authors want the same strip of screen. Every horizontal band has
+exactly one owner, and a new widget that wants an occupied band has exactly
+three legal moves — no fourth:
+
+| Band | y-range | Default owner | If a new widget wants it |
+| --- | --- | --- | --- |
+| Status | 0-140 (`SAFE.top`) | HP/XP bars, run timer, currency (§7.2) | merge into an existing readout |
+| Banner | 140-260 | phase/objective/wave banner | arbitrate (a/b/c below) |
+| Playfield | 260-1000 | gameplay | transient overlay only |
+| Tray | 1000-1060 | card/booster/ability row | replace the row, never overlap it |
+| Controls | 1060-1280 (`SAFE.bottom`) | full-width buttons, ≥88px targets (§7.4) | full-width only (§8 anti-pattern 8) |
+
+Arbitration — pick one, record which in the PRD's §14 band table:
+
+- **(a) Vacate.** The band's current owner is retired in the same edit that
+  moves the new widget in.
+- **(b) Merge.** The new readout becomes a second line or a pill *inside* the
+  current owner's rect, and the merged rect is re-measured.
+- **(c) Overlay.** The widget becomes transient with a stated dismissal, and
+  never persists into the next frame budget of §7.6's seven.
+
+What is NOT arbitration: nudging the y by a few pixels and asserting it fits.
+Measured provenance: a reroll chip authored 23px into the first upgrade card's
+rect overlapped it in shipped play, and a 7th HUD widget was authored straight
+into the Banner band with no owner named and no arbitration path, so nothing in
+the pipeline could say which of the two was wrong.
+
+**Coordinates are validated, not asserted.** A pixel plan is done when its
+rects have been compared to the real HUD — a screenshot with the band rects
+overlaid, or a CDP display-list dump of `x/y/width/height` per live widget.
+Any rect that was never compared is marked `[unvalidated]` so the implementer
+knows it is a guess rather than a measurement.
+
+**One scrim-or-panel decision per overlay.** Whether an overlay dims a live
+playfield (`scrim`, §7.3) or covers it with an opaque `TEX.panel` is decided
+once and stated once. Two PRD sections disagreeing about the same overlay is a
+defect: the implementer builds one of them and the flow audit fails the other.
+
 ---
 
 ## 8. Input for complex games
@@ -756,6 +821,30 @@ ids) — these four are the drift surface the integrator alone may edit
 (`scripts/gen-art-registry.mjs`, owned by the art pipeline's output step) and
 is never a workstream deliverable to hand-author or freeze as a contract.
 
+**Freezing a type is half a contract; the other half is the EDGE.** Every frozen
+entry names the file that PRODUCES it *and* the call-site that CONSUMES it
+(`prd-template.md` §16.1's edge table). Stated as the rule a reviewer and a
+script can both apply:
+
+> A symbol exported by a workstream-owned module with zero importers outside its
+> own directory and selftests is a BLOCKER, not dead code.
+
+Measured provenance: one build froze producer types only. Five layers each
+satisfied the contract 100% while their output had no reader, and all five
+review-gate BLOCKERs were that single shape — a run-end payload mismatched
+across a scene boundary, a `StatKey`-style union implemented twice against
+disjoint key sets, a fully-built UI module with zero importers, a core API with
+no call-site, and two save surfaces read by nobody. Type-level freezing cannot
+see any of them.
+
+`npm run verify` now gates it as its own stage, so this is machine-checked
+rather than review-dependent:
+
+```bash
+node --import ./scripts/ts-resolve.mjs scripts/w1-contract-check.mjs      # contract-asserted ids and TUNING keys exist
+node --import ./scripts/ts-resolve.mjs scripts/consumer-edge-check.mjs    # every export has an importer outside its dir; every TUNING path has a reader
+```
+
 ### 12.3 File ownership
 
 One file, one owning layer, stated explicitly in the PRD. Shared files
@@ -869,6 +958,12 @@ four is missing, the clip is unwatchable muted — the exact failure mode
 | 24 | A ramp band easier than the band before it | All three ramp dials monotone; the ramp bot fails on any inversion (§16.1, §16.4) |
 | 25 | A vague or brand-less casual pitch defaulted to match-3 swap | HYBRID DEFAULT (`SKILL.md` §Step 0): compose pattern I over a sort/block/merge/screw or J/F core; new match-swap titles succeed at ~0.8% |
 | 26 | `npm run sim` run without `--family <slice>` and called a balance proof | The family gate is the proof; a sim run with the wrong family's bot measures nothing (§18) |
+| 27 | A frozen contract that names a producer type but no consumer call-site | Freeze the EDGE: producer file + consumer call-site per entry; an export with no importer outside its own dir is a BLOCKER (§12.2, `prd-template.md` §16.1) |
+| 28 | A number amended on measurement in one section while a sibling section still quotes the old value | Amend every section that carries the number in the same pass and log it in §18's amendment table; grep the PRD for the old value before calling it done (§19.1) |
+| 29 | An authored reward, bonus or effect id shipped behind a gate no run reaches, or a `TUNING` key nothing reads | Every payout names its player-action claim condition, its reachability proof and its reader file (§19.2, `prd-template.md` §5.5) |
+| 30 | A retired screen/overlay left in the flow map's interruption matrix | Retirement is one edit: graph, tap-depth, interruption matrix, edge-state inventory and §14 coordinates together (§19.3) |
+| 31 | A new HUD widget authored into an occupied band by nudging its y | Band ownership + one of the three arbitration moves (vacate / merge / overlay); ≤7 widgets; coordinates validated against the real HUD, never asserted (§7.6, §7.7) |
+| 32 | "The climax is too hard" answered by thinning the climax | Density is income as well as threat — thinning it measured deep-lane survival DOWN 45%→35%→30%; move `threatMult`/damage/i-frames first, and if density must fall raise per-enemy yield in the same pass (§2.7) |
 
 ---
 
@@ -1127,3 +1222,55 @@ over any of them) gate BOTH ends:
   a scene-only mercy silently invalidates every tuned number.
 
 Reference gate implementation: `template/src/sim/families/board.ts`.
+
+---
+
+## 19. Spec hygiene (why a green build re-ships a fixed defect)
+
+Three failure modes that are invisible to every runtime gate because they live
+in the document, not the code. All three were measured on shipped builds.
+
+### 19.1 Amendment discipline
+
+A number amended after a measurement is amended **everywhere it appears, in the
+same pass**, and logged with its provenance in the PRD's §18 amendment table as
+`<key>: <old> → <new> — measured <what>, <where>`.
+
+Measured provenance: `slots 4 → 3` and `maxRank 5 → 4` were amended in the
+balance table on a measured lane-spread blow-out (0.40 → 0.75 at 4 slots), while
+the upgrades section still read "4 slots; each ranks 1-5" and the variety proof
+still read "weapon-unlock cards stop appearing at 4 slots". Two live
+instructions telling the next retune to restore the number the measurement had
+just rejected. The correct pattern, from the same document: `invulnMs 400 → 700`
+carried its provenance line and left no stale quote behind — copy that.
+
+Test for done: grep the PRD for the old value. A hit outside the amendment log
+is an unfinished amendment.
+
+### 19.2 Claimability
+
+Every authored reward, bonus, drop, unlock and effect id names the **player
+action** that claims it, the **gate that proves the action is possible**, and
+the **file that reads the value**. "The code path exists" is not a claim
+condition.
+
+Measured provenance: an extraction bonus of `0.5` shipped against a gate no run
+structurally reached (cert: closest approach 419px against 70px needed; sim: no
+run reached the stage; critic: four pilots died before seeing a gate), an effect
+id was registered nowhere, and one threat key was asserted by a contract check
+yet read by no source file — 12 dead-content classes in a single build. Note the
+shape: three independent systems each measured the same reachability defect in
+its own vocabulary and none of them named it, because no document required the
+reward to name its claim condition.
+
+Machine check: `scripts/consumer-edge-check.mjs` fails on a `TUNING` path with
+no reader in `src/`. Reachability itself is proven by a sim lane, a cert step or
+a browser-loop screenshot — named per row, and `[unproven]` blocks release.
+
+### 19.3 Retirement
+
+Cutting a screen, overlay or transition is one edit that also removes it from
+the flow map's graph, tap-depth table, interruption matrix and edge-state
+inventory, plus every §14 coordinate that referenced it. Measured provenance: a
+retired pause-draft node stayed in the interruption matrix, so the flow audit
+certified — and a reviewer defended — a state the build no longer had.

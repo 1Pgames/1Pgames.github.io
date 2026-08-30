@@ -12,7 +12,7 @@ import {
   PANEL,
   drawDuskPanel,
 } from './duskChrome';
-import { WEAPON_MAX_RANK, weaponDef } from '../data/weapons';
+import { WEAPON_MAX_RANK, weaponDef, weaponRank } from '../data/weapons';
 import type { UpgradeDef, Rarity } from '../data/upgrades';
 
 /**
@@ -416,9 +416,10 @@ function rankLine(def: UpgradeDef, taken: readonly string[]): string {
   if (def.kind === 'weapon-evolution') return 'MAX RANK';
   if (def.weapon !== undefined) {
     // A weapon's rank is 1 at unlock and +1 per boost card, so the rank this
-    // card grants is one above whatever its boosts already bought.
+    // card grants is one above whatever its boosts already bought. The rule
+    // itself is `data/weapons.weaponRank`, never re-derived here.
     const boosts = countTaken(taken, `w_boost_${def.weapon}`);
-    const granted = def.kind === 'weapon-unlock' ? 1 : boosts + 2;
+    const granted = def.kind === 'weapon-unlock' ? weaponRank(0) : weaponRank(boosts + 1);
     return `RANK ${Math.min(granted, WEAPON_MAX_RANK)}/${WEAPON_MAX_RANK}`;
   }
   if (def.maxStacks <= 1) return '';

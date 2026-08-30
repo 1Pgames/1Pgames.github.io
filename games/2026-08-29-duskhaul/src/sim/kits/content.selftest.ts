@@ -12,15 +12,16 @@ import {
   WARDEN_SUMMON_ID,
   type EnemyDef,
 } from '../../data/enemies';
-import { WEAPONS, WEAPON_MAX_RANK, weaponBoostDamageMul, weaponRankCount } from '../../data/weapons';
 import {
-  UPGRADE_CARDS,
-  evolutionEligible,
-  rollUpgradeChoices,
-  type UpgradeDef,
-} from '../../data/upgrades';
+  WEAPONS,
+  WEAPON_MAX_RANK,
+  weaponBoostDamageMul,
+  weaponRankCount,
+  type WeaponPattern,
+} from '../../data/weapons';
+import { UPGRADE_CARDS, rollUpgradeChoices, type UpgradeDef } from '../../data/upgrades';
 import { PHASES, TIMELINE_EVENTS, WAVES } from '../../data/waves';
-import { ZONES, ZONE_DESIGN_SIZE } from '../../data/zones';
+import { ZONES, zoneGates } from '../../data/zones';
 import { RELICS, relicTierWeights, rollRelic, salvageFor, type RelicTier } from '../../data/relics';
 
 /**
@@ -35,6 +36,24 @@ import { RELICS, relicTierWeights, rollRelic, salvageFor, type RelicTier } from 
  */
 
 const OWNED_ALL = WEAPONS.map((w) => w.id);
+
+/**
+ * The §5.3 evolution gate, read AT THE SURFACE THE GAME READS IT: would a
+ * draft in this state be allowed to offer `weapon`'s evolution?
+ *
+ * `evolutionEligible` is internal to `data/upgrades.ts` — the scene and the sim
+ * only ever consult the rule through `rollUpgradeChoices`, so testing the
+ * predicate directly proved a function no shipped code path called. Asking the
+ * roller for the whole pool DRAINS it (it loops until the pool is empty), so
+ * the returned hand IS the eligible set and membership is an exact answer
+ * rather than a sampled one. No `UpgradeRollContext` is passed on purpose:
+ * `cardEligible` resolves an evolution card before it consults the context, so
+ * the probe sees the gate alone, with the unlock/boost cards out of the way.
+ */
+function evolutionOffered(taken: readonly string[], weapon: WeaponPattern): boolean {
+  const pool = rollUpgradeChoices(new Rng('evolution-gate-probe'), taken, UPGRADE_CARDS.length);
+  return pool.some((card) => card.id === `w_evo_${weapon}`);
+}
 
 // --- §5.0 content volume floors, exactly -----------------------------------
 {
@@ -182,7 +201,7 @@ const OWNED_ALL = WEAPONS.map((w) => w.id);
   );
 }
 
-// --- §5.7 zones: gates in design space, exclusives partitioned -------------
+// --- §5.7 zones: gates land in the live arena, exclusives partitioned ------
 {
   assert.deepEqual(ZONES.map((z) => z.unlockShards), [0, 300, 800, 1600], '§5.7 unlock ladder');
   assert.deepEqual(ZONES.map((z) => z.threatBase), [1.0, 1.15, 1.3, 1.5], '§5.7 threat ladder');
@@ -191,10 +210,16 @@ const OWNED_ALL = WEAPONS.map((w) => w.id);
   for (const zone of ZONES) {
     assert.equal(zone.gates.length, 3, `${zone.id}: three gates (§2A)`);
     assert.deepEqual(zone.gates.map((g) => g.id), ['a', 'b', 'c'], `${zone.id}: gate ids a/b/c`);
-    for (const gate of zone.gates) {
+    // The property that matters is not the authoring space, it is where the
+    // SCALER puts a gate: `zoneGates` maps §5.7's 1600x1600 coordinates into
+    // `TUNING.arena`, and a gate outside those bounds is unreachable content.
+    // Asserting the raw design-space numbers instead only proved the table was
+    // typed the way it was typed.
+    for (const gate of zoneGates(zone)) {
       assert.ok(
-        gate.x > 0 && gate.x < ZONE_DESIGN_SIZE && gate.y > 0 && gate.y < ZONE_DESIGN_SIZE,
-        `${zone.id}: gate ${gate.id} sits outside the ${ZONE_DESIGN_SIZE}px design space`,
+        gate.x > 0 && gate.x < TUNING.arena.width && gate.y > 0 && gate.y < TUNING.arena.height,
+        `${zone.id}: gate ${gate.id} scales to (${Math.round(gate.x)}, ${Math.round(gate.y)}), ` +
+          `outside the live ${TUNING.arena.width}x${TUNING.arena.height} arena`,
       );
     }
     // Gate C never closes; the Collapse is its closing mechanism (§2A).
@@ -357,7 +382,7 @@ const OWNED_ALL = WEAPONS.map((w) => w.id);
     const offeredAt: boolean[] = [];
 
     for (let draft = 0; draft < 14; draft += 1) {
-      eligibleAt[draft] = WEAPONS.some((w) => evolutionEligible(taken, w.id));
+      eligibleAt[draft] = WEAPONS.some((weapon) => evolutionOffered(taken, weapon.id));
       const hand = rollUpgradeChoices(rng, taken, TUNING.draft.choices, {
         ownedWeapons: OWNED_ALL,
         hasFreeWeaponSlot: false,
@@ -409,25 +434,32 @@ const OWNED_ALL = WEAPONS.map((w) => w.id);
   assert.ok(gate !== undefined);
 
   const maxBoosts = Array.from({ length: TUNING.weapons.maxBoosts }, () => 'w_boost_bolt');
-  assert.equal(evolutionEligible([], 'bolt'), false, 'rank 1 with no gate card is not eligible');
-  assert.equal(evolutionEligible(maxBoosts, 'bolt'), false, 'max rank alone is not enough');
-  assert.equal(evolutionEligible([gate], 'bolt'), false, 'the gate card alone is not enough');
-  assert.equal(evolutionEligible([...maxBoosts, gate], 'bolt'), true, 'both conditions: eligible');
+  assert.equal(evolutionOffered([], 'bolt'), false, 'rank 1 with no gate card is not offered');
+  assert.equal(evolutionOffered(maxBoosts, 'bolt'), false, 'max rank alone is not enough');
+  assert.equal(evolutionOffered([gate], 'bolt'), false, 'the gate card alone is not enough');
+  assert.equal(evolutionOffered([...maxBoosts, gate], 'bolt'), true, 'both conditions: offered');
   assert.equal(
-    evolutionEligible([...maxBoosts, gate, 'w_evo_bolt'], 'bolt'),
+    evolutionOffered([...maxBoosts, gate, 'w_evo_bolt'], 'bolt'),
     false,
-    'an evolved weapon is no longer eligible',
+    'an evolved weapon is never offered its evolution again',
   );
   // An unowned weapon can never be eligible, however many cards are in `taken`.
   const hexGate = WEAPONS.find((w) => w.id === 'hex')?.evolutionRequiresCard;
   assert.ok(hexGate !== undefined);
   assert.equal(
-    evolutionEligible(
+    evolutionOffered(
       [...Array.from({ length: TUNING.weapons.maxBoosts }, () => 'w_boost_hex'), hexGate],
       'hex',
     ),
     false,
     'a weapon that was never unlocked cannot evolve',
+  );
+  // One boost short of max rank, gate card owned: the last stack is the gate.
+  const oneShort = Array.from({ length: TUNING.weapons.maxBoosts - 1 }, () => 'w_boost_bolt');
+  assert.equal(
+    evolutionOffered([...oneShort, gate], 'bolt'),
+    false,
+    `rank ${TUNING.weapons.maxBoosts} of ${WEAPON_MAX_RANK} is not max rank`,
   );
 }
 

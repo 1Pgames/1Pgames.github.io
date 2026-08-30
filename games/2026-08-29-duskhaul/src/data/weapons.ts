@@ -2,13 +2,13 @@ import { TUNING } from '../config';
 
 /**
  * Weapon catalog (PRD §5.3): 6 weapons, each with an evolution, filling up to
- * `TUNING.weapons.maxSlots` slots (§7 `weapon.slots` = 4). Firing logic lives
+ * `TUNING.weapons.maxSlots` slots (§7 `weapon.slots` = 3). Firing logic lives
  * in `systems/combat.ts` — one case per `WeaponPattern` — so this file stays
  * pure data and `data/upgrades.ts` builds unlock/boost/evolution cards from it
  * without importing combat code.
  *
  * `bolt` (Rustspike) is the starting weapon and never gets an unlock card.
- * The other five are unlocked by draft cards; every weapon then ranks 1..5 via
+ * The other five are unlocked by draft cards; every weapon then ranks 1..4 via
  * its boost card and evolves at max rank once its gate card is owned (§5.3).
  *
  * Numbers here are §5 CONTENT columns, not §7 tuning: §7's frozen key list
@@ -22,9 +22,10 @@ export type WeaponPattern = 'bolt' | 'orbit' | 'nova' | 'rail' | 'scythe' | 'hex
 /**
  * §5.3 rank rule: a boost card grants "+25% dmg OR +1 projectile per rank".
  * One number for the whole cast — a weapon takes one side of that "or" via
- * `rankGrowth`.
+ * `rankGrowth`, which is the surface every consumer reads (`weaponBoostDamageMul`
+ * / `weaponRankCount`); this constant only authors the rows below.
  */
-export const RANK_DAMAGE_STEP = 0.25;
+const RANK_DAMAGE_STEP = 0.25;
 
 /**
  * How a weapon converts ranks into power. `damageStep` is a +fraction of base
@@ -154,13 +155,22 @@ export const WEAPONS: readonly WeaponDef[] = [
 export const STARTING_WEAPON: WeaponPattern = 'bolt';
 
 /**
- * Max rank (§7 `weapon.maxRank` = 5). Rank 1 is the unlock, so a weapon needs
+ * Max rank (§7 `weapon.maxRank` = 4). Rank 1 is the unlock, so a weapon needs
  * `TUNING.weapons.maxBoosts` boost cards to reach it — the boost card's stack
  * limit and the evolution gate are the same number by construction.
+ *
+ * §7 was AMENDED DOWN from slots 4 / maxRank 5 on measurement (a 4th slot
+ * dropped deep-lane extraction 45% -> 20%); never restore the old numbers.
  */
 export const WEAPON_MAX_RANK = TUNING.weapons.maxBoosts + 1;
 
-/** Rank from boost count: rank 1 at unlock, +1 per boost card taken. */
+/**
+ * Rank from boost count: rank 1 at unlock, +1 per boost card taken (§5.3).
+ *
+ * The ONE place that arithmetic lives. `ui/cards.ts` used to inline it as
+ * `boosts + 2` inside a display string, which is the same rule written twice —
+ * and the copy in the string is the one a rank retune forgets.
+ */
 export function weaponRank(boosts: number): number {
   return 1 + boosts;
 }

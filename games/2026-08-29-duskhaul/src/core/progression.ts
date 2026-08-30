@@ -467,7 +467,7 @@ export function metaModifiers(meta: MetaSave = loadMeta()): Modifier[] {
  * reads them. Kept here rather than in `TUNING` because they are not balance
  * dials the sim sweeps — they are the definition of what the shop row sold.
  */
-export const PERKS = {
+const PERKS = {
   /** `m_reroll` "Second Dirge": +1 free draft reroll per level. */
   rerollsPerLevel: 1,
   /** `m_casket` "Widow's Casket": +1 secure casket slot per level. */

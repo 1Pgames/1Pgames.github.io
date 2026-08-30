@@ -18,8 +18,12 @@
  *   dossier    §1b staples checklist: >=8 rows, adopt|adapt|cut, cut has a why
  *   feel       §13 feel-budget table: six budget rows, no unfilled cells
  *   flow       §14b flow map: mermaid + tap-depth + interruptions + edges + confirm
+ *   retired    a §14b-retired node is named nowhere live (graph, matrix, prose)
+ *   band       §14 band-ownership table: an owner and an arbitration path per band
+ *   claim      §5.5 claimability ledger: no [unproven] row, every row has a reader
  *   cut        §17 cut list >= 5 entries
  *   assume     §18 Assumptions non-empty
+ *   amend      §18 amendment log: every amendment names the sections it updated
  *   state      build-state.json shape (wave + tasks[] with ownership + status)
  */
 import { existsSync, readFileSync, statSync } from 'node:fs';
@@ -152,6 +156,24 @@ function tables(doc, sec) {
   }
   return out;
 }
+
+/**
+ * Every table in the whole PRD. Spec SURFACES are located by their header
+ * signature rather than by section number: a game's own numbering drifts (one
+ * PRD's §5.5 is the relic table, the template's §5.5 is the claimability
+ * ledger), and a check keyed to the number would pass on the wrong table.
+ */
+function allTables(doc) {
+  return tables(doc, { start: -1, end: doc.lines.length });
+}
+
+/** The first table whose header cells satisfy `predicate`, or null. */
+function findTable(doc, predicate) {
+  return allTables(doc).find((t) => predicate(t.header)) ?? null;
+}
+
+/** A leftover template stub row: `| … | | | |`. */
+const isStubRow = (row) => /^(?:…|\.{3})$/.test(row.cells[0] ?? '');
 
 // --- checks -----------------------------------------------------------------
 
@@ -291,6 +313,205 @@ function checkFlowMap(doc) {
   );
 }
 
+/**
+ * A retired flow node must leave the spec in the SAME edit that retires it.
+ * Measured: `PauseDraft` was retired in a §14b amendment (two overlays owning
+ * the screen at once) and survived as a live row in the interruption matrix at
+ * PRD.md:1128-1129, so the matrix still described a state that does not exist.
+ * A retune reading it would rebuild the node.
+ *
+ * The retirement itself is recorded in prose and must stay there — provenance
+ * is the point of an amendment. What may not survive is the node named as
+ * LIVE: in the graph, in a table row, or in any prose paragraph that does not
+ * record the retirement.
+ */
+const RETIRED_MARKER = /\bretir|\brevers|\bremov|no longer|\bcut\b|\bsupersed|\bwithdraw/i;
+const MERMAID_KEYWORDS = new Set(['graph', 'flowchart', 'subgraph', 'end', 'click', 'style', 'classDef', 'linkStyle', 'direction', 'TD', 'TB', 'BT', 'LR', 'RL']);
+/** `PauseDraft` also spelled `Pause-over-Draft` / `pause over draft`. */
+function nodeNamePattern(name) {
+  const segments = name.split(/(?=[A-Z])/).filter(Boolean);
+  const joint = '[-_\\s]*(?:over|on|of|the|in|atop|during)?[-_\\s]*';
+  return new RegExp(segments.map((s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join(joint), 'i');
+}
+
+function checkFlowRetirement(doc) {
+  const sec = section(doc, '14b');
+  if (!sec) return;
+
+  const fence = [];
+  const tableRows = [];
+  const prose = [];
+  for (let i = sec.start + 1; i < sec.end; i += 1) {
+    const line = doc.lines[i];
+    if (doc.inFence[i]) fence.push([i + 1, line]);
+    else if (/^\s*\|/.test(line)) tableRows.push([i + 1, line]);
+    else prose.push([i + 1, line]);
+  }
+
+  // Graph node ids, with quoted labels and bracketed display text removed so a
+  // label's prose never reads as a node.
+  const stripped = fence
+    .map(([, l]) => l)
+    .join('\n')
+    .replace(/"[^"]*"/g, ' ')
+    .replace(/\[[^\]]*\]/g, ' ')
+    .replace(/\([^)]*\)/g, ' ');
+  const nodes = new Set(
+    [...stripped.matchAll(/\b([A-Za-z][A-Za-z0-9_]*)\b/g)].map((m) => m[1]).filter((n) => !MERMAID_KEYWORDS.has(n)),
+  );
+
+  // A retirement record: a prose line that says so and backticks the node.
+  const retired = new Map();
+  for (const [line, text] of prose) {
+    if (!RETIRED_MARKER.test(text)) continue;
+    for (const m of text.matchAll(/`([A-Z][A-Za-z0-9]*)`/g)) {
+      if (!nodes.has(m[1]) && !retired.has(m[1])) retired.set(m[1], line);
+    }
+  }
+  if (retired.size === 0) return;
+
+  // Paragraphs of prose; one that carries the marker is the record itself and
+  // is allowed (and required) to name the retired node.
+  const paragraphs = [];
+  let current = null;
+  for (const [line, text] of prose) {
+    if (text.trim() === '') {
+      current = null;
+      continue;
+    }
+    if (!current) {
+      current = { lines: [], marked: false };
+      paragraphs.push(current);
+    }
+    current.lines.push([line, text]);
+    if (RETIRED_MARKER.test(text)) current.marked = true;
+  }
+
+  const stale = [];
+  for (const [name] of retired) {
+    const rx = nodeNamePattern(name);
+    for (const [line, text] of tableRows) if (rx.test(text)) stale.push(`${name} in a table row at line ${line}`);
+    for (const [line, text] of fence) if (rx.test(text)) stale.push(`${name} in the flow graph at line ${line}`);
+    for (const para of paragraphs) {
+      if (para.marked) continue;
+      for (const [line, text] of para.lines) if (rx.test(text)) stale.push(`${name} described as live at line ${line}`);
+    }
+  }
+  check(
+    stale.length === 0,
+    'flow:retired',
+    `§14b: retired node(s) ${[...retired.keys()].join(', ')} recorded in the amendment and named nowhere live`,
+    `§14b retires ${[...retired.keys()].map((n) => `\`${n}\``).join(', ')} but the spec still describes ` +
+      `${stale.length === 1 ? 'it' : 'them'} as live: ${stale.join('; ')} — retire a node in ONE edit ` +
+      '(graph, matrix, tap-depth, node inventory), leaving only the amendment that records why',
+  );
+}
+
+/**
+ * The claimability ledger (template §5.5): one row per authored reward, bonus,
+ * drop, unlock and effect id, each with the player action that claims it, a
+ * NAMED reachability proof and the file that reads it.
+ *
+ * Provenance: one build shipped `extract.collapseHaulBonus = 0.5` behind a gate
+ * no run structurally reached (cert measured 419px closest approach against
+ * the 70px needed), an effect id (`fx_lastgasp`) registered nowhere, and a
+ * threat key asserted by a contract check yet read by nothing — 12 dead-content
+ * classes in one build, none of which any gate could see. `[unproven]` in the
+ * reachability column is a blocker by rule: the value stays out of the build
+ * until it is proven or the row is cut.
+ */
+function checkClaimability(doc) {
+  const table = findTable(doc, (h) => h.some((c) => /claim\s*condition/i.test(c)) && h.some((c) => /reachab/i.test(c)));
+  if (!check(!!table, 'claim:table', '§5.5 claimability ledger present', '§5.5 claimability ledger missing — no PRD row proves any authored reward/bonus/drop/effect id is claimable or read by anything')) return;
+
+  const rows = table.rows.filter((r) => !isStubRow(r));
+  if (!check(rows.length > 0, 'claim:rows', `§5.5 claimability ledger: ${rows.length} authored payout(s) logged`, '§5.5 claimability ledger has no rows — every authored payout needs one')) return;
+
+  const unproven = rows.filter((r) => r.cells.some((c) => /\[unproven\]/i.test(c))).map((r) => `line ${r.line}: ${r.cells[0]}`);
+  check(
+    unproven.length === 0,
+    'claim:proven',
+    '§5.5 claimability ledger: every row names a reachability proof',
+    `§5.5 claimability ledger has ${unproven.length} [unproven] row(s) — a value whose gate nobody has ` +
+      `reached must be proven or cut, never shipped dark: ${unproven.join('; ')}`,
+  );
+  const readerCol = table.header.findIndex((c) => /read\s*by/i.test(c));
+  if (readerCol >= 0) {
+    const unread = rows.filter((r) => !(r.cells[readerCol] ?? '').trim()).map((r) => `line ${r.line}: ${r.cells[0]}`);
+    check(
+      unread.length === 0,
+      'claim:readers',
+      '§5.5 claimability ledger: every row names the file that reads it',
+      `§5.5 claimability ledger has ${unread.length} row(s) with an empty "Read by" — an authored value ` +
+        `nothing reads is dead content: ${unread.join('; ')}`,
+    );
+  }
+}
+
+/**
+ * §14's band-ownership table: one owner per horizontal band plus the
+ * arbitration path a new widget must take. Its absence is what let authored
+ * coordinates collide — a reroll chip authored 23px into the first card, and a
+ * seventh widget squatting the Banner band — because two widgets were authored
+ * independently against the same y-range with no arbiter.
+ */
+function checkBandOwnership(doc) {
+  const table = findTable(doc, (h) => h.some((c) => /^band\b/i.test(c)) && h.some((c) => /y-?range|rect|y\s*\d/i.test(c)));
+  if (!check(!!table, 'band:table', '§14 band-ownership table present', '§14 band-ownership table missing — nothing arbitrates two widgets authored against the same y-range (this is how authored coordinates collide)')) return;
+
+  const rows = table.rows.filter((r) => !isStubRow(r));
+  check(
+    rows.length >= 3,
+    'band:rows',
+    `§14 band-ownership table: ${rows.length} band(s) with an owner`,
+    `§14 band-ownership table has ${rows.length} band(s) — a frame has at least a top, a playfield and a bottom band`,
+  );
+  // The arbitration path is the last column: "if a new widget wants this band".
+  const arbCol = table.header.findIndex((c) => /arbitrat|if a new widget|rule|occupan/i.test(c));
+  if (arbCol < 0) {
+    fail('band:arbitration', `§14 band-ownership table has no arbitration column (expected "If a new widget wants this band" or "Rule"): header is ${table.header.join(' | ')}`);
+    return;
+  }
+  const silent = rows.filter((r) => !(r.cells[arbCol] ?? '').trim()).map((r) => `line ${r.line}: ${r.cells[0]}`);
+  check(
+    silent.length === 0,
+    'band:arbitration',
+    '§14 band-ownership table: every band states what a new widget must do',
+    `§14 band-ownership table: ${silent.length} band(s) with no arbitration path — "author it 23px higher ` +
+      `and hope" is what happens next: ${silent.join('; ')}`,
+  );
+}
+
+/**
+ * §18's amendment log. A number changed after a measurement has to be changed
+ * in every section that quotes it, in the same pass; the log is the record of
+ * which sections were updated. Measured: `gear.slots` was amended 4 → 3 on a
+ * lane-spread measurement while §5.3 still said "4 slots; each ranks 1-5", so
+ * the next retune would have read the superseded number and reinstated it.
+ */
+function checkAmendmentLog(doc) {
+  const table = findTable(
+    doc,
+    (h) => h.some((c) => /old\s*(?:→|->|to)\s*new/i.test(c)) || (h.some((c) => /^key\b/i.test(c)) && h.some((c) => /sections?\s*updated/i.test(c))),
+  );
+  if (!check(!!table, 'amend:table', '§18 amendment log present', '§18 amendment log missing — nothing records which numbers were amended on measurement, so a stale quote elsewhere in the PRD silently re-breaks the fixed thing')) return;
+
+  const rows = table.rows.filter((r) => !isStubRow(r));
+  const sectionsCol = table.header.findIndex((c) => /sections?\s*updated/i.test(c));
+  if (sectionsCol < 0) {
+    fail('amend:sections', `§18 amendment log has no "Sections updated in the same pass" column: header is ${table.header.join(' | ')}`);
+    return;
+  }
+  const unmirrored = rows.filter((r) => !(r.cells[sectionsCol] ?? '').trim()).map((r) => `line ${r.line}: ${r.cells[0]}`);
+  check(
+    unmirrored.length === 0,
+    'amend:sections',
+    `§18 amendment log: ${rows.length} amendment(s), each naming the sections updated in the same pass`,
+    `§18 amendment log: ${unmirrored.length} amendment(s) name no updated sections — an amendment that did ` +
+      `not propagate leaves the superseded number live somewhere: ${unmirrored.join('; ')}`,
+  );
+}
+
 /** An empty cut list means the scope is unbounded — the build never converges. */
 function checkCutList(doc) {
   const sec = section(doc, '17');
@@ -352,7 +573,11 @@ function checkBuildState(dir) {
     if (typeof t.name !== 'string' || !t.name.trim()) errs.push(`${at}.name must be a non-empty string`);
     if (!Array.isArray(t.ownershipGlobs)) errs.push(`${at}.ownershipGlobs must be an array of strings`);
     else if (!t.ownershipGlobs.every((g) => typeof g === 'string' && g.trim())) errs.push(`${at}.ownershipGlobs must contain non-empty strings`);
-    else if (t.ownershipGlobs.length === 0) empties.push(t.name ?? at);
+    // A READ-ONLY gate agent (critic, reviewer, QA sweep, flow audit) owns no
+    // files by design, and warning about it every run trains people to ignore
+    // this gate — the `console.error` failure mode. An explicit `readOnly: true`
+    // is the difference between "owns nothing on purpose" and "someone forgot".
+    else if (t.ownershipGlobs.length === 0 && t.readOnly !== true) empties.push(t.name ?? at);
     if (!TASK_STATUS.has(t.status)) errs.push(`${at}.status ${JSON.stringify(t.status)} not one of ${[...TASK_STATUS].join('|')}`);
   });
   check(
@@ -410,8 +635,12 @@ if (existsSync(prdPath)) {
   checkDossier(doc);
   checkFeelBudget(doc);
   checkFlowMap(doc);
+  checkFlowRetirement(doc);
+  checkBandOwnership(doc);
+  checkClaimability(doc);
   checkCutList(doc);
   checkAssumptions(doc);
+  checkAmendmentLog(doc);
 } else {
   fail('prd:file', `${relPath} missing — the build has no spec`);
 }

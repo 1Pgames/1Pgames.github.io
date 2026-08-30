@@ -329,7 +329,9 @@ starts dominating the build with no visible gain per asset.
 
 ## Ordering and dependencies
 
-1. Style profile.
+1. Style profile — REWRITTEN from the PRD, scaffold keys deleted.
+1b. Manifest written, then `manifest-lint.py` exits 0. Nothing is spawned before
+   this; a manifest defect costs one investigation per parallel agent.
 2. Hero idle — it is the reference for scale, palette and identity; every later
    asset is judged against it.
 3. Hero remaining actions with the written scale profile.
@@ -339,6 +341,10 @@ starts dominating the build with no visible gain per asset.
 6. UI icons and emblem (independent; can start in parallel with hero). Panels,
    buttons and bars are NOT generated — they are primitives.
 7. Background last: it is tuned against the finished entity palette.
+8. Set gates: `figure-ground.py` per scene for every field asset (the background
+   is the last thing generated and the first thing that can wreck the actors'
+   readability), then `manifest-lint.py` again to prove every exception the run
+   accumulated was actually WRITTEN and not just reported.
 
 Non-A families keep steps 1, 6 and 7 and replace steps 2-5 with their own
 reference asset: piece-faces sheet (B), hero idle (C), player vehicle (E),
@@ -377,3 +383,64 @@ the asset registry:
 
 Skipping the first two produces the two most common "the animation is broken"
 reports: the character resizes when it starts moving, and it runs backwards.
+
+## Manifest schema (`art/manifest.json`)
+
+The manifest is written before generation and LINTED before fan-out:
+`references/manifest-lint.py` must exit 0 or nothing is spawned.
+A manifest defect is multiplied by the fan-out width — one `writeScaleProfile`
+mistake was independently rediscovered by 3 of 12 agents, each paying for a full
+investigation.
+
+Top level:
+
+| Key | Meaning |
+| --- | --- |
+| `styleProfile` | path to the game's `art/style.json`. Must NOT still be the scaffold lock (`scaffold`/`scaffoldNote`/`scaffold-placeholder-*` name) or the lint blocks fan-out. |
+| `outputRoot` | `public/assets/generated` |
+| `conventions` | cell sizes, profiles, canvas, and the Step 1b `visionAnchors` (max 2, repo-root-relative) |
+| `groups[]` | see below |
+| `qcExceptions[]` | `{ "id", "reason" }`. `id` may be an fnmatch pattern; `reason` is a one-line VISUAL justification. **This array is the only record of an accepted defect.** 26 exceptions once lived only in prose reports while this array held 6. |
+| `integration` | `artGroups[]` — the group names the slice's `ART_GROUPS` must list, plus the registry command |
+
+Per group:
+
+| Key | Meaning |
+| --- | --- |
+| `group` | directory name under `outputRoot` AND the registry row group |
+| `owner` | **exactly ONE agent id.** One group = one output directory = one report path. A group needing two agents is SPLIT into two groups; the lint errors `two-owners-one-group`, because two agents writing one report path lose half of it. |
+| `scaleProfile` | the group's primary profile FILE. A declaration, not a per-asset binding — non-NxN action sheets in the group simply must not attach it. Some asset in the manifest MUST write this file. |
+| `assets[]` | see below |
+
+Per asset:
+
+| Key | Meaning |
+| --- | --- |
+| `id` | directory name and default texture/animation key; unique across the manifest |
+| `kind` | `body` / `fx` / `ui` / `bg` — documentation only |
+| `rows`, `cols` | positive integers. Only `rows == cols` may bind a `scaleProfile`. |
+| `action` | one line; if it names `<N>f`, `rows*cols` must equal N (the lint warns) |
+| `duration` | ms per frame. **`0` and omitted BOTH mean "static, single frame"** — that is the tool contract, not a defect. Only negative or non-integer is an error. |
+| `writeScaleProfile` | **`true`** on each character's base sheet — the tool derives the canonical `<profileName>-scale.json` next to the sheet. A hand-written path is the typo class the lint warns about. |
+| `profileName` | required alongside `writeScaleProfile`; without it the profile file is anonymous and no sibling can address it |
+| `scaleProfile` | a sibling's explicit binding. NxN grids only. |
+| `baseAction` | at most one per group |
+| `strict` | `false` only for a deliberate full-bleed/edge-touching asset, and only with a matching `qcExceptions[]` entry — a `strict:false` export can never report `qc.passed: true`, so it ships on a written exception or not at all |
+| `fullBleed` | `true` on a seamless tile/backdrop: sets `fit: 1`, `componentMode: none`, skips inset and edge-trim. Without it the default `fit: 0.86` insets the texture, so the tile exports clean, passes every per-asset gate, and silently cannot tile. |
+| `attempts` | integer, INCREMENTED by the generation agent after each regeneration. The retry budget is 2 per asset per symptom; the lint errors `attempt-budget-exceeded` at `attempts >= 3` with no `qcExceptions[]` entry, so the exception is written BEFORE the third attempt. |
+| `facesRight`, `loop`, `textureAlias`, `animAlias`, `icons` | registry hints; aliases must be unique |
+
+## Set-level gates (a group is not accepted on per-asset numbers)
+
+Two measurements compare assets to EACH OTHER rather than to a profile, which is
+the only way to see the two defects that shipped through a 103/103-green audit:
+
+| Gate | When | Catches |
+| --- | --- | --- |
+| `manifest-lint.py` | before fan-out | scaffold style lock, unlocked anchors, two-owner group, duplicate ids/aliases, a `scaleProfile` bound to a file nobody writes, unrecorded `strict:false` / budget overrun |
+| `figure-ground.py` | before a group containing a field asset is accepted | a backdrop/tile drawn in the same value band as the actors on it (`floor-desert` shipped at 27.45% clash), and a field busier than its actors (2.39x the hero readability ceiling) |
+
+`figure-ground.py` takes each scene's COMPLETE cast — a partial cast moves the
+actor p90 boundary and flips the verdict (the accepted desert floor reads 12.85%
+against 4 actor sheets and 20.04% against 2). Arena borders and walls are not
+fields: no actor stands on them.

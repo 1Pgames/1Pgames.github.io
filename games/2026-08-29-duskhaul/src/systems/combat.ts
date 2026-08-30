@@ -14,6 +14,7 @@ import type { WaveSpec } from '../core/run';
 import type { Arena } from './arena';
 import { Player } from '../objects/player';
 import { Enemy, type EnemyAreaKind } from '../objects/enemy';
+import { CorpseFx } from '../objects/corpse';
 import { Projectile } from '../objects/projectile';
 import { XpOrb } from '../objects/xporb';
 import { Coin } from '../objects/coin';
@@ -81,7 +82,7 @@ interface GroundZone {
 
 export class CombatSystem {
   readonly player: Player;
-  /** Legendary `effect` card state (glass-cannon / bulwark), consumed by combat + damage. */
+  /** Behavioural `effect` card state (§5.3 `last-gasp`), consumed by `damagePlayer`. */
   readonly effects: EffectState = createEffectState();
 
   private readonly scene: Phaser.Scene;
@@ -93,6 +94,8 @@ export class CombatSystem {
   private readonly orbPool: Pool<XpOrb>;
   private readonly coinPool: Pool<Coin>;
   private readonly bladePool: Pool<Blade>;
+  /** Death animations for bodies the pool has already taken back. */
+  private readonly corpses: CorpseFx;
 
   private readonly enemies: Enemy[] = [];
   private readonly shots: Projectile[] = [];
@@ -175,6 +178,7 @@ export class CombatSystem {
       (enemy) => enemy.despawn(),
       Math.min(80, TUNING.enemy.maxAlive),
     );
+    this.corpses = new CorpseFx(scene);
     this.shotPool = new Pool<Projectile>(
       () => new Projectile(scene),
       (shot) => shot.despawn(),
@@ -416,6 +420,7 @@ export class CombatSystem {
     for (const orb of this.orbs) orb.despawn();
     for (const coin of this.coins) coin.despawn();
     for (const blade of this.blades) blade.despawn();
+    this.corpses.releaseAll();
     this.enemies.length = 0;
     this.shots.length = 0;
     this.orbs.length = 0;
@@ -921,10 +926,10 @@ export class CombatSystem {
     }
   }
 
-  /** Pushes `enemy` away from the player on contact; `bulwark` doubles the impulse. */
+  /** Pushes `enemy` away from the player on contact. */
   private knockback(enemy: Enemy, dx: number, dy: number): void {
     const dist = Math.hypot(dx, dy) || 1;
-    const impulse = TUNING.player.contactKnockback * this.effects.knockbackMul;
+    const impulse = TUNING.player.contactKnockback;
     enemy.setVelocity((dx / dist) * impulse, (dy / dist) * impulse);
     this.scene.time.delayedCall(TUNING.player.contactKnockbackMs, () => {
       if (enemy.active) enemy.setVelocity(0, 0);
@@ -1005,13 +1010,16 @@ export class CombatSystem {
       for (const other of this.enemies) if (other.def.behaviour === 'boss') other.shielded = false;
     }
 
+    // The corpse is spawned BEFORE the body is recycled: `release` parks the
+    // sprite invisible and the next `spawnWith` overwrites its sheet, facing
+    // and scale, so a death animation read off the body afterwards is already
+    // the wrong archetype's.
+    this.corpses.play(enemy.deathKey, enemy.x, enemy.y, enemy.def.size, enemy.flipX);
     const index = this.enemies.indexOf(enemy);
     if (index >= 0) {
       this.enemyPool.release(enemy);
       this.swapRemove(this.enemies, index);
     }
-
-    if (this.effects.killIframesMs > 0) this.player.health.grantIframes(this.effects.killIframesMs);
 
     this.dropOrb(enemy.x, enemy.y, enemy.xpValue);
     const def = enemy.def;

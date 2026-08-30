@@ -6,9 +6,8 @@
 //   BLOCKER 2 — the Collapse ring must actually close on the player.
 // plus the manual-pin-only casket and the drop-lowest/linger overflow path.
 import assert from 'node:assert/strict';
+import { TUNING } from '../../config';
 import {
-  CHANNEL_DEFAULTS,
-  COLLAPSE_DEFAULTS,
   ExtractionSystem,
   channelCompletableUnderContact,
   worstCaseChannelMs,
@@ -27,15 +26,35 @@ const GATES: GateSpec[] = [
   { id: 'c', x: 1450, y: 1450, opensS: 420, closesS: null },
 ];
 
+/**
+ * The fixture is built exactly the way `slices/arena/game.ts` builds it — out of
+ * `TUNING`, not out of the system's internal default tables. That is the whole
+ * point: these gates exist to defend the numbers the game SHIPS, so a retune of
+ * `TUNING.extract` has to move them.
+ */
 const tuning = (over: Partial<ExtractionTuning> = {}): ExtractionTuning => ({
-  channelMs: CHANNEL_DEFAULTS.channelMs,
+  channelMs: TUNING.extract.channelMs,
   radius: GATE_RADIUS,
-  collapseAtS: COLLAPSE_DEFAULTS.atS,
+  collapseAtS: TUNING.collapse.atS,
   closingWarnS: 15,
-  channel: CHANNEL_DEFAULTS,
-  collapse: COLLAPSE_DEFAULTS,
+  channel: TUNING.extract,
+  collapse: TUNING.collapse,
   ...over,
 });
+
+/**
+ * The RESOLVED channel/Collapse tuning: shipped `TUNING` merged over the
+ * system's own defaults, read back off a constructed system.
+ *
+ * `CHANNEL_DEFAULTS`/`COLLAPSE_DEFAULTS` are internal to `systems/extraction.ts`
+ * and asserting against them proved the default TABLE. `channelTuning` /
+ * `collapseTuning` are the values the game actually runs on, so they prove the
+ * merge too — a `TUNING.extract` key that stops reaching the system now fails
+ * here instead of passing against the table it was supposed to override.
+ */
+const RESOLVED = new ExtractionSystem(GATES, tuning());
+const CHANNEL_DEFAULTS = RESOLVED.channelTuning;
+const COLLAPSE_DEFAULTS = RESOLVED.collapseTuning;
 
 const relic = (id: string, tier: 1 | 2 | 3 | 4): RelicDef => ({
   id,
@@ -333,8 +352,8 @@ const run = (
   assert.equal(died.shards, 0, 'no Rot Tithe means no shards survive');
   assert.equal(bag.settle('died', 25).shards, 112, '25% of 448 shards survive with Rot Tithe');
 
-  assert.equal(bag.pinCasket('nope'), false, 'pinning an uncarried relic fails');
-  assert.equal(bag.pinCasket('r_dreadcrown'), true, 'the player pins deliberately');
+  assert.equal(bag.pinCasket('nope').pinned, false, 'pinning an uncarried relic fails');
+  assert.equal(bag.pinCasket('r_dreadcrown').pinned, true, 'the player pins deliberately');
   assert.equal(bag.casket.length, 1);
   assert.equal(bag.relics.length, 1, 'a pinned relic leaves the ordinary bag');
   const insured = bag.settle('died', 0);
@@ -342,7 +361,7 @@ const run = (
   assert.equal(insured.lost.length, 1, 'everything unpinned is lost');
   assert.equal(bag.settle('extracted', 0).relics.length, 2, 'extraction banks casket AND bag');
 
-  const swap = bag.repin('r_toothcharm');
+  const swap = bag.pinCasket('r_toothcharm');
   assert.equal(swap.pinned, true);
   assert.equal(swap.unpinned!.id, 'r_dreadcrown', 'a full casket gives up its oldest pin');
   assert.equal(swap.dropped, null, 'the displaced relic returns to a bag with room');
@@ -380,7 +399,7 @@ const run = (
   // A casket pin is NEVER an overflow victim, even when it is the worst carried.
   const pinned = new Bag(2, 1);
   pinned.addRelic(relic('cheap', 1));
-  assert.equal(pinned.pinCasket('cheap'), true);
+  assert.equal(pinned.pinCasket('cheap').pinned, true);
   pinned.addRelic(relic('t2', 2));
   pinned.addRelic(relic('t3', 3));
   const push = pinned.addRelic(relic('t4', 4));
@@ -393,7 +412,7 @@ const run = (
   const dupes = new Bag(4, 1);
   dupes.addRelic(table);
   dupes.addRelic(table);
-  assert.equal(dupes.pinCasket('r_bonedice'), true);
+  assert.equal(dupes.pinCasket('r_bonedice').pinned, true);
   assert.equal(dupes.casket.length, 1, 'one copy is pinned');
   assert.equal(dupes.relics.length, 1, 'the other copy stays visible in the bag');
 
@@ -427,10 +446,10 @@ const run = (
   for (let i = 0; i < 12; i += 1) bag.addRelic(relic(`m${i}`, 2));
   assert.equal(bag.relics.length, 10, 'the widened bag holds 10');
   assert.equal(bag.relics[0]!.id, 'm2', 'the two earliest same-tier relics overflowed out');
-  assert.equal(bag.pinCasket('m2'), true);
-  assert.equal(bag.pinCasket('m3'), true);
+  assert.equal(bag.pinCasket('m2').pinned, true);
+  assert.equal(bag.pinCasket('m3').pinned, true);
   assert.equal(bag.casket.length, 2, 'the second casket slot is real');
-  assert.equal(bag.pinCasket('m4'), true);
+  assert.equal(bag.pinCasket('m4').pinned, true);
   assert.equal(bag.casket.length, 2, 'a third pin displaces the oldest');
   assert.equal(bag.casket[0]!.id, 'm3');
 }

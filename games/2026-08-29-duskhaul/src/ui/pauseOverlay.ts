@@ -18,12 +18,12 @@ import { BUTTON_STYLE, IDENTITY, TIER_RING, tierColor } from './duskChrome';
  * every slice with its own menu scene passes it, and the row is dropped
  * entirely — not greyed — when it is absent.
  *
- * ## The bag row is the ONLY way into the casket (§5.6, §14.5)
+ * ## The bag row is the ONLY door to the casket, both ways (§5.6, §14.5)
  * `autoPinHighest` is false by law, so a relic reaches the Gravekeeper's Casket
- * only by being tapped HERE. That makes these pips the one tappable pips in the
- * game, and it makes the row load-bearing rather than a readout: without it,
- * every death loses 100% of the haul and the 400-shard casket upgrade buys
- * nothing.
+ * only by being tapped HERE — and leaves it the same way. That makes these pips
+ * the one tappable pips in the game, and it makes the row load-bearing rather
+ * than a readout: without it, every death loses 100% of the haul and the
+ * 400-shard casket upgrade buys nothing.
  *
  * ## RESTART / MENU arm while the bag holds loot (§14b confirmation policy)
  * Shards are seconds of play; a carried Dread relic is minutes plus a Warden
@@ -48,12 +48,19 @@ export interface PauseBagActions {
   /**
    * Everything carried right now, casket pins FIRST (the same order
    * `ui/bagPips.ts` draws the HUD in, so the row and the HUD agree). Re-read
-   * after every pin, so the row repaints from the bag rather than from a copy
-   * it made when it opened.
+   * after every pin or release, so the row repaints from the bag rather than
+   * from a copy it made when it opened.
    */
   read(): readonly PauseBagRelic[];
-  /** Tapped pip: (re-)pin it to the casket. The caller owns the toast. */
+  /** Tapped an unpinned pip: (re-)pin it to the casket. The caller owns the toast. */
   pin(relicId: string): void;
+  /**
+   * Tapped a PINNED pip: release it back to the ordinary bag, so death can take
+   * it again. Without this the casket is a one-way door — the player who pinned
+   * a Tarnished trinket at 90s could never free the slot for the Dread Crown
+   * the Warden drops at 430s, which is the exact decision §5.6 is about.
+   */
+  unpin(relicId: string): void;
   /** Casket capacity, for the row's "n/n PINNED" caption. */
   casketSlots: number;
 }
@@ -239,12 +246,17 @@ export function showPauseOverlay(
  * Draws (and redraws) the bag row from the bag itself. A pin reorders the row —
  * the pinned relic moves to the casket group — so the row is rebuilt from
  * `read()` rather than patched, which is also what keeps it honest when a pin
- * displaces an older one.
+ * displaces an older one, or when a release drops one back into the bag.
+ *
+ * EVERY pip is tappable, pinned or not: pinned toggles OFF, unpinned toggles
+ * ON. A pinned pip used to be drawn with no hit zone at all, which made the
+ * casket a one-way door and stranded a slot behind whatever the player pinned
+ * first.
  *
  * Each pip arms on its OWN pointer-down and disarms on pointer-out, the same
  * gesture rule `scenes/meta.ts` uses for the GEAR cells: a release that merely
- * ENDED over a pip (a stray drag off the RESUME button) must not spend a casket
- * slot.
+ * ENDED over a pip (a stray drag off the RESUME button) must not spend or free
+ * a casket slot.
  */
 function paintBagRow(
   scene: Phaser.Scene,
@@ -258,7 +270,7 @@ function paintBagRow(
   const caption =
     relics.length === 0
       ? 'BAG EMPTY — RELICS YOU CARRY CAN BE PINNED HERE'
-      : `TAP A RELIC TO PIN IT · CASKET ${pinned}/${bag.casketSlots}`;
+      : `TAP TO PIN OR RELEASE · CASKET ${pinned}/${bag.casketSlots}`;
   row.add(
     scene.add
       .text(VIEW.centerX, PIP.labelY, caption, { ...TEXT.label, fontSize: '22px', color: CSS.inkSoft })
@@ -296,7 +308,6 @@ function paintBagRow(
           .setOrigin(0.5)
           .setScrollFactor(0),
       );
-      continue;
     }
 
     const zone = scene.add
@@ -313,7 +324,8 @@ function paintBagRow(
     zone.on(Phaser.Input.Events.POINTER_UP, () => {
       if (!armed) return;
       armed = false;
-      bag.pin(relic.id);
+      if (relic.pinned) bag.unpin(relic.id);
+      else bag.pin(relic.id);
       paintBagRow(scene, row, bag);
     });
     row.add(zone);

@@ -151,8 +151,15 @@ export interface ExtractionTuning {
   collapse?: Partial<CollapseTuning>;
 }
 
-/** Defaults for every additive channel key (PRD §7, DesignFix re-spec). */
-export const CHANNEL_DEFAULTS: ChannelTuning = {
+/**
+ * Defaults for every additive channel key (PRD §7, DesignFix re-spec).
+ *
+ * MODULE-PRIVATE on purpose: these numbers are a copy of `TUNING.extract`, and
+ * every real caller passes that section whole, so an exported table is a second
+ * source of truth for the same values. It exists only to give an omitted
+ * optional key a defined meaning.
+ */
+const CHANNEL_DEFAULTS: ChannelTuning = {
   channelMs: 4000,
   hitSetbackMs: 200,
   hitStallMs: 200,
@@ -165,8 +172,8 @@ export const CHANNEL_DEFAULTS: ChannelTuning = {
   channelMsFloor: 1200,
 };
 
-/** Defaults for every additive Collapse key (PRD §7, DesignFix re-spec). */
-export const COLLAPSE_DEFAULTS: CollapseTuning = {
+/** As `CHANNEL_DEFAULTS`, for `TUNING.collapse`. Module-private for the same reason. */
+const COLLAPSE_DEFAULTS: CollapseTuning = {
   atS: 480,
   centerGate: 'c',
   startPad: 240,

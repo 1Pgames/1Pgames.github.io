@@ -22,30 +22,25 @@ import { sharedEnemies } from './enemies';
  *  - Gate open/close and the Collapse are NOT `EventSpec`s. `ExtractionSystem`
  *    owns that schedule (§4) and emits `gate-open`/`gate-close`/`collapse`
  *    itself, so restating the seconds here would create a second source of
- *    truth for the run's resolution surface. Waves that coincide with a gate
- *    beat carry a `label` instead (see `WAVE_LABEL`).
- *  - The Dread Shrine is the 300s wave's `label`, for the same reason: §7 names
- *    `shrine.at`/`shrine.densityMul` as TUNING keys that `src/config.ts` (W6)
- *    does not carry yet, and the pocket is a spatial set piece the slice builds
- *    when it sees the label.
+ *    truth for the run's resolution surface. A wave row that coincides with a
+ *    gate beat only supplies that beat's SPAWNS.
+ *  - The Dread Shrine's POCKET. Its second is `TUNING.shrine.atS` (the wave row
+ *    below reads that key, and so does the slice), but the marked pocket itself
+ *    is a spatial set piece `slices/arena/game.ts` builds from
+ *    `shrine.densityMul`/`radiusPx`/`tierBias` — those are not spawn rows and
+ *    have no wave-table expression.
  */
 
 /**
- * Wave labels the slice and the sim branch on. Everything that is not plain
- * pressure gets one, so no consumer types a string literal.
+ * NO WAVE LABELS. `WaveSpec.label` used to be set on nine rows here and read by
+ * NOTHING: `RunDirector.onSpawn(id, index, total, pattern)` never carries it, so
+ * the slice structurally cannot see a label, and every beat the labels named is
+ * already announced by the slice from its own timeline — `TUNING.shrine.atS`,
+ * `TUNING.warden.atS`, `TUNING.elite.gateGuardAtS` and `ExtractionSystem`'s own
+ * `gate-open`/`gate-close`/`collapse` events. Delivering them a second way
+ * would mean widening the frozen `onSpawn` signature to carry a redundant
+ * announce source. The comment above each row is the row's name.
  */
-export const WAVE_LABEL = {
-  grace: 'grace',
-  elite: 'elite',
-  gateGuard: 'gate-guard',
-  gateAOpens: 'gate-a-opens',
-  gateACloses: 'gate-a-closes',
-  gateBOpens: 'gate-b-opens',
-  gateBCloses: 'gate-b-closes',
-  shrine: 'shrine',
-  warden: 'warden',
-  collapse: 'collapse',
-} as const;
 
 /**
  * §2A phase table x §7 `phase.multipliers` (1.0/1.3/1.7/2.3/3.2 at
@@ -71,6 +66,26 @@ export const PHASES: readonly RunPhase[] = [
 const COLLAPSE_LANES = sharedEnemies();
 const COLLAPSE_LANE_MS = TUNING.collapse.spawnFloorMs * COLLAPSE_LANES.length;
 
+/**
+ * The three §5.4 elite entrances, read from `TUNING.elite.atS` instead of typed
+ * three times below. The seconds were duplicated here as literals while the
+ * TUNING key nothing read sat in `config.ts` — a retune of the elite schedule
+ * moved the key and left the timeline exactly where it was.
+ *
+ * Throws rather than defaulting: an `atS` array that has lost an entry is a
+ * MISSING SCRIPTED BEAT, and silently spawning nothing is how §5.4 content
+ * goes unshipped with every gate green.
+ */
+function eliteAt(index: number): number {
+  const at = TUNING.elite.atS[index];
+  if (at === undefined) {
+    throw new Error(
+      `TUNING.elite.atS has no entry ${index}: §5.4 authors three scripted elite entrances`,
+    );
+  }
+  return at;
+}
+
 /** 18 entries, one per §5.4 row, in run order. */
 export const WAVES: readonly WaveSpec[] = [
   // 1. 0s — grace trickle: a single-archetype husk drip for the whole grace
@@ -83,7 +98,6 @@ export const WAVES: readonly WaveSpec[] = [
   {
     at: 0,
     until: 30,
-    label: WAVE_LABEL.grace,
     spawns: [{ id: 'husk', count: 0, everyMs: 1800 }],
   },
   // 2. 30s — first pressure: husk + wretch lane through the Early phase.
@@ -115,14 +129,12 @@ export const WAVES: readonly WaveSpec[] = [
   // is made while surrounded.
   {
     at: 120,
-    label: WAVE_LABEL.gateAOpens,
     pattern: 'ring',
     spawns: [{ id: 'wretch', count: 12, everyMs: 120 }],
   },
-  // 6. 150s — elite 1.
+  // 6. elite 1, at `TUNING.elite.atS[0]`.
   {
-    at: 150,
-    label: WAVE_LABEL.elite,
+    at: eliteAt(0),
     pattern: 'cluster',
     spawns: [{ id: 'elite_reaper', count: 1 }],
   },
@@ -141,39 +153,35 @@ export const WAVES: readonly WaveSpec[] = [
   // 9. 210s — Gate A closes: four thornhounds from one direction.
   {
     at: 210,
-    label: WAVE_LABEL.gateACloses,
     pattern: 'arc',
     spawns: [{ id: 'thornhound', count: 4, everyMs: 500 }],
   },
   // 10. 240s — Gate B opens: three Pale Knights in a line.
   {
     at: 240,
-    label: WAVE_LABEL.gateBOpens,
     pattern: 'line',
     spawns: [{ id: 'paleknight', count: 3, everyMs: 800 }],
   },
-  // 11. 250s — gate guard: a reaper plus eight husks land ON Gate B (§2A: the
-  // elite pack spawns within 300px of the gate).
+  // 11. gate guard: a reaper plus eight husks land ON Gate B (§2A: the elite
+  // pack spawns within 300px of the gate). Same second the slice places the
+  // pack on the ring, from the one key both read.
   {
-    at: 250,
-    label: WAVE_LABEL.gateGuard,
+    at: TUNING.elite.gateGuardAtS,
     pattern: 'cluster',
     spawns: [
       { id: 'elite_reaper', count: 1 },
       { id: 'husk', count: 8, everyMs: 250 },
     ],
   },
-  // 12. 270s — elite 2.
+  // 12. elite 2, at `TUNING.elite.atS[1]`.
   {
-    at: 270,
-    label: WAVE_LABEL.elite,
+    at: eliteAt(1),
     pattern: 'cluster',
     spawns: [{ id: 'elite_matron', count: 1 }],
   },
-  // 13. 300s — Dread Shrine unlocks: a marrowworm cluster guards the pocket.
+  // 13. Dread Shrine unlocks: a marrowworm cluster guards the pocket.
   {
-    at: 300,
-    label: WAVE_LABEL.shrine,
+    at: TUNING.shrine.atS,
     pattern: 'cluster',
     spawns: [{ id: 'marrowworm', count: 4, everyMs: 600 }],
   },
@@ -208,7 +216,6 @@ export const WAVES: readonly WaveSpec[] = [
   {
     at: 360,
     until: TUNING.collapse.atS,
-    label: WAVE_LABEL.gateBCloses,
     spawns: [
       { id: 'dirgebell', count: 0, everyMs: 30000 },
       { id: 'wretch', count: 0, everyMs: 900 },
@@ -216,17 +223,15 @@ export const WAVES: readonly WaveSpec[] = [
       { id: 'paleknight', count: 0, everyMs: 7000 },
     ],
   },
-  // 16. 390s — elite 3.
+  // 16. elite 3, at `TUNING.elite.atS[2]`.
   {
-    at: 390,
-    label: WAVE_LABEL.elite,
+    at: eliteAt(2),
     pattern: 'cluster',
     spawns: [{ id: 'elite_herald', count: 1 }],
   },
-  // 17. 420s — the Gate Warden, at Gate C.
+  // 17. the Gate Warden, at Gate C.
   {
-    at: 420,
-    label: WAVE_LABEL.warden,
+    at: TUNING.warden.atS,
     pattern: 'cluster',
     spawns: [{ id: 'warden', count: 1 }],
   },
@@ -235,22 +240,24 @@ export const WAVES: readonly WaveSpec[] = [
   {
     at: TUNING.collapse.atS,
     until: TUNING.collapse.atS + 600,
-    label: WAVE_LABEL.collapse,
     spawns: COLLAPSE_LANES.map((def) => ({ id: def.id, count: 0, everyMs: COLLAPSE_LANE_MS })),
   },
 ];
 
 /**
- * Scripted one-shot beats layered on the wave drip. §5.4 gives two chests
- * (165s / 345s), each a guaranteed relic roll at tier bias +1 — which is
- * `TUNING.loot.eliteTierBias`, the same +1 the §5.5 drop rule quotes for
- * chests and elites.
+ * Scripted one-shot beats layered on the wave drip: one chest per entry in
+ * `TUNING.chest.atS` (§5.4 authors two, at 165s / 345s), each a guaranteed
+ * relic roll at `TUNING.chest.tierBias` — the same +1 the §5.5 drop rule
+ * quotes for chests and elites.
+ *
+ * DERIVED from the key, not retyped: the seconds used to be literals here
+ * while `TUNING.chest.atS` was read by nothing, so adding a third chest to the
+ * key would have shipped no third chest.
  *
  * Gate, Collapse, Shrine, elite and Warden beats are deliberately absent: see
  * the file header. `EventSpec.kind` is a `core/run.ts` union owned by the
  * engine, and nothing here needs to widen it.
  */
-export const TIMELINE_EVENTS: readonly EventSpec[] = [
-  { at: 165, kind: 'chest' },
-  { at: 345, kind: 'chest' },
-] as const;
+export const TIMELINE_EVENTS: readonly EventSpec[] = TUNING.chest.atS.map(
+  (at): EventSpec => ({ at, kind: 'chest' }),
+);

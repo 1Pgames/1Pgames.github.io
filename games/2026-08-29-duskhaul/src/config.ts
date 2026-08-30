@@ -123,8 +123,13 @@ export const TEXT = {
 export const TUNING = {
   /** Reference run: 8 minutes, phases from data/waves.ts. */
   runSeconds: 480,
-  /** No enemies before this — the player learns the verb first. */
-  graceSeconds: 4,
+  /**
+   * NO `graceSeconds` KEY. The template's enemy-free opening window is not how
+   * Duskhaul opens: §5.4's first wave row starts at 0s and drips one husk every
+   * 1800ms for 30s (`WAVE_LABEL.grace`), because 4 seconds of empty screen was
+   * measured as an empty screen, not as grace. The grace window is authored in
+   * `data/waves.ts` and nowhere else.
+   */
 
   player: {
     maxHp: 110,
@@ -151,22 +156,34 @@ export const TUNING = {
 
   /** Weapon patterns (see `data/weapons.ts`). `bolt` reads `player.*` above unchanged. */
   weapons: {
-    /** Max simultaneously-equipped weapons (§7 `weapon.slots` = 4). */
+    /** Max simultaneously-equipped weapons (§7 `weapon.slots` = 3). */
     maxSlots: 3,
     /**
-     * Boost cards per weapon before it evolves. Rank = boosts + 1, so 4 is
-     * §7's `weapon.maxRank` 5 — the number `WEAPON_MAX_RANK`, the boost card's
-     * stack limit and the §5.3 evolution gate all derive from.
+     * Boost cards per weapon before it evolves. Rank = boosts + 1, so 3 boosts
+     * is §7's `weapon.maxRank` 4 — the number `WEAPON_MAX_RANK`, the boost
+     * card's stack limit and the §5.3 evolution gate all derive from.
+     *
+     * DO NOT raise either number back to the pre-amendment 4 slots / rank 5.
+     * §7 was AMENDED DOWN on measurement: a 4th slot dropped deep-lane
+     * extraction 45% -> 20% and blew lane spread 0.40 -> 0.75.
      */
     maxBoosts: 3,
-    bolt: { boostDamageMul: 0.15, boostCooldownMul: 0.07 },
+    /**
+     * PER-RANK DAMAGE IS NOT HERE. §5.3 gives every weapon one side of
+     * "+25% dmg OR +1 projectile per rank", and that number lives on the
+     * weapon row (`data/weapons.ts` `rankGrowth`, read through
+     * `weaponBoostDamageMul`). The template's per-weapon `boostDamageMul`
+     * (0.15/0.20) was a second, DIFFERENT copy of the same rule that no line
+     * of `systems/combat.ts` read — every case there calls
+     * `weaponBoostDamageMul`. The cadence/geometry riders below ARE read.
+     */
+    bolt: { boostCooldownMul: 0.07 },
     orbit: {
       /** Fraction of the `damage` stat one blade hit deals. */
       damageMul: 0.6,
       hitCooldownMs: 380,
       radius: 150,
       blades: 1,
-      boostDamageMul: 0.2,
       boostRadiusMul: 0.12,
     },
     nova: {
@@ -175,14 +192,12 @@ export const TUNING = {
       radius: 260,
       /** Fraction of radius at which falloff starts reducing damage toward 0 at the edge. */
       falloffStart: 0.4,
-      boostDamageMul: 0.2,
       boostCooldownMul: 0.1,
     },
     rail: {
       damageMul: 1.9,
       cooldownMs: 1900,
       pierceCount: 4,
-      boostDamageMul: 0.2,
       boostPierceAdd: 1,
     },
   },
@@ -202,8 +217,14 @@ export const TUNING = {
     spawnMargin: 70,
     /** Contact damage tick interval. */
     hitMs: 500,
-    /** Applied on top of data/enemies.ts base stats by RunDirector.difficulty. */
-    hpScaleCap: 3.2,
+    /**
+     * NO `hpScaleCap`. The template caps difficulty-driven HP; §6 does not —
+     * "HP scales LINEARLY with the multiplier, DAMAGE at half rate" is the
+     * authored curve, and `data/enemies.ts scaleEnemy` implements exactly that.
+     * The template's 3.2 cap was read by nothing, and wiring it would have
+     * silently overridden §6 for every zone with `threatBase > 1` and for the
+     * whole Collapse ramp.
+     */
     /** Hard cap on live enemies — protects 60fps. */
     maxAlive: 220,
     /** `healAura` enemies pulse a heal to allies within this radius, this often, for this much HP. */
@@ -255,10 +276,27 @@ export const TUNING = {
     gateGuardAdds: 8,
   },
 
-  /** Legendary `effect` cards (see `core/effects.ts`) — the numbers the hooks read. */
+  /**
+   * Legendary `effect` cards (PRD §5.3). `lastGasp` is the ONE live block: it
+   * is the only effect id any card in the 26-row pool carries, and
+   * `core/effects.ts` registers exactly that one hook.
+   *
+   * `glassCannon` and `bulwark` ARE DEAD NUMBERS — nothing reads either. No
+   * card names those ids, so their hooks were unreachable and have been cut
+   * from `core/effects.ts`; `bulwark`'s three stat riders are already gone from
+   * here. The four survivors below are held back by ONE thing:
+   * `scripts/w1-contract-check.mjs` in THIS game still carries the
+   * hand-transcribed `REQUIRED_TUNING` list and asserts
+   * `effects.glassCannon.hpCapRatio`, `effects.glassCannon.killIframesMs` and
+   * `effects.bulwark.knockbackMul` exist. The template's rewritten check
+   * deleted that list on purpose ("a rotted assertion is worse than no
+   * assertion" — it names `economy.scorePerKill` as one of its own fictions),
+   * so DELETE THESE FOUR KEYS in the same commit that resyncs the game's copy
+   * of that script, and not before.
+   */
   effects: {
     glassCannon: { damageMul: 0.8, hpCapRatio: 0.4, killIframesMs: 200 },
-    bulwark: { maxHpAdd: 60, regenPerSecondAdd: 1.5, moveSpeedMul: -0.25, knockbackMul: 2 },
+    bulwark: { knockbackMul: 2 },
     /**
      * Last Gasp (PRD §5.3): revive once per run at this fraction of maxHp with
      * `iframesMs` of grace. The grace matters — without it the blow that killed
@@ -273,12 +311,24 @@ export const TUNING = {
   },
 
   economy: {
-    /** Meta currency: per kill, per elite, per boss, and the win bonus. */
-    currencyPerKill: 1,
+    /**
+     * Meta currency per elite and per boss. NOT per kill: §5.6 pays a kill
+     * through the enemy row's own `shards` value (`data/enemies.ts`), which is
+     * why `currencyPerKill` was read by nothing — `objects/coin.ts` still
+     * claims otherwise in a comment, filed with that file's owner.
+     */
     currencyPerElite: 25,
     currencyPerBoss: 120,
+    /**
+     * `winBonus`/`scorePerKill`/`scorePerSecond` ARE DEAD NUMBERS too, held for
+     * the same reason and deletable in the same commit: Duskhaul has NO win
+     * state (§2A resolves a run by extraction or death only) and NO arcade
+     * score (`MetaSave.stats.bestScore` IS the best banked haul, and
+     * `scenes/gameover.ts` says "the arcade score does not appear at all").
+     * Nothing reads any of the three; the stale `REQUIRED_TUNING` list asserts
+     * all three.
+     */
     winBonus: 150,
-    /** Score shown in results. */
     scorePerKill: 10,
     scorePerSecond: 1,
   },
@@ -321,8 +371,13 @@ export const TUNING = {
     homeBottom: 200,
     /** Presses above this fraction of the screen height are not stick input. */
     zoneTop: 0.42,
-    idleAlpha: 0.28,
-    activeAlpha: 0.75,
+    /**
+     * NO `idleAlpha`/`activeAlpha`. §14.3 authors the stick's visibility —
+     * INVISIBLE at rest ("no persistent chrome") and 0.35 while a touch is
+     * live — and `ui/joystick.ts` states that it deliberately does not read
+     * these. Two numbers nobody read, contradicting the spec that overrode
+     * them, is a retune that silently does nothing.
+     */
   },
 
   /** Upgrade draft: how many cards per level-up and the reroll cost. */

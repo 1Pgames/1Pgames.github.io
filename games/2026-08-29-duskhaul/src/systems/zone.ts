@@ -5,7 +5,7 @@ import type { Rng } from '../core/rng';
 import type { ArtSlot } from '../data/art';
 import { enemiesForZone, exclusiveEnemies, type EnemyDef } from '../data/enemies';
 import { DECALS_BY_ZONE, PROPS_BY_ZONE } from '../data/props';
-import { ZONE_DESIGN_SIZE, type ZoneDef } from '../data/zones';
+import { zoneGates, type ZoneDef } from '../data/zones';
 import { FLOOR_GRADE, IDENTITY } from '../ui/duskChrome';
 import type { Arena, ArenaLayout } from './arena';
 import type { GateSpec } from './extraction';
@@ -159,18 +159,6 @@ export function zoneArenaLayout(zone: ZoneDef): ArenaLayout {
     propSet: PROPS_BY_ZONE[zone.id],
     decalSet: DECALS_BY_ZONE[zone.id],
   };
-}
-
-/**
- * The zone's three gates in LIVE arena coordinates. Authored coordinates are
- * in the PRD's 1600x1600 design space (§5.7), so the layout survives arena
- * resizing instead of drifting off the field.
- */
-export function zoneGates(zone: ZoneDef): [GateSpec, GateSpec, GateSpec] {
-  const sx = TUNING.arena.width / ZONE_DESIGN_SIZE;
-  const sy = TUNING.arena.height / ZONE_DESIGN_SIZE;
-  const scale = (gate: GateSpec): GateSpec => ({ ...gate, x: gate.x * sx, y: gate.y * sy });
-  return [scale(zone.gates[0]), scale(zone.gates[1]), scale(zone.gates[2])];
 }
 
 export class ZoneSystem {

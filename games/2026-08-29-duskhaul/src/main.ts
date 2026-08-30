@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { PALETTE, VIEW } from './config';
-import { armWakeLock } from './core/wake';
+import { armLoopVisibility, armWakeLock } from './core/wake';
 import { BootScene } from './scenes/boot';
 import { PreloadScene } from './scenes/preload';
 import { MenuScene } from './scenes/menu';
@@ -76,8 +76,10 @@ if (import.meta.env.PROD && 'serviceWorker' in navigator) {
 // Keep the screen awake once the player actually touches the game.
 armWakeLock();
 
-// Pause when the tab/app loses focus so recordings never desync.
-document.addEventListener('visibilitychange', () => {
-  if (document.hidden) game.loop.sleep();
-  else game.loop.wake();
-});
+// Pause the loop when the tab/app loses visibility so recordings never desync —
+// and, critically, RESUME it from the state that is true now rather than from
+// the next event that happens to arrive. The inline
+// `visibilitychange -> hidden ? sleep() : wake()` this replaces wedged the game
+// permanently whenever the paired event was coalesced away: `core/wake.ts`
+// carries the measurement and the reasoning.
+armLoopVisibility(game.loop);

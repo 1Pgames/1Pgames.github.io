@@ -113,13 +113,32 @@ playbook, or a heuristic default can already answer.
    solve routes / board archetypes (B/G/H), or 3 economy routes (F), or 1
    mechanic + 2 twists (J) — each named, with what enables it and why it is
    not dominated.
-10. **Parallel build plan is part of the PRD.** 4-6 workstreams, one owner per
-   file, interface contracts written as real TypeScript signatures, plus the
-   integration order and the integrator's checklist.
-11. **Portrait UI plan with pixel coordinates.** Dense UI must fit 720x1280
-    inside SAFE, with nothing interactive under the thumb zone except
-    full-width controls; minimum tap target 88px. Board families additionally
-    fit the whole board inside the playfield band with no scrolling.
+10. **Parallel build plan freezes EDGES, not just types.** 4-6 workstreams, one
+   owner per file, interface contracts written as real TypeScript signatures,
+   plus the integration order and the integrator's checklist. Freezing a type
+   is not enough: **every frozen entry names its producer file AND its consumer
+   call-site** (`references/prd-template.md` §16.1). The rule, stated plainly:
+
+   > A symbol exported by a workstream-owned module with zero importers outside
+   > its own directory and selftests is a BLOCKER, not dead code.
+
+   Measured provenance: a build froze producer *types* only, so five
+   workstreams each satisfied the contract 100% while their output had no
+   reader — a payload mismatch across a scene boundary, a union implemented
+   twice against disjoint key sets, a fully-built UI module with zero
+   importers, an API with no call-site, and two save surfaces read by nobody.
+   All five review-gate BLOCKERs were that one shape. `npm run verify`'s
+   **consumer-edge** stage (`template/scripts/verify.sh`) now fails the build
+   on it, so an unconsumed export is caught by machine rather than by review —
+   but the PRD is what tells the gate which edges must exist.
+11. **Portrait UI plan with pixel coordinates, arbitrated by band.** Dense UI
+    must fit 720x1280 inside SAFE, with nothing interactive under the thumb
+    zone except full-width controls; minimum tap target 88px. Board families
+    additionally fit the whole board inside the playfield band with no
+    scrolling. §14 carries a **band-ownership table** (band → y-range → owning
+    widget → arbitration when a new widget wants it), and every authored
+    coordinate is **validated against the real HUD**, never asserted
+    (`references/prd-template.md` §14, `references/design-heuristics.md` §7.7).
 12. **Record assumptions.** Anything the user defers (interactive) or anything
     decided deterministically (auto) is listed in the PRD's Assumptions section
     with the chosen value and, in auto mode, the one-line rationale.
@@ -130,6 +149,43 @@ playbook, or a heuristic default can already answer.
     copy. A non-English pitch is translated for `--prompt` at scaffold time
     (Step 4) and the verbatim original lives in the PRD header
     (`Original pitch:`) and nowhere else.
+14. **Amendment discipline — a number changes in EVERY section that carries
+    it, in the same pass.** A PRD number amended on measurement (a sim run, a
+    playtest, a balance loop) is not amended until every other section quoting
+    it is updated too, and the amendment is logged in §18's amendment table as
+    `<key>: <old> → <new> — measured <what>, <where>`. A stale sibling section
+    is how a fixed thing silently re-breaks: a retune reads the un-amended
+    section, restores the old number, and re-opens the defect the measurement
+    closed. Measured provenance: `slots 4 → 3` and `maxRank 5 → 4` were amended
+    in the balance table on a measured lane-spread blow-out (0.40 → 0.75) while
+    the upgrades section still said "4 slots; each ranks 1-5" and the variety
+    section still said "weapon-unlock cards stop appearing at 4 slots" — two
+    live instructions to reinstate the number that had just been measured
+    wrong. The correct pattern, to copy: `invulnMs 400 → 700` and the flow-map
+    amendment, each of which carried its provenance line and left no stale
+    quote behind. Grep the whole PRD for the old value before calling an
+    amendment done; a hit outside §18's amendment log is an unfinished
+    amendment.
+15. **No unreachable and no unclaimable content.** Every authored reward,
+    bonus, drop, effect id and `TUNING` value names, in its own row, the
+    **condition that makes it claimable** and the **file that reads it**. A
+    value whose gate cannot be reached by a real player, or whose key nothing
+    reads, is a defect at PRD time — not a nice-to-have discovered at cert.
+    Measured provenance: an extraction bonus of `0.5` shipped against a gate
+    no run structurally reached (cert: closest approach 419px against 70px
+    needed; sim: no run reached the stage; critic: four pilots died before
+    seeing a gate), an effect id was registered nowhere, and one threat key was
+    asserted by a contract check yet read by no source file — 12 dead-content
+    classes in one build. §5.5's claimability ledger and §7's `Read by` column
+    are the authoring surface; `npm run verify`'s consumer-edge stage is the
+    machine check.
+16. **Retire a flow node in one edit.** When a screen, overlay or transition is
+    cut, the same edit removes it from the §14b mermaid graph, the tap-depth
+    table, the interruption matrix, the edge-state inventory and every §14
+    coordinate that referenced it. A retired node left in the interruption
+    matrix reads as a shipping requirement to the next agent. Measured
+    provenance: a retired pause-draft node stayed in the matrix after the node
+    itself was cut, so the flow audit certified a state that no longer existed.
 
 ## Workflow
 
@@ -245,11 +301,13 @@ subgenre:
 pitch wants a foreground tapping layer.
 
 Then read `references/design-heuristics.md` §1-§6 plus the family's math
-section (§15 level curves, §16 ramp math, §17 idle economy) and §18's
-family→verification map. In `interactive` mode, state the classification back
-to the user in two lines (`family + subgenre + session shape`) before the first
-`ask`, so a wrong read is caught immediately. In `auto` mode, skip straight to
-Step 1.
+section (§15 level curves, §16 ramp math, §17 idle economy), §18's
+family→verification map, §7.7 (band ownership and the arbitration path) and
+§19 (spec hygiene: amendments, claimability, retirement — the three defects
+that survive every green gate). In `interactive` mode, state the classification
+back to the user in two lines (`family + subgenre + session shape`) before the
+first `ask`, so a wrong read is caught immediately. In `auto` mode, skip
+straight to Step 1.
 
 ### Step 0b — Family fixed decisions
 
@@ -425,9 +483,17 @@ slug, family code + subgenre, PRD path, the axis decisions in 4-6 lines
 workstream list, and the verification contract the build must satisfy before it
 counts as done:
 
-- `npm run verify` (`template/scripts/verify.sh`): typecheck +
-  `npm run sim -- --family <slice>` gates + `node scripts/gen-art-registry.mjs
-  --check` + every `src/sim/kits/*.selftest.ts`.
+- `npm run verify` (`template/scripts/verify.sh`) — six independently reported
+  stages, in this order, none short-circuiting the others (the exit code is
+  aggregated at the end): typecheck → `scripts/w1-contract-check.mjs` →
+  **`scripts/consumer-edge-check.mjs`** → `node scripts/gen-art-registry.mjs
+  --check` → every `src/sim/kits/*.selftest.ts` → `npm run sim -- --family
+  <slice>` gates last (the one stage that legitimately ships flagged).
+  The consumer-edge stage is what enforces rule 10: it fails on
+  any export in a workstream-owned directory with no importer outside that
+  directory and its selftests, and on any §7 `TUNING` path the contract names
+  with zero readers in `src/`. Write §16.1 so those edges exist by
+  construction, not so they can be argued about at review.
 - The family's sim gate (bots in `src/sim/families/<family>.ts` — except
   arena, whose lanes and bots live in `src/sim/cli.ts` + `src/sim/bots.ts`;
   see `references/design-heuristics.md` §18): A/D arena and fight bots as
@@ -461,7 +527,7 @@ cd games/<slug> && npm install && npm run dev
 | `references/question-bank.md` | Exact questions, options, per-family defaults per round |
 | `references/genre-playbooks.md` | Mid-core families A/D/E: systems, content volumes, numbers, parallel split |
 | `references/casual-playbooks.md` | Casual families B/C/F/G/H/J + the shared meta-kit |
-| `references/design-heuristics.md` | Session architecture, scaling math, level-curve/ramp/idle math, economy, UI density, performance, family→verification map, build methodology |
+| `references/design-heuristics.md` | Session architecture, scaling math, level-curve/ramp/idle math, economy, UI density + band ownership (§7.7), performance, family→verification map, build methodology + producer→consumer edges (§12.2), spec hygiene (§19) |
 | `references/prd-template.md` | PRD structure to fill (per-family §2 variants, per-family content volumes) + definition of done |
 | `../../../template/AGENTS.md` | What the template already provides — never spec around it |
 | `../game-art/SKILL.md` | Art pipeline: style lock, parallel asset generation, engine wiring |

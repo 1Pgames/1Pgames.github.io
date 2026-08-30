@@ -3,10 +3,13 @@ import { PALETTE, TUNING, VIEW } from '../config';
 import { DEEP_INK, IDENTITY } from './duskChrome';
 
 /**
- * §14.3's authored alpha for the live stick. `TUNING.joystick.idleAlpha` /
- * `activeAlpha` are the template's numbers and are deliberately NOT read here:
- * the chrome spec sets this one, and it is the same value for ring and thumb
- * so the control never out-values the actors it is steering.
+ * §14.3's authored alpha for the live stick — the same value for ring and thumb
+ * so the control never out-values the actors it is steering. Idle is 0, not a
+ * dimmed ring: §14.3 reserves the band with "no persistent chrome".
+ *
+ * `TUNING.joystick` carries no alpha keys any more. It used to hold the
+ * template's 0.28/0.75 pair, which this file refused and nothing else read, so
+ * the config invited a retune that could not take effect.
  */
 const ACTIVE_ALPHA = 0.35;
 

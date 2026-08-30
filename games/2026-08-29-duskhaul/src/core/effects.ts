@@ -3,15 +3,23 @@ import type { Player } from '../objects/player';
 
 /**
  * Data-driven hooks for `UpgradeDef.effect` legendary cards: a stat-only
- * `Modifier` can't lock max HP to a ratio or grant temporary i-frames on
- * kill, so those two cards each get one behavioral hook here instead of an
- * `if (effect === '...')` chain in the scene or combat system.
+ * `Modifier` cannot refuse a lethal blow, so a card whose rule is behavioural
+ * gets one hook here instead of an `if (effect === '...')` chain in the scene
+ * or the combat system.
  *
  * `EFFECT_HOOKS[id]` runs once, immediately when the card is picked
  * (`GameScene.applyUpgrade`); anything that must persist for the rest of the
- * run (glass-cannon's HP cap, glass-cannon's kill i-frames, bulwark's
- * knockback multiplier) is read back out of `EffectState` by the systems
- * that need it, keyed by the same id.
+ * run is read back out of `EffectState` by the system that needs it, keyed by
+ * the same id.
+ *
+ * Exactly ONE hook, because Duskhaul's §5.3 pool carries exactly one
+ * behavioural card. The template's example `glass-cannon` and `bulwark` hooks
+ * shipped here live with no card in the 26-row pool naming either id, so their
+ * `EffectState` fields could never be set and two of the three had no reader at
+ * all. They are CUT rather than given cards: nothing in the PRD asks for them,
+ * and a hook whose trigger does not exist is an invitation to tune numbers no
+ * player can claim. A future behavioural card adds its hook here and its
+ * `effect` id on the row in the same change — never one without the other.
  */
 
 export interface EffectContext {
@@ -20,12 +28,6 @@ export interface EffectContext {
 
 /** Per-run state a hook needs other systems to observe (combat, damage). Reset each run by the scene. */
 export interface EffectState {
-  /** Set by `glass-cannon`: max HP is locked to this ratio of the base cap; heals never exceed it. */
-  hpCapRatio: number | null;
-  /** Set by `glass-cannon`: i-frame duration granted for `TUNING.effects.glassCannon.killIframesMs` after a kill. */
-  killIframesMs: number;
-  /** Set by `bulwark`: multiplies `TUNING.player.contactKnockback`. */
-  knockbackMul: number;
   /**
    * Set by `last-gasp`: how many lethal blows are still refusable. Consumed by
    * `CombatSystem.damagePlayer`, which is the ONLY place a run can end by
@@ -41,9 +43,6 @@ export interface EffectState {
 
 export function createEffectState(): EffectState {
   return {
-    hpCapRatio: null,
-    killIframesMs: 0,
-    knockbackMul: 1,
     lastGaspCharges: 0,
     lastGaspReviveRatio: 0,
     lastGaspIframesMs: 0,
@@ -51,16 +50,6 @@ export function createEffectState(): EffectState {
 }
 
 const EFFECT_HOOKS: Record<string, (ctx: EffectContext, state: EffectState) => void> = {
-  'glass-cannon': (ctx, state) => {
-    const cfg = TUNING.effects.glassCannon;
-    state.hpCapRatio = cfg.hpCapRatio;
-    state.killIframesMs = cfg.killIframesMs;
-    const cap = ctx.player.health.max * cfg.hpCapRatio;
-    if (ctx.player.health.hp > cap) ctx.player.health.hp = cap;
-  },
-  bulwark: (_ctx, state) => {
-    state.knockbackMul = TUNING.effects.bulwark.knockbackMul;
-  },
   'last-gasp': (_ctx, state) => {
     const cfg = TUNING.effects.lastGasp;
     // Stack limit 1 (§5.3), so this is a set, not an increment.

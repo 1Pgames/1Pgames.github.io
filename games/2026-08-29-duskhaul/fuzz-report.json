@@ -1,31 +1,81 @@
 {
   "kind": "fuzz",
   "passed": true,
-  "seconds": 45,
+  "slug": "2026-08-29-duskhaul",
+  "seconds": 240,
+  "budgetSource": "content clock: RunDirector.durationSeconds",
+  "contentClockS": 480,
   "seed": 1,
-  "actions": 274,
+  "actions": 1254,
+  "wipedKeys": [
+    "2026-08-29-duskhaul:tut:gate",
+    "2026-08-29-duskhaul:zone:last",
+    "2026-08-29-duskhaul:meta",
+    "2026-08-29-duskhaul:run",
+    "2026-08-29-duskhaul:tut:stick",
+    "2026-08-29-duskhaul:tut:goal"
+  ],
+  "audio": {
+    "muted": true,
+    "url": "http://localhost:5173/?mute=1",
+    "storageTouched": false,
+    "pageSide": {
+      "mediaMuted": 0,
+      "contextsPatched": false,
+      "contexts": 2,
+      "phaserSound": true
+    },
+    "forcedByUrl": null,
+    "played": null,
+    "probe": {
+      "href": "http://localhost:5173/?mute=1",
+      "urlMute": "1",
+      "audioSnapshot": null,
+      "contexts": [
+        {
+          "state": "suspended",
+          "destinationGain": 0
+        },
+        {
+          "state": "suspended",
+          "destinationGain": 0
+        }
+      ],
+      "phaserMuted": true,
+      "media": 0
+    }
+  },
+  "transitions": 21,
+  "offGameNavigations": 0,
+  "throttles": [],
+  "handovers": [],
+  "distinctScenes": [
+    "Menu",
+    "Game",
+    "Meta"
+  ],
   "failures": [],
   "sceneTrail": [
+    "Menu",
+    "Meta",
+    "Menu",
     "Game",
+    "Menu",
     "Game",
+    "Menu",
     "Game",
+    "Menu",
     "Game",
+    "Menu",
     "Game",
+    "Menu",
     "Game",
+    "Menu",
     "Game",
+    "Menu",
     "Game",
-    "Game",
-    "Game",
-    "Game",
-    "Game",
-    "Game",
-    "Game",
-    "Game",
-    "Game",
-    "Game",
-    "Game",
-    "Game",
+    "Menu",
     "Game"
   ],
-  "finishedAt": "2026-08-29T17:58:43.554Z"
+  "finishedAt": "2026-08-30T10:58:25.308Z"
 }

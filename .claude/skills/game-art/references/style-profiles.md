@@ -25,15 +25,49 @@ Schema: `sprite-forge.style.v1` (validated by
 | `plan.focal` | yes | primary / secondary / rest |
 | `plan.materials` | yes | material → substance and surface behaviour, never a colour |
 | `plan.renderScale` | yes | px the asset is drawn at in game; QC judges silhouettes here |
-| `references` | optional | accepted master frames; appended to `generate_image.input` |
+| `references` | **yes, by Step 1b** | the locked vision anchors, **max 2**, repo-root-relative; appended to every `generate_image.input`. An empty array means no vision is locked and `manifest-lint.py` errors `vision-anchors-not-locked`. |
 
 Anti-patterns: a profile naming only a palette and a mood (passes palette QC,
 produces flat wallpaper); adjectives with no measurable content ("epic",
-"stylish"); per-asset style improvisation; changing the profile mid-run.
+"stylish"); per-asset style improvisation; changing the profile mid-run;
+**shipping the scaffold profile** (see below).
 
-## Profile: vibrant chibi (default for generated games)
+### `palette` is the gate's yardstick, not a suggestion
 
-Shipped in this repo as `template/art/style.json`. Key wording:
+`sprite_check_palette` reports `meanDistance` as distance FROM THIS LIST. It is
+therefore **not** a fidelity score — measured, an off-style sheet scored 20.58 while
+a correct cold-blue snowfield scored 44.48, purely because the profile's 18-colour
+list contained no cold blue. Two consequences:
+
+- Put every zone's / faction's identity hue in `palette` at authoring time, or a
+  correct asset cannot score well and you will spend regenerations compromising it
+  toward the wrong palette until it stops reading as the thing it is. That happened:
+  a snow tile was pushed to grey slate rock chasing the number.
+- When a zone legitimately needs a hue the list lacks, pre-authorise the exception
+  in `art/manifest.json.qcExceptions[]` rather than treating the score as a defect.
+
+## The scaffold profile is NOT a starting point
+
+`template/art/style.json` ships as a deliberate placeholder: `"scaffold": true`, a
+`"scaffoldNote"`, and `"name": "scaffold-placeholder-vibrant-chibi"`. Its prose IS a
+real, working vibrant-chibi profile — the template's own art was generated from it —
+which is exactly what makes it dangerous: it does not fail, it succeeds at producing
+a coherent asset set for the wrong game, and every per-asset gate passes it.
+
+Step 1 must rewrite it: new kebab `name`, this game's own
+`artStyle`/`palette`/`lighting`/`outline`, Step 1b anchors in `references`, and
+**delete the `scaffold` and `scaffoldNote` keys**. `manifest-lint.py` errors
+`style-lock-not-rewritten` and `scripts/release-check.mjs` fails the release while
+any of those markers survive (including byte-identical scaffold `artStyle` prose).
+Measured near-miss: the art-director died mid-rewrite on the Duskhaul run; ten
+minutes earlier, 103 chibi assets would have been generated into a grimdark game.
+
+## Profile: vibrant chibi (the scaffold's prose — adapt, never ship as-is)
+
+This is the wording carried by `template/art/style.json` under the name
+`scaffold-placeholder-vibrant-chibi`. Copy it only if the game genuinely IS vibrant
+chibi, and even then re-name it, add your anchors and drop the scaffold keys. Key
+wording:
 
 - Two-heads-tall proportions, oversized round head, huge eyes with one specular
   dot, tiny stubby limbs, no neck.
@@ -259,11 +293,37 @@ families draw nothing larger.
 ## Verification
 
 ```bash
+# RUN THIS THROUGH omp's `bash` TOOL, not a raw shell. `sprite-forge` lives in its own
+# repo, so there is no $REPO-relative path and the harness must resolve it: `realpath
+# skill://...` is rewritten by omp's bash tool but FAILS in a plain shell, where the
+# substitution expands to empty and the command silently runs nothing (measured).
 bun "$(realpath skill://sprite-forge)/scripts/style-profile.ts" \
   --profile art/style.json --input public/assets/generated/hero/hero-idle/sprite-sheet.png --strict
 ```
 
-`meanDistance` above `maxPaletteDistance` means the asset drifted off-palette:
-regenerate with the profile's palette restated in the prompt, do not raise the
-threshold. Palette distance says nothing about value structure — always pair it
-with `art_review`.
+Everything under `skill://game-art` is in THIS repo and is therefore addressed with
+`REPO="$(git rev-parse --show-toplevel)"`, which works in both environments — see the
+block below and game-art SKILL.md Step 2.
+
+`meanDistance` above `maxPaletteDistance` means the asset drifted off the profile's
+palette LIST. Regenerate with the palette restated in the prompt; do not raise the
+threshold. **Scope it honestly:** the figure is distance from a list, not quality — an
+off-style sheet has measured 20.58 against a correct one at 44.48 — so before you
+reroll, check whether the asset needs a hue the list lacks. If it does, fix the list
+or write the exception; rerolling compromises the asset toward the wrong palette.
+
+Palette distance says nothing about value structure — always pair it with
+`art_review`. And neither says anything about how an asset reads against the OTHER
+assets: a backdrop or tile must additionally clear the set-level gate
+
+```bash
+REPO="$(git rev-parse --show-toplevel)"
+python3 "$REPO/.claude/skills/game-art/references/figure-ground.py" \
+  --scene <zone> --actors <that scene's complete cast> \
+  --fields <the floor/backdrop sheets> --grade <runtime tint hex> \
+  --manifest art/manifest.json
+```
+
+which is the only measurement in this pipeline that compares two assets to each
+other. Nothing else in this file can catch a floor drawn in the same value band as
+the actors standing on it.

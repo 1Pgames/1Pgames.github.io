@@ -3,11 +3,11 @@ import { RunDirector, type EventSpec, type WaveSpec } from '../../core/run';
 import { Rng } from '../../core/rng';
 import { StatBlock } from '../../core/stats';
 import { eliteEnemies, enemyDef, scaleEnemy, type EnemyDef } from '../../data/enemies';
-import { rollRelic, type RelicDef } from '../../data/relics';
+import { relicTierWeights, rollRelic, type RelicDef } from '../../data/relics';
 import { rollUpgradeChoices, UPGRADE_CARDS, type UpgradeDef } from '../../data/upgrades';
 import { PHASES, TIMELINE_EVENTS, WAVES } from '../../data/waves';
 import { STARTING_WEAPON, weaponDef, weaponRankCount, type WeaponPattern } from '../../data/weapons';
-import { ZONES, ZONE_DESIGN_SIZE, type ZoneDef } from '../../data/zones';
+import { ZONES, zoneGates, type ZoneDef } from '../../data/zones';
 import { Bag } from '../../systems/bag';
 import {
   ExtractionSystem,
@@ -20,6 +20,7 @@ import {
   CEILING_SKILL,
   FLOOR_SKILL,
   LANES,
+  SKILL_LEVELS,
   gateDecision,
   pickUpgrade,
   routeProfile,
@@ -250,13 +251,6 @@ export interface RouteSimOptions {
   zone?: ZoneDef;
 }
 
-/** Gate coordinates are authored in a 1600x1600 design space (§5.7). */
-function zoneGates(zone: ZoneDef): GateSpec[] {
-  const scaleX = TUNING.arena.width / ZONE_DESIGN_SIZE;
-  const scaleY = TUNING.arena.height / ZONE_DESIGN_SIZE;
-  return zone.gates.map((gate) => ({ ...gate, x: gate.x * scaleX, y: gate.y * scaleY }));
-}
-
 /**
  * The §7 tuning `ExtractionSystem` runs on, passed through unrenamed exactly as
  * its doc comment prescribes — so the sim and the scene share one channel rule
@@ -383,7 +377,7 @@ function hazardDps(zone: ZoneDef, elapsedS: number, skill: number): number {
  * `unresolved` ending exists so a build that can no longer resolve is reported
  * as a hard failure instead of being silently capped at 480s.
  */
-export function simulateRoute(options: RouteSimOptions): RouteRun {
+function simulateRoute(options: RouteSimOptions): RouteRun {
   const { seed, lane, skill } = options;
   const zone = options.zone ?? ZONES[0]!;
   const profile: RouteProfile = routeProfile(lane);
@@ -1781,6 +1775,30 @@ function evaluateGates(
     );
   }
 
+  // --- the §5.5 source-bias guarantee, ANALYTIC (not sampled) -------------
+  //
+  // §5.5 promises the player that a Shrine or Warden roll (`+2` source bias)
+  // is Gilded-or-Dread. That is a NEVER-claim, so it is proved on the ladder
+  // itself rather than on draws: `relicTierWeights` composes the base ladder,
+  // the zone bias and the source shift, and a zone whose `lootBias` pushes
+  // weight into t1/t2 could leave a low tier reachable under +2 in that zone
+  // only — which sampling across the run set would report as "no t1 seen".
+  const leakyZones = ZONES.filter((zone) => {
+    const weights = relicTierWeights(zone.id, TUNING.loot.bossTierBias);
+    return (weights[0] ?? 0) > 0 || (weights[1] ?? 0) > 0;
+  });
+  gates.push(
+    hard(
+      leakyZones.length === 0,
+      leakyZones.length === 0
+        ? `the +${TUNING.loot.bossTierBias} source bias (Shrine/Warden) cannot roll below Gilded in any of ` +
+          `the ${ZONES.length} zones`
+        : `zones where a +${TUNING.loot.bossTierBias} roll can still produce Tarnished/Burnished ` +
+          `[owner data/zones.ts lootBias + config.ts TUNING.loot.tierWeights]: ` +
+          `${leakyZones.map((zone) => zone.id).join(', ')}`,
+    ),
+  );
+
   // --- per-type engagement law (§18.1) -----------------------------------
   const spawnedAll = new Set<string>();
   for (const run of ceiling) for (const id of run.spawned) spawnedAll.add(id);
@@ -1973,13 +1991,18 @@ export interface ArenaSimOptions extends FamilySimOptions {
   lane?: 'all' | LanePolicy;
 }
 
-export function runArenaSim(options: ArenaSimOptions): number {
+/**
+ * The family entry point. Exported as the DEFAULT only: `sim/cli.ts` resolves
+ * every non-arena family through `mod.default`, so one export surface per
+ * family module is the contract (see the bottom of this file).
+ */
+function runArenaSim(options: ArenaSimOptions): number {
   const lanes = options.lane === undefined || options.lane === 'all' ? LANES : [options.lane];
   const runCount = Number.isFinite(options.runs) && options.runs > 0 ? options.runs : 20;
   const seeder = new Rng(`${options.seed}:arena`);
   const runs: RouteRun[] = [];
   for (const lane of lanes) {
-    for (const skill of [CEILING_SKILL, FLOOR_SKILL]) {
+    for (const skill of SKILL_LEVELS) {
       for (let i = 0; i < runCount; i += 1) {
         // Deterministic per (lane, skill, index) child seed: stable across
         // repeats of the same --seed, distinct across lanes so they do not all

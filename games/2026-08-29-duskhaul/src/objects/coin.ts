@@ -10,8 +10,10 @@ import { ANIM } from '../data/art';
  * several of these instead of one lump sum so a kill reads as a small reward
  * burst.
  *
- * Use for: elite/boss currency drops only — regular kills grant currency
- * directly through `TUNING.economy.currencyPerKill`, no pickup needed.
+ * Use for: elite/boss currency drops, the Gilt Scarab's per-hit bleed and the
+ * ground caches. An ORDINARY kill drops no coin — §5.6 pays it the enemy row's
+ * own `shards` value through `onEnemyKilled`, which is why there is no
+ * per-kill currency dial in `TUNING.economy`.
  */
 export class Coin extends Phaser.Physics.Arcade.Sprite {
   value = 0;

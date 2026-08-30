@@ -14,6 +14,7 @@ import {
   grantCurrency,
   loadMeta,
   recordRunResult,
+  recordWardenKill,
   runLoadout,
   settleAbandonedRun,
   touchDailyStreak,
@@ -1600,6 +1601,7 @@ export class GameScene extends Phaser.Scene {
         casketSlots: this.bag.casketSlots,
         read: () => this.readBagRow(),
         pin: (id) => this.pinRelic(id),
+        unpin: (id) => this.unpinRelic(id),
       },
       // §14b: a bag holding loot makes RESTART and MENU destructive.
       armDestructive: () => this.bag.relics.length + this.bag.casket.length > 0,
@@ -1630,7 +1632,7 @@ export class GameScene extends Phaser.Scene {
    * no room, since the player chose the swap.
    */
   private pinRelic(relicId: string): void {
-    const result = this.bag.repin(relicId);
+    const result = this.bag.pinCasket(relicId);
     if (!result.pinned) return;
     sfx('pickup', { volume: 0.6 });
     const player = this.combat.player;
@@ -1649,6 +1651,22 @@ export class GameScene extends Phaser.Scene {
     }
     // A casket mutation is journalled immediately (§14b): the casket is the
     // only thing a death settlement banks, so it must never be a second stale.
+    this.refreshJournal();
+  }
+
+  /**
+   * Releases a pin back into the bag — the other half of the same decision.
+   * Without it a pinned pip was a one-way door: the player could commit a slot
+   * and never reconsider, which is the opposite of the choice §5.6 is about.
+   * The relic returns to the bag (the casket does not occupy bag slots, so a
+   * release can push the bag over its count; the next pickup resolves that
+   * through the ordinary drop-lowest rule).
+   */
+  private unpinRelic(relicId: string): void {
+    if (!this.bag.unpinCasket(relicId)) return;
+    sfx('ui', { volume: 0.5 });
+    const player = this.combat.player;
+    floatText(this, player.x, player.y - 90, 'RELEASED FROM CASKET', CSS.warn, 34);
     this.refreshJournal();
   }
 
@@ -1832,6 +1850,10 @@ export class GameScene extends Phaser.Scene {
     setMusicLayer('boss', false);
     this.punch(0.02, 300);
     sfx('levelup', { volume: 0.9 });
+    // §10 lifetime counter. Banked HERE and not in `finish()`: the Warden dying
+    // is not a win, and a run that kills it and then dies in the Collapse still
+    // killed it. The counter never resets, so it must be written on the event.
+    recordWardenKill();
   }
 
   private onExtractionEvent(e: ExtractionEvent, id?: string): void {

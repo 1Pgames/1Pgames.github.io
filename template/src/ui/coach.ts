@@ -24,6 +24,16 @@ import { drawPanel } from './primitives';
  * Every beat shows ONCE EVER per save (`tut:<id>` through `core/storage`), and
  * the flag is written the moment it appears — a tutorial the player reloaded
  * out of the middle of must not greet them again on every visit.
+ *
+ * A beat also has to be able to STOP. The thing being taught can stop being
+ * actionable while the beat is still up — the spotlighted door closes, the
+ * pickup despawns, the timer the arrow points at expires — and an infinite
+ * attention loop pulsing over a dead rect then competes with the live thing
+ * for the player's eye for the rest of the session (measured: two SPENT
+ * extraction arrows still pulsing at 7:03 while the one open gate fought them
+ * for the same screen corner). Pass `isLive` and the beat retires itself, or
+ * call `handle.spend()` when the caller already knows. Retiring kills every
+ * loop; it is not a success, so `onDone` does not fire.
  */
 
 /** A rectangle in design px, `x`/`y` being its TOP-LEFT corner. */
@@ -69,6 +79,15 @@ export interface CoachOptions {
    * place — "swap THESE two", drawn rather than written.
    */
   nudge?: { from: { x: number; y: number }; to: { x: number; y: number } };
+  /**
+   * Polled while the beat is up (every `POLL_MS`). Return false once the thing
+   * being taught is no longer actionable and the beat retires itself — same
+   * teardown as `spend()`, `onExpire` instead of `onDone`. MANDATORY for any
+   * beat whose target can expire on its own clock.
+   */
+  isLive?: () => boolean;
+  /** Fired once, after the beat is retired by `isLive` or by `spend()`. */
+  onExpire?: () => void;
   /** Fired once, after the beat is torn down by a tap or by `finish()`. */
   onDone?: () => void;
 }
@@ -77,6 +96,11 @@ export interface CoachHandle {
   readonly id: string;
   /** Ends the beat as a SUCCESS: tears down, then fires `onDone`. */
   finish(): void;
+  /**
+   * Ends the beat because its target stopped being actionable: tears down,
+   * stops every attention loop, then fires `onExpire`. NOT a success.
+   */
+  spend(): void;
   /** Tears down without firing `onDone` — shutdown, level abandon, defeat. */
   destroy(): void;
 }
@@ -98,6 +122,79 @@ const CARD_GAP = 26;
 const DIM_ALPHA = 0.55;
 /** Beats that can be tapped away ignore taps for this long after appearing. */
 const TAP_ARM_MS = 260;
+
+/** Poll interval for `isLive`. Scene-time, so it pauses with the scene. */
+const POLL_MS = 120;
+/**
+ * The hand's occupied box in unscaled local px, tip at the origin: the glow
+ * circle is the widest part (centre 10,44 radius 44) and the palm the lowest.
+ * `drawHand` below and this box MUST change together — the placement search
+ * uses it to keep the hand off the spotlight.
+ */
+const HAND_BOX = { left: -34, right: 54, bottom: 88 } as const;
+/** Bob travel, downward, as a multiple of the hand scale. Counts as extent. */
+const HAND_BOB = 18;
+/** Px between the hand's nearest pixel and the spotlight it points at. */
+const TIP_GAP = 8;
+
+interface HandSpot {
+  x: number;
+  y: number;
+  /** Mirror the hand so its body extends AWAY from the spotlight. */
+  flip: boolean;
+}
+
+/**
+ * Where to put the pointer hand so it points AT the spotlight without covering
+ * it. The hand's body always hangs below and to the right of its tip, so the
+ * placements with ZERO overlap are: below the hole (the body falls away from
+ * it), right of the hole, or left of it mirrored. Each is allowed to slide
+ * along the edge it sits on to stay on screen — but only within the hole's own
+ * span, or it would stop pointing at anything — and is rejected outright if its
+ * occupied box, bob travel included, still leaves the view.
+ *
+ * Previously the tip sat at the hole's CENTRE, which parked 88x88 scaled px of
+ * hand on the very piece the beat was teaching.
+ */
+function placeHand(
+  left: number,
+  top: number,
+  width: number,
+  height: number,
+  scale: number,
+): HandSpot {
+  const right = left + width;
+  const bottom = top + height;
+  // Body extents measured from the tip, unflipped. Flipping mirrors them.
+  const leftExtent = -HAND_BOX.left * scale;
+  const rightExtent = HAND_BOX.right * scale;
+  const extentY = (HAND_BOX.bottom + HAND_BOB) * scale;
+  const maxY = VIEW.height - extentY;
+
+  if (bottom + TIP_GAP <= maxY) {
+    const x = Phaser.Math.Clamp(left + width / 2, leftExtent, VIEW.width - rightExtent);
+    if (x >= left && x <= right) return { x, y: bottom + TIP_GAP, flip: false };
+  }
+
+  // Beside: the tip clears the hole by the body's own width, and rides up the
+  // hole's height by as much as the bottom of the screen demands.
+  const y = Phaser.Math.Clamp(top + height / 2, top, Math.min(bottom, maxY));
+  if (y >= top && y <= maxY) {
+    const rightTip = right + TIP_GAP + leftExtent;
+    if (rightTip + rightExtent <= VIEW.width) return { x: rightTip, y, flip: false };
+    const leftTip = left - TIP_GAP - leftExtent;
+    if (leftTip - rightExtent >= 0) return { x: leftTip, y, flip: true };
+  }
+
+  // Nothing clears: keep the hand on screen and accept the overlap. Only
+  // reachable for a spotlight that owns nearly the whole view, where there is
+  // no "beside" left to stand in.
+  return {
+    x: Phaser.Math.Clamp(left + width / 2, leftExtent, VIEW.width - rightExtent),
+    y: Phaser.Math.Clamp(bottom + TIP_GAP, 0, Math.max(0, maxY)),
+    flip: false,
+  };
+}
 
 /**
  * The pointer hand, drawn with primitives and NOT generated: a hand is the one
@@ -146,6 +243,7 @@ export function showCoach(scene: Phaser.Scene, opts: CoachOptions): CoachHandle 
   const root = scene.add.container(0, 0).setDepth(2600).setScrollFactor(0);
   const loops: Phaser.Tweens.Tween[] = [];
   let done = false;
+  let poll: Phaser.Time.TimerEvent | null = null;
 
   // Spotlight, clamped to the view: a rect that hangs off the screen would
   // otherwise leave a dim panel with negative width, which draws as nothing
@@ -262,18 +360,24 @@ export function showCoach(scene: Phaser.Scene, opts: CoachOptions): CoachHandle 
   // ------------------------------------------------------------- pointer hand
   const hand = drawHand(scene);
   const handScale = Math.min(1, Math.max(0.52, Math.min(holeWidth, holeHeight) / 150));
-  hand.setScale(handScale).setScrollFactor(0);
+  hand.setScrollFactor(0);
   root.add(hand);
 
   const nudge = opts.nudge;
   if (nudge === undefined) {
-    // Tapping in place, tip on the spotlight's centre.
-    hand.setPosition(left + holeWidth / 2, top + holeHeight * 0.52);
+    // Beside the spotlight, never on it (`placeHand`).
+    const spot = placeHand(left, top, holeWidth, holeHeight, handScale);
+    const signedScale = spot.flip ? -handScale : handScale;
+    hand.setPosition(spot.x, spot.y).setScale(signedScale, handScale);
     loops.push(
       scene.tweens.add({
         targets: hand,
-        y: hand.y + 18 * handScale,
-        scale: handScale * 0.94,
+        // Bobs DOWNWARD, i.e. further from the spotlight: an entrance or idle
+        // offset counts as overlap, so the loop may not travel onto the target.
+        y: spot.y + HAND_BOB * handScale,
+        // Signed, or the yoyo would unflip a mirrored hand mid-loop.
+        scaleX: signedScale * 0.94,
+        scaleY: handScale * 0.94,
         duration: 620,
         yoyo: true,
         repeat: -1,
@@ -281,6 +385,8 @@ export function showCoach(scene: Phaser.Scene, opts: CoachOptions): CoachHandle 
       }),
     );
   } else {
+    // Authored travel: the caller owns both points, including their clearance.
+    hand.setScale(handScale);
     hand.setPosition(nudge.from.x, nudge.from.y);
     loops.push(
       scene.tweens.add({
@@ -307,6 +413,8 @@ export function showCoach(scene: Phaser.Scene, opts: CoachOptions): CoachHandle 
     // shutdown trap).
     for (const loop of loops) loop.remove();
     loops.length = 0;
+    poll?.remove();
+    poll = null;
     scene.events.off(Phaser.Scenes.Events.SHUTDOWN, teardown);
     root.destroy(true);
   };
@@ -319,10 +427,30 @@ export function showCoach(scene: Phaser.Scene, opts: CoachOptions): CoachHandle 
       sfx('pickup', { volume: 0.4, rate: 1.15 });
       opts.onDone?.();
     },
+    spend(): void {
+      if (done) return;
+      teardown();
+      opts.onExpire?.();
+    },
     destroy(): void {
       teardown();
     },
   };
+
+  // The target can die on its own clock, so the beat checks instead of waiting
+  // to be told: a spotlight and a pulsing hand on something that is over is a
+  // permanent misdirection.
+  const isLive = opts.isLive;
+  if (isLive !== undefined) {
+    poll = scene.time.addEvent({
+      delay: POLL_MS,
+      loop: true,
+      callback: () => {
+        if (done || isLive()) return;
+        handle.spend();
+      },
+    });
+  }
 
   // A beat that outlives its scene is the black-screen trap: leave with it.
   scene.events.once(Phaser.Scenes.Events.SHUTDOWN, teardown);

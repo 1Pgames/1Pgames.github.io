@@ -2,195 +2,246 @@
   "passed": true,
   "slug": "2026-08-29-duskhaul",
   "family": "arena",
-  "baseUrl": "http://localhost:5173/",
-  "startedAt": "2026-08-29T19:19:46.496Z",
-  "finishedAt": "2026-08-29T19:21:30.605Z",
-  "durationMs": 104109,
+  "baseUrl": "http://localhost:5173/?mute=1",
+  "startedAt": "2026-08-30T10:59:03.852Z",
+  "finishedAt": "2026-08-30T11:00:32.458Z",
+  "durationMs": 88606,
   "blockers": [],
   "majors": [
     {
-      "id": "arena:unreachable",
-      "message": "walk to Gate A: never came within 70px in 30000ms",
-      "evidence": {
-        "closest": 419,
-        "avoidedProps": 0,
-        "target": {
-          "id": "a",
-          "x": 378,
-          "y": 405,
-          "state": "open",
-          "opensS": 120,
-          "closesS": 210,
-          "dist": 757
-        },
-        "field": {
-          "player": {
-            "x": 529,
-            "y": 796,
-            "hp": 110
-          },
-          "gates": [
-            {
-              "id": "a",
-              "x": 378,
-              "y": 405,
-              "state": "open",
-              "opensS": 120,
-              "closesS": 210,
-              "dist": 419
-            },
-            {
-              "id": "b",
-              "x": 1080,
-              "y": 1215,
-              "state": "closed",
-              "opensS": 240,
-              "closesS": 360,
-              "dist": 692
-            },
-            {
-              "id": "c",
-              "x": 1305,
-              "y": 1958,
-              "state": "closed",
-              "opensS": 420,
-              "closesS": null,
-              "dist": 1397
-            }
-          ],
-          "channelRadius": 400,
-          "arena": {
-            "w": 1440,
-            "h": 2160
-          },
-          "collapse": null,
-          "ended": false
+      "id": "budget:fps-unnamed-window",
+      "message": "the worst unnamed 3s window of the run held 50.1fps median / 48.3fps min (budget 55/40) at t=20454ms — no named peak beat covers it. Name that beat in the adapter to make it a blocker, or confirm it is the host machine.",
+      "evidence": [
+        {
+          "label": "worst-3s-window",
+          "epoch": "until:end of run",
+          "samples": 16,
+          "min": 48.3,
+          "median": 50.1,
+          "fromMs": 20454
         }
-      }
+      ]
     }
   ],
   "measurements": {
     "ack": {
       "budgetMs": 100,
-      "worstMs": 63.8,
+      "worstMs": 42.1,
       "samples": [
         {
           "label": "menu->run",
-          "ms": 3.4,
-          "frames": 1,
+          "ms": 6.7,
+          "frames": 11,
+          "via": "paint",
+          "changed": [
+            "#Menu/74:Container"
+          ],
           "epoch": "until:end of run"
         },
         {
           "label": "coach goal continue",
-          "ms": 4.3,
-          "frames": 1,
+          "ms": 8.9,
+          "frames": 11,
+          "via": "paint",
+          "changed": [
+            "#Game/394:Container/0:Rectangle",
+            "#Game/394:Container/2:Container/1:Text#t",
+            "#Game/394:Container/4:Container/1:Text#t",
+            "#Game/394:Container/4:Container/2:Text#t"
+          ],
           "epoch": "until:end of run"
         },
         {
           "label": "draft reroll",
-          "ms": 42.3,
-          "frames": 5,
+          "ms": 42.1,
+          "frames": 13,
+          "via": "paint",
+          "changed": [
+            "#Game/405:Container/2:Container/1:Text#t",
+            "#Game/405:Container/2:Container/2:Zone",
+            "#Game/405:Container/3:Container",
+            "#Game/405:Container/3:Container/2:Text#t"
+          ],
           "epoch": "until:end of run"
         },
         {
           "label": "draft pick card 1",
-          "ms": 38.8,
-          "frames": 5,
+          "ms": 34.6,
+          "frames": 12,
+          "via": "paint",
+          "changed": [
+            "#Game/405:Container",
+            "#Game/405:Container/1:Text#t",
+            "#Game/405:Container/0:Rectangle",
+            "#Game/405:Container/2:Container/1:Text#t"
+          ],
           "epoch": "until:end of run"
         },
         {
           "label": "pause open",
-          "ms": 5.7,
-          "frames": 1,
+          "ms": 39.6,
+          "frames": 12,
+          "via": "paint",
+          "changed": [
+            "#Game/408:Container/0:Rectangle",
+            "#Game/408:Container/2:Container",
+            "#Game/408:Container/2:Container/1:Text#t",
+            "#Game/408:Container/3:Container"
+          ],
           "epoch": "until:end of run"
         },
         {
           "label": "pause MENU",
-          "ms": 5.4,
-          "frames": 1,
+          "ms": 7.2,
+          "frames": 11,
+          "via": "paint",
+          "changed": [
+            "#Game/404:Container/4:Container"
+          ],
           "epoch": "until:end of run"
         },
         {
           "label": "menu->run #2",
-          "ms": 4.3,
-          "frames": 1,
+          "ms": 1.5,
+          "frames": 10,
+          "via": "paint",
+          "changed": [
+            "#Menu/74:Container"
+          ],
           "epoch": "until:end of run"
         },
         {
           "label": "coach gate continue",
-          "ms": 5.5,
-          "frames": 1,
+          "ms": 1,
+          "frames": 11,
+          "via": "paint",
+          "changed": [
+            "#Game/408:Container",
+            "#Game/409:Container/5:Container/1:Text#t",
+            "#Game/409:Container/5:Container/2:Text#t",
+            "#Game/409:Container/7:Zone"
+          ],
           "epoch": "until:end of run"
         },
         {
           "label": "results RUN AGAIN",
-          "ms": 4.8,
-          "frames": 1,
+          "ms": 3.1,
+          "frames": 10,
+          "via": "paint",
+          "changed": [
+            "#GameOver/14:Container"
+          ],
           "epoch": "until:end of run"
         },
         {
-          "label": "pin relic r_rustbuckle",
-          "ms": 39.4,
-          "frames": 5,
+          "label": "pin relic r_ashlocket",
+          "ms": 39.6,
+          "frames": 12,
+          "via": "paint",
+          "changed": [
+            "#Game/403:Container/6:Container/0:Text#t",
+            "#Game/403:Container/6:Container/2:Text#t",
+            "#Game/403:Container/6:Container/3:Zone",
+            "#Game/403:Container/6:Container/5:Zone"
+          ],
           "epoch": "until:end of run"
         },
         {
           "label": "results STASH",
-          "ms": 6.2,
-          "frames": 1,
+          "ms": 1.3,
+          "frames": 10,
+          "via": "paint",
+          "changed": [
+            "#GameOver/16:Container"
+          ],
           "epoch": "until:end of run"
         },
         {
-          "label": "gear cycle SHROUD",
-          "ms": 63.8,
-          "frames": 3,
+          "label": "gear cycle BLADE",
+          "ms": 41.5,
+          "frames": 12,
+          "via": "paint",
+          "changed": [
+            "#Meta/69:Container/1:Container/3:Text#t",
+            "#Meta/69:Container/1:Container/4:Text#t",
+            "#Meta/69:Container/1:Container/5:Zone",
+            "#Meta/69:Container/5:Container/4:Container"
+          ],
           "epoch": "until:end of run"
         },
         {
           "label": "stash buy m_vitality",
-          "ms": 8.8,
-          "frames": 1,
+          "ms": 2.9,
+          "frames": 11,
+          "via": "paint",
+          "changed": [
+            "#Meta/69:Container/8:Container/5:Container"
+          ],
           "epoch": "until:end of run"
         },
         {
           "label": "stash BACK #1",
-          "ms": 4.9,
-          "frames": 1,
+          "ms": 0.7,
+          "frames": 10,
+          "via": "paint",
+          "changed": [
+            "#Meta/70:Container"
+          ],
           "epoch": "until:end of run"
         },
         {
           "label": "stash re-enter #1",
-          "ms": 3.7,
-          "frames": 1,
+          "ms": 2.8,
+          "frames": 10,
+          "via": "paint",
+          "changed": [
+            "#Menu/75:Container"
+          ],
           "epoch": "until:end of run"
         },
         {
           "label": "stash BACK #2",
-          "ms": 7.2,
-          "frames": 1,
+          "ms": 10.9,
+          "frames": 11,
+          "via": "paint",
+          "changed": [
+            "#Meta/70:Container"
+          ],
           "epoch": "until:end of run"
         },
         {
           "label": "stash re-enter #2",
-          "ms": 4.7,
-          "frames": 1,
+          "ms": 10.9,
+          "frames": 11,
+          "via": "paint",
+          "changed": [
+            "#Menu/75:Container"
+          ],
           "epoch": "until:end of run"
         },
         {
           "label": "stash BACK final",
-          "ms": 8.9,
-          "frames": 1,
+          "ms": 5.2,
+          "frames": 10,
+          "via": "paint",
+          "changed": [
+            "#Meta/70:Container"
+          ],
           "epoch": "until:end of run"
         },
         {
           "label": "menu->run (final)",
-          "ms": 5.2,
-          "frames": 1,
+          "ms": 2.9,
+          "frames": 10,
+          "via": "paint",
+          "changed": [
+            "#Menu/74:Container"
+          ],
           "epoch": "until:end of run"
         }
       ],
       "verdict": "pass",
-      "worstLabel": "gear cycle SHROUD"
+      "worstLabel": "draft reroll"
     },
     "swallowedInput": {
       "budgetMs": 100,
@@ -218,12 +269,12 @@
     },
     "transitions": {
       "budgetMs": 400,
-      "worstMs": 218,
+      "worstMs": 223,
       "samples": [
         {
           "from": "menu->run",
           "to": "Game",
-          "ms": 218,
+          "ms": 223,
           "cold": true,
           "trail": [
             "Game"
@@ -232,7 +283,7 @@
         {
           "from": "pause MENU",
           "to": "Menu",
-          "ms": 23,
+          "ms": 10,
           "cold": true,
           "trail": [
             "Menu"
@@ -241,7 +292,7 @@
         {
           "from": "menu->run #2",
           "to": "Game",
-          "ms": 208,
+          "ms": 217,
           "cold": false,
           "trail": [
             "Game"
@@ -250,7 +301,7 @@
         {
           "from": "results RUN AGAIN",
           "to": "Game",
-          "ms": 17,
+          "ms": 10,
           "cold": false,
           "trail": [
             "Game"
@@ -259,7 +310,7 @@
         {
           "from": "results STASH",
           "to": "Meta",
-          "ms": 52,
+          "ms": 15,
           "cold": true,
           "trail": [
             "Meta"
@@ -268,7 +319,7 @@
         {
           "from": "stash BACK #1",
           "to": "Menu",
-          "ms": 34,
+          "ms": 7,
           "cold": false,
           "trail": [
             "Menu"
@@ -277,7 +328,7 @@
         {
           "from": "stash re-enter #1",
           "to": "Meta",
-          "ms": 31,
+          "ms": 9,
           "cold": false,
           "trail": [
             "Meta"
@@ -286,7 +337,7 @@
         {
           "from": "stash BACK #2",
           "to": "Menu",
-          "ms": 18,
+          "ms": 14,
           "cold": false,
           "trail": [
             "Menu"
@@ -295,7 +346,7 @@
         {
           "from": "stash re-enter #2",
           "to": "Meta",
-          "ms": 32,
+          "ms": 18,
           "cold": false,
           "trail": [
             "Meta"
@@ -304,7 +355,7 @@
         {
           "from": "stash BACK final",
           "to": "Menu",
-          "ms": 22,
+          "ms": 10,
           "cold": false,
           "trail": [
             "Menu"
@@ -313,7 +364,7 @@
         {
           "from": "menu->run (final)",
           "to": "Game",
-          "ms": 209,
+          "ms": 210,
           "cold": false,
           "trail": [
             "Game"
@@ -329,11 +380,11 @@
       "samples": [
         {
           "label": "pause RESUME -> playable",
-          "ms": 6
+          "ms": 13
         },
         {
           "label": "pause RESTART -> playable",
-          "ms": 99
+          "ms": 37
         },
         {
           "label": "results RUN AGAIN -> playable",
@@ -347,31 +398,49 @@
       "medianMin": 55,
       "windows": [
         {
+          "label": "draft-open",
+          "epoch": "until:end of run",
+          "samples": 16,
+          "min": 53.4,
+          "median": 55.6,
+          "fromMs": 17778
+        },
+        {
           "label": "warden-spawn",
           "epoch": "until:end of run",
-          "samples": 29,
-          "min": 117.5,
-          "median": 118.4,
-          "fromMs": 81133
+          "samples": 28,
+          "min": 58.7,
+          "median": 59.3,
+          "fromMs": 62634
         },
         {
           "label": "collapse-ignition",
           "epoch": "until:end of run",
-          "samples": 29,
-          "min": 117.7,
-          "median": 118.3,
-          "fromMs": 88785
+          "samples": 28,
+          "min": 58.5,
+          "median": 59.2,
+          "fromMs": 70617
         },
         {
           "label": "worst-3s-window",
           "epoch": "until:end of run",
-          "samples": 20,
-          "min": 60,
-          "median": 78.7,
-          "fromMs": 919
+          "samples": 16,
+          "min": 48.3,
+          "median": 50.1,
+          "fromMs": 20454
         }
       ],
-      "verdict": "pass"
+      "verdict": "pass-with-leads",
+      "fence": {
+        "captures": 28,
+        "fencedMs": 16864,
+        "unrecovered": 0,
+        "samplesDropped": 103,
+        "samplesKept": 652,
+        "medianFpsDropped": 57.4,
+        "medianFpsKept": 57.8,
+        "note": "screenshot spans are excluded from every fps window; the driver waits for the smoothed reading to recover before it resumes"
+      }
     },
     "tapDepth": {
       "budget": 2,
@@ -514,21 +583,21 @@
     "win": {
       "via": "extraction",
       "gate": "a",
-      "timeMs": 130817.97000000009,
-      "bankedShards": 11,
+      "timeMs": 136033.39000000106,
+      "bankedShards": 14,
       "relics": 1,
       "headline": "HAULED OUT"
     },
     "loss": {
       "via": "death",
-      "timeMs": 483383.1200000053,
+      "timeMs": 483790.84999999695,
       "bankedShards": 0,
-      "carriedShards": 6,
+      "carriedShards": 2,
       "lost": [
-        "r_waxseal"
+        "r_thornring"
       ],
       "casketSaved": [
-        "r_rustbuckle"
+        "r_ashlocket"
       ],
       "headline": "SWALLOWED BY THE DARK"
     }
@@ -536,7 +605,31 @@
   "invariantSweeps": 9,
   "consoleErrors": [],
   "notes": {
-    "wipedKeys": [],
+    "wipedKeys": [
+      "2026-08-29-duskhaul:zone:last",
+      "2026-08-29-duskhaul:meta",
+      "2026-08-29-duskhaul:run",
+      "2026-08-29-duskhaul:tut:stick",
+      "2026-08-29-duskhaul:tut:goal",
+      "2026-08-29-duskhaul:muted"
+    ],
+    "audioAfterColdBoot": {
+      "href": "http://localhost:5173/?mute=1",
+      "urlMute": "1",
+      "audioSnapshot": null,
+      "contexts": [
+        {
+          "state": "suspended",
+          "destinationGain": 0
+        },
+        {
+          "state": "suspended",
+          "destinationGain": 0
+        }
+      ],
+      "phaserMuted": true,
+      "media": 0
+    },
     "storageAfterColdBoot": [],
     "menuControls": [
       "@360,420",
@@ -555,36 +648,36 @@
       "fromS": 0,
       "toS": 0,
       "driftMs": 0,
-      "wallMs": 1603
+      "wallMs": 1611
     },
     "clock:director runs once the FTUE is done": {
-      "fromS": 0.42,
-      "toS": 2.02,
+      "fromS": 0.43,
+      "toS": 2.03,
       "driftMs": 1600,
-      "wallMs": 1602
+      "wallMs": 1603
     },
     "sustain:on": {
       "on": true
     },
     "draftCards": [
-      "COMMON / Bone Halo / WEAPON / RANK 1/4 / 6 DMG  ·  CONTINUOUS / Femurs circling the hauler in a slow wheel",
-      "COMMON / Ashen Reach / STAT / RANK 1/5 / +15% AREA / Your curses spread like windblown ash",
-      "RARE / Gilt Hunger / STAT / RANK 1/3 / +30 PICKUP RANGE  ·  +10% SHARDS / Shards leap to a hungrier hand"
+      "RARE / Dread Edge / STAT / RANK 1/4 / +6% CRIT CHANCE / Sometimes the blade remembers hatred",
+      "COMMON / Ash Ring / WEAPON / RANK 1/4 / 10 DMG  ·  EVERY 1.6S / A burst of cinders in all directions",
+      "COMMON / Thorn Hex / WEAPON / RANK 1/4 / 9 DMG  ·  EVERY 1.4S / A curse that leaps between up to 4 horrors"
     ],
     "draftReroll": {
       "used": 1,
       "allowed": 1,
       "chip": "REROLLED",
       "after": [
+        "RARE / Gloam Stride / STAT / RANK 1/3 / +8% MOVE SPEED / Feet that never quite touch the mud",
         "COMMON / Grave Might / STAT / RANK 1/5 / +12% DAMAGE / Marrow-deep strength for every blow",
-        "COMMON / Thorn Hex / WEAPON / RANK 1/4 / 9 DMG  ·  EVERY 1.4S / A curse that leaps between up to 4 horrors",
-        "COMMON / Ash Ring / WEAPON / RANK 1/4 / 10 DMG  ·  EVERY 1.6S / A burst of cinders in all directions"
+        "COMMON / Gloam Scythe / WEAPON / RANK 1/4 / 14 DMG  ·  EVERY 1.2S / A sweeping arc that reaps everything ahead"
       ]
     },
     "draftPick": {
       "taken": 1,
       "level": 2,
-      "card": "COMMON / Grave Might / STAT / RANK 1/5 / +12% DAMAGE / Marrow-deep strength for every blow"
+      "card": "RARE / Gloam Stride / STAT / RANK 1/3 / +8% MOVE SPEED / Feet that never quite touch the mud"
     },
     "firstRunState": {
       "active": [
@@ -600,8 +693,8 @@
       "coachActive": false,
       "coachId": null,
       "gated": null,
-      "runS": 9.92,
-      "extractionS": 9.92,
+      "runS": 10.49,
+      "extractionS": 10.49,
       "phase": "Grace",
       "level": 2,
       "hp": 110,
@@ -631,20 +724,20 @@
       "acceptsInput": true
     },
     "clock:pause holds the director": {
-      "fromS": 10.28,
-      "toS": 10.28,
+      "fromS": 10.99,
+      "toS": 10.99,
       "driftMs": 0,
-      "wallMs": 1603
+      "wallMs": 1601
     },
     "pauseBagRow": {
       "casketSlots": 1,
       "relics": []
     },
     "clock:director runs again after RESUME": {
-      "fromS": 10.29,
-      "toS": 11.89,
+      "fromS": 11.01,
+      "toS": 12.61,
       "driftMs": 1600,
-      "wallMs": 1603
+      "wallMs": 1609
     },
     "fastForward:gateA": {
       "atS": 116,
@@ -654,25 +747,22 @@
       "backlogRetired": 1
     },
     "gateAOpen": {
-      "runS": 120.01,
+      "runS": 120.02,
       "gates": "openclosedclosed"
     },
     "walkToGateA": {
-      "arrived": false,
-      "reason": "timeout",
-      "closest": 419
-    },
-    "gateAFallbackPlacement": {
-      "placedAt": {
-        "x": 378,
-        "y": 405
+      "arrived": true,
+      "dist": 69,
+      "player": {
+        "x": 409,
+        "y": 466
       },
-      "gate": "a"
+      "avoided": 0
     },
     "channelStart": {
       "gate": "a",
-      "progress": 0.085,
-      "accumMs": 342,
+      "progress": 0.1,
+      "accumMs": 400,
       "effectiveMs": 4000,
       "rate": 1
     },
@@ -680,21 +770,21 @@
       "armed": true,
       "at": 0.45,
       "before": {
-        "accumMs": 1801.290000000001,
-        "progress": 0.4503225000000003
+        "accumMs": 1810.7469999999987,
+        "progress": 0.4526867499999997
       },
       "after": {
-        "accumMs": 1601.290000000001,
-        "progress": 0.40032250000000025,
-        "stallMs": 191.67999999999955,
+        "accumMs": 1610.7469999999987,
+        "progress": 0.40268674999999965,
+        "stallMs": 183.35,
         "interrupted": true
       },
       "fired": true,
-      "peak": 0.4503225000000003
+      "peak": 0.4526867499999997
     },
     "channelSetbackMs": 200,
     "extractedAt": {
-      "runS": 130.82,
+      "runS": 136.03,
       "channel": {
         "gate": "a",
         "progress": 1,
@@ -704,9 +794,9 @@
       }
     },
     "stashAfterExtraction": {
-      "currency": 11,
+      "currency": 14,
       "stash": [
-        "r_bonedice"
+        "r_dreadcrown"
       ],
       "gear": {
         "blade": null,
@@ -717,8 +807,8 @@
       "stats": {
         "runs": 3,
         "wins": 1,
-        "bestScore": 11,
-        "bestTimeMs": 130817.97000000009,
+        "bestScore": 14,
+        "bestTimeMs": 136033.39000000106,
         "wardenKills": 0
       }
     },
@@ -733,37 +823,34 @@
       "shards": 0
     },
     "casketPinned": {
-      "id": "r_rustbuckle",
+      "id": "r_ashlocket",
       "casket": [
-        "r_rustbuckle"
+        "r_ashlocket"
       ],
       "carried": 1
     },
-    "transientAt:after the casket pin": [
-      "bag-pips: painted 2 used, bag holds 1"
-    ],
     "fastForward:warden": {
       "atS": 415,
-      "jumpedS": 412.8,
+      "jumpedS": 413.3,
       "eventsSkipped": 2,
       "dripsRebased": 9,
       "backlogRetired": 12
     },
     "wardenSpawn": {
-      "runS": 420.08,
-      "enemies": 26,
+      "runS": 420.17,
+      "enemies": 24,
       "gates": "spentspentopen"
     },
     "fastForward:collapse": {
       "atS": 476,
-      "jumpedS": 52.6,
+      "jumpedS": 52.3,
       "eventsSkipped": 0,
       "dripsRebased": 9,
       "backlogRetired": 0
     },
     "collapseIgnition": {
-      "runS": 480.05,
-      "enemies": 68,
+      "runS": 480.15,
+      "enemies": 67,
       "gates": "spentspentopen"
     },
     "duskFire": {
@@ -772,7 +859,7 @@
       "collapsing": true
     },
     "stashOpening": {
-      "currency": 11,
+      "currency": 14,
       "scrollY": 0,
       "maxScroll": 1768,
       "band": {
@@ -784,10 +871,10 @@
           "slot": "BLADE",
           "texts": [
             "BLADE",
-            "NO RELIC\nBANKED"
+            "TAP TO\nEQUIP"
           ],
-          "offersEquip": false,
-          "nothingFits": true,
+          "offersEquip": true,
+          "nothingFits": false,
           "equipped": false,
           "x": 140,
           "y": 368
@@ -808,10 +895,10 @@
           "slot": "TRINKET",
           "texts": [
             "TRINKET",
-            "TAP TO\nEQUIP"
+            "NO RELIC\nBANKED"
           ],
-          "offersEquip": true,
-          "nothingFits": false,
+          "offersEquip": false,
+          "nothingFits": true,
           "equipped": false,
           "x": 580,
           "y": 368
@@ -929,36 +1016,36 @@
       ]
     },
     "gearCycle": {
-      "slot": "shroud",
+      "slot": "blade",
       "cell": {
         "offersEquip": true,
         "nothingFits": false,
         "equipped": false,
         "texts": [
-          "SHROUD",
+          "BLADE",
           "TAP TO\nEQUIP"
         ]
       },
       "before": null,
-      "after": "r_rustbuckle",
+      "after": "r_dreadcrown",
       "stash": [
-        "r_bonedice",
-        "r_rustbuckle"
+        "r_dreadcrown",
+        "r_ashlocket"
       ]
     },
     "stashPurchase": {
       "id": "m_vitality",
       "price": "50",
       "affordable": false,
-      "currencyBefore": 11,
-      "currencyAfter": 11,
+      "currencyBefore": 14,
+      "currencyAfter": 14,
       "level": "0/5"
     },
     "stashRefusal": {
       "id": "m_vitality",
       "price": "50",
       "alpha": 0.4,
-      "currency": 11
+      "currency": 14
     },
     "finalRunState": {
       "runS": 0.09,
@@ -973,53 +1060,90 @@
       "gates": "closedclosedclosed"
     },
     "metaAtEnd": {
-      "currency": 11,
+      "currency": 14,
       "stash": [
-        "r_bonedice",
-        "r_rustbuckle"
+        "r_dreadcrown",
+        "r_ashlocket"
       ],
       "gear": {
-        "blade": null,
-        "shroud": "r_rustbuckle",
+        "blade": "r_dreadcrown",
+        "shroud": null,
         "trinket": null
       },
       "upgrades": {},
       "stats": {
         "runs": 4,
         "wins": 1,
-        "bestScore": 11,
-        "bestTimeMs": 483383.1200000053,
+        "bestScore": 14,
+        "bestTimeMs": 483790.84999999695,
         "wardenKills": 0
       }
     },
     "epochs": [
       {
         "label": "until:end of run",
-        "frames": 11430,
-        "fpsSamples": 942,
+        "frames": 4853,
+        "fpsSamples": 755,
         "marks": [
           "draft-open",
           "warden-spawn",
           "collapse-ignition"
         ],
         "sceneTrail": [
-          "919:Menu",
-          "1900:Game",
-          "24136:Menu",
-          "25071:Game",
-          "71274:GameOver",
-          "72355:Game",
-          "92898:GameOver",
-          "94046:Meta",
-          "97679:Menu",
-          "98761:Meta",
-          "99462:Menu",
-          "100553:Meta",
-          "101245:Menu",
-          "102263:Game"
+          "437:Menu",
+          "1896:Game",
+          "27842:Menu",
+          "29075:Game",
+          "52384:GameOver",
+          "53650:Game",
+          "75275:GameOver",
+          "76591:Meta",
+          "80750:Menu",
+          "82009:Meta",
+          "82923:Menu",
+          "84169:Meta",
+          "85007:Menu",
+          "86201:Game"
         ]
       }
-    ]
+    ],
+    "captureFence": {
+      "count": 28,
+      "ms": 16864,
+      "unrecovered": 0,
+      "note": "page time fenced out of the fps record by screenshots"
+    },
+    "audio": {
+      "muted": true,
+      "mechanisms": [
+        "URL param on every load: http://localhost:5173/?mute=1",
+        "page-side: media elements muted, AudioContext suspended with its destination shadowed by a gain pinned at 0, Phaser sound manager muted"
+      ],
+      "storageTouched": false,
+      "lastSilenceResult": {
+        "mediaMuted": 0,
+        "contextsPatched": false,
+        "contexts": 2,
+        "phaserSound": true
+      },
+      "probe": {
+        "href": "http://localhost:5173/?mute=1",
+        "urlMute": "1",
+        "audioSnapshot": null,
+        "contexts": [
+          {
+            "state": "running",
+            "destinationGain": 0
+          },
+          {
+            "state": "running",
+            "destinationGain": 0
+          }
+        ],
+        "phaserMuted": true,
+        "media": 0
+      }
+    }
   },
   "phases": [
     {
@@ -1027,44 +1151,43 @@
       "msg": "phase: boot on a wiped save"
     },
     {
-      "t": 2489,
+      "t": 1347,
       "msg": "phase: FTUE + first run"
     },
     {
-      "t": 5650,
+      "t": 5270,
       "msg": "FTUE beat \"goal\""
     },
     {
-      "t": 6629,
+      "t": 6974,
       "msg": "FTUE beat \"stick\" (gated)"
     },
     {
-      "t": 20041,
+      "t": 22184,
       "msg": "phase: pause tour"
     },
     {
-      "t": 26517,
+      "t": 29749,
       "msg": "phase: extraction through Gate A"
     },
     {
-      "t": 31663,
+      "t": 35421,
       "msg": "FTUE beat \"gate\""
     },
     {
-      "t": 61926,
-      "msg": "major arena:unreachable: walk to Gate A: never came within 70px in 30000ms"
-    },
-    {
-      "t": 61935,
-      "msg": "walk to Gate A lost to the prop field; placed on the ring to certify the channel"
-    },
-    {
-      "t": 72858,
+      "t": 53343,
       "msg": "phase: late game + death settlement"
     },
     {
-      "t": 94510,
+      "t": 76143,
       "msg": "phase: stash / gear / upgrades tour"
+    },
+    {
+      "t": 88606,
+      "msg": "major budget:fps-unnamed-window: the worst unnamed 3s window of the run held 50.1fps median / 48.3fps min (budget 55/40) at t=20454ms — no named peak beat covers it. Name that beat in the adapter to make it a blocker, or confirm it is the host machine."
     }
-  ]
+  ],
+  "teleports": [],
+  "conditional": false,
+  "certification": "clean"
 }

@@ -11,7 +11,13 @@
  *   manifest   status/title/genre/description/prompt, English-only, screenshots
  *   placeholder scaffold strings still baked into index.html / menu.ts
  *   cover      raster public/cover.png, never the deterministic scaffold SVG
+ *   cert       cert-report.json verdict AND every major it recorded (a cert
+ *              that passed with majors is not a clean bill of health)
+ *   fuzz       fuzz-report.json verdict, failures and scene coverage
+ *   style      art/style.json is this game's own locked style, not the scaffold
  *   art        generated assets must not be a byte-copy of template art
+ *   wiring     every texture a gameplay def names resolves to generated art —
+ *              an unresolved key draws the procedural fallback square instead
  *   audio      generated tracks/samples stay inside the download budget
  *   store      shots/og.png presence (warning)
  */
@@ -22,6 +28,8 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const TEMPLATE_ART = path.join(ROOT, 'template', 'public', 'assets', 'generated');
+const TEMPLATE_STYLE = path.join(ROOT, 'template', 'art', 'style.json');
+const CERT_DRIVER = path.join(ROOT, 'scripts', 'cert-driver.mjs');
 
 const CYRILLIC = /[\u0400-\u04FF]/;
 const SCAFFOLD_HOWTO = 'Joystick to move. Survive the run.';
@@ -138,39 +146,212 @@ function checkPlaytest(m) {
 }
 
 /**
- * Golden-path certification (scripts/cert-driver.mjs) leaves a machine report
- * per run. For families that HAVE a cert adapter a missing report is a hard
- * failure — the game would ship without its E2E cert. Families without an
- * adapter yet only warn; grow CERT_ADAPTED together with
- * `export const adapters` in scripts/cert-driver.mjs.
+ * Which families have a golden-path cert adapter, read from
+ * `scripts/cert-driver.mjs` itself rather than duplicated here. A hand-kept
+ * copy of this list is how a NEW family silently downgraded "no cert" from a
+ * blocker to a warning: nobody added the family to the literal, so the gate
+ * excused the very build it existed to stop. Returns null when the export
+ * cannot be read — which is itself a blocker, never an excuse.
  */
-const CERT_ADAPTED = new Set(['board', 'arena']);
+function certAdaptedFamilies() {
+  if (!existsSync(CERT_DRIVER)) return null;
+  const m = /export\s+const\s+adapters\s*=\s*\{([^}]*)\}/.exec(readFileSync(CERT_DRIVER, 'utf8'));
+  if (!m) return null;
+  const names = [...m[1].matchAll(/(?:^|[,{\s])['"]?([A-Za-z_$][\w$-]*)['"]?\s*:/g)].map((x) => x[1]);
+  return names.length > 0 ? new Set(names) : null;
+}
 
+/**
+ * One line of the numbers inside a cert finding's `evidence`, so the human
+ * report carries the measurement and not just the verdict: the Duskhaul
+ * `arena:unreachable` major held `closest: 419` against a 70px requirement,
+ * and that number is the whole finding.
+ */
+function evidenceBrief(ev) {
+  if (ev === null || ev === undefined) return '';
+  if (Array.isArray(ev)) {
+    // An array of objects hits `String(ev)` and renders "[object Object]",
+    // which is exactly the illegibility this gate exists to remove: the major
+    // is surfaced, and then says nothing. Summarise each element the way a
+    // bare object is summarised so the human reads the MEASUREMENT.
+    const parts = ev.slice(0, 3).map((e) => evidenceBrief(e)).filter(Boolean);
+    const more = ev.length > 3 ? ` +${ev.length - 3} more` : '';
+    return parts.length > 0 ? `${parts.join(' | ')}${more}`.slice(0, 220) : '';
+  }
+  if (typeof ev !== 'object') return String(ev).slice(0, 160);
+  const scalars = Object.entries(ev)
+    .filter(([, v]) => typeof v === 'number' || typeof v === 'string' || typeof v === 'boolean')
+    .map(([k, v]) => `${k}=${v}`);
+  if (scalars.length > 0) return scalars.join(', ').slice(0, 200);
+  const json = JSON.stringify(ev);
+  return json.length > 160 ? `${json.slice(0, 157)}...` : json;
+}
+
+/**
+ * Golden-path certification (scripts/cert-driver.mjs) leaves a machine report
+ * per run, whose schema is frozen as Contract R: `passed`, `blockers[]`,
+ * `majors[]`, `notes`, `finishedAt`, with each major/blocker an
+ * `{id, message, evidence}`. The cert WRITES that report; this gate READS it.
+ *
+ * `passed` alone is not the verdict a human needs. The shipped Duskhaul cert
+ * recorded `passed: true` next to the major `arena:unreachable` — "walk to
+ * Gate A: never came within 70px in 30000ms", closest 419px — after which the
+ * driver teleported the player to certify the channel anyway. This gate
+ * printed "ok cert passed" and the design defect reached nobody. Every major
+ * is therefore surfaced as its own WARN line with its evidence, and a pass
+ * carrying majors says so in as many words: a cert summary must never hide
+ * what the cert itself recorded.
+ */
 function checkCert(m, dir) {
+  const family = typeof m.family === 'string' ? m.family : '';
+  const adapted = certAdaptedFamilies();
+  if (adapted === null) {
+    fail(
+      'cert:adapters',
+      'scripts/cert-driver.mjs does not export a readable `adapters` map — release-check cannot ' +
+        'tell which families are certifiable, so no cert report can be judged',
+    );
+  }
   const certPath = path.join(dir, 'cert-report.json');
   if (!existsSync(certPath)) {
-    const family = typeof m.family === 'string' ? m.family : '';
-    if (CERT_ADAPTED.has(family)) {
-      fail(
-        'cert',
-        `no cert-report.json — the '${family}' family has a cert adapter; ` +
-          'run the golden-path cert (scripts/cert-driver.mjs) before release',
-      );
-    } else {
-      warn(
-        'cert',
-        `no cert-report.json and no cert adapter for family '${family || 'unknown'}' yet — ` +
-          'write one next to `adapters` in scripts/cert-driver.mjs and run the golden-path cert',
-      );
-    }
+    fail(
+      'cert',
+      adapted !== null && adapted.has(family)
+        ? `no cert-report.json — the '${family}' family has a cert adapter; ` +
+            'run the golden-path cert (scripts/cert-driver.mjs) before release'
+        : `no cert-report.json and no cert adapter for family '${family || 'unknown'}' — ` +
+            `write one next to \`export const adapters\` in scripts/cert-driver.mjs (has: ` +
+            `${adapted === null ? 'unreadable' : [...adapted].join(', ')}) and run the golden-path cert. ` +
+            'A family without an adapter is an UNCERTIFIED game, not an excused one',
+    );
     return;
   }
+
+  let report;
   try {
-    const report = JSON.parse(readFileSync(certPath, 'utf8'));
-    if (report.passed === true) pass('cert', `cert passed at ${report.finishedAt ?? 'unknown time'}`);
-    else fail('cert', `cert-report.json present but passed !== true (${(report.blockers ?? []).length} blocker(s) recorded)`);
+    report = JSON.parse(readFileSync(certPath, 'utf8'));
   } catch (err) {
     fail('cert', `cert-report.json is not valid JSON: ${err.message}`);
+    return;
+  }
+
+  // Contract R shape. A report missing `majors[]` cannot be trusted to have
+  // recorded any, which is exactly the failure mode this check exists for.
+  const blockers = Array.isArray(report.blockers) ? report.blockers : null;
+  const majors = Array.isArray(report.majors) ? report.majors : null;
+  if (typeof report.passed !== 'boolean' || blockers === null || majors === null) {
+    fail(
+      'cert:schema',
+      'cert-report.json does not match Contract R — it needs `passed` (boolean), `blockers[]` and ' +
+        `\`majors[]\` (arrays); got passed=${JSON.stringify(report.passed)}, ` +
+        `blockers=${blockers === null ? 'missing' : `${blockers.length} entries`}, ` +
+        `majors=${majors === null ? 'missing' : `${majors.length} entries`}`,
+    );
+    if (blockers === null || majors === null) return;
+  }
+  if (typeof report.family === 'string' && family && report.family !== family) {
+    fail(
+      'cert:family',
+      `cert-report.json certifies family '${report.family}' but game.json says '${family}' — ` +
+        'this report belongs to another adapter and proves nothing about this build',
+    );
+  }
+
+  const finished = report.finishedAt ?? 'unknown time';
+  // `certification` (cert-driver): 'clean' | 'conditional' | 'failed'.
+  // CONDITIONAL means the driver could not REACH a beat by real input and
+  // placed the player there — the fact that made the Duskhaul cert misleading,
+  // so it gets its own line instead of living inside a major's prose.
+  const conditional = report.certification === 'conditional' || report.conditional === true;
+  const teleports = Array.isArray(report.teleports) ? report.teleports : [];
+  if (report.passed === true) {
+    if (majors.length === 0 && !conditional) pass('cert', `cert passed at ${finished}, no majors recorded`);
+    else {
+      pass('cert', `cert reports passed at ${finished}${report.certification ? ` (certification: ${report.certification})` : ''}`);
+      if (conditional) {
+        const caveat = typeof report.notes?.certificationCaveat === 'string' ? report.notes.certificationCaveat.trim().replace(/\.+$/, '') : '';
+        warn(
+          'cert:conditional',
+          `cert is CONDITIONAL, not clean: the driver could not reach ${teleports.length || 'some'} beat(s) by ` +
+            `real input and PLACED the player there${teleports.length ? ` (${teleports.map((t) => (typeof t === 'string' ? t : (t?.id ?? JSON.stringify(t)))).join(', ')})` : ''}. ` +
+            `Everything certified from a placed position is unproven by navigation${caveat ? ` — ${caveat}` : ''}`,
+        );
+      }
+      if (majors.length > 0) {
+        warn(
+          'cert:majors',
+          `cert PASSED WITH ${majors.length} MAJOR(S) — a pass is not a clean bill of health; ` +
+            'each major below is a real finding the cert measured and shipped anyway',
+        );
+      }
+    }
+  } else {
+    fail('cert', `cert-report.json present but passed !== true (${blockers.length} blocker(s) recorded)`);
+  }
+
+  blockers.forEach((b, i) => {
+    const id = typeof b?.id === 'string' ? b.id : `#${i}`;
+    const msg = typeof b?.message === 'string' ? b.message : JSON.stringify(b);
+    const ev = evidenceBrief(b?.evidence);
+    fail(`cert:blocker:${id}`, `cert blocker ${id}: ${msg}${ev ? ` [${ev}]` : ''}`);
+  });
+  majors.forEach((mj, i) => {
+    const id = typeof mj?.id === 'string' ? mj.id : `#${i}`;
+    const msg = typeof mj?.message === 'string' ? mj.message : JSON.stringify(mj);
+    const ev = evidenceBrief(mj?.evidence);
+    warn(`cert:major:${id}`, `cert major ${id}: ${msg}${ev ? ` [${ev}]` : ''}`);
+  });
+}
+
+/**
+ * The random-input sweep (`runFuzz` in scripts/cert-driver.mjs) is the cheap
+ * half of certification: seeded clicks and keys for N seconds, asserting a
+ * scene stays active, the loop never wedges and the save survives a reload.
+ * It is family-agnostic — every playable build can run it — so an absent
+ * report is a missing check, not an unsupported one.
+ */
+function checkFuzz(dir) {
+  const fuzzPath = path.join(dir, 'fuzz-report.json');
+  if (!existsSync(fuzzPath)) {
+    fail(
+      'fuzz',
+      'no fuzz-report.json — run the random-input sweep (`runFuzz` in scripts/cert-driver.mjs) ' +
+        'before release; it is family-agnostic and every build can run it',
+    );
+    return;
+  }
+  let report;
+  try {
+    report = JSON.parse(readFileSync(fuzzPath, 'utf8'));
+  } catch (err) {
+    fail('fuzz', `fuzz-report.json is not valid JSON: ${err.message}`);
+    return;
+  }
+  const failures = Array.isArray(report.failures) ? report.failures : null;
+  if (typeof report.passed !== 'boolean' || failures === null) {
+    fail(
+      'fuzz:schema',
+      'fuzz-report.json needs `passed` (boolean) and `failures[]` — got ' +
+        `passed=${JSON.stringify(report.passed)}, failures=${failures === null ? 'missing' : `${failures.length} entries`}`,
+    );
+    return;
+  }
+  const shape = `${report.actions ?? '?'} action(s) over ${report.seconds ?? '?'}s, seed ${report.seed ?? '?'}`;
+  if (report.passed === true && failures.length === 0) pass('fuzz', `fuzz: ${shape}, no failures (${report.finishedAt ?? 'unknown time'})`);
+  else {
+    fail('fuzz', `fuzz: ${shape} recorded ${failures.length} failure(s)`);
+    failures.forEach((f, i) => fail(`fuzz:failure:${i}`, `fuzz failure: ${typeof f === 'string' ? f : JSON.stringify(f)}`));
+  }
+  // A sweep that never left one scene proves nothing about transitions, pause,
+  // results or the menu — the places a random masher actually breaks a build.
+  const trail = Array.isArray(report.sceneTrail) ? report.sceneTrail.filter((s) => typeof s === 'string') : [];
+  const scenes = new Set(trail);
+  if (trail.length > 0 && scenes.size <= 1) {
+    warn(
+      'fuzz:coverage',
+      `fuzz never left the '${[...scenes][0]}' scene across the last ${trail.length} samples — ` +
+        'no transition, pause or results screen was exercised',
+    );
   }
 }
 
@@ -304,6 +485,267 @@ function checkArt(m, dir) {
   );
 }
 
+/**
+ * The style lock is the ONE decision that makes 100 generated assets look like
+ * one game, and until now nothing checked it: neither this gate nor
+ * audit-check.mjs mentioned `art/style.json`. The scaffold ships a working but
+ * deliberately-marked placeholder profile (`scaffold: true`), so a game whose
+ * art-director never wrote a profile would have generated its whole set in the
+ * scaffold's style — measured on Duskhaul, the art-director rewrote the profile
+ * ten minutes before the first generation call, and a crash any earlier would
+ * have produced 103 chibi assets in a grimdark game with nothing to stop it.
+ *
+ * Fails on the scaffold identity, and on an empty `references[]` once
+ * generated art exists: the locked vision anchors (game-art Step 1b) are what
+ * every generation call is conditioned on, so an empty list means the set was
+ * built from prose alone.
+ */
+function checkStyleLock(dir) {
+  const stylePath = path.join(dir, 'art', 'style.json');
+  const hasArt = treeBytes(path.join(dir, 'public', 'assets', 'generated')) > 0;
+  if (!existsSync(stylePath)) {
+    fail(
+      'style:file',
+      'art/style.json missing — every asset is generated against a `sprite-forge.style.v1` ' +
+        'profile (game-art Step 1); without it the set has no style contract',
+    );
+    return;
+  }
+  let style;
+  try {
+    style = JSON.parse(readFileSync(stylePath, 'utf8'));
+  } catch (err) {
+    fail('style:json', `art/style.json is not valid JSON: ${err.message}`);
+    return;
+  }
+  if (style?.schema !== 'sprite-forge.style.v1') {
+    fail('style:schema', `art/style.json schema is ${JSON.stringify(style?.schema)}, expected "sprite-forge.style.v1"`);
+  }
+
+  const scaffold = existsSync(TEMPLATE_STYLE) ? JSON.parse(readFileSync(TEMPLATE_STYLE, 'utf8')) : null;
+  const name = typeof style?.name === 'string' ? style.name.trim() : '';
+  const reasons = [];
+  if (style?.scaffold === true) reasons.push('it still carries the scaffold marker `"scaffold": true`');
+  if (!name) reasons.push('"name" is empty');
+  else if (scaffold && name === String(scaffold.name).trim()) reasons.push(`"name" is still the scaffold's "${name}"`);
+  if (scaffold && style?.artStyle === scaffold.artStyle) reasons.push('"artStyle" is byte-identical to the scaffold prose');
+  if (reasons.length > 0) {
+    fail(
+      'style:scaffold',
+      `art/style.json is still the scaffold style profile (${reasons.join('; ')}) — ` +
+        'write this game\'s own profile (game-art Step 1) and delete the scaffold marker before generating art',
+    );
+  } else {
+    pass('style:scaffold', `art/style.json: own style profile "${name}"`);
+  }
+
+  const refs = Array.isArray(style?.references) ? style.references.filter((r) => typeof r === 'string' && r.trim()) : [];
+  if (refs.length === 0) {
+    const message =
+      'art/style.json references[] is empty — the locked vision anchors (game-art Step 1b) are ' +
+      'what every generation call is conditioned on; a text-only lock does not hold a style';
+    if (hasArt) fail('style:refs', `${message} (and this game already ships generated art)`);
+    else warn('style:refs', message);
+  } else {
+    // Anchors are repo-root-relative by contract (art-director.md: the forge
+    // middleware injects them as `input` on every call from the repo root).
+    const missing = refs.filter((r) => !existsSync(path.join(ROOT, r)) && !existsSync(path.join(dir, r)));
+    const misrooted = refs.filter((r) => !existsSync(path.join(ROOT, r)) && existsSync(path.join(dir, r)));
+    if (missing.length > 0) fail('style:refs', `art/style.json references missing anchor file(s): ${missing.join(', ')}`);
+    else pass('style:refs', `art/style.json: ${refs.length} locked vision anchor(s) on disk`);
+    if (misrooted.length > 0) {
+      warn(
+        'style:refs-root',
+        `art/style.json anchor path(s) are game-relative, not repo-root-relative: ${misrooted.join(', ')}`,
+      );
+    }
+  }
+
+  if (scaffold && Array.isArray(style?.palette) && Array.isArray(scaffold.palette) && style.palette.join() === scaffold.palette.join()) {
+    warn('style:palette', 'art/style.json keeps the scaffold palette verbatim — palette QC will pass while the game looks like the template');
+  }
+}
+
+/** Relative path -> source text for every `.ts` file under `root`. */
+function tsSources(root) {
+  const out = new Map();
+  if (!existsSync(root)) return out;
+  const walk = (dir) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else if (entry.isFile() && entry.name.endsWith('.ts')) out.set(path.relative(root, full), readFileSync(full, 'utf8'));
+    }
+  };
+  walk(root);
+  return out;
+}
+
+/**
+ * The generated registry (`src/data/art.ts`) as data: one row per loaded
+ * texture and one entry per `TEXTURE`/`ANIM`/`ICON` alias, with the
+ * generator's `// not shipped: group '<g>' pruned` flag preserved.
+ */
+function parseArtRegistry(text) {
+  const listBody = (name) => {
+    const m = new RegExp(`export const ${name}[^=]*=\\s*\\[([\\s\\S]*?)\\n\\] as const;`).exec(text);
+    return m ? m[1] : '';
+  };
+  const mapBody = (name) => {
+    const m = new RegExp(`export const ${name} = \\{([\\s\\S]*?)\\n\\} as const;`).exec(text);
+    return m ? m[1] : '';
+  };
+  const rows = [];
+  for (const list of ['SPRITES', 'IMAGES']) {
+    for (const r of listBody(list).matchAll(/\{\s*key:\s*'([^']+)'[^}]*?path:\s*'([^']+)'/g)) {
+      rows.push({ key: r[1], file: r[2] });
+    }
+  }
+  const aliases = [];
+  for (const kind of ['TEXTURE', 'ANIM']) {
+    for (const a of mapBody(kind).matchAll(/^\s*'?([\w$-]+)'?:\s*'([^']+)',(.*)$/gm)) {
+      aliases.push({ kind, alias: a[1], key: a[2], pruned: /not shipped/.test(a[3]) });
+    }
+  }
+  for (const a of mapBody('ICON').matchAll(/^\s*'?([\w$-]+)'?:\s*\{\s*key:\s*'([^']+)',[^}]*\},(.*)$/gm)) {
+    aliases.push({ kind: 'ICON', alias: a[1], key: a[2], pruned: /not shipped/.test(a[3]) });
+  }
+  return { rows, aliases };
+}
+
+/**
+ * A template literal like `enemy-${id}-death` as the key pattern it builds, or
+ * null when the literal is not key-shaped. Both guards are load-bearing: a
+ * hole-only literal such as `${y}-${m}-${d}` (a date) compiles to `\w+-\w+-\w+`
+ * and would "consume" every three-segment art key in the registry, which is
+ * how a first cut of this check reported zero dead art against 37 unplayed
+ * animations. So the skeleton must be key-shaped (letters, digits, `_`, `-`)
+ * and must carry a literal 3+ letter run of its own.
+ */
+function literalPattern(lit) {
+  const HOLE = '\u0000';
+  const skeleton = lit.replace(/\$\{[^{}]*\}/g, HOLE);
+  const literalText = skeleton.split(HOLE).join('');
+  if (!/^[A-Za-z0-9_-]*$/.test(literalText) || !/[A-Za-z]{3}/.test(literalText)) return null;
+  const escaped = skeleton.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`^${escaped.split(HOLE).join('[\\w-]+')}$`);
+}
+
+/**
+ * "No procedural art for gameplay" was the pitch, and the build shipped the
+ * TEMPLATE's `props.ts` live: its four placeholder prop textures did not exist
+ * in this game's registry, so the arena drew its tinted `tex-square` fallback
+ * while 72 authored prop cells sat unplaced. Nothing caught it but a CDP
+ * display-list dump, because §19's acceptance was prose checkboxes.
+ *
+ * So: every texture a gameplay def names must resolve to a row in the
+ * generated registry, and every registry row's file must exist. An unresolved
+ * key is not a missing texture — it is the procedural fallback, silently.
+ *
+ * The dual (generated art nothing names) is reported as a warning: keys are
+ * also composed at runtime (`enemy-${id}-death`), so template-literal patterns
+ * and plain mentions both count as a consumer and what is left is a list to
+ * read, not a verdict.
+ */
+function checkArtWiring(dir) {
+  const artTsPath = path.join(dir, 'src', 'data', 'art.ts');
+  if (!existsSync(artTsPath)) {
+    fail('wiring:registry', 'src/data/art.ts missing — regenerate it with `node scripts/gen-art-registry.mjs`');
+    return;
+  }
+  const { rows, aliases } = parseArtRegistry(readFileSync(artTsPath, 'utf8'));
+  if (rows.length === 0) {
+    fail('wiring:registry', 'src/data/art.ts declares no SPRITES/IMAGES rows — nothing loads any generated art');
+    return;
+  }
+  const loaded = new Set(rows.map((r) => r.key));
+  const orphanFiles = rows.filter((r) => !existsSync(path.join(dir, 'public', r.file)));
+  check(
+    orphanFiles.length === 0,
+    'wiring:files',
+    `art registry: all ${rows.length} row(s) point at a file on disk`,
+    `art registry names ${orphanFiles.length} missing file(s): ${orphanFiles.slice(0, 6).map((r) => `${r.key} -> ${r.file}`).join(', ')}${orphanFiles.length > 6 ? ', ...' : ''}`,
+  );
+
+  const sources = tsSources(path.join(dir, 'src'));
+  sources.delete(path.join('data', 'art.ts'));
+
+  // Texture keys named by gameplay data: PropDef/DecalDef/EnemyDef `texture:`,
+  // and `ArtSlot` object literals (`art: { key }`, `{ key, frame }`).
+  const named = new Map();
+  const noteRef = (key, where) => {
+    const at = named.get(key);
+    if (at) at.add(where);
+    else named.set(key, new Set([where]));
+  };
+  for (const [file, text] of sources) {
+    for (const m of text.matchAll(/\btexture:\s*'([^']+)'/g)) noteRef(m[1], file);
+    for (const m of text.matchAll(/\b(?:art|artSlot|slot|icon)\s*:\s*\{\s*key:\s*'([^']+)'/g)) noteRef(m[1], file);
+    for (const m of text.matchAll(/\{\s*key:\s*'([^']+)'\s*,\s*frame\s*:/g)) noteRef(m[1], file);
+  }
+  const unresolved = [...named].filter(([key]) => !loaded.has(key));
+  check(
+    unresolved.length === 0,
+    'wiring:procedural',
+    `art wiring: all ${named.size} texture key(s) named by gameplay data resolve to generated art`,
+    `${unresolved.length} gameplay texture key(s) resolve to NO generated art, so the procedural ` +
+      `fallback is drawn instead: ${unresolved.map(([key, at]) => `'${key}' (${[...at].join(', ')})`).join('; ')}`,
+  );
+
+  // Alias member access: a name absent from the emitted maps cannot compile,
+  // and one flagged `not shipped` renders nothing at runtime.
+  const byKind = { TEXTURE: new Map(), ANIM: new Map(), ICON: new Map() };
+  for (const a of aliases) byKind[a.kind].set(a.alias, a);
+  const missingAlias = [];
+  const prunedAlias = [];
+  for (const [file, text] of sources) {
+    for (const m of text.matchAll(/\b(TEXTURE|ANIM|ICON)(?:\.([A-Za-z_$][\w$]*)|\[\s*'([^']+)'\s*\])/g)) {
+      const alias = m[2] ?? m[3];
+      const entry = byKind[m[1]].get(alias);
+      if (!entry) missingAlias.push(`${m[1]}.${alias} (${file})`);
+      else {
+        if (entry.pruned) prunedAlias.push(`${m[1]}.${alias} (${file})`);
+        noteRef(entry.key, `alias ${m[1]}.${alias}`);
+      }
+    }
+  }
+  check(
+    missingAlias.length === 0,
+    'wiring:aliases',
+    'art wiring: every TEXTURE/ANIM/ICON alias the code reads exists in the registry',
+    `code reads ${missingAlias.length} art alias(es) the registry does not declare (these are TS2339 ` +
+      `errors): ${[...new Set(missingAlias)].join(', ')}`,
+  );
+  if (prunedAlias.length > 0) {
+    warn(
+      'wiring:pruned',
+      `code reads ${new Set(prunedAlias).size} alias(es) whose art group was pruned — those draw the ` +
+        `procedural fallback: ${[...new Set(prunedAlias)].join(', ')}`,
+    );
+  }
+
+  const patterns = [];
+  for (const text of sources.values()) {
+    for (const m of text.matchAll(/`([^`\\]*\$\{[^`]*)`/g)) {
+      const rx = literalPattern(m[1]);
+      if (rx !== null) patterns.push(rx);
+    }
+  }
+  const texts = [...sources.values()];
+  const dead = rows
+    .map((r) => r.key)
+    .filter((key) => !named.has(key) && !patterns.some((p) => p.test(key)) && !texts.some((t) => t.includes(key)));
+  if (dead.length > 0) {
+    warn(
+      'wiring:dead-art',
+      `${dead.length}/${rows.length} generated asset(s) are loaded but named by nothing in src/: ` +
+        `${dead.slice(0, 12).join(', ')}${dead.length > 12 ? `, ... (+${dead.length - 12})` : ''}`,
+    );
+  } else {
+    pass('wiring:dead-art', `art wiring: every one of the ${rows.length} loaded asset(s) is named by src/`);
+  }
+}
+
 /** Total bytes of every file under `root`, recursively; 0 when it does not exist. */
 function treeBytes(root) {
   if (!existsSync(root)) return 0;
@@ -400,7 +842,10 @@ if (typeof manifest.variantOf === 'string' && manifest.variantOf) {
   }
   checkWorkspaceLock(slug);
   checkPlaceholders(manifest, dir, slug);
+  checkStyleLock(dir);
   checkArt(manifest, dir);
+  checkArtWiring(dir);
+  checkFuzz(dir);
   checkAudio(dir);
   report(findings.some((f) => f.level === 'error') ? 1 : 0, { variantOf: manifest.variantOf });
 }
@@ -409,10 +854,13 @@ checkManifest(manifest);
 checkWorkspaceLock(slug);
 checkPlaytest(manifest);
 checkCert(manifest, dir);
+checkFuzz(dir);
 checkScreenshots(manifest, dir);
 checkPlaceholders(manifest, dir, slug);
 checkCover(manifest, dir, slug);
+checkStyleLock(dir);
 checkArt(manifest, dir);
+checkArtWiring(dir);
 checkAudio(dir);
 
 report(findings.some((f) => f.level === 'error') ? 1 : 0);

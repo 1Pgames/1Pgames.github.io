@@ -35,7 +35,8 @@
       "name": "GreyboxCritic",
       "ownershipGlobs": [],
       "status": "done",
-      "note": "verdict FUN; job exited 1 after my broadcasts repeatedly interrupted its yield \u2014 report recovered via IRC"
+      "note": "verdict FUN; job exited 1 after my broadcasts repeatedly interrupted its yield \u2014 report recovered via IRC",
+      "readOnly": true
     },
     {
       "name": "ArtDirector",
@@ -137,7 +138,8 @@
       "name": "ReviewGate",
       "ownershipGlobs": [],
       "status": "done",
-      "note": "found 5 BLOCKERs \u2014 every one a seam where a workstream built its half and the other half was never connected"
+      "note": "found 5 BLOCKERs \u2014 every one a seam where a workstream built its half and the other half was never connected",
+      "readOnly": true
     },
     {
       "name": "Integrator",
@@ -191,18 +193,21 @@
       "name": "QaSweep",
       "ownershipGlobs": [],
       "status": "done",
-      "note": "golden path completable; banking/casket/channel/abandon all verified"
+      "note": "golden path completable; banking/casket/channel/abandon all verified",
+      "readOnly": true
     },
     {
       "name": "FlowAudit",
       "ownershipGlobs": [],
-      "status": "done"
+      "status": "done",
+      "readOnly": true
     },
     {
       "name": "ShipCritic",
       "ownershipGlobs": [],
       "status": "done",
-      "note": "NOT-SHIP on 2 blockers; both fixed and re-verified since"
+      "note": "NOT-SHIP on 2 blockers; both fixed and re-verified since",
+      "readOnly": true
     },
     {
       "name": "SliceFix",
@@ -262,6 +267,20 @@
       ],
       "verified": "both builds boot clean (0 console errors); save isolation proven both directions; variant release-check PASS; both typecheck OK",
       "knownState": "variant fails the same 2 family gates as the parent, byte-identical - by design, it is never retuned"
+    }
+  },
+  "retrospectiveCorrections": {
+    "artDirectorCauseOfDeath": {
+      "recorded": "context limit",
+      "actual": "HTTP 429, retry-after-ms=259932000 (72.2h)",
+      "evidence": "ArtDirector.jsonl: 6x '429', 1x 'retry-after-ms=259932000', 'rate_limit'",
+      "why_it_matters": "finding #34 \u2014 the wrong cause was recorded, so the real mitigation (model swap) was documented nowhere"
+    },
+    "certPassedOverstated": {
+      "recorded": "cert passed",
+      "actual": "passed:true WITH majors[arena:unreachable]; driver teleported via placeAtGate to certify the channel",
+      "evidence": "cert-report.json majors[0]; cert-driver.mjs:2316-2321; release-check.mjs:170 reads only .passed",
+      "why_it_matters": "finding #7 \u2014 gate reachability by real navigation was never proven"
     }
   }
 }

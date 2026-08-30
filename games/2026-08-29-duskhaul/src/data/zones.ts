@@ -8,9 +8,10 @@ import type { RelicTier } from './relics';
  * backdrop. There is no mid-run zone travel (§5.7), so a `ZoneDef` is chosen
  * once at run start and `systems/zone.ts` applies it wholesale.
  *
- * Gate coordinates are authored in the PRD's 1600x1600 design space;
- * consumers scale by `ZONE_DESIGN_SIZE` into the live arena's real bounds
- * (`TUNING.arena.width/height`) so the layout survives arena-size tuning.
+ * Gate coordinates are authored in the PRD's 1600x1600 design space; call
+ * `zoneGates(zone)` below to get them in the live arena's real px
+ * (`TUNING.arena.width/height`), so the layout survives arena-size tuning.
+ * The design-space constant itself is private — the scaler is the API.
  *
  * Open/close SCHEDULES are identical in every zone (§2A gate schedule: "all
  * zones, positions per §5.7"), so every row reads them from `TUNING.gate.*`
@@ -38,8 +39,12 @@ export interface ZoneDef {
 
 export type ZoneId = ZoneDef['id'];
 
-/** Side length of the square design space the PRD's gate coordinates use. */
-export const ZONE_DESIGN_SIZE = 1600;
+/**
+ * Side length of the square design space the PRD's gate coordinates use.
+ * Private on purpose: `zoneGates` is the only thing that should ever divide by
+ * it, and an importer doing its own division is a second scaler.
+ */
+const ZONE_DESIGN_SIZE = 1600;
 
 /**
  * Builds one zone's three gates from PRD design-space coordinates. The
@@ -155,6 +160,25 @@ export function zoneDef(id: string): ZoneDef {
   const def = BY_ID[id];
   if (def === undefined) throw new Error(`Unknown zone id "${id}"`);
   return def;
+}
+
+/**
+ * The zone's three gates in LIVE arena px.
+ *
+ * Coordinates are authored in the PRD's 1600x1600 design space (§5.7), so the
+ * layout survives arena resizing instead of drifting off the field.
+ *
+ * ONE implementation, and it lives here because this is the Phaser-free module
+ * both sides can reach: the scene reads it through `systems/zone.ts`, the
+ * headless sim through `sim/families/arena.ts`. It used to exist twice — once
+ * in each — which is the shape that lets a design-space change desync the sim
+ * from the game it is supposed to be measuring.
+ */
+export function zoneGates(zone: ZoneDef): [GateSpec, GateSpec, GateSpec] {
+  const scaleX = TUNING.arena.width / ZONE_DESIGN_SIZE;
+  const scaleY = TUNING.arena.height / ZONE_DESIGN_SIZE;
+  const scale = (gate: GateSpec): GateSpec => ({ ...gate, x: gate.x * scaleX, y: gate.y * scaleY });
+  return [scale(zone.gates[0]), scale(zone.gates[1]), scale(zone.gates[2])];
 }
 
 /** The zone the game always starts unlocked with (§5.7: castle, 0 shards). */

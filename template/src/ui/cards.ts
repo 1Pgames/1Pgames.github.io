@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { CSS, PALETTE, SAFE, TEXT, VIEW } from '../config';
 import { drawPanel } from './primitives';
 import { enterFromBottom } from '../core/juice';
+import { enterPinningHitArea } from './entrance';
 import { sfx } from '../core/audio';
 import { Button } from './button';
 import type { UpgradeDef, Rarity } from '../data/upgrades';
@@ -97,12 +98,16 @@ export function showUpgradeCards(
         onPick(choice);
       });
       root.add(card);
-      enterFromBottom(scene, card, index * 70);
+      // A card is interactive the moment `buildCard` returns it, so the pinned
+      // entrance can collect its hit area: the cards are tappable through the
+      // whole stagger instead of only after the last one lands.
+      enterPinningHitArea(scene, card, { delayMs: index * 70 });
       return card;
     });
 
     if (reroll === undefined) return;
     const rerollY = startY + current.length * (CARD_HEIGHT + CARD_GAP) - CARD_GAP + REROLL_BUTTON_HEIGHT / 2 + 16;
+    const freshChip = rerollButton === null;
     if (rerollButton === null) {
       rerollButton = new Button(
         scene,
@@ -117,13 +122,23 @@ export function showUpgradeCards(
         { width: CARD_WIDTH, height: REROLL_BUTTON_HEIGHT, fill: PALETTE.bgTop, stroke: PALETTE.primary, textColor: CSS.ink, fontSize: '32px' },
       );
       root.add(rerollButton);
-      enterFromBottom(scene, rerollButton, current.length * 70);
     } else {
       rerollButton.setPosition(VIEW.centerX, rerollY);
     }
     rerollButton.setAlpha(reroll.canReroll() ? 1 : 0.4);
     rerollButton.disableInteractive();
     if (reroll.canReroll()) rerollButton.setInteractive({ useHandCursor: true });
+    // Entrance LAST, and only for a chip that did not exist yet: the three
+    // states above (affordable / spent / unaffordable) replace the input object,
+    // and a pinned entrance only pins the hit areas that exist when it runs.
+    // `fadeTo` carries the chip's own resting alpha, so a chip that arrives
+    // unaffordable lands dim instead of being faded up to look available.
+    if (freshChip) {
+      enterPinningHitArea(scene, rerollButton, {
+        delayMs: current.length * 70,
+        fadeTo: rerollButton.alpha,
+      });
+    }
   }
 
   layout(choices);

@@ -13,6 +13,14 @@ import { AUDIO } from '../data/audio';
  * once and stays on the synth voice.
  *
  * Usage:  sfx('pickup')  /  sfx('hit', { rate: 1.2 })  /  toggleMute()
+ *
+ * SILENCE FOR AUTOMATED RUNS: load the game with `?mute=1` (or a bare `?mute`)
+ * and the whole audio stack is inert from the first frame — see `MUTE_PARAM`
+ * below. This exists because the alternative (an agent writing the persisted
+ * `muted` preference before load) races audio init, is forgotten half the
+ * time, and mutates the player's save; both failures happened, audibly, on a
+ * user's machine. A driver appends the param to the URL and needs no other
+ * cooperation from the game.
  */
 
 type Wave = OscillatorType;
@@ -82,10 +90,62 @@ interface PlayOptions {
 
 let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
-let muted = load<boolean>(STORE.muted, false);
+/**
+ * The URL switch that forces silence for one page load.
+ *
+ * Presence alone is enough (`?mute`), and an explicit truthy value is accepted
+ * so a driver can build `?mute=1` mechanically. `?mute=0` / `false` / `off` /
+ * `no` mean NOT forced, because a driver that templates the value in must be
+ * able to switch it off without rewriting the query string — with a bare
+ * `has()` test (the `?debug` convention) `?mute=0` would silence the game,
+ * which is the kind of trap that gets discovered during a demo.
+ *
+ * Name is case-sensitive (`mute`), values are not. There is no alias: one
+ * spelling, so five call sites cannot drift.
+ *
+ * NOT gated on `import.meta.env.DEV` — cert, fuzz and QA drive PRODUCTION
+ * builds, and those are exactly the runs that must be silent.
+ */
+const MUTE_PARAM = 'mute';
+/** Values that mean "present but OFF". Static table, so a Record. */
+const MUTE_OFF_VALUES: Record<string, true> = { '0': true, false: true, off: true, no: true };
+
+function readUrlMute(): boolean {
+  try {
+    // `location` is absent when the sim/CLI imports this module under node.
+    if (typeof location === 'undefined') return false;
+    const value = new URLSearchParams(location.search).get(MUTE_PARAM);
+    if (value === null) return false;
+    return MUTE_OFF_VALUES[value.trim().toLowerCase()] !== true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Read ONCE at module init, before any scene exists and therefore before any
+ * `sfx()` can fire — that immediacy is the whole point over the localStorage
+ * route. A later change to the query string does nothing; a driver keeps the
+ * param in every URL it loads.
+ */
+const forcedMute = readUrlMute();
+/** The player's own preference. The URL override NEVER writes to this. */
+let storedMute = load<boolean>(STORE.muted, false);
+/** What `sfx()` and the music buses obey. */
+let muted = forcedMute || storedMute;
 let noiseBuffer: AudioBuffer | null = null;
 type MuteListener = (muted: boolean) => void;
 const muteListeners = new Set<MuteListener>();
+
+/**
+ * Playback census, for runs that must be silent without losing coverage: a
+ * request is counted BEFORE the mute check, so "did the game ask for the hit
+ * sound" is answerable in a forced-silent run, and `sfxPlayed` proves the
+ * opposite direction — it must stay 0 for a whole `?mute` session.
+ */
+let sfxRequested = 0;
+let sfxPlayed = 0;
+let lastRequested: SfxName | null = null;
 
 /** Decoded generated samples; a name in here plays instead of its synth voice. */
 const samples = new Map<SfxName, AudioBuffer>();
@@ -93,8 +153,20 @@ const samples = new Map<SfxName, AudioBuffer>();
 const fetched = new Map<SfxName, ArrayBuffer>();
 let samplesRequested = false;
 
-/** Browsers require a user gesture; call once from a pointer/key handler. */
+/**
+ * Browsers require a user gesture; call once from a pointer/key handler.
+ *
+ * Under `?mute` this returns without ever creating an AudioContext, so a
+ * forced-silent run has NO audio graph at all: no oscillator is scheduled, no
+ * master gain exists to be ramped back up, and `getAudioContext()` stays
+ * `null`, which makes `core/music.ts` bail at its own first line. That is a
+ * stronger guarantee than "gain 0" and it is what an automated run should
+ * assert (`audioStatus().contextState === null`). A mute that comes from the
+ * player's own preference still builds the graph at gain 0, because their next
+ * tap on SOUND: ON has to be audible immediately.
+ */
 export function unlockAudio(): void {
+  if (forcedMute) return;
   if (!ctx) {
     if (typeof window.AudioContext !== 'function') return;
     ctx = new AudioContext();
@@ -169,16 +241,80 @@ export function onMuteChange(listener: MuteListener): () => void {
   return () => muteListeners.delete(listener);
 }
 
+/** Effective mute: what `sfx()` and every music bus obey. */
 export function isMuted(): boolean {
   return muted;
 }
 
+/**
+ * Records the player's preference and re-derives the effective mute.
+ *
+ * The new preference is derived from what the player can SEE (the effective
+ * state the label shows), not from the stored value: under `?mute` the label
+ * reads SOUND: OFF even when nothing is stored, so a press there means "give
+ * me sound" and must record UNMUTED — flipping the stored value blindly would
+ * record the opposite of what the button said. Without the param the two are
+ * the same value and this is the old behaviour exactly.
+ *
+ * The URL override still owns the session, so the return value — and therefore
+ * the label — stays OFF while it is active. Promising sound the session will
+ * not deliver is a worse lie than an unresponsive toggle, and the preference
+ * is honoured on the player's next ordinary load.
+ */
 export function toggleMute(): boolean {
-  muted = !muted;
-  save(STORE.muted, muted);
+  storedMute = !muted;
+  save(STORE.muted, storedMute);
+  muted = forcedMute || storedMute;
   if (master && ctx) master.gain.setTargetAtTime(muted ? 0 : 0.9, ctx.currentTime, 0.02);
   muteListeners.forEach((listener) => listener(muted));
   return muted;
+}
+
+/**
+ * Everything an automated run needs to prove the audio stack is WIRED while it
+ * is silent — the point being that silence must not cost coverage: `requested`
+ * counts every `sfx()` call whether or not it made a sound, so a QA pass can
+ * assert "the hit sound fires on a hit" without playing it.
+ *
+ * Also exposed as `window.__AUDIO__()` so a driver on a PRODUCTION bundle can
+ * read it without module access (same debug-handle convention as `__GAME__`).
+ */
+export interface AudioStatus {
+  /** Effective: `forcedByUrl || storedPreference`. */
+  muted: boolean;
+  /** `?mute` was present at load. Read once, at module init. */
+  forcedByUrl: boolean;
+  /** The persisted `muted` preference. Never written by the URL override. */
+  storedPreference: boolean;
+  /** Master gain, or `null` when no context exists (always null under `?mute`). */
+  masterGain: number | null;
+  /** `null` under `?mute`: the context is never created at all. */
+  contextState: AudioContextState | null;
+  /** `sfx()` calls, silent or not. */
+  requested: number;
+  /** Calls that actually reached the audio graph. 0 for a whole muted run. */
+  played: number;
+  lastRequested: SfxName | null;
+}
+
+export function audioStatus(): AudioStatus {
+  return {
+    muted,
+    forcedByUrl: forcedMute,
+    storedPreference: storedMute,
+    masterGain: master === null ? null : master.gain.value,
+    contextState: ctx === null ? null : ctx.state,
+    requested: sfxRequested,
+    played: sfxPlayed,
+    lastRequested,
+  };
+}
+
+// A window WE own, exactly like `main.ts`'s `__GAME__` handle: the cast is a
+// declaration of our own property, not an assumption about foreign data.
+if (typeof window !== 'undefined') {
+  const debugWindow = window as unknown as { __AUDIO__?: () => AudioStatus };
+  debugWindow.__AUDIO__ = audioStatus;
 }
 
 /**
@@ -196,9 +332,12 @@ function playSample(target: AudioContext, destination: AudioNode, buffer: AudioB
 }
 
 export function sfx(name: SfxName, options: PlayOptions = {}): void {
+  sfxRequested += 1;
+  lastRequested = name;
   if (muted) return;
   unlockAudio();
   if (!ctx || !master) return;
+  sfxPlayed += 1;
 
   const sample = samples.get(name);
   if (sample) {

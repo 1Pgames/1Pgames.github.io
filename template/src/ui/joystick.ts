@@ -78,15 +78,42 @@ export class Joystick {
   /**
    * Modal overlays (upgrade draft, pause, shop) cover the control zone, so the
    * stick must stand down while one is open or a card tap also steers.
+   *
+   * Re-enabling ADOPTS a thumb that is already on the glass. Without that the
+   * stick only ever woke on a fresh `POINTER_DOWN`, so a player who kept their
+   * thumb down while an overlay closed held a dead stick until they lifted and
+   * pressed again — measured as a 120s soft-lock, because "press harder" is the
+   * one thing a stuck player will do and it does not generate a new down
+   * event. The adopted pointer is armed at its CURRENT position, so the vector
+   * starts at zero: the tap that dismissed the overlay cannot also become a
+   * steering input, and the stick answers the moment the thumb moves.
    */
   setEnabled(enabled: boolean): void {
     if (this.enabled === enabled) return;
     this.enabled = enabled;
-    if (!enabled) this.release();
+    if (!enabled) {
+      this.release();
+      return;
+    }
+    // `manager.pointers` holds the mouse pointer plus every touch pointer, so
+    // this covers desktop drag and multi-touch alike; `activePointer` alone can
+    // be a lifted pointer or the wrong one of two thumbs.
+    for (const pointer of this.scene.input.manager.pointers) {
+      if (pointer.isDown && this.arm(pointer)) return;
+    }
   }
 
   private onDown(pointer: Phaser.Input.Pointer): void {
-    if (!this.enabled || this.active || !this.inControlZone(pointer.y)) return;
+    this.arm(pointer);
+  }
+
+  /**
+   * Takes ownership of a pointer and plants the base under it. Returns false
+   * when the pointer is not ours — the single set of refusals shared by the
+   * fresh-press path and the adopt-on-enable path.
+   */
+  private arm(pointer: Phaser.Input.Pointer): boolean {
+    if (!this.enabled || this.active || !this.inControlZone(pointer.y)) return false;
     this.active = true;
     this.pointerId = pointer.id;
     this.baseX = Phaser.Math.Clamp(pointer.x, this.radius + 8, VIEW.width - this.radius - 8);
@@ -94,6 +121,7 @@ export class Joystick {
     this.base.setPosition(this.baseX, this.baseY).setAlpha(TUNING.joystick.activeAlpha);
     this.knob.setPosition(this.baseX, this.baseY).setAlpha(1);
     this.updateVector(pointer.x, pointer.y);
+    return true;
   }
 
   private onMove(pointer: Phaser.Input.Pointer): void {

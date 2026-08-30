@@ -9,6 +9,7 @@ import { track } from '../core/telemetry';
 import { shareResult } from '../core/share';
 import { Button } from '../ui/button';
 import { addBackground } from '../ui/background';
+import { enterPinningHitArea } from '../ui/entrance';
 import type { ResultStat } from '../core/session';
 
 /** Data `GameScene` passes via `scene.start(SCENES.gameOver, data)`. */
@@ -343,10 +344,14 @@ export class GameOverScene extends Phaser.Scene {
     enterFromBottom(this, currencyText, 160);
     enterFromBottom(this, seedText, 180);
     enterFromBottom(this, note, 190);
-    enterFromBottom(this, primary, 200);
-    enterFromBottom(this, shop, 240);
-    enterFromBottom(this, share, 240);
-    enterFromBottom(this, menu, 280);
+    // The four CTAs pin their hit areas (`ui/entrance.ts`); the rows above are
+    // inert copy and stay on `enterFromBottom`. A results screen that ignores
+    // the first tap on RETRY is the same defect as the menu's, at the exact
+    // moment the player is most impatient.
+    enterPinningHitArea(this, primary, { delayMs: 200 });
+    enterPinningHitArea(this, shop, { delayMs: 240 });
+    enterPinningHitArea(this, share, { delayMs: 240 });
+    enterPinningHitArea(this, menu, { delayMs: 280 });
 
     sfx(this.result.won ? 'levelup' : 'die', { volume: 0.7 });
 

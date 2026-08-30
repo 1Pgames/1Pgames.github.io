@@ -82,17 +82,16 @@ export interface RelicDef {
   effect?: RelicEffect;
 }
 
-/** Tier display names (§5.5). Index by tier - 1. */
+/**
+ * Tier display names (§5.5). Index by tier - 1, and fall back to `''` rather
+ * than throwing: every consumer is a repaint (`scenes/menu`, `scenes/meta`,
+ * `scenes/gameover`), and a HUD that crashes on a malformed tier is worse than
+ * one that shows a blank chip.
+ */
 export const TIER_NAMES: readonly string[] = ['Tarnished', 'Burnished', 'Gilded', 'Dread'];
 
-export const RELIC_TIERS: readonly RelicTier[] = [1, 2, 3, 4];
-
-/** Tier display name, e.g. `4` -> `'Dread'`. */
-export function tierName(tier: RelicTier): string {
-  const name = TIER_NAMES[tier - 1];
-  if (name === undefined) throw new Error(`No tier name for relic tier ${tier}`);
-  return name;
-}
+/** Tier ladder, for the code that has to walk all four. Internal: see `rollRelic`. */
+const RELIC_TIERS: readonly RelicTier[] = [1, 2, 3, 4];
 
 /**
  * Salvage value per tier — read from `TUNING.loot.salvage` rather than written
@@ -278,11 +277,6 @@ export function relicDef(id: string): RelicDef {
   return def;
 }
 
-/** Every relic of one tier, authoring order. */
-export function relicsOfTier(tier: RelicTier): readonly RelicDef[] {
-  return BY_TIER[tier];
-}
-
 /**
  * Tier draw weights for one roll (§5.5 drop rule), in tier order t1..t4.
  *
@@ -301,8 +295,10 @@ export function relicsOfTier(tier: RelicTier): readonly RelicDef[] {
  * after the shift instead would leave castle's +5 t2 sitting under a +2 roll
  * and give the Shrine a ~5% chance of a Burnished trinket.
  *
- * Exported because the sim's loot lane asserts the distribution directly
- * instead of sampling it.
+ * Exported because the §19 loot gate in `sim/families/arena.ts` asserts the
+ * ladder ANALYTICALLY instead of sampling it: "a +2 source roll never produces
+ * below Gilded" is a promise §5.5 makes to the player in every zone, and a
+ * sampled proof of a never-claim is not a proof.
  */
 export function relicTierWeights(zoneId: string, tierBias: number): number[] {
   const ladder = [0, 0, 0, 0];

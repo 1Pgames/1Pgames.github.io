@@ -85,7 +85,11 @@ function dayKey(date: Date): string {
   store.set(META_SLOT, JSON.stringify(v1));
 
   const migrated = loadMeta();
-  assert.equal(migrated.version, 2, 'v1 save must land on the current version');
+  // The invariant is "a v1 save lands on the CURRENT version", never "on version 2".
+  // A frozen literal turns the next legitimate schema bump into a red kit-selftest
+  // for the wrong reason, and whoever then bumps the literal to match has silently
+  // disabled the migration-chain check. Duskhaul hit exactly this on v2 -> v3.
+  assert.equal(migrated.version, DEFAULT_META.version, 'v1 save must land on the current version');
   assert.equal(migrated.currency, 425, 'currency survives migration');
   assert.deepEqual(migrated.unlocks, ['hero-b'], 'unlocks survive migration');
   assert.deepEqual(migrated.upgrades, { 'meta-hp': 3 }, 'purchased upgrades survive migration');
@@ -101,7 +105,7 @@ function dayKey(date: Date): string {
     typeof persisted === 'object' && persisted !== null && 'version' in persisted && 'currency' in persisted,
     'the persisted blob is an object carrying the migrated fields',
   );
-  assert.equal(persisted.version, 2, 'migration is written back to storage');
+  assert.equal(persisted.version, DEFAULT_META.version, 'migration is written back to storage');
   assert.equal(persisted.currency, 425, 'the written-back save keeps v1 data');
 }
 
