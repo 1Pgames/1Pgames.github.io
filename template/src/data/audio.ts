@@ -15,9 +15,27 @@ import type { SfxName } from '../core/audio';
  *
  * Rules:
  * - Paths are relative to `public/` (`assets/audio/...`), like `data/art.ts`.
- * - Ship `.mp3` (universal) or `.ogg`; one file per entry, no fallback lists.
- * - Total budget <= 6 MB — `scripts/release-check.mjs` warns above it. Music
- *   loops are the weight: 30-60s at ~96 kbps mono, seamless.
+ * - Ship `.ogg` (Vorbis) for MUSIC. Each stem plays as a looping
+ *   `AudioBufferSourceNode` after `decodeAudioData`, and MP3 bakes encoder
+ *   delay and end-padding into the decoded buffer, so an MP3 loop gaps
+ *   audibly every pass. Vorbis stores exact sample counts and loops
+ *   sample-accurate. `.mp3` is fine for one-shot sfx, where the padding is
+ *   inaudible. One file per entry, no fallback lists.
+ * - Total download budget <= 6 MB — `scripts/release-check.mjs` warns above
+ *   it. ~96 kbps mono is the target; a 3-minute stem lands near 1.6 MB.
+ * - The tighter limit is RAM, not download: a stem decodes to raw f32 at the
+ *   AudioContext rate whatever it compressed to, so ~33 MB per 3 minutes.
+ *   The cache is keyed by URL, so one file registered against several moods
+ *   costs one buffer — but two different 3-minute tracks cost ~66 MB. Prefer
+ *   30-60s loops when the music can carry the repetition; reach for a full
+ *   composed track only when it earns the memory.
+ * - Author the LOOP, not the track. A composed piece typically arrives with a
+ *   silent head and tail and will gap every pass: trim the silence, then
+ *   overlap the outro fade onto the intro fade with a short equal-power
+ *   crossfade. Verify by concatenating the loop to itself and measuring
+ *   across the wrap — no energy dip, and no peak spike toward 0 (a click).
+ * - Match levels across stems or a mood change jumps: same integrated LUFS,
+ *   and leave >= 1 dB true-peak headroom so lossy encoding cannot overshoot.
  * - A missing or unplayable file degrades to the synth voice/score with one
  *   console warning; it never breaks the game.
  *

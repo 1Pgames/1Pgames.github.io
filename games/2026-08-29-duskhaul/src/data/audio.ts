@@ -45,28 +45,36 @@ export const AUDIO: {
   sfx: Partial<Record<SfxName, string>>;
 } = {
   music: {
-    // "Iron Chapel" is the ONLY music in this game. It is registered against
-    // EVERY mood on purpose: `core/music.ts` synthesises a procedural score
-    // for any mood with no usable stem, so leaving `menu` blank would put a
-    // second, generated track in the game. There is to be exactly one.
+    // Every mood is registered on purpose. `core/music.ts` synthesises a
+    // procedural score for any mood with no usable stem, so a blank row does
+    // not mean "silence", it means "a second, generated track". The two files
+    // below are the only music in this game.
     //
-    // Both rows point at the same file, which costs one fetch and one decode:
-    // the stem cache is keyed by URL, not by track (see `stemBuffers`). The
-    // gain nodes stay per-track, so the menu plays flat while the run stem
-    // rides `setMusicIntensity()` — no `game-high` sibling, so it swells as
-    // the horde thickens instead of crossfading.
+    // Both were composed pieces, NOT loops: each arrived as a ~3min 48kHz
+    // stereo master with a silent head and tail (Iron Chapel 0.49s/0.71s,
+    // Ashen 0.64s/1.84s), so looping either raw would gap every pass. Shipped
+    // form for both: silence trimmed, downmixed to mono, and the outro fade
+    // overlapped onto the intro fade with a 4s equal-power crossfade, so the
+    // wrap is continuous. Seams measured by concatenating each loop to itself
+    // — no energy dip and no click (peaks hold ~-4dB across the join, where a
+    // click would spike toward 0).
     //
-    // Source was a 179.6s 48kHz stereo master with a 0.49s silent head and a
-    // 0.71s silent tail — a composed piece, NOT a loop. Looped raw it would
-    // gap for ~1.2s every pass. Shipped form: silence trimmed, downmixed to
-    // mono, and the outro fade overlapped onto the intro fade with a 4s
-    // equal-power crossfade, so the wrap is continuous (measured -16.1 ->
-    // -14.3 -> -16.2 dB across the seam, no dip and no click). 174.4s.
+    // Levels are matched so the menu -> run transition does not jump:
+    // -16.30 LUFS vs -16.31 LUFS, both limited to <= -1.6 dBTP. Ashen needed
+    // a normalisation pass for this (it arrived at -17.24 LUFS with a -0.58
+    // dBTP peak, too hot to encode safely once matched).
     //
-    // The synth engine stays in the build as the FAILURE path only: if this
-    // file ever 404s or fails to decode, a mood falls back to it with one
-    // console warning rather than going silent.
-    menu: 'assets/audio/iron-chapel.ogg',
+    // OGG rather than MP3 is load-bearing, not taste: each stem plays as a
+    // looping AudioBufferSourceNode after decodeAudioData, and MP3 bakes
+    // encoder delay and end-padding into the decoded buffer — reintroducing a
+    // gap at exactly the seam the crossfade exists to remove.
+    //
+    // The synth engine stays in the build as the FAILURE path only: if a file
+    // 404s or fails to decode, that mood falls back to it with one console
+    // warning rather than going silent. It is unreachable on a healthy build.
+    menu: 'assets/audio/ashen-menu-hall.ogg',
+    // No `game-high` sibling, so this stem's LEVEL rides setMusicIntensity()
+    // instead of crossfading: it swells as the horde thickens.
     'game-low': 'assets/audio/iron-chapel.ogg',
   },
   sfx: {},
