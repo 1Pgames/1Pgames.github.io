@@ -45,10 +45,16 @@ export const AUDIO: {
   sfx: Partial<Record<SfxName, string>>;
 } = {
   music: {
-    // "Iron Chapel" — the run score. Registered as the LOW stem with no
-    // `game-high` sibling, so per this module's contract its level simply
-    // tracks `setMusicIntensity()` instead of crossfading against a second
-    // stem: it swells as the horde thickens and the Collapse closes in.
+    // "Iron Chapel" is the ONLY music in this game. It is registered against
+    // EVERY mood on purpose: `core/music.ts` synthesises a procedural score
+    // for any mood with no usable stem, so leaving `menu` blank would put a
+    // second, generated track in the game. There is to be exactly one.
+    //
+    // Both rows point at the same file, which costs one fetch and one decode:
+    // the stem cache is keyed by URL, not by track (see `stemBuffers`). The
+    // gain nodes stay per-track, so the menu plays flat while the run stem
+    // rides `setMusicIntensity()` — no `game-high` sibling, so it swells as
+    // the horde thickens instead of crossfading.
     //
     // Source was a 179.6s 48kHz stereo master with a 0.49s silent head and a
     // 0.71s silent tail — a composed piece, NOT a loop. Looped raw it would
@@ -56,6 +62,11 @@ export const AUDIO: {
     // mono, and the outro fade overlapped onto the intro fade with a 4s
     // equal-power crossfade, so the wrap is continuous (measured -16.1 ->
     // -14.3 -> -16.2 dB across the seam, no dip and no click). 174.4s.
+    //
+    // The synth engine stays in the build as the FAILURE path only: if this
+    // file ever 404s or fails to decode, a mood falls back to it with one
+    // console warning rather than going silent.
+    menu: 'assets/audio/iron-chapel.ogg',
     'game-low': 'assets/audio/iron-chapel.ogg',
   },
   sfx: {},

@@ -179,12 +179,21 @@ const MOOD_TRACKS: Record<MusicMood, readonly MusicTrack[]> = {
 
 let nodes: MusicNodes | null = null;
 let stems: StemNodes | null = null;
-/** Decoded loops, kept across `stopMusic` so a restart is instant. */
-const stemBuffers = new Map<MusicTrack, AudioBuffer>();
-/** Fetched or fetching, so a mood switch never re-requests a file. */
-const stemRequested = new Set<MusicTrack>();
-/** Unreachable or undecodable stems — treated as unregistered, so the mood synthesises. */
-const stemFailed = new Set<MusicTrack>();
+/**
+ * Decoded loops, kept across `stopMusic` so a restart is instant.
+ *
+ * Keyed by URL, NOT by track: one file registered against several moods must
+ * cost ONE decode and ONE buffer. A stem decodes to raw f32 at the context
+ * rate no matter how well the file compresses (~33 MB for a 3-minute loop),
+ * so a track-keyed cache would hold a second identical copy the moment one
+ * score is used for both the menu and the run — which is exactly what a game
+ * shipping a single track does.
+ */
+const stemBuffers = new Map<string, AudioBuffer>();
+/** Fetched or fetching, by URL, so a mood switch never re-requests a file. */
+const stemRequested = new Set<string>();
+/** Unreachable or undecodable URLs — treated as unregistered, so the mood synthesises. */
+const stemFailed = new Set<string>();
 let mood: MusicMood | null = null;
 let intensity = 0.3;
 let bossOn = false;
@@ -199,7 +208,10 @@ let muteSubscribed = false;
  * per-mood, so a game may ship only a menu loop and synthesise its run.
  */
 function moodStems(target: MusicMood): MusicTrack[] {
-  return MOOD_TRACKS[target].filter((track) => AUDIO.music[track] !== undefined && !stemFailed.has(track));
+  return MOOD_TRACKS[target].filter((track) => {
+    const url = AUDIO.music[track];
+    return url !== undefined && !stemFailed.has(url);
+  });
 }
 
 function ensureMuteSubscription(): void {
@@ -424,8 +436,10 @@ function fadeOutBus(ctx: AudioContext, bus: GainNode, fadeMs: number): void {
 function loadStems(tracks: readonly MusicTrack[]): void {
   for (const track of tracks) {
     const url = AUDIO.music[track];
-    if (url === undefined || stemRequested.has(track)) continue;
-    stemRequested.add(track);
+    // Keyed by URL, so the same score registered against several moods is
+    // fetched and decoded exactly once.
+    if (url === undefined || stemRequested.has(url)) continue;
+    stemRequested.add(url);
     void fetch(url)
       .then((res) => (res.ok ? res.arrayBuffer() : Promise.reject(new Error(`HTTP ${res.status}`))))
       .then((bytes) => {
@@ -434,11 +448,11 @@ function loadStems(tracks: readonly MusicTrack[]): void {
         return ctx.decodeAudioData(bytes);
       })
       .then((buffer) => {
-        stemBuffers.set(track, buffer);
+        stemBuffers.set(url, buffer);
         if (mood !== null) startMusic(mood);
       })
       .catch((err: unknown) => {
-        stemFailed.add(track);
+        stemFailed.add(url);
         console.warn(`music: stem "${track}" (${url}) unavailable, synthesising instead`, err);
         if (mood !== null) startMusic(mood);
       });
@@ -502,7 +516,10 @@ function startStems(ctx: AudioContext, tracks: readonly MusicTrack[]): void {
   }
   const graph = stems;
   for (const track of tracks) {
-    const buffer = stemBuffers.get(track);
+    // Buffers are shared by URL; the gain/source nodes stay per-TRACK so two
+    // moods playing the same file still mix at their own levels.
+    const url = AUDIO.music[track];
+    const buffer = url === undefined ? undefined : stemBuffers.get(url);
     if (!buffer || graph.sources.has(track)) continue;
     const gain = ctx.createGain();
     gain.gain.value = 0;
