@@ -16,7 +16,12 @@
     "shots/03-draft.png",
     "shots/04-results.png"
   ],
-  "status": "draft",
+  "status": "released",
+  "playtest": {
+    "approved": true,
+    "by": "tmwh",
+    "date": "2026-09-08"
+  },
   "versionLabel": "Polished cut",
   "versionNote": "The build that takes the human feedback loop. Currently identical to the AI original \u2014 it diverges the moment the first round of playtest notes lands."
 }
