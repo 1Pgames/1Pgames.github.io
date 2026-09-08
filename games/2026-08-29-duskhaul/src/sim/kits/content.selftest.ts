@@ -131,8 +131,33 @@ function evolutionOffered(taken: readonly string[], weapon: WeaponPattern): bool
   for (let i = 1; i < WAVES.length; i += 1) {
     assert.ok((WAVES[i]?.at ?? 0) >= (WAVES[i - 1]?.at ?? 0), 'waves are authored in run order');
   }
-  assert.equal(TIMELINE_EVENTS.length, 2, 'two chests (§5.4)');
-  for (const event of TIMELINE_EVENTS) assert.equal(event.kind, 'chest');
+  // The timeline is DERIVED from TUNING and ordered. Both halves are real bug
+  // classes: a beat retyped as a literal here silently ignores a retune of its
+  // key, and `RunDirector` walks this list with one advancing index, so a beat
+  // authored out of order never fires at all. The old form of this assertion
+  // pinned the LENGTH at 2 and every kind at 'chest', which is why the
+  // `breather` kind — implemented in the slice, in the director and in the sim
+  // — shipped authored at zero seconds: adding one was a test failure.
+  const HANDLED_KINDS: Record<string, true> = { chest: true, breather: true, 'elite-rush': true };
+  for (let i = 1; i < TIMELINE_EVENTS.length; i += 1) {
+    assert.ok(
+      (TIMELINE_EVENTS[i]?.at ?? 0) >= (TIMELINE_EVENTS[i - 1]?.at ?? 0),
+      'timeline events are authored in run order',
+    );
+  }
+  for (const event of TIMELINE_EVENTS) {
+    assert.ok(HANDLED_KINDS[event.kind] === true, `no handler for timeline kind "${event.kind}"`);
+  }
+  assert.deepEqual(
+    TIMELINE_EVENTS.filter((event) => event.kind === 'chest').map((event) => event.at),
+    [...TUNING.chest.atS],
+    'chest beats are derived from TUNING.chest.atS (§5.4 authors two)',
+  );
+  assert.deepEqual(
+    TIMELINE_EVENTS.filter((event) => event.kind === 'breather').map((event) => event.at),
+    [...TUNING.events.breatherAtS],
+    'breather beats are derived from TUNING.events.breatherAtS',
+  );
 }
 
 // --- §2A phases, and the Collapse is the last one --------------------------

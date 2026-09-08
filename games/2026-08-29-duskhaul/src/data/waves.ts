@@ -185,12 +185,19 @@ export const WAVES: readonly WaveSpec[] = [
     pattern: 'cluster',
     spawns: [{ id: 'marrowworm', count: 4, everyMs: 600 }],
   },
-  // 14. 330s — burst pressure. Cadence 1100ms, not 700: see the Climax budget
-  // note on row 15.
+  // 14. 330s — burst pressure DEBUTS. Cadence 2200ms, not 1100.
+  //
+  // MEASURED (arena sim, 120 runs): the Pyreling is a 110-speed suicide chaser
+  // whose scaled Climax hit is 25 plus a 12-damage death burst, and a 1100ms
+  // lane put ~55 of them on the board before the Warden beat. That is not a
+  // debut, it is the heaviest single damage source in the band arriving as a
+  // flood 30s before the phase step. A new threat enters ALONE and slow; the
+  // Climax row below is where it thickens. The lane ends at
+  // `TUNING.warden.beatFromS` with the rest of the Climax weight — see row 15.
   {
     at: 330,
-    until: TUNING.collapse.atS,
-    spawns: [{ id: 'pyreling', count: 0, everyMs: 1100 }],
+    until: TUNING.warden.beatFromS,
+    spawns: [{ id: 'pyreling', count: 0, everyMs: 2200 }],
   },
   // 15. 360s — Gate B closes: the horde changes CHARACTER rather than thickening.
   //
@@ -201,26 +208,41 @@ export const WAVES: readonly WaveSpec[] = [
   // killed once, and no run ever saw the Collapse. Bodies/s by band was
   // 0.13 / 1.95 / 1.11 / 2.04 / 5.27 — a 2.6x step in one phase.
   //
-  // The budget is now spent on WEIGHT instead of COUNT, which is the lever §7
-  // `wave.compositionFromS`/`eliteSwapEveryS`/`eliteShareMax` already provides
-  // and the one the entity budget can absorb (the 420s beat peaked at 98 live
-  // against §15's 180-enemy share): the wretch drip halves to 900ms and a Pale
-  // Knight lane (90 base hp, wide swing) opens at 7s. Same pressure, fewer and
-  // heavier bodies, and the picture keeps changing instead of just filling up.
+  // That fix cut COUNT and bought WEIGHT with the change — a 7s Pale Knight
+  // lane on top of the 330s Pyreling flood — and the deep lanes stayed dead:
+  // 45% extraction, 0 of 120 runs reached the Collapse, median deep run ended
+  // at 314s. The reason is the pressure law itself. Damage taken resolves ONE
+  // hit per i-frame window and that hit is the BIGGEST thing in contact, while
+  // the chance of being hit saturates at eight simultaneous attackers. So above
+  // ~8 bodies in reach, count buys nothing and weight buys everything: trading
+  // 1.5 bodies/s for a 90hp/14dmg tank lane raised damage taken while removing
+  // the kills the deep build levels on. The previous pass read that as "a
+  // thinner Climax starves XP" — the starvation was real, the conclusion was
+  // half of it.
   //
-  // Final tune, best of three measured iterations: 3.80 bodies/s. Thinning
-  // further to 3.61 and then 3.10 made the deep lanes WORSE, not better (45% ->
-  // 35% -> 30% extraction), because a thinner Climax also starves the XP and
-  // shard curve the deep build needs to survive the Warden. 3.80 is the peak of
-  // that curve.
+  // So: the budget goes back into LIGHT bodies (wretch 900 -> 700ms) and the
+  // heavies become punctuation, not a lane (paleknight 7000 -> 14000ms). Same
+  // ~3.6 bodies/s, same income, roughly half the damage ceiling, and the Pale
+  // Knight still reads as the Climax's signature body because it now arrives
+  // one at a time into a thin crowd instead of stacking eight deep.
+  //
+  // And the lane STOPS at `TUNING.warden.beatFromS` (405s) instead of running
+  // into the Collapse at 480s. Two reasons, one staged and one measured: the
+  // Dread Herald at 390s is the crest of the ramp and a boss that walks in
+  // under an unbroken horde is not a beat; and the §8 deep route prices its
+  // Gate C decision at ~414s against its own recent damage intake, so a Climax
+  // still running at 414s made "wait for the Collapse premium" arithmetically
+  // impossible and the 480s ending unreachable in 120 of 120 runs. The ambient
+  // lanes (rows 3, 4, 7, 8) still run to 480, and `wave.compositionFromS` still
+  // upgrades their spawns to elites, so the beat is thin, not empty.
   {
     at: 360,
-    until: TUNING.collapse.atS,
+    until: TUNING.warden.beatFromS,
     spawns: [
       { id: 'dirgebell', count: 0, everyMs: 30000 },
-      { id: 'wretch', count: 0, everyMs: 900 },
+      { id: 'wretch', count: 0, everyMs: 700 },
       { id: 'ashwraith', count: 0, everyMs: 4000 },
-      { id: 'paleknight', count: 0, everyMs: 7000 },
+      { id: 'paleknight', count: 0, everyMs: 14000 },
     ],
   },
   // 16. elite 3, at `TUNING.elite.atS[2]`.
@@ -248,16 +270,28 @@ export const WAVES: readonly WaveSpec[] = [
  * Scripted one-shot beats layered on the wave drip: one chest per entry in
  * `TUNING.chest.atS` (§5.4 authors two, at 165s / 345s), each a guaranteed
  * relic roll at `TUNING.chest.tierBias` — the same +1 the §5.5 drop rule
- * quotes for chests and elites.
+ * quotes for chests and elites; plus one BREATHER per entry in
+ * `TUNING.events.breatherAtS`.
  *
- * DERIVED from the key, not retyped: the seconds used to be literals here
+ * The breather kind was fully implemented at both ends — the slice heals
+ * `events.breatherHealRatio` and silences spawns for `events.breatherSilenceMs`,
+ * the sim heals — and authored at zero seconds, so the run had no recovery beat
+ * anywhere between Gate B opening and the Warden. Measured, that is the shape
+ * that killed the deep lanes: a spike with no breather after it is not a spike,
+ * it is the new floor.
+ *
+ * DERIVED from the keys, not retyped: the seconds used to be literals here
  * while `TUNING.chest.atS` was read by nothing, so adding a third chest to the
  * key would have shipped no third chest.
+ *
+ * SORTED, because `RunDirector` walks this list with a single advancing index
+ * and a beat authored out of order would never fire.
  *
  * Gate, Collapse, Shrine, elite and Warden beats are deliberately absent: see
  * the file header. `EventSpec.kind` is a `core/run.ts` union owned by the
  * engine, and nothing here needs to widen it.
  */
-export const TIMELINE_EVENTS: readonly EventSpec[] = TUNING.chest.atS.map(
-  (at): EventSpec => ({ at, kind: 'chest' }),
-);
+export const TIMELINE_EVENTS: readonly EventSpec[] = [
+  ...TUNING.chest.atS.map((at): EventSpec => ({ at, kind: 'chest' })),
+  ...TUNING.events.breatherAtS.map((at): EventSpec => ({ at, kind: 'breather' })),
+].sort((left, right) => left.at - right.at);

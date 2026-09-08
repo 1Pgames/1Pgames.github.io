@@ -497,13 +497,27 @@ export const TUNING = {
     /** Fire damage ramp (escalation 2 of 3). */
     fireDpsStep: 4,
     fireDpsMax: 60,
-    /** Inject one elite at the ring edge this often (escalation 3 of 3). */
-    eliteEveryS: 6,
+    /**
+     * ONE PULSE, EVERY THREE SECONDS. `eliteEveryS` was 6 and `stepEveryS` was
+     * 10, and the first run that ever reached the Collapse showed why that is
+     * wrong: it resolved in 5.2 seconds — camp outside the ring, ignition, step
+     * in, 4s channel, gone — and in those 5.2 seconds NONE of the three
+     * escalations the ending is built on had fired. Ring 833 -> 708px was the
+     * only thing that moved; the fire was still at its opening 10 dps and not
+     * one elite had been injected. A ramp whose first step lands after the
+     * window it is ramping inside of is a ramp nobody plays.
+     *
+     * The window is not negotiable — it is the Gate C channel, 4s clean and
+     * 26s under the Warden — so the ramp moves to fit it. On a shared 3s beat
+     * every overtime, even the shortest, shows the fire step, the elite at the
+     * ring edge and the ring closing; a contested exit eats eight of them.
+     */
+    eliteEveryS: 3,
     /** At ignition the trash drip stops entirely; only elites spawn. */
     stopTrashDrip: true,
     /** Threat multiplier grows by this much every `stepEveryS`, uncapped. */
     threatStep: 0.4,
-    stepEveryS: 10,
+    stepEveryS: 3,
     /** Spawn drip interval floor while the Collapse runs. */
     spawnFloorMs: 100,
   },
@@ -568,6 +582,29 @@ export const TUNING = {
   /** The Gate Warden (PRD §7 `warden.*`): guards Gate C from 420s. */
   warden: {
     atS: 420,
+    /**
+     * The second the Climax's heavy lanes STOP and the arena clears for the
+     * boss beat (`data/waves.ts` rows 14 and 15 end here).
+     *
+     * Fifteen seconds ahead of `atS`, not on it, and that gap is the whole
+     * point. The §8 deep route evaluates its Gate C plan the moment the arch is
+     * within travel range — about 414s, six seconds BEFORE the gate opens — and
+     * that evaluation prices the wait against its own recent damage intake. As
+     * long as the Climax lanes were still running at 414s, the estimate read a
+     * Climax-rate drain over a 66-second wait and the answer was always "leave
+     * now", so the Collapse was structurally unreachable content: 0 of 120
+     * measured runs ever saw it, and the deep lane's whole §8 identity — stay
+     * for `extract.collapseHaulBonus` — was a number nothing could ever earn.
+     * The field thinning BEFORE the decision is what makes the decision real.
+     *
+     * It is also just better staging: the Dread Herald at 390s is the Climax's
+     * crest, and a boss that arrives inside an unbroken horde is not a beat.
+     * The ambient lanes (ratking, bonecaster, shroudmoth, Gilded Ghoul) keep
+     * running to 480 so the arena is never empty, and `wave.compositionFromS`
+     * keeps upgrading their spawns to elites — the pressure that remains is
+     * the Warden and what the arch itself pulls in.
+     */
+    beatFromS: 405,
     gate: 'c',
     spawnOffsetPx: 220,
   },
@@ -579,10 +616,22 @@ export const TUNING = {
    * the only honest escalation is what the pool is MADE OF, not how big it is:
    * scheduled trash spawns are upgraded to elites, consuming that spawn's
    * budget so no cull API is needed.
+   *
+   * `eliteSwapEveryS` was 20, and 20 is a LANE, not an escalation. Measured
+   * over 20 deep-lane ceiling runs, every hit taken after 330s attributed to
+   * the biggest body in contact: elites were 486 of 896 damage (54%), with the
+   * Sorrow Reaper alone at 332 — one 38-damage swing is a quarter of the
+   * player's bar at that phase, and two inside an i-frame pair is the run. At
+   * 20s the swap injects ~10 elites between 285s and the Collapse on top of
+   * §5.4's three AUTHORED entrances, so the scripted beats stop reading as
+   * beats and the deep lanes never arrive at Gate C with a health bar to
+   * spend. At 40s it injects ~5: the composition still turns over, the pool
+   * still gets heavier as it thins, and the 150s/270s/390s entrances stay the
+   * spikes the timeline is written around.
    */
   wave: {
     compositionFromS: 285,
-    eliteSwapEveryS: 20,
+    eliteSwapEveryS: 40,
     eliteShareMax: 0.25,
   },
 
@@ -594,6 +643,24 @@ export const TUNING = {
 
   /** Scripted timeline events (see `data/waves.ts` `TIMELINE_EVENTS`). */
   events: {
+    /**
+     * `breather` seconds. The kind was implemented end to end — the slice heals
+     * and silences spawns, the sim heals — and then AUTHORED NOWHERE: the run
+     * timeline went from 240s to the Warden at 420s as one unbroken escalation
+     * with no recovery beat, which is the shape the deep lanes measured as
+     * unsurvivable.
+     *
+     * 290s lands after the Gate B stack (240s open + 250s guard pack + 270s
+     * elite). 412s is placed to the FRAME, not to the phase: the §8 deep route
+     * prices its Gate C plan the moment the arch comes into travel range, ~414s,
+     * and that one evaluation decides whether the run ends at 424s or plays the
+     * Collapse. A recovery beat two seconds earlier is the difference between
+     * making that call on a real health bar and making it on the wreckage of
+     * the Climax; the 8s spawn silence then covers the Warden's entrance at
+     * 420s. It sits after `warden.beatFromS` (405s) on purpose — heal into a
+     * field that has already thinned, not into one still spawning.
+     */
+    breatherAtS: [290, 412],
     /** `breather` silences ordinary spawns for this long and heals this fraction of max HP. */
     breatherSilenceMs: 8000,
     breatherHealRatio: 0.1,
