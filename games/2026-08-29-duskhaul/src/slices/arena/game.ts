@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { CSS, PALETTE, SAFE, TEXT, TUNING, VIEW } from '../../config';
+import { CSS, PALETTE, SAFE, TEXT, TUNING, VIEW, bareText } from '../../config';
 import { SCENES } from '../../core/keys';
 import { Controls } from '../../core/controls';
 import { Joystick } from '../../ui/joystick';
@@ -54,7 +54,7 @@ import { Button } from '../../ui/button';
 import { GateCompass, type GateCompassGate, type GateCompassModel } from '../../ui/gateCompass';
 import { BagPips, type BagPipsModel } from '../../ui/bagPips';
 import { ChannelBar, type ChannelBarModel } from '../../ui/channelBar';
-import { BUTTON_STYLE, IDENTITY, tierColor, tierColorCss } from '../../ui/duskChrome';
+import { BUTTON_STYLE, IDENTITY, paintScrim, tierColor, tierColorCss } from '../../ui/duskChrome';
 import { hasSeenCoach, type CoachHandle, type CoachRect } from '../../ui/coach';
 import { showGateCoach, startOpeningCoach, type OpeningCoach } from '../../ui/coachBeats';
 import {
@@ -66,6 +66,8 @@ import {
 import { Bag, resolveBagCapacity } from '../../systems/bag';
 import type { GameOverData, HaulRelic } from '../../scenes/gameover';
 import { RelicPickup } from '../../objects/relic';
+import { WardenMark } from '../../ui/wardenMark';
+import type { Enemy } from '../../objects/enemy';
 
 /**
  * `art/manifest.json` groups this slice loads. `PreloadScene` downloads only
@@ -155,6 +157,46 @@ const GATE_GUARD_ADD_ID = 'husk';
 const COACH_GATE_RING = { top: 200, bottom: 1000 } as const;
 /** Spotlight size: the 48px arrow plus its countdown chip, with room to breathe. */
 const COACH_GATE_SPOT = 160;
+
+/**
+ * The `breather` lull's calm edge band, resting alpha. BELOW the channel
+ * vignette's 0.30 floor: the channel is the run's most urgent state and this is
+ * its opposite, so the two must never read as the same escalation — relief is a
+ * tint, pressure is a wash. Measured in the browser at 0.14 first, which was
+ * invisible over the castle floor's own blue-green; 0.22 reads as a green
+ * screen edge without ever competing with a live rite.
+ */
+const BREATHER_CALM_ALPHA = 0.22;
+/**
+ * Share of the lull that plays as the hand-back. A RATIO, not a duration, so
+ * the warning stays proportional to whatever `events.breatherSilenceMs` is —
+ * at the authored 8000ms that is the last two seconds.
+ */
+const BREATHER_STIR_RATIO = 0.25;
+/**
+ * The lull chip's anchor: below §14.2's compass ring top (200) and above
+ * §14.3's banner band (300), i.e. the one screen row where an 8-second
+ * indicator can sit without covering a gate countdown or a banner.
+ */
+const BREATHER_CHIP_Y = 250;
+/** Text block the lull chip's scrim is sized for ("THE DUSK STIRS" is the longest line). */
+const BREATHER_CHIP_BLOCK = { width: 240, height: 30 } as const;
+
+/**
+ * The Collapse ignition's physical cue: bursts laid along the arc of the ring
+ * facing the player, and the step between them. Three is what covers the
+ * visible arc at the authored start radius without becoming a wall of
+ * particles on the run's densest frame (§15).
+ */
+const COLLAPSE_IGNITE_POINTS = 3;
+const COLLAPSE_IGNITE_STEP_MS = 60;
+/**
+ * How long the COLLAPSE banner waits for the world. Long enough that the ring
+ * lighting is the first thing on screen, short enough that the announcement is
+ * still part of the same beat — the whole ceremony stays under the 700ms hold
+ * the banner itself uses.
+ */
+const COLLAPSE_BANNER_DELAY_MS = 220;
 
 /** Ids the Collapse injects; cycled so the finale is not one elite on repeat. */
 const COLLAPSE_ELITE_IDS: readonly string[] = eliteEnemies().map((def) => def.id);
@@ -306,6 +348,45 @@ export class GameScene extends Phaser.Scene {
   private nextEliteSwapS = 0;
   private eliteSwapIndex = 0;
 
+  // --- the Warden beat's screen-space marker (§13 "Warden spawn") ----------
+  /**
+   * The plate + off-screen arrow, alive for exactly as long as the Warden is:
+   * built by `showWardenMark` on the spawn callback, destroyed on the boss
+   * kill path (`onWardenDown`) and again in `teardown`, so a run that ends
+   * with the Warden alive cannot carry boss chrome into the next one.
+   */
+  private wardenMark: WardenMark | null = null;
+  /**
+   * The Warden's own body, so the marker can point at it rather than at the
+   * arch it spawned beside — the Warden CHASES (`objects/enemy.ts:tickBoss`),
+   * so Gate C stops being its position within a second of the entrance.
+   *
+   * Resolved from the display list once, on the spawn callback: this slice does
+   * not own `systems/combat.ts` and `spawnAtPosition` hands back nothing. The
+   * body is pooled, so `def.behaviour` is re-checked every frame — after the
+   * kill the same sprite is recycled as ordinary trash.
+   */
+  private wardenBody: Enemy | null = null;
+  /** Reused marker model — fed every frame while the Warden lives, so it never reallocates. */
+  private readonly wardenModel = { playerX: 0, playerY: 0, wardenX: 0, wardenY: 0, hpRatio: 1 };
+
+  // --- the `breather` lull (§2's one recovery beat) -------------------------
+  /**
+   * `time.now` at which the lull ends. The SAME clock and the SAME duration key
+   * `CombatSystem.silenceSpawns` runs on (`TUNING.events.breatherSilenceMs`),
+   * read once per beat, so a retune of that key moves the mechanic and every
+   * frame of its feedback together.
+   */
+  private breatherEndsAtMs = -Infinity;
+  private breatherWindowMs = 0;
+  /** Whole seconds last written to the chip — the text is diffed, not rewritten. */
+  private breatherShownS = -1;
+  /** Latched once the "the lull is ending" copy has replaced the countdown. */
+  private breatherStirred = false;
+  private breatherVignette!: Phaser.GameObjects.Graphics;
+  private breatherChip!: Phaser.GameObjects.Container;
+  private breatherChipText!: Phaser.GameObjects.Text;
+
   // --- HUD components (owned by UiMeta, fed from here) ---
   private compass!: GateCompass;
   private bagPips!: BagPips;
@@ -396,6 +477,14 @@ export class GameScene extends Phaser.Scene {
     this.shrineSpawnAccMs = 0;
     this.nextEliteSwapS = TUNING.wave.compositionFromS;
     this.eliteSwapIndex = 0;
+    // The marker's display objects died with the previous visit's scene, but
+    // the references and the beat's latches are instance state.
+    this.wardenMark = null;
+    this.wardenBody = null;
+    this.breatherEndsAtMs = -Infinity;
+    this.breatherWindowMs = 0;
+    this.breatherShownS = -1;
+    this.breatherStirred = false;
     // The previous visit's display objects died with the scene — only the
     // instance-level references need dropping.
     this.relics = [];
@@ -674,6 +763,12 @@ export class GameScene extends Phaser.Scene {
     this.compass?.destroy();
     this.bagPips?.destroy();
     this.channelBar?.destroy();
+    // The Warden marker owns a repeating arrow pulse, so it is killed with the
+    // rest of the HUD rather than left to the display list: a `repeat: -1`
+    // tween surviving a `scene.restart` is the leak AGENTS.md names.
+    this.wardenMark?.destroy();
+    this.wardenMark = null;
+    this.wardenBody = null;
     this.zoneSystem?.destroy();
     for (const pickup of this.relics) pickup.despawn();
     this.relics.length = 0;
@@ -906,7 +1001,14 @@ export class GameScene extends Phaser.Scene {
     );
   }
 
-  /** The Warden takes station on Gate C — the Bleak Arch is what it guards. */
+  /**
+   * The Warden takes station on Gate C — the Bleak Arch is what it guards.
+   *
+   * The ENTRANCE is not announced here: `spawnAtPosition` fires
+   * `onBossSpawned` synchronously for the first `boss` body, so the banner, the
+   * toll, the camera cue and the marker all live there — one announcement site,
+   * reached whichever way the row is spawned.
+   */
   private spawnWarden(): void {
     const gate = this.zoneGates.find((g) => g.id === TUNING.warden.gate) ?? this.zoneGates[2];
     if (gate === undefined) return;
@@ -1053,9 +1155,24 @@ export class GameScene extends Phaser.Scene {
   }
 
   /**
-   * §13 "Warden spawn": shake 0.015/300ms + banner + the boss bar sliding in.
-   * The bar is the Warden's own HP bar (`objects/enemy.ts` gives `boss` bodies
-   * one); this owns the shake, the banner and the `whoosh`.
+   * §13 "Warden spawn". The row asks for shake + banner + a boss bar, and the
+   * shipped build's version of the bar was the Warden's OWN world-space one
+   * (`objects/enemy.ts` gives `boss` bodies a following `Bar`) — drawn on a
+   * body that spawns `warden.spawnOffsetPx` off Gate C, i.e. off camera. So the
+   * whole beat was a 520ms banner over an empty arena, and with the Climax
+   * lanes now stopping at `warden.beatFromS` the measured read of 405-480s was
+   * "the spawn lanes switched off", not "a boss took the arch".
+   *
+   * Four channels, one of them PERSISTENT:
+   *  - audio: a descending three-note toll under the pitched-down `whoosh`.
+   *    Descending is the point — `sfxArp` only rises, and every rising voice in
+   *    this game is a reward (level, evolution, extraction).
+   *  - text: the banner naming it, held 620ms, plus a toast in the run's own
+   *    diction ("the Bleak Arch" is what §11/`data/enemies.ts` call Gate C).
+   *  - camera: ONE cue, the §13 shake. No flash and no edge band on top of it:
+   *    three camera cues on one frame is a frame nobody can read.
+   *  - the marker (`ui/wardenMark.ts`), which outlives all of the above and is
+   *    the actual answer to "where is it" for the next sixty seconds.
    */
   private onBossSpawned(): void {
     this.bossActive = true;
@@ -1063,8 +1180,87 @@ export class GameScene extends Phaser.Scene {
     this.punch(0.015, 300);
     // `warn` amber, not `bad`: `duskChrome.textToneIsLegal` bars `bad` as a
     // text tone over art, and this banner lands over the arena.
-    banner(this, 'THE WARDEN', CSS.warn, 520);
-    sfx('whoosh', { volume: 0.8 });
+    banner(this, 'THE WARDEN', CSS.warn, 620);
+    sfx('whoosh', { volume: 0.8, rate: 0.7 });
+    // The toll: `die` is the game's darkest voice, and three of it walking DOWN
+    // in pitch is a jailer arriving rather than a husk dying.
+    sfx('die', { volume: 0.7, rate: 0.85 });
+    sfx('die', { volume: 0.6, rate: 0.68, delay: 0.1 });
+    sfx('die', { volume: 0.5, rate: 0.54, delay: 0.2 });
+    // BELOW §14.3's channel-bar band (412-468), not inside it: Gate C opens on
+    // the same second the Warden lands (`gate.c.openS` = `warden.atS`), so a
+    // toast in that band would land on a live extraction bar during the one
+    // beat where both are up at once.
+    //
+    // And DELAYED, because that same second also fires the gate's own
+    // `GATE C OPEN` float, which is PLAYER-anchored and therefore lands
+    // wherever the player happens to stand — measured in a driven 420s run, it
+    // came down straight on top of this line. Space cannot separate two
+    // messages when one of them follows the player, so time does: `floatText`
+    // runs a 620ms tween, so the second line of the announcement starts as the
+    // gate line finishes and the beat reads as one sentence instead of two
+    // overlapping ones.
+    this.time.delayedCall(620, () => {
+      if (this.tearingDown || this.ended) return;
+      toast(this, 'IT HOLDS THE BLEAK ARCH', CSS.accent, 520, 260);
+    });
+    this.showWardenMark();
+  }
+
+  /**
+   * Builds the marker and binds it to the body that just spawned.
+   *
+   * `CombatSystem.spawnEnemyAt` pushes the body BEFORE it fires this callback,
+   * and `Enemy`'s constructor puts every pooled body on the display list, so
+   * the boss is findable here — which is what lets this slice track the Warden
+   * without reaching into `systems/combat.ts`, whose API it does not own. The
+   * scan runs once per run.
+   */
+  private showWardenMark(): void {
+    for (const child of this.children.list) {
+      const enemy = child as Partial<Enemy>;
+      if (enemy.def?.behaviour !== 'boss' || child.active !== true) continue;
+      this.wardenBody = child as Enemy;
+      break;
+    }
+    if (this.wardenBody === null) return;
+    this.wardenMark?.destroy();
+    this.wardenMark = new WardenMark(this);
+  }
+
+  /**
+   * Drops the marker. Called from the boss KILL path (`onWardenDown`, wired to
+   * `onBossKilled`) and from the per-frame guard below, so a Warden that dies
+   * — or a pooled body recycled as trash — can never leave chrome on screen.
+   */
+  private hideWardenMark(): void {
+    this.wardenMark?.destroy();
+    this.wardenMark = null;
+    this.wardenBody = null;
+  }
+
+  /**
+   * Feeds the marker its one frame of data. Runs inside `feedHudComponents`,
+   * i.e. on ticking frames only, and no-ops entirely when no Warden is up —
+   * this is a null check for 420 of the run's 480 seconds.
+   */
+  private tickWardenMark(): void {
+    const mark = this.wardenMark;
+    const body = this.wardenBody;
+    if (mark === null || body === null) return;
+    // The body is POOLED: after the kill this same sprite comes back as a husk,
+    // so identity is re-established from the archetype every frame rather than
+    // trusted from spawn time.
+    if (!body.active || body.def?.behaviour !== 'boss' || body.health.hp <= 0) {
+      this.hideWardenMark();
+      return;
+    }
+    this.wardenModel.playerX = this.combat.player.x;
+    this.wardenModel.playerY = this.combat.player.y;
+    this.wardenModel.wardenX = body.x;
+    this.wardenModel.wardenY = body.y;
+    this.wardenModel.hpRatio = body.health.ratio;
+    mark.update(this.wardenModel);
   }
 
   private onWeaponEvolved(name: string): void {
@@ -1158,10 +1354,7 @@ export class GameScene extends Phaser.Scene {
         break;
       }
       case 'breather':
-        sfx('whoosh', { volume: 0.4 });
-        floatText(this, this.combat.player.x, this.combat.player.y - 100, 'BREATHER', '#8fe3a5', 40);
-        this.combat.player.health.heal(this.combat.player.health.max * TUNING.events.breatherHealRatio);
-        this.combat.silenceSpawns(TUNING.events.breatherSilenceMs);
+        this.beginBreather();
         break;
       case 'elite-rush': {
         sfx('die', { volume: 0.3 });
@@ -1203,8 +1396,120 @@ export class GameScene extends Phaser.Scene {
   }
 
   /**
+   * The `breather` beat (PRD §2's ONE recovery beat, authored at
+   * `TUNING.events.breatherAtS`): `breatherHealRatio` of max HP back, and
+   * `breatherSilenceMs` with no ordinary spawns.
+   *
+   * The mechanic shipped correct and the feedback did not: one whoosh and one
+   * 40px floater, both gone inside a second, for an EIGHT-SECOND lull. Measured
+   * on the shipping build, a frame one second in was indistinguishable from a
+   * spawner that had broken — which is the worst possible read for the beat
+   * whose whole job is to say "you are allowed to stop running now".
+   *
+   * So the beat is told for as long as it lasts: the calm edge band and the
+   * countdown chip live exactly `breatherSilenceMs`, the heal is spelled out as
+   * a number, and the last quarter of the window is a hand-back that names the
+   * dusk coming again instead of just going quiet.
+   *
+   * EVERY duration below is derived from `breatherSilenceMs`, and the clock is
+   * `time.now` — the same clock `CombatSystem.silenceSpawns` counts on. A
+   * retune of that key therefore moves the mechanic and its whole feedback
+   * together; nothing here restates the number.
+   */
+  private beginBreather(): void {
+    const windowMs = TUNING.events.breatherSilenceMs;
+    this.combat.silenceSpawns(windowMs);
+    this.breatherWindowMs = windowMs;
+    this.breatherEndsAtMs = this.time.now + windowMs;
+    this.breatherShownS = -1;
+    this.breatherStirred = false;
+
+    const player = this.combat.player;
+    const before = player.health.hp;
+    player.health.heal(player.health.max * TUNING.events.breatherHealRatio);
+    const healed = Math.round(player.health.hp - before);
+
+    // A LIGHT exhale (rate up), not the pitched-down growl the Warden and the
+    // closing gates use: this is the only beat in the run that is good news
+    // about nothing happening, so it must not share a voice with a threat.
+    sfx('whoosh', { volume: 0.35, rate: 1.25 });
+    if (healed > 0) {
+      sfx('pickup', { volume: 0.4, rate: 0.85 });
+      floatText(this, player.x, player.y - 100, `+${healed} HP`, CSS.good, 46);
+    } else {
+      // Healing a full bar is a real outcome and it gets the honest label —
+      // "+0 HP" over a full bar reads as a bug in the recovery beat.
+      floatText(this, player.x, player.y - 100, 'HP FULL', CSS.inkSoft, 40);
+    }
+    toast(this, 'THE DUSK DRAWS BACK', CSS.good, 560, 300);
+
+    this.breatherChipText.setText('BREATHER').setColor(CSS.good);
+    this.breatherChip.setAlpha(1).setVisible(true);
+    this.breatherVignette.setAlpha(BREATHER_CALM_ALPHA).setVisible(true);
+  }
+
+  /**
+   * Holds the lull's indicator for its whole window. Alpha is WRITTEN per frame
+   * from the remaining time plus a slow breath rather than tweened — one field
+   * write against a looping tween that would need killing on the end of the
+   * window, on death, on extraction and on shutdown (the same call the channel
+   * vignette makes, for the same reason).
+   */
+  private tickBreather(): void {
+    if (this.breatherEndsAtMs === -Infinity) return;
+    const remainingMs = this.breatherEndsAtMs - this.time.now;
+    if (remainingMs <= 0) {
+      this.endBreather();
+      return;
+    }
+
+    // The hand-back: the last quarter of the window says the lull is ending, so
+    // the player chooses when to stop resting instead of being told by a spawn.
+    const stirMs = this.breatherWindowMs * BREATHER_STIR_RATIO;
+    if (remainingMs <= stirMs) {
+      if (!this.breatherStirred) {
+        this.breatherStirred = true;
+        this.breatherChipText.setText('THE DUSK STIRS').setColor(CSS.warn);
+      }
+      // Calm drains out across exactly that stretch — a landing, not a cut.
+      const t = remainingMs / stirMs;
+      this.breatherVignette.setAlpha(BREATHER_CALM_ALPHA * t);
+      this.breatherChip.setAlpha(0.45 + 0.55 * t);
+      return;
+    }
+
+    // Counted to the END of the silence rather than to the hand-back: the
+    // number the player plans against is when bodies come back, and a "6s" over
+    // an eight-second lull is the feedback lying about the mechanic again.
+    const seconds = Math.ceil(remainingMs / 1000);
+    if (seconds !== this.breatherShownS) {
+      this.breatherShownS = seconds;
+      this.breatherChipText.setText(`BREATHER  ${seconds}s`);
+    }
+    const breath = Math.sin((this.time.now / 1600) * Math.PI * 2) * 0.04;
+    this.breatherVignette.setAlpha(BREATHER_CALM_ALPHA + breath);
+  }
+
+  /**
+   * The window closed and spawns resume. That is news, so it is announced —
+   * EXCEPT when the Warden owns the frame: `breatherAtS`'s second entry (412s)
+   * plus `breatherSilenceMs` lands on `warden.atS` exactly, by design (the lull
+   * covers the entrance), and a "the husks return" toast under the Warden's own
+   * banner would be two announcements competing to explain the same second.
+   */
+  private endBreather(): void {
+    this.breatherEndsAtMs = -Infinity;
+    this.breatherChip.setVisible(false);
+    this.breatherVignette.setVisible(false);
+    if (this.bossActive) return;
+    sfx('whoosh', { volume: 0.5, rate: 0.95 });
+    toast(this, 'THE HUSKS RETURN', CSS.warn, 560, 240);
+  }
+
+  /**
    * The set pieces the wave table cannot express: the Dread Shrine, the shard
-   * caches, the relic drip and the Collapse's elite injection.
+   * caches, the relic drip, the Collapse's elite injection and the `breather`
+   * lull's indicator.
    */
   private tickBeats(deltaMs: number): void {
     const nowS = this.director.elapsedSeconds;
@@ -1213,6 +1518,7 @@ export class GameScene extends Phaser.Scene {
     this.tickCaches(deltaMs);
     this.tickRelicDrip(deltaMs, nowS);
     this.tickCollapseElites();
+    this.tickBreather();
   }
 
   /**
@@ -1850,6 +2156,10 @@ export class GameScene extends Phaser.Scene {
     setMusicLayer('boss', false);
     this.punch(0.02, 300);
     sfx('levelup', { volume: 0.9 });
+    // The marker dies with the body it describes: this is the boss KILL path
+    // (`onBossKilled`), so a Warden that goes down can never leave its plate or
+    // its off-screen arrow on the HUD for the rest of the run.
+    this.hideWardenMark();
     // §10 lifetime counter. Banked HERE and not in `finish()`: the Warden dying
     // is not a win, and a run that kills it and then dies in the Collapse still
     // killed it. The counter never resets, so it must be written on the event.
@@ -1882,13 +2192,22 @@ export class GameScene extends Phaser.Scene {
         // used to borrow `die`, so the world ending sounded like a husk dying.
         sfx('collapse');
         edgeFlash(this, IDENTITY.threat, 520, 150);
-        banner(this, 'THE COLLAPSE', CSS.warn, 700);
         setMusicLayer('boss', true);
         // Unconditional, NOT `punch`: §13 authors this shake as screen-wide and
         // once-per-run, so the entity-count suppression that protects the
         // per-kill shakes must not silence the one beat that announces the
         // finale — and the Collapse is exactly when the count is highest.
         shake(this, 0.02, 400);
+        // BODIES FIRST. The shipped ignition read as "UI first, bodies second":
+        // the banner owned frame 1 while the ring's first physical evidence was
+        // an elite that arrived seconds later. So the WORLD lights first — the
+        // arc of the ring the player is standing on, staggered — and the banner
+        // lands behind it, still inside the 700ms ceremony ceiling.
+        this.igniteCollapseArc();
+        this.time.delayedCall(COLLAPSE_BANNER_DELAY_MS, () => {
+          if (this.ended || this.tearingDown) return;
+          banner(this, 'THE COLLAPSE', CSS.warn, 700);
+        });
         break;
       case 'extracted':
         // §11's 6f dissolve into violet light. `finish` fades the camera over
@@ -1897,6 +2216,33 @@ export class GameScene extends Phaser.Scene {
         this.combat.player.playAction(ANIM.heroExtract);
         this.finish(true);
         break;
+    }
+  }
+
+  /**
+   * The Collapse's PHYSICAL ignition: the arc of the dusk-fire ring the player
+   * is standing on lights before any chrome does.
+   *
+   * `COLLAPSE_IGNITE_POINTS` bursts, `COLLAPSE_IGNITE_STEP_MS` apart (§13
+   * staggers a group effect rather than firing it all on one frame), on the
+   * ring itself rather than on the player — the news is where the wall is. The
+   * same pooled particle effect every other beat uses, so it buys nothing from
+   * the frame budget the ignition frame is already spending.
+   */
+  private igniteCollapseArc(): void {
+    const collapse = this.extraction.collapse;
+    if (collapse === null) return;
+    const centre = this.extraction.collapseRingCenter;
+    const player = this.combat.player;
+    const facing = Math.atan2(player.y - centre.y, player.x - centre.x);
+    for (let i = 0; i < COLLAPSE_IGNITE_POINTS; i += 1) {
+      const angle = facing + (i - (COLLAPSE_IGNITE_POINTS - 1) / 2) * 0.42;
+      const x = centre.x + Math.cos(angle) * collapse.ringRadius;
+      const y = centre.y + Math.sin(angle) * collapse.ringRadius;
+      this.time.delayedCall(i * COLLAPSE_IGNITE_STEP_MS, () => {
+        if (this.ended || this.tearingDown) return;
+        burst(this, x, y, IDENTITY.threat, 12, 300);
+      });
     }
   }
 
@@ -1993,6 +2339,50 @@ export class GameScene extends Phaser.Scene {
     this.channelVignette.fillRect(VIEW.width - band, SAFE.top, band, VIEW.height - SAFE.top);
     this.channelVignette.fillRect(0, VIEW.height - band, VIEW.width, band);
     this.channelVignette.fillRect(0, SAFE.top, VIEW.width, band * 0.5);
+
+    this.buildBreatherChrome();
+  }
+
+  /**
+   * The `breather` lull's two persistent widgets, built once per run and parked
+   * invisible — the beat fires twice (`TUNING.events.breatherAtS`) and building
+   * a scrim, a label and a full-screen Graphics mid-fight is the hitch §15
+   * pools to avoid.
+   *
+   * The band is drawn at alpha 1 and the OBJECT's alpha carries the value, the
+   * same contract `channelVignette` documents above, so `tickBreather` drives
+   * the whole beat with one field write. It is THINNER (55 vs 90) and green
+   * rather than violet: relief has to be told apart from the extraction rite
+   * and from the Collapse at a glance.
+   */
+  private buildBreatherChrome(): void {
+    this.breatherVignette = this.add
+      .graphics()
+      .setScrollFactor(0)
+      // Under the channel vignette (1100): a rite started during the lull is
+      // the more urgent state and must win the screen edge.
+      .setDepth(1090)
+      .setAlpha(BREATHER_CALM_ALPHA)
+      .setVisible(false);
+    const calmBand = 55;
+    this.breatherVignette.fillStyle(PALETTE.good, 1);
+    this.breatherVignette.fillRect(0, SAFE.top, calmBand, VIEW.height - SAFE.top);
+    this.breatherVignette.fillRect(VIEW.width - calmBand, SAFE.top, calmBand, VIEW.height - SAFE.top);
+    this.breatherVignette.fillRect(0, VIEW.height - calmBand, VIEW.width, calmBand);
+    this.breatherVignette.fillRect(0, SAFE.top, VIEW.width, calmBand * 0.5);
+
+    // Scrimmed, because this label sits over the generated arena art for eight
+    // seconds (§14.4): the veil is what keeps it legible over a bone-white
+    // desert crest as well as over the castle floor.
+    const scrim = paintScrim(this, 0, 0, BREATHER_CHIP_BLOCK.width, BREATHER_CHIP_BLOCK.height);
+    this.breatherChipText = this.add
+      .text(0, 0, '', { ...TEXT.label, fontSize: '28px', color: CSS.good, ...bareText() })
+      .setOrigin(0.5);
+    this.breatherChip = this.add
+      .container(VIEW.centerX, BREATHER_CHIP_Y, [scrim, this.breatherChipText])
+      .setScrollFactor(0)
+      .setDepth(1090)
+      .setVisible(false);
   }
 
   /**
@@ -2488,6 +2878,9 @@ export class GameScene extends Phaser.Scene {
     this.channelModel.progress = this.extraction.channelProgress;
     this.channelModel.interrupted = this.extraction.channelInterrupted;
     this.channelBar.update(this.channelModel);
+
+    // The fourth screen-space widget, alive only for the Warden beat.
+    this.tickWardenMark();
   }
 }
 

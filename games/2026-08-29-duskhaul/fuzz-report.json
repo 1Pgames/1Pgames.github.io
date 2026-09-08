@@ -6,7 +6,7 @@
   "budgetSource": "content clock: RunDirector.durationSeconds",
   "contentClockS": 480,
   "seed": 1,
-  "actions": 1254,
+  "actions": 1514,
   "wipedKeys": [
     "2026-08-29-duskhaul:tut:gate",
     "2026-08-29-duskhaul:zone:last",
@@ -17,7 +17,7 @@
   ],
   "audio": {
     "muted": true,
-    "url": "http://localhost:5173/?mute=1",
+    "url": "http://127.0.0.1:4173/play/2026-08-29-duskhaul/?mute=1",
     "storageTouched": false,
     "pageSide": {
       "mediaMuted": 0,
@@ -28,7 +28,7 @@
     "forcedByUrl": null,
     "played": null,
     "probe": {
-      "href": "http://localhost:5173/?mute=1",
+      "href": "http://127.0.0.1:4173/play/2026-08-29-duskhaul/?mute=1",
       "urlMute": "1",
       "audioSnapshot": null,
       "contexts": [
@@ -45,7 +45,7 @@
       "media": 0
     }
   },
-  "transitions": 21,
+  "transitions": 29,
   "offGameNavigations": 0,
   "throttles": [],
   "handovers": [],
@@ -57,7 +57,7 @@
   "failures": [],
   "sceneTrail": [
     "Menu",
-    "Meta",
+    "Game",
     "Menu",
     "Game",
     "Menu",
@@ -77,5 +77,5 @@
     "Menu",
     "Game"
   ],
-  "finishedAt": "2026-08-30T10:58:25.308Z"
+  "finishedAt": "2026-09-08T11:16:38.186Z"
 }

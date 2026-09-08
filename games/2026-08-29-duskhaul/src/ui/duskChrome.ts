@@ -51,6 +51,13 @@ export const HUD_DEPTH = {
   /** `ui/hud.ts`'s own container — the floor of the band. */
   hud: 1000,
   compass: 1010,
+  /**
+   * `ui/wardenMark.ts` — the boss plate and its off-screen arrow. ABOVE the
+   * compass because the two share the screen edge for the last minute of a run
+   * and the boss is the beat that window is about; below the bag cluster,
+   * which owns band B.
+   */
+  warden: 1015,
   bagPips: 1020,
   channelBar: 1030,
 } as const;
