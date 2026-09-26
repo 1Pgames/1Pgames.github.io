@@ -2,23 +2,23 @@
   "passed": true,
   "slug": "2026-08-29-duskhaul",
   "family": "arena",
-  "baseUrl": "http://localhost:5509/?mute=1",
-  "startedAt": "2026-09-26T00:35:09.359Z",
-  "finishedAt": "2026-09-26T00:36:39.364Z",
-  "durationMs": 90005,
+  "baseUrl": "http://localhost:4801/?mute=1",
+  "startedAt": "2026-09-26T17:24:04.380Z",
+  "finishedAt": "2026-09-26T17:27:16.843Z",
+  "durationMs": 192463,
   "blockers": [],
   "majors": [
     {
       "id": "budget:fps-unnamed-window",
-      "message": "the worst unnamed 3s window of the run held 50.6fps median / 50.5fps min (budget 55/40) at t=5092ms — no named peak beat covers it. Name that beat in the adapter to make it a blocker, or confirm it is the host machine.",
+      "message": "the worst unnamed 3s window of the run held 46.8fps median / 46.8fps min (budget 55/40) at t=1398ms — no named peak beat covers it. Name that beat in the adapter to make it a blocker, or confirm it is the host machine.",
       "evidence": [
         {
           "label": "worst-3s-window",
           "epoch": "until:end of run",
-          "samples": 24,
-          "min": 50.5,
-          "median": 50.6,
-          "fromMs": 5092
+          "samples": 10,
+          "min": 46.8,
+          "median": 46.8,
+          "fromMs": 1398
         }
       ]
     }
@@ -26,77 +26,75 @@
   "measurements": {
     "ack": {
       "budgetMs": 100,
-      "worstMs": 42,
+      "worstMs": 40.3,
       "samples": [
         {
           "label": "draft reroll",
-          "ms": 6.3,
+          "ms": 7.1,
           "frames": 10,
           "via": "paint",
           "changed": [
-            "#Game/1995:Container/4:Container"
+            "#Game/1024:Container/4:Container"
           ],
           "epoch": "until:end of run"
         },
         {
           "label": "draft pick card 1",
-          "ms": 5.8,
+          "ms": 6.3,
           "frames": 10,
           "via": "paint",
           "changed": [
-            "#Game/1995:Container/6:Container"
+            "#Game/1024:Container/6:Container"
           ],
           "epoch": "until:end of run"
         },
         {
           "label": "pause open",
-          "ms": 42,
-          "frames": 12,
+          "ms": 6.8,
+          "frames": 10,
           "via": "paint",
           "changed": [
-            "#Game/2000:Container/0:Rectangle",
-            "#Game/2000:Container/1:Text#t",
-            "#Game/2000:Container/2:Text#t",
-            "#Game/2000:Container/3:Container/1:Text#t"
+            "#Game/1035:Text#t",
+            "#Game/1036:Text#t"
           ],
           "epoch": "until:end of run"
         },
         {
           "label": "pause RESUME",
-          "ms": 6.4,
+          "ms": 6.3,
           "frames": 10,
           "via": "paint",
           "changed": [
-            "#Game/1999:Container/6:Container"
+            "#Game/1031:Container/6:Container"
           ],
           "epoch": "until:end of run"
         },
         {
           "label": "pause open for SETTINGS",
-          "ms": 39.1,
+          "ms": 38.5,
           "frames": 12,
           "via": "paint",
           "changed": [
-            "#Game/2001:Container/0:Rectangle",
-            "#Game/2001:Container/1:Text#t",
-            "#Game/2001:Container/2:Text#t",
-            "#Game/2001:Container/3:Container/1:Text#t"
+            "#Game/1033:Container/0:Rectangle",
+            "#Game/1033:Container/1:Text#t",
+            "#Game/1033:Container/2:Text#t",
+            "#Game/1033:Container/3:Container/1:Text#t"
           ],
           "epoch": "until:end of run"
         },
         {
           "label": "pause SETTINGS",
-          "ms": 5.6,
+          "ms": 5.3,
           "frames": 10,
           "via": "paint",
           "changed": [
-            "#Game/2000:Container/7:Container"
+            "#Game/1031:Container/7:Container"
           ],
           "epoch": "until:end of run"
         },
         {
           "label": "results RUN AGAIN",
-          "ms": 6.5,
+          "ms": 5,
           "frames": 10,
           "via": "paint",
           "changed": [
@@ -106,50 +104,50 @@
         },
         {
           "label": "run-again: DESCEND",
-          "ms": 6.9,
+          "ms": 5.2,
           "frames": 10,
           "via": "paint",
           "changed": [
-            "#Hub/72:Container/3:Container/20:Container"
+            "#Hub/72:Container/3:Container/21:Container"
           ],
           "epoch": "until:end of run"
         },
         {
           "label": "bag widget",
-          "ms": 38.7,
+          "ms": 40.3,
           "frames": 12,
           "via": "paint",
           "changed": [
-            "#Game/2233:Container/0:Rectangle",
-            "#Game/2233:Container/1:Container/1:Zone",
-            "#Game/2233:Container/1:Container/2:Container/0:Text#t",
-            "#Game/2233:Container/1:Container/2:Container/1:Text#t"
+            "#Game/1161:Container/0:Rectangle",
+            "#Game/1161:Container/1:Container/1:Zone",
+            "#Game/1161:Container/1:Container/2:Container/0:Text#t",
+            "#Game/1161:Container/1:Container/2:Container/1:Text#t"
           ],
           "epoch": "until:end of run"
         },
         {
           "label": "bag tile select",
-          "ms": 6.1,
+          "ms": 6.3,
           "frames": 10,
           "via": "paint",
           "changed": [
-            "#Game/2232:Container/1:Container/2:Container/15:Container"
+            "#Game/1156:Container/1:Container/2:Container/15:Container"
           ],
           "epoch": "until:end of run"
         },
         {
           "label": "bag PIN",
-          "ms": 6.6,
+          "ms": 5.3,
           "frames": 10,
           "via": "paint",
           "changed": [
-            "#Game/2232:Container/1:Container/2:Container/17:Container"
+            "#Game/1155:Container/1:Container/2:Container/17:Container"
           ],
           "epoch": "until:end of run"
         },
         {
           "label": "results RETRY SAME MAP",
-          "ms": 6.7,
+          "ms": 5.7,
           "frames": 10,
           "via": "paint",
           "changed": [
@@ -159,50 +157,50 @@
         },
         {
           "label": "retry: DESCEND",
-          "ms": 6.1,
+          "ms": 6.7,
           "frames": 10,
           "via": "paint",
           "changed": [
-            "#Hub/72:Container/3:Container/20:Container"
+            "#Hub/72:Container/3:Container/21:Container"
           ],
           "epoch": "until:end of run"
         },
         {
           "label": "pause open for ABANDON",
-          "ms": 6.2,
-          "frames": 10,
+          "ms": 22.6,
+          "frames": 11,
           "via": "paint",
           "changed": [
-            "#Game/1854:Container",
-            "#Game/1855:Container",
-            "#Game/1856:Container/3:Text#t",
-            "#Game/1856:Container/4:Container"
+            "#Game/924:Container",
+            "#Game/925:Container",
+            "#Game/926:Container/3:Text#t",
+            "#Game/926:Container/4:Container"
           ],
           "epoch": "until:end of run"
         },
         {
           "label": "pause ABANDON RUN",
-          "ms": 6,
+          "ms": 7,
           "frames": 10,
           "via": "paint",
           "changed": [
-            "#Game/1881:Container/8:Container"
+            "#Game/955:Container/8:Container"
           ],
           "epoch": "until:end of run"
         },
         {
           "label": "confirm ABANDON",
-          "ms": 6.1,
+          "ms": 6.6,
           "frames": 10,
           "via": "paint",
           "changed": [
-            "#Game/1882:Container/6:Container"
+            "#Game/956:Container/6:Container"
           ],
           "epoch": "until:end of run"
         },
         {
           "label": "results CONTINUE",
-          "ms": 7.3,
+          "ms": 6.9,
           "frames": 10,
           "via": "paint",
           "changed": [
@@ -212,7 +210,7 @@
         },
         {
           "label": "tap VAULT tab",
-          "ms": 8,
+          "ms": 6,
           "frames": 10,
           "via": "paint",
           "changed": [
@@ -232,17 +230,17 @@
         },
         {
           "label": "vault EQUIP",
-          "ms": 6.3,
+          "ms": 7.2,
           "frames": 10,
           "via": "paint",
           "changed": [
-            "#Hub/73:Container/3:Container/10:Container"
+            "#Hub/73:Container/3:Container/9:Container"
           ],
           "epoch": "until:end of run"
         },
         {
           "label": "tap SANCTUM tab",
-          "ms": 5.2,
+          "ms": 7.7,
           "frames": 10,
           "via": "paint",
           "changed": [
@@ -252,7 +250,7 @@
         },
         {
           "label": "sanctum buy 45 ◆",
-          "ms": 6.1,
+          "ms": 6.3,
           "frames": 10,
           "via": "paint",
           "changed": [
@@ -262,7 +260,7 @@
         },
         {
           "label": "tap ARMORY tab",
-          "ms": 6.8,
+          "ms": 6.4,
           "frames": 10,
           "via": "paint",
           "changed": [
@@ -272,7 +270,7 @@
         },
         {
           "label": "tap CODEX tab",
-          "ms": 5.8,
+          "ms": 6.9,
           "frames": 10,
           "via": "paint",
           "changed": [
@@ -282,17 +280,50 @@
         },
         {
           "label": "final: EMBARK",
-          "ms": 5.5,
+          "ms": 5.4,
           "frames": 10,
           "via": "paint",
           "changed": [
             "#Hub/69:Container/22:Container"
           ],
           "epoch": "until:end of run"
+        },
+        {
+          "label": "final: DESCEND",
+          "ms": 5.5,
+          "frames": 10,
+          "via": "paint",
+          "changed": [
+            "#Hub/72:Container/3:Container/20:Container"
+          ],
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "sweep: pause open",
+          "ms": 39.3,
+          "frames": 12,
+          "via": "paint",
+          "changed": [
+            "#Game/963:Container/0:Rectangle",
+            "#Game/963:Container/1:Text#t",
+            "#Game/963:Container/2:Text#t",
+            "#Game/963:Container/3:Container/1:Text#t"
+          ],
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "sweep: results CONTINUE",
+          "ms": 5.5,
+          "frames": 10,
+          "via": "paint",
+          "changed": [
+            "#GameOver/71:Container"
+          ],
+          "epoch": "until:end of run"
         }
       ],
       "verdict": "pass",
-      "worstLabel": "pause open"
+      "worstLabel": "bag widget"
     },
     "swallowedInput": {
       "budgetMs": 100,
@@ -318,12 +349,12 @@
     },
     "transitions": {
       "budgetMs": 400,
-      "worstMs": 210,
+      "worstMs": 207,
       "samples": [
         {
           "from": "results RUN AGAIN",
           "to": "Hub",
-          "ms": 210,
+          "ms": 207,
           "cold": true,
           "trail": [
             "Hub"
@@ -332,7 +363,7 @@
         {
           "from": "run-again: DESCEND",
           "to": "Game",
-          "ms": 194,
+          "ms": 192,
           "cold": true,
           "trail": [
             "Game"
@@ -341,7 +372,7 @@
         {
           "from": "results RETRY SAME MAP",
           "to": "Hub",
-          "ms": 204,
+          "ms": 202,
           "cold": false,
           "trail": [
             "Hub"
@@ -350,7 +381,7 @@
         {
           "from": "retry: DESCEND",
           "to": "Game",
-          "ms": 194,
+          "ms": 193,
           "cold": false,
           "trail": [
             "Game"
@@ -359,7 +390,25 @@
         {
           "from": "results CONTINUE",
           "to": "Hub",
-          "ms": 201,
+          "ms": 198,
+          "cold": false,
+          "trail": [
+            "Hub"
+          ]
+        },
+        {
+          "from": "final: DESCEND",
+          "to": "Game",
+          "ms": 192,
+          "cold": false,
+          "trail": [
+            "Game"
+          ]
+        },
+        {
+          "from": "sweep: results CONTINUE",
+          "to": "Hub",
+          "ms": 196,
           "cold": false,
           "trail": [
             "Hub"
@@ -371,27 +420,27 @@
     },
     "retryToPlayable": {
       "budgetMs": 2000,
-      "worstMs": 678,
+      "worstMs": 634,
       "samples": [
         {
           "label": "pause RESUME -> playable",
-          "ms": 2
+          "ms": 3
         },
         {
           "label": "loadout DESCEND -> playable (after RUN AGAIN)",
-          "ms": 678
+          "ms": 608
         },
         {
           "label": "loadout DESCEND -> playable (after RETRY SAME MAP)",
-          "ms": 653
+          "ms": 634
         },
         {
-          "label": "hub EMBARK (skip rule) -> playable",
-          "ms": 637
+          "label": "hub DESCEND -> playable",
+          "ms": 608
         }
       ],
       "verdict": "pass",
-      "worstLabel": "loadout DESCEND -> playable (after RUN AGAIN)"
+      "worstLabel": "loadout DESCEND -> playable (after RETRY SAME MAP)"
     },
     "fps": {
       "medianMin": 55,
@@ -400,44 +449,44 @@
           "label": "draft-open",
           "epoch": "until:end of run",
           "samples": 28,
-          "min": 53.9,
-          "median": 56.8,
-          "fromMs": 9304
+          "min": 53.3,
+          "median": 56.5,
+          "fromMs": 9455
         },
         {
           "label": "boss-spawn",
           "epoch": "until:end of run",
-          "samples": 28,
-          "min": 59.1,
-          "median": 59.9,
-          "fromMs": 55068
+          "samples": 27,
+          "min": 59.6,
+          "median": 60,
+          "fromMs": 60404
         },
         {
           "label": "collapse-ignition",
           "epoch": "until:end of run",
           "samples": 27,
-          "min": 58.9,
-          "median": 59.8,
-          "fromMs": 63214
+          "min": 59.6,
+          "median": 59.7,
+          "fromMs": 69036
         },
         {
           "label": "worst-3s-window",
           "epoch": "until:end of run",
-          "samples": 24,
-          "min": 50.5,
-          "median": 50.6,
-          "fromMs": 5092
+          "samples": 10,
+          "min": 46.8,
+          "median": 46.8,
+          "fromMs": 1398
         }
       ],
       "verdict": "pass-with-leads",
       "fence": {
-        "captures": 42,
-        "fencedMs": 17193,
+        "captures": 50,
+        "fencedMs": 19911,
         "unrecovered": 0,
-        "samplesDropped": 134,
-        "samplesKept": 658,
-        "medianFpsDropped": 57.3,
-        "medianFpsKept": 58.3,
+        "samplesDropped": 148,
+        "samplesKept": 1580,
+        "medianFpsDropped": 58.1,
+        "medianFpsKept": 60.3,
         "note": "screenshot spans are excluded from every fps window; the driver waits for the smoothed reading to recover before it resumes"
       }
     },
@@ -445,6 +494,475 @@
       "budget": 2,
       "taps": 0,
       "verdict": "pass"
+    },
+    "controls": {
+      "budgetDead": 0,
+      "tapped": 56,
+      "reacted": 56,
+      "dead": [],
+      "dimmedNoReaction": [],
+      "declaredNoop": [
+        {
+          "surface": "hub:expedition",
+          "label": "H1",
+          "reason": "hazard already selected"
+        },
+        {
+          "surface": "hub:armory > Lv 1",
+          "label": "Ash Mantle",
+          "reason": "item already selected"
+        },
+        {
+          "surface": "hub:vault",
+          "label": "◆",
+          "reason": "already on the Vault tab"
+        }
+      ],
+      "surfaces": [
+        {
+          "surface": "pause",
+          "tapped": 1,
+          "reacted": [
+            "SETTINGS: scene/overlay+controls+text(8)+visual(25)"
+          ],
+          "dead": [],
+          "dimmed": [],
+          "declared": [],
+          "skipped": [
+            "Rectangle@360,640 (backdrop)",
+            "RESUME",
+            "ABANDON RUN"
+          ],
+          "aborted": null
+        },
+        {
+          "surface": "pause > SETTINGS",
+          "tapped": 5,
+          "reacted": [
+            "Zone@445,754: save+visual(4)",
+            "Zone@445,874: save+visual(3)",
+            "Vibration: save+visual(11)",
+            "Reduce motion: save+visual(12)",
+            "Container@656,636: scene/overlay+controls"
+          ],
+          "dead": [],
+          "dimmed": [],
+          "declared": [],
+          "skipped": [
+            "Zone@360,930 (backdrop)",
+            "Sound (mute is forced by the harness)"
+          ],
+          "aborted": null
+        },
+        {
+          "surface": "results",
+          "tapped": 1,
+          "reacted": [
+            "Container@644,52: scene/overlay+text(1) (second pass)"
+          ],
+          "dead": [],
+          "dimmed": [],
+          "declared": [],
+          "skipped": [
+            "Zone@360,640 (backdrop)",
+            "CONTINUE",
+            "RETRY SAME MAP"
+          ],
+          "aborted": null
+        },
+        {
+          "surface": "hub:expedition",
+          "tapped": 14,
+          "reacted": [
+            "◆: scene/overlay+controls+text(18)",
+            "LV 2: controls+text(206)+visual(342)",
+            "Container@644,132: scene/overlay+controls+text(9)",
+            "Container@360,314: scene/overlay+controls+text(19)",
+            "INFO: scene/overlay+controls+text(19)",
+            "Container@84,424: text(4)",
+            "Container@636,424: text(3)",
+            "H2: scene/overlay+text(1)",
+            "H3: scene/overlay+text(1)",
+            "H4: scene/overlay+text(1)",
+            "H5: scene/overlay+text(1)",
+            "DAILY RITE: scene/overlay+text(1)",
+            "WEEKLY RIFT: scene/overlay+text(1)",
+            "ALL: controls+text(17)"
+          ],
+          "dead": [],
+          "dimmed": [],
+          "declared": [
+            {
+              "label": "H1",
+              "reason": "hazard already selected"
+            }
+          ],
+          "skipped": [
+            "EMBARK",
+            "EXPEDITION",
+            "ARMORY",
+            "VAULT",
+            "SANCTUM",
+            "CODEX"
+          ],
+          "aborted": null
+        },
+        {
+          "surface": "hub:expedition > Container@644,132",
+          "tapped": 5,
+          "reacted": [
+            "Zone@445,654: save",
+            "Zone@445,774: save",
+            "Vibration: save",
+            "Reduce motion: save",
+            "Container@656,536: scene/overlay+controls"
+          ],
+          "dead": [],
+          "dimmed": [],
+          "declared": [],
+          "skipped": [
+            "Rectangle@360,640 (backdrop)",
+            "Zone@360,880 (backdrop)",
+            "Sound (mute is forced by the harness)",
+            "RESET SAVE"
+          ],
+          "aborted": null
+        },
+        {
+          "surface": "hub:expedition > Container@360,314",
+          "tapped": 1,
+          "reacted": [
+            "Container@656,456: scene/overlay+controls"
+          ],
+          "dead": [],
+          "dimmed": [],
+          "declared": [],
+          "skipped": [
+            "Rectangle@360,640 (backdrop)",
+            "Zone@360,840 (backdrop)"
+          ],
+          "aborted": null
+        },
+        {
+          "surface": "hub:armory",
+          "tapped": 9,
+          "reacted": [
+            "◆: scene/overlay+controls+text(12)",
+            "LV 2: controls+text(206)+visual(342)",
+            "+: scene/overlay+controls+text(4)",
+            "Lv 1: scene/overlay+controls+text(8)",
+            "+: scene/overlay+controls+text(4)",
+            "L4: scene/overlay+text(1)",
+            "+: scene/overlay+controls+text(4)",
+            "L6: scene/overlay+text(1)",
+            "STARTING WEAPON: controls+text(74)+visual(203)"
+          ],
+          "dead": [],
+          "dimmed": [],
+          "declared": [],
+          "skipped": [
+            "EXPEDITION",
+            "ARMORY",
+            "VAULT",
+            "SANCTUM",
+            "CODEX"
+          ],
+          "aborted": null
+        },
+        {
+          "surface": "hub:armory > +",
+          "tapped": 3,
+          "reacted": [
+            "EQUIP: scene/overlay+text(1)",
+            "UNEQUIP: scene/overlay+text(1)",
+            "Container@656,296: scene/overlay+controls"
+          ],
+          "dead": [],
+          "dimmed": [],
+          "declared": [],
+          "skipped": [
+            "Rectangle@360,640 (backdrop)",
+            "Zone@360,760 (backdrop)"
+          ],
+          "aborted": null
+        },
+        {
+          "surface": "hub:armory > Lv 1",
+          "tapped": 3,
+          "reacted": [
+            "EQUIP: scene/overlay+text(1)",
+            "UNEQUIP: scene/overlay+save+controls+text(1)",
+            "Container@656,296: scene/overlay+controls"
+          ],
+          "dead": [],
+          "dimmed": [],
+          "declared": [
+            {
+              "label": "Ash Mantle",
+              "reason": "item already selected"
+            }
+          ],
+          "skipped": [
+            "Rectangle@360,640 (backdrop)",
+            "Zone@360,760 (backdrop)"
+          ],
+          "aborted": null
+        },
+        {
+          "surface": "hub:vault",
+          "tapped": 5,
+          "reacted": [
+            "LV 2: scene/overlay+controls+text(206)+visual(342)",
+            "VALUABLES: controls+text(1)",
+            "SELECT: controls+text(2)",
+            "RARITY ▾: text(1)",
+            "GEAR: controls+text(14) (second pass)"
+          ],
+          "dead": [],
+          "dimmed": [],
+          "declared": [
+            {
+              "label": "◆",
+              "reason": "already on the Vault tab"
+            }
+          ],
+          "skipped": [
+            "ALL (gone after an earlier tap)",
+            "HOOD (gone after an earlier tap)",
+            "SHROUD (gone after an earlier tap)",
+            "GRIPS (gone after an earlier tap)",
+            "BOOTS (gone after an earlier tap)",
+            "RING (gone after an earlier tap)",
+            "AMULET (gone after an earlier tap)",
+            "Lv 1 (gone after an earlier tap)",
+            "Lv 1 (gone after an earlier tap)",
+            "EXPEDITION",
+            "ARMORY",
+            "VAULT",
+            "SANCTUM",
+            "CODEX"
+          ],
+          "aborted": null
+        },
+        {
+          "surface": "hub:sanctum",
+          "tapped": 6,
+          "reacted": [
+            "◆: scene/overlay+controls+text(17)",
+            "LV 2: controls+text(195)+visual(341)",
+            "GREED: controls+text(33)+visual(145)",
+            "ESCAPE: text(35)+visual(144)",
+            "45 ◆: scene/overlay+text(1)",
+            "BODY: controls+text(42)+visual(155) (second pass)"
+          ],
+          "dead": [],
+          "dimmed": [],
+          "declared": [],
+          "skipped": [
+            "225 ◆ (gone after an earlier tap)",
+            "315 ◆ (gone after an earlier tap)",
+            "270 ◆ (gone after an earlier tap)",
+            "150 ◆ (gone after an earlier tap)",
+            "EXPEDITION",
+            "ARMORY",
+            "VAULT",
+            "SANCTUM",
+            "CODEX"
+          ],
+          "aborted": null
+        },
+        {
+          "surface": "hub:sanctum > 45 ◆",
+          "tapped": 0,
+          "reacted": [],
+          "dead": [],
+          "dimmed": [],
+          "declared": [],
+          "skipped": [],
+          "aborted": null
+        },
+        {
+          "surface": "hub:codex",
+          "tapped": 3,
+          "reacted": [
+            "◆: scene/overlay+controls+text(18)",
+            "LV 2: visual(265)",
+            "CLAIM: scene/overlay+save+controls+text(2)+visual(269)"
+          ],
+          "dead": [],
+          "dimmed": [],
+          "declared": [],
+          "skipped": [
+            "EXPEDITION",
+            "ARMORY",
+            "VAULT",
+            "SANCTUM",
+            "CODEX"
+          ],
+          "aborted": null
+        },
+        {
+          "surface": "hub:codex > CLAIM",
+          "tapped": 0,
+          "reacted": [],
+          "dead": [],
+          "dimmed": [],
+          "declared": [],
+          "skipped": [],
+          "aborted": null
+        }
+      ],
+      "verdict": "pass"
+    },
+    "audioRate": {
+      "budgetPerSec": 5,
+      "minEnemies": 20,
+      "windows": [
+        {
+          "epoch": 0,
+          "fromMs": 54284,
+          "ms": 2817,
+          "requests": 15,
+          "perSec": 5.3,
+          "enemiesMin": 22
+        },
+        {
+          "epoch": 0,
+          "fromMs": 60451,
+          "ms": 2566,
+          "requests": 22,
+          "perSec": 8.6,
+          "enemiesMin": 22
+        },
+        {
+          "epoch": 0,
+          "fromMs": 63769,
+          "ms": 2931,
+          "requests": 34,
+          "perSec": 11.6,
+          "enemiesMin": 21
+        },
+        {
+          "epoch": 0,
+          "fromMs": 67717,
+          "ms": 3150,
+          "requests": 32,
+          "perSec": 10.2,
+          "enemiesMin": 20
+        }
+      ],
+      "medianPerSec": 9.4,
+      "verdict": "pass",
+      "reason": null
+    },
+    "actorSize": {
+      "enemyPctW": 8,
+      "heroPctW": 15,
+      "gameW": 720,
+      "hero": {
+        "px": 120,
+        "pctW": 16.7,
+        "src": "opaque-rows",
+        "samples": 31
+      },
+      "kinds": [
+        {
+          "kind": "cryptcrawler",
+          "px": 60,
+          "pctW": 8.3,
+          "src": "visiblePx",
+          "samples": 12
+        },
+        {
+          "kind": "ratking",
+          "px": 64,
+          "pctW": 8.9,
+          "src": "visiblePx",
+          "samples": 2
+        },
+        {
+          "kind": "wretch",
+          "px": 70,
+          "pctW": 9.7,
+          "src": "visiblePx",
+          "samples": 16
+        },
+        {
+          "kind": "shroudmoth",
+          "px": 72,
+          "pctW": 10,
+          "src": "visiblePx",
+          "samples": 6
+        },
+        {
+          "kind": "husk",
+          "px": 76,
+          "pctW": 10.6,
+          "src": "visiblePx",
+          "samples": 133
+        },
+        {
+          "kind": "ashwraith",
+          "px": 78,
+          "pctW": 10.8,
+          "src": "visiblePx",
+          "samples": 2
+        },
+        {
+          "kind": "bonecaster",
+          "px": 80,
+          "pctW": 11.1,
+          "src": "visiblePx",
+          "samples": 8
+        },
+        {
+          "kind": "chapelghast",
+          "px": 80,
+          "pctW": 11.1,
+          "src": "visiblePx",
+          "samples": 20
+        },
+        {
+          "kind": "choirwraith",
+          "px": 84,
+          "pctW": 11.7,
+          "src": "visiblePx",
+          "samples": 11
+        },
+        {
+          "kind": "gargoyle",
+          "px": 110,
+          "pctW": 15.3,
+          "src": "visiblePx",
+          "samples": 5
+        },
+        {
+          "kind": "boss_castle",
+          "px": 260,
+          "pctW": 36.1,
+          "src": "visiblePx",
+          "samples": 2
+        }
+      ],
+      "verdict": "pass",
+      "reason": null
+    },
+    "composition": {
+      "decalsPerScreenP95": 3,
+      "decalAlphaMax": 0.45,
+      "propKindsPerScreenMedian": 3,
+      "propOverlapMax": 0,
+      "source": "scene.map",
+      "screens": 1632,
+      "measured": {
+        "decalsP95": 3,
+        "decalAlphaMax": 0.4,
+        "propsMedian": 4,
+        "propKindsMedian": 3,
+        "overlaps": null
+      },
+      "verdict": "pass",
+      "reason": "overlap unmeasured: the scene exposes no drawn radius/group per prop"
     }
   },
   "beats": [
@@ -468,8 +986,8 @@
       "id": "locket",
       "shot": "shots/cert/05-ftue-locket.png",
       "gated": false,
-      "where": "wicket start",
-      "toast": "Drag below the top bar to move.",
+      "where": "after the first move",
+      "toast": "Chests, shrines and lairs show on your map. Tap it to peek.",
       "runAcceptsInput": true
     },
     {
@@ -679,8 +1197,40 @@
       "shot": "shots/cert/41-hub-expedition.png"
     },
     {
+      "name": "final-loadout",
+      "shot": "shots/cert/42-final-loadout.png"
+    },
+    {
       "name": "final-run-playable",
-      "shot": "shots/cert/42-final-run-playable.png"
+      "shot": "shots/cert/43-final-run-playable.png"
+    },
+    {
+      "name": "sweep-pause-settings",
+      "shot": "shots/cert/44-sweep-pause-settings.png"
+    },
+    {
+      "name": "sweep-hub-expedition-container-644-132",
+      "shot": "shots/cert/45-sweep-hub-expedition-container-644-132.png"
+    },
+    {
+      "name": "sweep-hub-expedition-container-360-314",
+      "shot": "shots/cert/46-sweep-hub-expedition-container-360-314.png"
+    },
+    {
+      "name": "sweep-hub-armory-",
+      "shot": "shots/cert/47-sweep-hub-armory-.png"
+    },
+    {
+      "name": "sweep-hub-armory-lv-1",
+      "shot": "shots/cert/48-sweep-hub-armory-lv-1.png"
+    },
+    {
+      "name": "sweep-hub-sanctum-45-",
+      "shot": "shots/cert/49-sweep-hub-sanctum-45-.png"
+    },
+    {
+      "name": "sweep-hub-codex-claim",
+      "shot": "shots/cert/50-sweep-hub-codex-claim.png"
     }
   ],
   "outcomes": {
@@ -691,45 +1241,46 @@
         "id": "a",
         "kind": "timed"
       },
-      "elapsedS": 42.40644000000003,
-      "shardsBanked": 13,
+      "elapsedS": 42.47856000000003,
+      "shardsBanked": 12,
       "itemsBanked": 1,
-      "walkedMs": 5141,
+      "walkedMs": 4916,
       "headline": "HAULED OUT"
     },
     "loss": {
       "via": "death",
       "killer": "the Collapse",
-      "elapsedS": 483.66463404969124,
-      "shardsBanked": 0,
-      "shardsLost": 2,
+      "elapsedS": 483.3780199999914,
+      "shardsBanked": 10,
+      "shardsLost": 33,
       "lost": [
-        "g-pgsmbrym5fxg"
+        "g-gzwzixw3izhc"
       ],
       "casketKept": [
-        "g-xq0kn7bpcnj7"
+        "g-oo2z9ykgyfbb"
       ],
       "headline": "SWALLOWED BY THE DARK"
     }
   },
-  "invariantSweeps": 9,
+  "invariantSweeps": 7,
   "consoleErrors": [],
   "notes": {
-    "wipedKeys": [
-      "2026-08-29-duskhaul:meta",
-      "2026-08-29-duskhaul:run"
-    ],
+    "wipedKeys": [],
     "swPurged": {
       "workers": 1,
       "cachesCleared": 1
     },
     "audioAfterColdBoot": {
-      "href": "http://localhost:5509/?mute=1",
+      "href": "http://localhost:4801/?mute=1",
       "urlMute": "1",
       "audioSnapshot": {
         "forcedByUrl": true,
         "requested": 0,
-        "played": 0
+        "played": 0,
+        "sfxBus": null,
+        "musicDuck": null,
+        "samplesDecoded": 0,
+        "levels": null
       },
       "contexts": [
         {
@@ -740,7 +1291,10 @@
       "phaserMuted": true,
       "media": 0
     },
-    "storageAfterColdBoot": [],
+    "storageAfterColdBoot": [
+      "2026-08-29-duskhaul:meta",
+      "2026-08-29-duskhaul:run"
+    ],
     "wicket": {
       "mode": "ftue",
       "seed": "wicket",
@@ -750,15 +1304,15 @@
     },
     "moveBeatCopy": "Drag below the top bar to move.",
     "clock:the director runs under the move coach line (non-modal)": {
-      "fromS": 3.52,
-      "toS": 5.16,
-      "driftMs": 1640,
-      "wallMs": 1602
+      "fromS": 0.95,
+      "toS": 2.55,
+      "driftMs": 1600,
+      "wallMs": 1601
     },
     "sustain:on": {
       "on": true
     },
-    "firstDraftAtS": 7.41,
+    "firstDraftAtS": 6.11,
     "draftCards": [
       "",
       "",
@@ -801,20 +1355,20 @@
       "paused": false,
       "ended": false,
       "dying": false,
-      "drafting": false,
+      "drafting": true,
       "pauseOpen": false,
       "bagSheetOpen": false,
       "fenceOpen": false,
-      "toast": "Chests, shrines and lairs show on your map. Tap it to peek.",
-      "runS": 8.18,
-      "extractionS": 8.18,
+      "toast": null,
+      "runS": 6.5,
+      "extractionS": 6.5,
       "phase": "Grace",
-      "level": 2,
+      "level": 3,
       "hp": 110,
       "hpMax": 110,
-      "kills": 5,
+      "kills": 7,
       "taken": 1,
-      "enemies": 9,
+      "enemies": 5,
       "bossActive": false,
       "bag": {
         "items": 0,
@@ -822,7 +1376,7 @@
         "casket": [],
         "casketSlots": 1,
         "cells": 12,
-        "shards": 4
+        "shards": 5
       },
       "gates": "a:closed",
       "channel": {
@@ -835,11 +1389,11 @@
       "collapsing": false,
       "extracted": false,
       "pendingDrafts": 0,
-      "acceptsInput": true
+      "acceptsInput": false
     },
     "clock:pause holds the director": {
-      "fromS": 8.71,
-      "toS": 8.71,
+      "fromS": 7.3,
+      "toS": 7.3,
       "driftMs": 0,
       "wallMs": 1602
     },
@@ -853,9 +1407,9 @@
       "ABANDON RUN"
     ],
     "clock:director runs again after RESUME": {
-      "fromS": 8.71,
-      "toS": 9.61,
-      "driftMs": 900,
+      "fromS": 7.3,
+      "toS": 8.9,
+      "driftMs": 1600,
       "wallMs": 1602
     },
     "pauseEsc": {
@@ -875,34 +1429,34 @@
     },
     "pauseTrace": [
       {
-        "t": 20927,
+        "t": 22284,
         "vis": "visible",
         "paused": false,
-        "stack": "    at initialize.<anonymous> (http://localhost:5509/assets/index-CfIz1ibe.js:106:55876) |     at s.emit (http://localhost:5509/assets/index-CfIz1ibe.js:1:1992) |     at initialize.update (http://localhost:5509/assets/index-CfIz1ibe.js:23:127880) |     at s.emit (http://localhost:5509/assets/index-CfIz1ibe.js:1:1954)"
+        "stack": "    at initialize.<anonymous> (http://localhost:4801/assets/index-Ck5K8HR_.js:106:56297) |     at s.emit (http://localhost:4801/assets/index-Ck5K8HR_.js:1:1992) |     at initialize.update (http://localhost:4801/assets/index-Ck5K8HR_.js:23:127880) |     at s.emit (http://localhost:4801/assets/index-Ck5K8HR_.js:1:1954)"
       },
       {
-        "t": 21285,
+        "t": 22643,
         "vis": "visible",
         "paused": true,
-        "stack": "    at initialize.<anonymous> (http://localhost:5509/assets/index-CfIz1ibe.js:106:55876) |     at s.emit (http://localhost:5509/assets/index-CfIz1ibe.js:1:1992) |     at initialize.update (http://localhost:5509/assets/index-CfIz1ibe.js:23:127880) |     at s.emit (http://localhost:5509/assets/index-CfIz1ibe.js:1:1954)"
+        "stack": "    at initialize.<anonymous> (http://localhost:4801/assets/index-Ck5K8HR_.js:106:56297) |     at s.emit (http://localhost:4801/assets/index-Ck5K8HR_.js:1:1992) |     at initialize.update (http://localhost:4801/assets/index-Ck5K8HR_.js:23:127880) |     at s.emit (http://localhost:4801/assets/index-Ck5K8HR_.js:1:1954)"
       },
       {
-        "t": 21799,
+        "t": 23162,
         "vis": "visible",
         "paused": false,
-        "stack": "    at Object.onPause (http://localhost:5509/assets/index-CfIz1ibe.js:106:55407) |     at initialize.<anonymous> (http://localhost:5509/assets/index-CfIz1ibe.js:103:522829) |     at s.emit (http://localhost:5509/assets/index-CfIz1ibe.js:1:2118) |     at initialize.processUpEvents (http://localhost:5509/assets/index-CfIz1ibe.js:23:97109)"
+        "stack": "    at Object.onPause (http://localhost:4801/assets/index-Ck5K8HR_.js:106:55828) |     at initialize.<anonymous> (http://localhost:4801/assets/index-Ck5K8HR_.js:103:552233) |     at s.emit (http://localhost:4801/assets/index-Ck5K8HR_.js:1:2118) |     at initialize.processUpEvents (http://localhost:4801/assets/index-Ck5K8HR_.js:23:97109)"
       },
       {
-        "t": 23103,
+        "t": 24432,
         "vis": "visible",
         "paused": true,
-        "stack": "    at initialize.<anonymous> (http://localhost:5509/assets/index-CfIz1ibe.js:106:55876) |     at s.emit (http://localhost:5509/assets/index-CfIz1ibe.js:1:2421) |     at initialize.update (http://localhost:5509/assets/index-CfIz1ibe.js:23:127880) |     at s.emit (http://localhost:5509/assets/index-CfIz1ibe.js:1:1954)"
+        "stack": "    at initialize.<anonymous> (http://localhost:4801/assets/index-Ck5K8HR_.js:106:56297) |     at s.emit (http://localhost:4801/assets/index-Ck5K8HR_.js:1:2421) |     at initialize.update (http://localhost:4801/assets/index-Ck5K8HR_.js:23:127880) |     at s.emit (http://localhost:4801/assets/index-Ck5K8HR_.js:1:1954)"
       },
       {
-        "t": 23672,
+        "t": 25000,
         "vis": "visible",
         "paused": true,
-        "stack": "    at initialize.<anonymous> (http://localhost:5509/assets/index-CfIz1ibe.js:106:55876) |     at s.emit (http://localhost:5509/assets/index-CfIz1ibe.js:1:2421) |     at initialize.update (http://localhost:5509/assets/index-CfIz1ibe.js:23:127880) |     at s.emit (http://localhost:5509/assets/index-CfIz1ibe.js:1:1954)"
+        "stack": "    at initialize.<anonymous> (http://localhost:4801/assets/index-Ck5K8HR_.js:106:56297) |     at s.emit (http://localhost:4801/assets/index-Ck5K8HR_.js:1:2421) |     at initialize.update (http://localhost:4801/assets/index-Ck5K8HR_.js:23:127880) |     at s.emit (http://localhost:4801/assets/index-Ck5K8HR_.js:1:1954)"
       }
     ],
     "wicketGateA": {
@@ -914,34 +1468,34 @@
         "state": "closed",
         "opensS": 40,
         "closesS": 240,
-        "dist": 1601
+        "dist": 1525
       },
       "player": {
-        "x": 12802,
-        "y": 12237,
+        "x": 12820,
+        "y": 12111,
         "hp": 110
       },
       "radius": 150
     },
     "walkToGateA": {
       "arrived": true,
-      "dist": 98,
-      "ms": 5141,
-      "startDist": 1601,
-      "startPathCells": 37,
+      "dist": 63,
+      "ms": 4916,
+      "startDist": 1525,
+      "startPathCells": 35,
       "player": {
-        "x": 11729,
-        "y": 11164
+        "x": 11764,
+        "y": 11097
       },
       "recoveries": 0,
       "sources": {
-        "flow": 38,
-        "final-approach": 1
+        "flow": 36,
+        "final-approach": 2
       }
     },
     "fastForward:gateA": {
       "atS": 38,
-      "jumpedS": 22.7,
+      "jumpedS": 23.8,
       "eventsSkipped": 0,
       "dripsRebased": 3,
       "backlogRetired": 2
@@ -950,8 +1504,8 @@
       "runS": 38.26,
       "channel": {
         "gate": "a",
-        "progress": 0.064,
-        "accumMs": 257,
+        "progress": 0.065,
+        "accumMs": 262,
         "effectiveMs": 4000,
         "rate": 1
       },
@@ -961,21 +1515,21 @@
       "armed": true,
       "at": 0.45,
       "before": {
-        "accumMs": 1808.229999999999,
-        "progress": 0.4520574999999998
+        "accumMs": 1810.139999999998,
+        "progress": 0.4525349999999995
       },
       "after": {
-        "accumMs": 1608.229999999999,
-        "progress": 0.4020574999999998,
-        "stallMs": 168.32999999999993,
+        "accumMs": 1610.139999999998,
+        "progress": 0.40253499999999953,
+        "stallMs": 183.34000000000015,
         "interrupted": true
       },
       "fired": true,
-      "peak": 0.4520574999999998
+      "peak": 0.4525349999999995
     },
     "channelSetbackMs": 200,
     "extractedAt": {
-      "runS": 42.41,
+      "runS": 42.48,
       "channel": {
         "gate": "a",
         "progress": 1,
@@ -992,10 +1546,10 @@
         "id": "a",
         "kind": "timed"
       },
-      "elapsedS": 42.40644000000003,
+      "elapsedS": 42.47856000000003,
       "killer": null,
       "bag": {
-        "shardsBanked": 13,
+        "shardsBanked": 12,
         "shardsLost": 0,
         "greedMul": 1,
         "kept": [
@@ -1004,7 +1558,7 @@
         "lost": []
       },
       "settled": {
-        "shardsBanked": 13,
+        "shardsBanked": 12,
         "itemsBanked": [
           "wicket-ash-locket"
         ],
@@ -1019,7 +1573,7 @@
         "HAULED OUT",
         "through Gate A at 0:42\nBleakspire Keep · H1",
         "KEPT",
-        "13 ◆",
+        "12 ◆",
         "NEW",
         "Ash Locket",
         "First escape! Stored in the Vault.",
@@ -1036,7 +1590,7 @@
     },
     "metaAfterWicket": {
       "version": 4,
-      "currency": 13,
+      "currency": 12,
       "dust": 0,
       "sigils": 0,
       "vaultGear": [
@@ -1083,7 +1637,7 @@
           "desert": 1,
           "winter": 1
         },
-        "lastLoadoutHash": "w7cgco"
+        "lastLoadoutHash": "1svxtn1"
       }
     },
     "sustain:off": {
@@ -1091,24 +1645,24 @@
     },
     "normalRun": {
       "mode": "normal",
-      "seed": "muhns31g",
+      "seed": "muintlrp",
       "zone": "castle",
       "hazard": 1,
       "gates": "a:closed,b:closed,c:closed,x:closed"
     },
     "walkToGateANormal": {
       "arrived": true,
-      "dist": 91,
-      "ms": 8806,
-      "startDist": 3031,
-      "startPathCells": 67,
+      "dist": 102,
+      "ms": 10011,
+      "startDist": 3164,
+      "startPathCells": 58,
       "player": {
-        "x": 9907,
-        "y": 10519
+        "x": 12412,
+        "y": 9099
       },
       "recoveries": 0,
       "sources": {
-        "flow": 78,
+        "flow": 81,
         "final-approach": 1
       }
     },
@@ -1119,49 +1673,49 @@
     "bagBeforePin": {
       "items": 2,
       "uids": [
-        "g-xq0kn7bpcnj7",
-        "g-pgsmbrym5fxg"
+        "g-oo2z9ykgyfbb",
+        "g-gzwzixw3izhc"
       ],
       "casket": [],
       "casketSlots": 1,
       "cells": 12,
-      "shards": 0
+      "shards": 10
     },
     "casketPinned": {
       "items": 1,
       "uids": [
-        "g-pgsmbrym5fxg"
+        "g-gzwzixw3izhc"
       ],
       "casket": [
-        "g-xq0kn7bpcnj7"
+        "g-oo2z9ykgyfbb"
       ],
       "casketSlots": 1,
       "cells": 12,
-      "shards": 0
+      "shards": 10
     },
     "fastForward:boss": {
       "atS": 415,
-      "jumpedS": 404.1,
+      "jumpedS": 402.5,
       "eventsSkipped": 10,
       "dripsRebased": 9,
       "backlogRetired": 26
     },
     "bossSpawn": {
-      "runS": 420.08,
-      "enemies": 34,
-      "gates": "a:spent,b:spent,c:open,x:open"
+      "runS": 420.28,
+      "enemies": 27,
+      "gates": "a:spent,b:spent,c:open,x:closed"
     },
     "fastForward:collapse": {
       "atS": 476,
-      "jumpedS": 52.4,
+      "jumpedS": 52.3,
       "eventsSkipped": 0,
       "dripsRebased": 9,
       "backlogRetired": 1
     },
     "collapseIgnition": {
       "runS": 480.06,
-      "enemies": 34,
-      "gates": "a:spent,b:spent,c:open,x:open",
+      "enemies": 29,
+      "gates": "a:spent,b:spent,c:open,x:closed",
       "collapseAtS": 480
     },
     "duskFire0": {
@@ -1173,59 +1727,58 @@
     "resultsDeath": {
       "outcome": "died",
       "mode": "normal",
-      "seed": "muhns31g",
+      "seed": "muintlrp",
       "gate": null,
-      "elapsedS": 483.66463404969124,
+      "elapsedS": 483.3780199999914,
       "killer": "the Collapse",
       "bag": {
-        "shardsBanked": 0,
-        "shardsLost": 2,
+        "shardsBanked": 10,
+        "shardsLost": 33,
         "greedMul": 1,
         "kept": [
-          "g-xq0kn7bpcnj7"
+          "g-oo2z9ykgyfbb"
         ],
         "lost": [
-          "g-pgsmbrym5fxg"
+          "g-gzwzixw3izhc"
         ]
       },
       "settled": {
-        "shardsBanked": 0,
+        "shardsBanked": 10,
         "itemsBanked": [
-          "g-xq0kn7bpcnj7"
+          "g-oo2z9ykgyfbb"
         ],
         "lost": [
-          "g-pgsmbrym5fxg"
+          "g-gzwzixw3izhc"
         ],
-        "xpGained": 148,
+        "xpGained": 172,
         "levelBefore": 2,
         "levelAfter": 2,
         "firstExtraction": false
       },
       "texts": [
         "SWALLOWED BY THE DARK",
-        "Slain by the Collapse at 8:04\nBleakspire Keep · H1",
+        "Slain by the Collapse at 8:03\nBleakspire Keep · H1",
         "KEPT",
-        "Rot Tithe: 0 ◆",
+        "Rot Tithe: 10 ◆",
         "NEW",
-        "Grave Treads",
+        "Ash Mantle",
         "Casket saved",
         "LOST",
-        "2 ◆ and 1 item",
-        "Thief's Grips",
+        "33 ◆ and 1 item",
+        "Lodestone Loop",
         "Pin your best item before a fight you might lose.",
         "PROGRESS",
-        "+148 XP",
+        "+172 XP",
         "HAULER LV 2",
-        "Kill 250 enemies 0 → 5/250",
-        "Codex: 4 new entries",
-        "+1 more in the Codex",
+        "Kill 250 enemies 0 → 45/250",
+        "Codex: 8 new entries",
         "CONTINUE",
         "RETRY SAME MAP"
       ]
     },
     "retryRun": {
-      "seed": "muhns31g",
-      "previousSeed": "muhns31g",
+      "seed": "muintlrp",
+      "previousSeed": "muintlrp",
       "dying": false,
       "runS": 0.03
     },
@@ -1236,9 +1789,9 @@
     "resultsAbandoned": {
       "outcome": "abandoned",
       "mode": "normal",
-      "seed": "muhns31g",
+      "seed": "muintlrp",
       "gate": null,
-      "elapsedS": 1.2666100000000007,
+      "elapsedS": 1.2499699999999956,
       "killer": null,
       "bag": {
         "shardsBanked": 0,
@@ -1246,14 +1799,14 @@
         "greedMul": 1,
         "kept": [],
         "lost": [
-          "g-pgsmbrym5fxg"
+          "g-2vbcd5tsw3dk"
         ]
       },
       "settled": {
         "shardsBanked": 0,
         "itemsBanked": [],
         "lost": [
-          "g-pgsmbrym5fxg"
+          "g-2vbcd5tsw3dk"
         ],
         "xpGained": 0,
         "levelBefore": 2,
@@ -1268,11 +1821,12 @@
         "No items kept — pin one to your casket next time.",
         "LOST",
         "0 ◆ and 1 item",
-        "Thief's Grips",
+        "Butcher's Mitts",
         "Pin your best item before a fight you might lose.",
         "PROGRESS",
         "+0 XP",
         "HAULER LV 2",
+        "Codex: 1 new entry",
         "CONTINUE",
         "RETRY SAME MAP"
       ]
@@ -1280,7 +1834,7 @@
     "continueLandedOn": {
       "tab": "expedition",
       "title": "EXPEDITION",
-      "shards": "13",
+      "shards": "22",
       "scroll": 0,
       "maxScroll": 0,
       "content": 23,
@@ -1308,34 +1862,35 @@
       },
       "after": {
         "hood": null,
-        "shroud": null,
+        "shroud": "g-oo2z9ykgyfbb",
         "grips": null,
         "boots": null,
         "ring": null,
         "amulet": null
       },
-      "enabledAlpha": 0.4
+      "enabledAlpha": 1
     },
     "sanctumPrices": [
       "45 ◆@343 a0.4",
       "225 ◆@593 a0.4",
       "315 ◆@755 a0.4",
-      "270 ◆@917 a0.4"
+      "270 ◆@917 a0.4",
+      "150 ◆@1079 a0.26"
     ],
     "sanctumPurchase": {
       "price": "45 ◆",
       "alpha": 0.4,
-      "currencyBefore": 13,
-      "currencyAfter": 13,
+      "currencyBefore": 22,
+      "currencyAfter": 22,
       "upgrades": {}
     },
     "sanctumScroll": {
       "before": 0,
-      "after": 904,
-      "max": 1676
+      "after": 952,
+      "max": 1838
     },
     "finalRunState": {
-      "runS": 0.03,
+      "runS": 0.05,
       "mode": "normal",
       "zone": "castle",
       "gates": "a:closed,b:closed,c:closed,x:closed",
@@ -1350,17 +1905,17 @@
     },
     "metaAtEnd": {
       "version": 4,
-      "currency": 13,
+      "currency": 22,
       "dust": 0,
       "sigils": 0,
       "vaultGear": [
         "wicket-ash-locket",
-        "g-xq0kn7bpcnj7"
+        "g-oo2z9ykgyfbb"
       ],
       "vaultValuables": 0,
       "equipped": {
         "hood": null,
-        "shroud": null,
+        "shroud": "g-oo2z9ykgyfbb",
         "grips": null,
         "boots": null,
         "ring": null,
@@ -1398,43 +1953,45 @@
           "desert": 1,
           "winter": 1
         },
-        "lastLoadoutHash": "w7cgco"
+        "lastLoadoutHash": "1vism0p"
       }
     },
     "epochs": [
       {
         "label": "until:end of run",
-        "frames": 4999,
-        "fpsSamples": 792,
+        "frames": 11087,
+        "fpsSamples": 1728,
         "marks": [
           "draft-open",
           "boss-spawn",
           "collapse-ignition"
         ],
         "sceneTrail": [
-          "840:Game",
-          "33921:GameOver",
-          "35741:Hub",
-          "36692:Game",
-          "67932:GameOver",
-          "69784:Hub",
-          "70674:Game",
-          "74262:GameOver",
-          "76045:Hub",
-          "88639:Game"
+          "966:Game",
+          "35864:GameOver",
+          "37701:Hub",
+          "38670:Game",
+          "73808:GameOver",
+          "75661:Hub",
+          "76552:Game",
+          "80107:GameOver",
+          "81889:Hub",
+          "94885:Game",
+          "106138:GameOver",
+          "111455:Hub"
         ]
       }
     ],
     "captureFence": {
-      "count": 42,
-      "ms": 17193,
+      "count": 50,
+      "ms": 19911,
       "unrecovered": 0,
       "note": "page time fenced out of the fps record by screenshots"
     },
     "audio": {
       "muted": true,
       "mechanisms": [
-        "URL param on every load: http://localhost:5509/?mute=1",
+        "URL param on every load: http://localhost:4801/?mute=1",
         "page-side: media elements muted, AudioContext suspended with its destination shadowed by a gain pinned at 0, Phaser sound manager muted"
       ],
       "storageTouched": false,
@@ -1445,12 +2002,16 @@
         "phaserSound": true
       },
       "probe": {
-        "href": "http://localhost:5509/?mute=1",
+        "href": "http://localhost:4801/?mute=1",
         "urlMute": "1",
         "audioSnapshot": {
           "forcedByUrl": true,
-          "requested": 198,
-          "played": 0
+          "requested": 485,
+          "played": 0,
+          "sfxBus": null,
+          "musicDuck": null,
+          "samplesDecoded": 0,
+          "levels": null
         },
         "contexts": [
           {
@@ -1469,60 +2030,120 @@
       "msg": "phase: boot on a wiped save"
     },
     {
-      "t": 4015,
+      "t": 2449,
       "msg": "phase: Wicket FTUE + first draft"
     },
     {
-      "t": 4815,
+      "t": 3515,
       "msg": "FTUE beat \"move\" (wicket start)"
     },
     {
-      "t": 5199,
+      "t": 4048,
       "msg": "FTUE beat \"map\" (wicket start)"
     },
     {
-      "t": 5582,
-      "msg": "FTUE beat \"locket\" (wicket start)"
+      "t": 6998,
+      "msg": "FTUE beat \"locket\" (after the first move)"
     },
     {
-      "t": 8481,
+      "t": 7466,
       "msg": "FTUE beat \"attack\" (after the first move)"
     },
     {
-      "t": 16266,
+      "t": 17731,
       "msg": "FTUE beat \"draft\" (after the first draft)"
     },
     {
-      "t": 16270,
+      "t": 17734,
       "msg": "phase: pause tour"
     },
     {
-      "t": 24255,
+      "t": 25688,
       "msg": "phase: extraction through the Wicket Gate A"
     },
     {
-      "t": 30363,
+      "t": 31598,
       "msg": "FTUE beat \"gate\" (gate open / channel)"
     },
     {
-      "t": 30747,
+      "t": 32080,
       "msg": "FTUE beat \"item\" (gate open / channel)"
     },
     {
-      "t": 31131,
+      "t": 32598,
       "msg": "FTUE beat \"channel\" (gate open / channel)"
     },
     {
-      "t": 35599,
+      "t": 37665,
       "msg": "phase: normal run, late game + death + abandon"
     },
     {
-      "t": 75912,
+      "t": 81862,
       "msg": "phase: hub tabs tour"
     },
     {
-      "t": 90005,
-      "msg": "major budget:fps-unnamed-window: the worst unnamed 3s window of the run held 50.6fps median / 50.5fps min (budget 55/40) at t=5092ms — no named peak beat covers it. Name that beat in the adapter to make it a blocker, or confirm it is the host machine."
+      "t": 96335,
+      "msg": "phase: control sweep"
+    },
+    {
+      "t": 105407,
+      "msg": "sweep pause > SETTINGS: 5 tapped, 5 reacted, 0 dead, 0 declared no-op, 2 skipped"
+    },
+    {
+      "t": 106277,
+      "msg": "sweep pause: 1 tapped, 1 reacted, 0 dead, 0 declared no-op, 3 skipped"
+    },
+    {
+      "t": 111428,
+      "msg": "sweep results: 1 tapped, 1 reacted, 0 dead, 0 declared no-op, 3 skipped"
+    },
+    {
+      "t": 125254,
+      "msg": "sweep hub:expedition > Container@644,132: 5 tapped, 5 reacted, 0 dead, 0 declared no-op, 4 skipped"
+    },
+    {
+      "t": 129339,
+      "msg": "sweep hub:expedition > Container@360,314: 1 tapped, 1 reacted, 0 dead, 0 declared no-op, 2 skipped"
+    },
+    {
+      "t": 141839,
+      "msg": "sweep hub:expedition: 14 tapped, 14 reacted, 0 dead, 1 declared no-op, 6 skipped"
+    },
+    {
+      "t": 152886,
+      "msg": "sweep hub:armory > +: 3 tapped, 3 reacted, 0 dead, 0 declared no-op, 2 skipped"
+    },
+    {
+      "t": 159921,
+      "msg": "sweep hub:armory > Lv 1: 3 tapped, 3 reacted, 0 dead, 1 declared no-op, 2 skipped"
+    },
+    {
+      "t": 166873,
+      "msg": "sweep hub:armory: 9 tapped, 9 reacted, 0 dead, 0 declared no-op, 5 skipped"
+    },
+    {
+      "t": 174091,
+      "msg": "sweep hub:vault: 5 tapped, 5 reacted, 0 dead, 1 declared no-op, 14 skipped"
+    },
+    {
+      "t": 183706,
+      "msg": "sweep hub:sanctum > 45 ◆: 0 tapped, 0 reacted, 0 dead, 0 declared no-op, 0 skipped"
+    },
+    {
+      "t": 185242,
+      "msg": "sweep hub:sanctum: 6 tapped, 6 reacted, 0 dead, 0 declared no-op, 9 skipped"
+    },
+    {
+      "t": 191807,
+      "msg": "sweep hub:codex > CLAIM: 0 tapped, 0 reacted, 0 dead, 0 declared no-op, 0 skipped"
+    },
+    {
+      "t": 192420,
+      "msg": "sweep hub:codex: 3 tapped, 3 reacted, 0 dead, 0 declared no-op, 5 skipped"
+    },
+    {
+      "t": 192463,
+      "msg": "major budget:fps-unnamed-window: the worst unnamed 3s window of the run held 46.8fps median / 46.8fps min (budget 55/40) at t=1398ms — no named peak beat covers it. Name that beat in the adapter to make it a blocker, or confirm it is the host machine."
     }
   ],
   "teleports": [],

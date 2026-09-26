@@ -236,6 +236,7 @@ function openGearPicker(scene: Phaser.Scene, slot: GearSlot, onChanged: () => vo
         paint();
       });
       const on = selected?.uid === item.uid;
+      if (on) card.setData('noop', 'item already selected');
       card.add(panelAt(scene, 0, 0, 200, 260, on ? { stroke: PALETTE.primary, strokeAlpha: 1, strokeWidth: 4 } : { stroke: rarityColor(item.rarity), strokeAlpha: 0.9 }));
       card.add(iconFor(scene, lootIconId({ kind: 'gear', item }), 80, rarityColor(item.rarity), 'square').setPosition(100, 58));
       card.add(label(scene, 100, 104, gearName(item), { size: 18, bold: true, origin: [0.5, 0], align: 'center', wrap: 184 }));
@@ -267,13 +268,15 @@ function openGearPicker(scene: Phaser.Scene, slot: GearSlot, onChanged: () => vo
       onChanged();
       hubApi(scene).refreshChrome();
     }, { width: 312, height: 88, fontSize: '30px', ...BUTTON_STYLE.primary });
-    equip.setEnabled(pick !== undefined && current?.uid !== pick.uid);
+    equip.setEnabled(pick !== undefined && current?.uid !== pick.uid, () =>
+      actionToast(scene, pick === undefined ? 'Pick an item first.' : `${gearName(pick)} is already equipped.`),
+    );
     const unequip = new Button(scene, 368 + 156, fy - T + 190, 'UNEQUIP', () => {
       equipItem(slot, null);
       sheet.close();
       onChanged();
     }, { width: 312, height: 88, fontSize: '30px', ...BUTTON_STYLE.idle });
-    unequip.setEnabled(current !== undefined);
+    unequip.setEnabled(current !== undefined, () => actionToast(scene, `Nothing is equipped in the ${slot} slot.`));
     footer.add([equip, unequip]);
   };
   paint();

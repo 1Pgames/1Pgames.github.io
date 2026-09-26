@@ -30,6 +30,7 @@ import { itemCodexKey, itemRarity } from '../systems/bag';
 import { addBackground } from '../ui/background';
 import { Button, bindTap } from '../ui/button';
 import { BUTTON_STYLE, DEEP_INK, SCRIM, paintBar } from '../ui/duskChrome';
+import { actionToast } from '../ui/sheet';
 import { clock, iconLine, itemTile, label, num, panelAt } from '../ui/widgets';
 import { groupUnlocks } from './hub/format';
 import type { HubData, RunStart } from './hub/hub';
@@ -120,7 +121,12 @@ export class GameOverScene extends Phaser.Scene {
     share.setSize(88, 88).setInteractive({ useHandCursor: true });
     bindTap(share, () => {
       sfx('ui');
-      void shareResult({ score: `${num(settlement.shardsBanked)} shards`, won: extracted });
+      void shareResult({ score: `${num(settlement.shardsBanked)} shards`, won: extracted }).then((outcome) => {
+        // The OS sheet can settle long after the player left Results.
+        if (!this.scene.isActive()) return;
+        const copy = outcome === 'shared' ? 'Shared.' : outcome === 'copied' ? 'Result copied to the clipboard.' : "Sharing isn't available here.";
+        actionToast(this, copy, { y: 290 });
+      });
     }, (p) => share.setScale(p ? 0.92 : 1));
 
     // ── KEPT (from y 320; 220 tall with item tiles, 150 without) ──

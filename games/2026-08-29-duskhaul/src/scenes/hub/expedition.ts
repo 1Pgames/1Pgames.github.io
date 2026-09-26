@@ -114,16 +114,21 @@ export function buildExpeditionTab(scene: Phaser.Scene, content: Phaser.GameObje
   const api = hubApi(scene);
   let swipeStart: { x: number; y: number } | null = null;
 
+  // A locked zone can be VIEWED (its lock reason on the tile) but not selected,
+  // so the carousel keeps its own index while one is on screen.
+  let viewedLocked: number | null = null;
   const selectedIndex = (): number => {
+    if (viewedLocked !== null) return viewedLocked;
     const zone = loadMeta().selection.zone;
     return Math.max(0, ZONES.findIndex((z) => z.id === zone));
   };
 
   const setZone = (index: number): void => {
-    const zone = ZONES[(index + ZONES.length) % ZONES.length];
+    const i = (index + ZONES.length) % ZONES.length;
+    const zone = ZONES[i];
     if (zone === undefined) return;
     const meta = loadMeta();
-    selectZone(zone.id, currentHazard(meta, zone.id));
+    viewedLocked = selectZone(zone.id, currentHazard(meta, zone.id)).ok ? null : i;
     build();
   };
 
@@ -239,6 +244,7 @@ export function buildExpeditionTab(scene: Phaser.Scene, content: Phaser.GameObje
         build();
       });
       const on = lvl === hazard;
+      if (on) cell.setData('noop', 'hazard already selected');
       if (on) {
         const g = scene.add.graphics();
         g.fillStyle(PALETTE.primary, 0.92);

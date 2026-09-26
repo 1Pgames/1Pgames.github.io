@@ -250,6 +250,8 @@ export class HubScene extends Phaser.Scene {
   private refreshChrome(): void {
     const meta = loadMeta();
     this.shardText.setText(num(meta.currency)).setScale(1);
+    // The chip opens VAULT; on VAULT it is a declared no-op (control sweep).
+    this.shardChip.setData('noop', this.tabId === 'vault' ? 'already on the Vault tab' : null);
     // Six-figure totals (endless sinks era) must not run into the ◆ glyph: fit 56..164.
     if (this.shardText.width > 108) this.shardText.setScale(108 / this.shardText.width);
     const lv = accountLevel(meta);
