@@ -83,7 +83,17 @@ export const TUNING = {
     moveSpeed: 330,
     /** Drag-follow easing: fraction of the remaining distance per 16ms. */
     followLerp: 0.22,
+    /**
+     * Gameplay footprint diameter (contact reach, scene AND sim) — NOT the
+     * display size. The sprite is sized by `visiblePx` below.
+     */
     size: 96,
+    /**
+     * On-screen silhouette height (readability floor: hero ≥ 15% of 720 = 108).
+     * The cell display size is derived from the sheet's measured subject height
+     * (`data/enemies.ts displaySizeFor`).
+     */
+    visiblePx: 112,
     damage: 12,
     attackMs: 620,
     /** Auto-attack range in px. Keep under ~45% of VIEW.width so kills happen on-screen. */
@@ -160,6 +170,10 @@ export const TUNING = {
     healAuraAmount: 8,
     /** `charge` enemies flash + telegraph a thin line before dashing. */
     chargeTelegraphMs: 400,
+    /** An enemy this far from the player is re-placed on the spawn ring (big worlds: nobody is left behind). */
+    leashPx: 1500,
+    /** Flow-field window around the player, in nav cells (beyond it enemies steer straight). */
+    navWindowCells: 28,
   },
 
   boss: {
@@ -211,23 +225,47 @@ export const TUNING = {
   },
 
   /**
-   * Bounded play field (see `systems/arena.ts`). Several screens wide, camera
-   * follows the player inside it — a known field beats an endless plain: the
-   * player can read where pressure comes from and the run has a shape.
+   * The generated world (`systems/mapgen.ts`, rendered by `systems/arena.ts`).
+   * Size is in SCREENS of 720×1280: the default 4320×7680 is 6×6 = 36 screens
+   * (arena-survival floor ≥ 30); an open-map PRD raises it to ≥ 150 screens.
+   * The composition numbers below are the §Taste floors made concrete and are
+   * asserted by `src/sim/kits/mapgen.selftest.ts` — a game may raise them,
+   * never lower them past the floor the selftest pins.
    */
   arena: {
-    width: 1440,
-    height: 2160,
-    /** Floor tile size in px. */
+    width: 4320,
+    height: 7680,
+    /** Floor tile size in px; floor variants are chosen per tile and feather-blended. */
     tileSize: 512,
     wallThickness: 26,
-    /** Impassable props per run. */
-    propsMin: 14,
-    propsMax: 20,
-    /** No props inside this radius of the centre, where the run starts. */
-    spawnClearRadius: 260,
-    /** Flat, non-colliding floor decoration. */
-    decalCount: 16,
+    /** The spawn lies within this many px of the world centre. */
+    spawnJitter: 160,
+    /** No props inside this radius of the spawn. */
+    spawnClearRadius: 360,
+    /** Lone props per screen of world (placed singly, never heaped). */
+    propsPerScreen: 4.8,
+    /** Minimum gap between the drawn-art circles of two props (sprite overlap 0). */
+    propGap: 60,
+    /** The same prop kind keeps at least this far from itself. */
+    sameKindPx: 900,
+    /** Floor decals per screen (target) and the hard cap in any screen-sized window. */
+    decalsPerScreen: 1.6,
+    decalMaxPerScreen: 3,
+    /** Roads: MST over road nodes this far apart (+ loops), carved this wide. */
+    roadNodeSpacing: 1500,
+    roadWidth: 150,
+    roadLoopRatio: 0.35,
+    /** POI anchors (when `data/world.ts` asks for any): min spacing, max offset from a road. */
+    poiMinSpacing: 1100,
+    poiRoadMaxPx: 600,
+    /** Nav raster cell (flow-field steering + reachability). */
+    navCell: 64,
+    /**
+     * Danger rises toward the edges: spawned enemies' difficulty × (1 + this ×
+     * edge share), where edge share is 0 inside the spawn band (depth ≤ 1/3)
+     * and 1 at the wall (`systems/mapgen.ts depthDangerMul`).
+     */
+    depthDanger: 0.35,
     /** Camera follow smoothing (0..1 per frame). */
     cameraLerp: 0.12,
     /** View bias: positive pushes the player below the HUD band. */

@@ -3,16 +3,31 @@ import { STORE } from './keys';
 import { AUDIO } from '../data/audio';
 
 /**
- * Sound. Every voice is synthesised with WebAudio at runtime, so a generated
- * game ships with no audio files and still has full game feel.
+ * Sound. Every voice has a WebAudio synth definition, so a generated game with
+ * no audio files still has full game feel.
  *
  * A game that DOES ship samples registers them in `src/data/audio.ts`:
  * `initGeneratedAudio()` (called once from `PreloadScene`) fetches and decodes
  * them into the same context, and `sfx()` plays the sample for a registered
  * name and the synth voice for every other one. A fetch/decode failure warns
- * once and stays on the synth voice.
+ * once and stays on the synth voice. Generated samples are the default for a
+ * shipped game; the synth is their failure fallback.
  *
  * Usage:  sfx('pickup')  /  sfx('hit', { rate: 1.2 })  /  toggleMute()
+ *
+ * Mixing (ported from the Duskhaul audio audit): voice → instance gain → SFX
+ * bus (glue compressor → make-up) → Settings×mute master → destination. Music
+ * (`core/music.ts`) connects to `musicInput()`, a duck gain → destination, so
+ * a voice flagged `duck` dips the score −6 dB for 400 ms without touching its
+ * Settings level. Each voice has a `poly` cap; a call over the cap STEALS the
+ * oldest live instance of that voice (5 ms fade) instead of being dropped, so
+ * a kill spike never stacks 40 identical transients into clipping. Spam RATE
+ * belongs at the call site, never here.
+ *
+ * Settings: `playerSettings()` / `savePlayerSettings(patch)` own the persisted
+ * Music level, SFX level and Reduce-motion flag (`STORE.settings`). Saving
+ * applies to the audio playing NOW — the SFX bus here, the music bus through
+ * `onSettingsChange` in `core/music.ts` — so a slider is heard while dragged.
  *
  * SILENCE FOR AUTOMATED RUNS: load the game with `?mute=1` (or a bare `?mute`)
  * and the whole audio stack is inert from the first frame — see `MUTE_PARAM`
@@ -23,11 +38,12 @@ import { AUDIO } from '../data/audio';
  * cooperation from the game.
  */
 
-type Wave = OscillatorType;
+type Wave = OscillatorType | 'noise';
 
-interface Voice {
+/** One partial of a voice: an oscillator (or filtered noise) under its own envelope. */
+interface Layer {
   wave: Wave;
-  /** Start frequency in Hz. */
+  /** Start frequency in Hz (noise: filter centre when `cutoff` is omitted). */
   freq: number;
   /** Frequency at the end of the sweep; omit for a flat tone. */
   freqEnd?: number;
@@ -35,46 +51,74 @@ interface Voice {
   attack: number;
   decay: number;
   gain: number;
-  /** Adds a filtered noise burst on top — reads as impact/whoosh. */
-  noise?: number;
-  /** Detuned second oscillator for thickness. */
+  /** Seconds after the voice start. */
+  delay?: number;
+  /** Detuned second oscillator (cents) for thickness. */
   detune?: number;
+  /** Filter on this layer; noise defaults to a bandpass at `cutoff ?? freq`. */
+  filter?: BiquadFilterType;
+  cutoff?: number;
+  cutoffEnd?: number;
+  q?: number;
+}
+
+interface Voice {
+  layers: readonly Layer[];
+  /** Live instances before the oldest is stolen. */
+  poly: number;
+  /** ± random pitch fraction per call, so repeats never machine-gun. */
+  jitter?: number;
+  /** ± random volume fraction per call. */
+  vary?: number;
+  /** Big beat: ducks the music bus −6 dB for 400 ms. */
+  duck?: boolean;
+  /** Rising chain: each call within `resetMs` of the last climbs `step` semitones, up to `max`. */
+  chain?: { step: number; max: number; resetMs: number };
+  /**
+   * Linear make-up gain for this voice's registered SAMPLE only. Level-match a
+   * sample to its synth voice in the file itself; a file that cannot take the
+   * full boost without passing −1 dBTP carries the rest here.
+   */
+  sampleGain?: number;
 }
 
 const VOICES = {
-  ui: { wave: 'square', freq: 660, freqEnd: 880, attack: 0.002, decay: 0.07, gain: 0.18 },
-  tap: { wave: 'triangle', freq: 420, freqEnd: 620, attack: 0.002, decay: 0.09, gain: 0.22 },
+  ui: { poly: 3, layers: [{ wave: 'square', freq: 660, freqEnd: 880, attack: 0.002, decay: 0.07, gain: 0.18 }] },
+  tap: { poly: 3, layers: [{ wave: 'triangle', freq: 420, freqEnd: 620, attack: 0.002, decay: 0.09, gain: 0.22 }] },
   pickup: {
-    wave: 'square',
-    freq: 720,
-    freqEnd: 1320,
-    attack: 0.002,
-    decay: 0.14,
-    gain: 0.2,
-    detune: 12,
+    poly: 3,
+    layers: [{ wave: 'square', freq: 720, freqEnd: 1320, attack: 0.002, decay: 0.14, gain: 0.2, detune: 12 }],
   },
-  combo: { wave: 'square', freq: 980, freqEnd: 1760, attack: 0.002, decay: 0.12, gain: 0.18 },
-  jump: { wave: 'sawtooth', freq: 300, freqEnd: 720, attack: 0.002, decay: 0.16, gain: 0.2 },
+  combo: { poly: 3, layers: [{ wave: 'square', freq: 980, freqEnd: 1760, attack: 0.002, decay: 0.12, gain: 0.18 }] },
+  jump: { poly: 2, layers: [{ wave: 'sawtooth', freq: 300, freqEnd: 720, attack: 0.002, decay: 0.16, gain: 0.2 }] },
   hit: {
-    wave: 'sawtooth',
-    freq: 260,
-    freqEnd: 70,
-    attack: 0.001,
-    decay: 0.24,
-    gain: 0.3,
-    noise: 0.35,
+    poly: 4,
+    jitter: 0.08,
+    layers: [
+      { wave: 'sawtooth', freq: 260, freqEnd: 70, attack: 0.001, decay: 0.24, gain: 0.3 },
+      { wave: 'noise', freq: 780, cutoffEnd: 260, attack: 0.001, decay: 0.24, gain: 0.105 },
+    ],
   },
   die: {
-    wave: 'triangle',
-    freq: 340,
-    freqEnd: 48,
-    attack: 0.004,
-    decay: 0.75,
-    gain: 0.34,
-    noise: 0.18,
+    poly: 2,
+    duck: true,
+    layers: [
+      { wave: 'triangle', freq: 340, freqEnd: 48, attack: 0.004, decay: 0.75, gain: 0.34 },
+      { wave: 'noise', freq: 1020, cutoffEnd: 340, attack: 0.004, decay: 0.75, gain: 0.061 },
+    ],
   },
-  levelup: { wave: 'square', freq: 520, freqEnd: 1040, attack: 0.004, decay: 0.3, gain: 0.2 },
-  whoosh: { wave: 'sine', freq: 180, freqEnd: 90, attack: 0.01, decay: 0.3, gain: 0.12, noise: 0.5 },
+  levelup: {
+    poly: 4,
+    duck: true,
+    layers: [{ wave: 'square', freq: 520, freqEnd: 1040, attack: 0.004, decay: 0.3, gain: 0.2 }],
+  },
+  whoosh: {
+    poly: 3,
+    layers: [
+      { wave: 'sine', freq: 180, freqEnd: 90, attack: 0.01, decay: 0.3, gain: 0.12 },
+      { wave: 'noise', freq: 540, cutoffEnd: 180, attack: 0.01, decay: 0.3, gain: 0.06 },
+    ],
+  },
 } as const satisfies Record<string, Voice>;
 
 export type SfxName = keyof typeof VOICES;
@@ -88,8 +132,86 @@ interface PlayOptions {
   delay?: number;
 }
 
+// ─────────────────────────── settings ───────────────────────────
+
+/** The player's persisted Settings (`STORE.settings`). Levels are 0..1. */
+export interface PlayerSettings {
+  music: number;
+  sfx: number;
+  /** Progression beats and other ceremony run calm (`ui/progressFx.ts`). Defaults to the OS preference. */
+  reduceMotion: boolean;
+}
+
+function systemReducedMotion(): boolean {
+  try {
+    return typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  } catch {
+    return false;
+  }
+}
+
+const clamp01 = (v: unknown, fallback: number): number =>
+  typeof v === 'number' && Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : fallback;
+
+/** Stored Settings, defaulted field by field (a partial or stale blob never throws). */
+export function playerSettings(): PlayerSettings {
+  const raw = load<Partial<PlayerSettings> | null>(STORE.settings, null);
+  return {
+    music: clamp01(raw?.music, 1),
+    sfx: clamp01(raw?.sfx, 1),
+    reduceMotion: typeof raw?.reduceMotion === 'boolean' ? raw.reduceMotion : systemReducedMotion(),
+  };
+}
+
+type SettingsListener = (settings: PlayerSettings) => void;
+const settingsListeners = new Set<SettingsListener>();
+
+/** Subscribe to Settings saves (the music bus re-levels itself here). Returns an unsubscribe function. */
+export function onSettingsChange(listener: SettingsListener): () => void {
+  settingsListeners.add(listener);
+  return () => settingsListeners.delete(listener);
+}
+
+/**
+ * Persists a Settings change and applies it to what is playing NOW: the SFX
+ * bus directly, the music bus through `onSettingsChange`. Call on every slider
+ * step, not only on release — the player must hear the level while dragging.
+ */
+export function savePlayerSettings(patch: Partial<PlayerSettings>): PlayerSettings {
+  const merged = { ...playerSettings(), ...patch };
+  const next: PlayerSettings = {
+    music: clamp01(merged.music, 1),
+    sfx: clamp01(merged.sfx, 1),
+    reduceMotion: merged.reduceMotion === true,
+  };
+  save(STORE.settings, next);
+  sfxLevel = next.sfx;
+  applyMasterGain();
+  settingsListeners.forEach((listener) => listener(next));
+  return next;
+}
+
+// ─────────────────────────── state ───────────────────────────
+
 let ctx: AudioContext | null = null;
+/** Settings × mute gain at the end of the SFX bus. */
 let master: GainNode | null = null;
+/** Voices connect here (glue compressor → make-up → `master`). */
+let sfxIn: AudioNode | null = null;
+/** Music bus duck gain → destination (`musicInput()`). */
+let musicDuck: GainNode | null = null;
+/** SFX master at Settings 1 — `audioStatus().masterGain` reads 0.9 on an unmuted default run. */
+const MASTER_LEVEL = 0.9;
+/** Glue compressor make-up gain. */
+const SFX_MAKEUP = 1;
+/** Music duck: depth (−6 dB) and hold. */
+const DUCK = { level: 0.5, holdS: 0.4, attackTc: 0.03, releaseTc: 0.12 } as const;
+/** Steal fade (s): long enough not to click, short enough to free the slot now. */
+const STEAL_TC = 0.005;
+/** Longest `sfxArp`: more steps read as a glissando, not a reward. */
+const ARP_MAX_STEPS = 6;
+let sfxLevel = playerSettings().sfx;
+
 /**
  * The URL switch that forces silence for one page load.
  *
@@ -133,7 +255,6 @@ const forcedMute = readUrlMute();
 let storedMute = load<boolean>(STORE.muted, false);
 /** What `sfx()` and the music buses obey. */
 let muted = forcedMute || storedMute;
-let noiseBuffer: AudioBuffer | null = null;
 type MuteListener = (muted: boolean) => void;
 const muteListeners = new Set<MuteListener>();
 
@@ -153,6 +274,28 @@ const samples = new Map<SfxName, AudioBuffer>();
 const fetched = new Map<SfxName, ArrayBuffer>();
 let samplesRequested = false;
 
+function applyMasterGain(): void {
+  if (master && ctx) master.gain.setTargetAtTime(muted ? 0 : MASTER_LEVEL * sfxLevel, ctx.currentTime, 0.02);
+}
+
+/**
+ * The SFX bus: voices → glue compressor (catches stacked kills without
+ * pumping the score) → make-up gain. Returns the input voices connect to and
+ * the output to route onward.
+ */
+function sfxBus(target: BaseAudioContext): { input: AudioNode; output: AudioNode } {
+  const comp = target.createDynamicsCompressor();
+  comp.threshold.value = -14;
+  comp.knee.value = 6;
+  comp.ratio.value = 4;
+  comp.attack.value = 0.003;
+  comp.release.value = 0.15;
+  const makeup = target.createGain();
+  makeup.gain.value = SFX_MAKEUP;
+  comp.connect(makeup);
+  return { input: comp, output: makeup };
+}
+
 /**
  * Browsers require a user gesture; call once from a pointer/key handler.
  *
@@ -168,16 +311,16 @@ let samplesRequested = false;
 export function unlockAudio(): void {
   if (forcedMute) return;
   if (!ctx) {
-    if (typeof window.AudioContext !== 'function') return;
+    if (typeof window === 'undefined' || typeof window.AudioContext !== 'function') return;
     ctx = new AudioContext();
     master = ctx.createGain();
-    master.gain.value = muted ? 0 : 0.9;
+    master.gain.value = muted ? 0 : MASTER_LEVEL * sfxLevel;
     master.connect(ctx.destination);
-
-    const frames = Math.floor(ctx.sampleRate * 0.4);
-    noiseBuffer = ctx.createBuffer(1, frames, ctx.sampleRate);
-    const data = noiseBuffer.getChannelData(0);
-    for (let i = 0; i < frames; i += 1) data[i] = Math.random() * 2 - 1;
+    const bus = sfxBus(ctx);
+    bus.output.connect(master);
+    sfxIn = bus.input;
+    musicDuck = ctx.createGain();
+    musicDuck.connect(ctx.destination);
   }
   if (ctx.state === 'suspended') void ctx.resume();
   void decodeFetched();
@@ -232,6 +375,21 @@ export function getAudioContext(): AudioContext | null {
   return ctx;
 }
 
+/** Where the music bus connects (the duck gain); null until `unlockAudio()` created the context. */
+export function musicInput(): AudioNode | null {
+  return musicDuck;
+}
+
+/** Dips the music bus −6 dB for `DUCK.holdS`, then recovers — big beats cut through the score. */
+function duckMusic(): void {
+  if (!ctx || !musicDuck) return;
+  const g = musicDuck.gain;
+  const now = ctx.currentTime;
+  g.cancelScheduledValues(now);
+  g.setTargetAtTime(DUCK.level, now, DUCK.attackTc);
+  g.setTargetAtTime(1, now + DUCK.holdS, DUCK.releaseTc);
+}
+
 /**
  * Subscribe to mute toggles so other audio buses (music) can silence
  * themselves in lockstep with sfx. Returns an unsubscribe function.
@@ -265,7 +423,7 @@ export function toggleMute(): boolean {
   storedMute = !muted;
   save(STORE.muted, storedMute);
   muted = forcedMute || storedMute;
-  if (master && ctx) master.gain.setTargetAtTime(muted ? 0 : 0.9, ctx.currentTime, 0.02);
+  applyMasterGain();
   muteListeners.forEach((listener) => listener(muted));
   return muted;
 }
@@ -286,15 +444,21 @@ export interface AudioStatus {
   forcedByUrl: boolean;
   /** The persisted `muted` preference. Never written by the URL override. */
   storedPreference: boolean;
-  /** Master gain, or `null` when no context exists (always null under `?mute`). */
+  /** SFX master gain (0.9 × Settings SFX when unmuted), or `null` when no context exists (always null under `?mute`). */
   masterGain: number | null;
   /** `null` under `?mute`: the context is never created at all. */
   contextState: AudioContextState | null;
-  /** `sfx()` calls, silent or not. */
+  /** `sfx()` calls (one per `sfxArp` step), silent or not. */
   requested: number;
   /** Calls that actually reached the audio graph. 0 for a whole muted run. */
   played: number;
   lastRequested: SfxName | null;
+  /** Live music duck gain (1 = no duck, 0.5 during a big beat); `null` without a context. */
+  musicDuck: number | null;
+  /** Registered samples decoded so far — 0 means every voice is on its synth fallback. */
+  samplesDecoded: number;
+  /** The stored Settings the buses are applying. */
+  settings: PlayerSettings;
 }
 
 export function audioStatus(): AudioStatus {
@@ -307,6 +471,9 @@ export function audioStatus(): AudioStatus {
     requested: sfxRequested,
     played: sfxPlayed,
     lastRequested,
+    musicDuck: musicDuck === null ? null : musicDuck.gain.value,
+    samplesDecoded: samples.size,
+    settings: playerSettings(),
   };
 }
 
@@ -317,87 +484,167 @@ if (typeof window !== 'undefined') {
   debugWindow.__AUDIO__ = audioStatus;
 }
 
+// ─────────────────────────── voices ───────────────────────────
+
+/** 0.4 s of white noise per context, shared by every noise layer. */
+const noiseBuffers = new WeakMap<BaseAudioContext, AudioBuffer>();
+
+function noiseFor(target: BaseAudioContext): AudioBuffer {
+  let buf = noiseBuffers.get(target);
+  if (buf !== undefined) return buf;
+  const frames = Math.floor(target.sampleRate * 0.4);
+  buf = target.createBuffer(1, frames, target.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < frames; i += 1) data[i] = Math.random() * 2 - 1;
+  noiseBuffers.set(target, buf);
+  return buf;
+}
+
+/** A live voice (or one whole arpeggio): its gain is what a steal fades. */
+interface Instance {
+  gain: GainNode;
+  end: number;
+}
+/** Live instances per voice, oldest first. */
+const live = new Map<SfxName, Instance[]>();
+/** Rising-chain state per voice: current step and the time of the last call. */
+const chains = new Map<SfxName, { step: number; at: number }>();
+
 /**
- * One-shot playback of a decoded sample. `rate` retunes it (playbackRate),
- * `volume` scales it; mute is already handled by the shared master gain.
+ * Schedules one voice — its decoded sample if registered, else its synth
+ * layers — into `dest`, starting `delay` s from now. Returns the end time.
  */
-function playSample(target: AudioContext, destination: AudioNode, buffer: AudioBuffer, options: PlayOptions): void {
-  const src = target.createBufferSource();
-  src.buffer = buffer;
-  src.playbackRate.value = options.rate ?? 1;
-  const gain = target.createGain();
-  gain.gain.value = options.volume ?? 1;
-  src.connect(gain).connect(destination);
-  src.start(target.currentTime + (options.delay ?? 0));
+function scheduleVoice(target: AudioContext, dest: AudioNode, name: SfxName, rate: number, delay: number): number {
+  const voice: Voice = VOICES[name];
+  const t0 = target.currentTime + delay;
+  const sample = samples.get(name);
+  if (sample) {
+    const src = target.createBufferSource();
+    src.buffer = sample;
+    src.playbackRate.value = rate;
+    const gain = target.createGain();
+    gain.gain.value = voice.sampleGain ?? 1;
+    src.connect(gain).connect(dest);
+    src.start(t0);
+    return t0 + sample.duration / rate;
+  }
+  let end = t0;
+  for (const layer of voice.layers) {
+    const start = t0 + (layer.delay ?? 0);
+    const stop = start + layer.attack + layer.decay;
+    end = Math.max(end, stop);
+    const env = target.createGain();
+    env.gain.setValueAtTime(0.0001, start);
+    env.gain.exponentialRampToValueAtTime(layer.gain, start + layer.attack);
+    env.gain.exponentialRampToValueAtTime(0.0001, stop);
+    env.connect(dest);
+    let head: AudioNode = env;
+    const filterType = layer.filter ?? (layer.wave === 'noise' ? 'bandpass' : undefined);
+    if (filterType !== undefined) {
+      const f = target.createBiquadFilter();
+      f.type = filterType;
+      f.frequency.setValueAtTime((layer.cutoff ?? layer.freq) * rate, start);
+      if (layer.cutoffEnd !== undefined) f.frequency.exponentialRampToValueAtTime(Math.max(40, layer.cutoffEnd * rate), stop);
+      if (layer.q !== undefined) f.Q.value = layer.q;
+      f.connect(env);
+      head = f;
+    }
+    if (layer.wave === 'noise') {
+      const src = target.createBufferSource();
+      src.buffer = noiseFor(target);
+      src.loop = true;
+      src.connect(head);
+      src.start(start, Math.random() * 0.3);
+      src.stop(stop + 0.02);
+      continue;
+    }
+    const wave = layer.wave;
+    const osc = (detune: number): void => {
+      const o = target.createOscillator();
+      o.type = wave;
+      o.detune.value = detune;
+      o.frequency.setValueAtTime(layer.freq * rate, start);
+      if (layer.freqEnd !== undefined) o.frequency.exponentialRampToValueAtTime(Math.max(20, layer.freqEnd * rate), stop);
+      o.connect(head);
+      o.start(start);
+      o.stop(stop + 0.02);
+    };
+    osc(0);
+    if (layer.detune !== undefined) osc(layer.detune);
+  }
+  return end;
+}
+
+/** Per-call pitch: jitter plus the rising-chain step. */
+function voiceRate(name: SfxName, voice: Voice, base: number, now: number): number {
+  let rate = base;
+  if (voice.jitter !== undefined) rate *= 1 + (Math.random() * 2 - 1) * voice.jitter;
+  if (voice.chain !== undefined) {
+    const c = chains.get(name) ?? { step: -1, at: -Infinity };
+    c.step = now - c.at <= voice.chain.resetMs / 1000 ? Math.min(voice.chain.max, c.step + 1) : 0;
+    c.at = now;
+    chains.set(name, c);
+    rate *= 2 ** ((c.step * voice.chain.step) / 12);
+  }
+  return rate;
+}
+
+/** Frees a slot for `name`: drops finished instances, steals the oldest while at the cap. */
+function claimSlot(name: SfxName, voice: Voice, now: number): Instance[] {
+  let list = live.get(name);
+  if (list === undefined) {
+    list = [];
+    live.set(name, list);
+  }
+  for (let i = list.length - 1; i >= 0; i -= 1) if ((list[i]?.end ?? 0) <= now) list.splice(i, 1);
+  while (list.length >= voice.poly) {
+    const old = list.shift();
+    if (old === undefined) break;
+    old.gain.gain.cancelScheduledValues(now);
+    old.gain.gain.setTargetAtTime(0, now, STEAL_TC);
+  }
+  return list;
+}
+
+/**
+ * Plays `steps` notes of `name` (1 = a plain voice) as ONE polyphony instance,
+ * so an arpeggio never steals its own later notes. True when it reached the
+ * graph.
+ */
+function playVoice(name: SfxName, options: PlayOptions, steps: number): boolean {
+  if (muted) return false;
+  unlockAudio();
+  if (!ctx || !sfxIn) return false;
+  const voice: Voice = VOICES[name];
+  const now = ctx.currentTime;
+  const list = claimSlot(name, voice, now);
+  let volume = options.volume ?? 1;
+  if (voice.vary !== undefined) volume *= 1 + (Math.random() * 2 - 1) * voice.vary;
+  const gain = ctx.createGain();
+  gain.gain.value = volume;
+  gain.connect(sfxIn);
+  const rate = voiceRate(name, voice, options.rate ?? 1, now);
+  const delay = options.delay ?? 0;
+  let end = now;
+  for (let i = 0; i < steps; i += 1) {
+    end = Math.max(end, scheduleVoice(ctx, gain, name, rate * (1 + i * 0.14), delay + i * 0.06));
+  }
+  list.push({ gain, end });
+  if (voice.duck === true) duckMusic();
+  return true;
 }
 
 export function sfx(name: SfxName, options: PlayOptions = {}): void {
   sfxRequested += 1;
   lastRequested = name;
-  if (muted) return;
-  unlockAudio();
-  if (!ctx || !master) return;
-  sfxPlayed += 1;
-
-  const sample = samples.get(name);
-  if (sample) {
-    playSample(ctx, master, sample, options);
-    return;
-  }
-
-  const voice: Voice = VOICES[name];
-  const rate = options.rate ?? 1;
-  const t0 = ctx.currentTime + (options.delay ?? 0);
-  const peak = voice.gain * (options.volume ?? 1);
-  const end = t0 + voice.attack + voice.decay;
-
-  const env = ctx.createGain();
-  env.gain.setValueAtTime(0.0001, t0);
-  env.gain.exponentialRampToValueAtTime(peak, t0 + voice.attack);
-  env.gain.exponentialRampToValueAtTime(0.0001, end);
-  env.connect(master);
-
-  const startOsc = (detune: number): void => {
-    const osc = ctx!.createOscillator();
-    osc.type = voice.wave;
-    osc.detune.value = detune;
-    osc.frequency.setValueAtTime(voice.freq * rate, t0);
-    if (voice.freqEnd !== undefined) {
-      osc.frequency.exponentialRampToValueAtTime(Math.max(20, voice.freqEnd * rate), end);
-    }
-    osc.connect(env);
-    osc.start(t0);
-    osc.stop(end + 0.02);
-  };
-
-  startOsc(0);
-  if (voice.detune !== undefined) startOsc(voice.detune);
-
-  if (voice.noise !== undefined && noiseBuffer) {
-    const src = ctx.createBufferSource();
-    src.buffer = noiseBuffer;
-    const filter = ctx.createBiquadFilter();
-    filter.type = 'bandpass';
-    filter.frequency.setValueAtTime(voice.freq * 3 * rate, t0);
-    filter.frequency.exponentialRampToValueAtTime(Math.max(60, voice.freq * rate), end);
-    const noiseGain = ctx.createGain();
-    noiseGain.gain.setValueAtTime(0.0001, t0);
-    noiseGain.gain.exponentialRampToValueAtTime(peak * voice.noise, t0 + voice.attack);
-    noiseGain.gain.exponentialRampToValueAtTime(0.0001, end);
-    src.connect(filter).connect(noiseGain).connect(master);
-    src.start(t0);
-    src.stop(end + 0.02);
-  }
+  if (playVoice(name, options, 1)) sfxPlayed += 1;
 }
 
-/** Ascending arpeggio — use for combos, level-ups, milestone score. */
+/** Ascending arpeggio — use for combos, level-ups, milestone score. Counts one request per step. */
 export function sfxArp(name: SfxName, steps: number, options: PlayOptions = {}): void {
-  const capped = Math.min(steps, 6);
-  for (let i = 0; i < capped; i += 1) {
-    sfx(name, {
-      ...options,
-      rate: (options.rate ?? 1) * (1 + i * 0.14),
-      delay: (options.delay ?? 0) + i * 0.06,
-    });
-  }
+  const capped = Math.max(0, Math.min(steps, ARP_MAX_STEPS));
+  if (capped === 0) return;
+  sfxRequested += capped;
+  lastRequested = name;
+  if (playVoice(name, options, capped)) sfxPlayed += capped;
 }

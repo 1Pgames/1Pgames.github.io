@@ -55,7 +55,30 @@ with a ready gate):
    - Flow walk: replay the PRD §14b flow map edge by edge — every mapped
      transition fires, every shipped transition is mapped, tap-depths
      hold, every interruption-matrix cell behaves as specified.
-7. Reproduce → minimize → report: exact steps, seed, screenshots, smallest
+7. TASTE & CONNECTEDNESS probes (numbers from PRD §1c Taste budgets; the
+   defaults below apply where it is silent). Reach late states with
+   `window.__DEV__` (`?debug&mute=1`; grant currency/level, unlock all,
+   max meta, teleport, spawn boss) instead of grinding:
+   - Every control: tap every button/tab/slider/toggle on every screen,
+     pause and settings included; each must change observable state
+     (scene, value, gain). A no-op control is MAJOR, BLOCKER if paid for.
+   - Every paid effect: buy each meta node / loadout field, start a run,
+     assert the effect in run state (recorded: "start at level 2" did
+     nothing).
+   - Audio: ≥ 5 `__AUDIO__().requested`/s in combat with ≥ 20 enemies
+     near; every §13 event seen in `lastRequested`; in the one unmuted
+     pass, the music slider changes the gain of the track already playing.
+   - Actor on-screen size: visible height ≥ 8% of screen width per enemy
+     kind, hero ≥ 15%.
+   - World density per screen (sample ≥ 10 screens across the map): POI
+     every 2-3 screens, ≥ 3 prop kinds, decals ≤ 3, zero prop overlap;
+     spawn at the map centre.
+   - Asset completeness: every draft card/shop row shows a real icon;
+     every weapon/evolution draws world fx (no geometric placeholder).
+   - Meta pacing: from measured per-run income, runs to first node (1),
+     to 50% of the tree (25-35) and to 100% (80-120); an endless sink
+     exists.
+8. Reproduce → minimize → report: exact steps, seed, screenshots, smallest
    trigger, suspected owning file. Route each confirmed finding per
    `game-build/references/playtest-lessons.md`.
 
@@ -124,5 +147,11 @@ BEFORE you probe; drive the game the way the GAME defines it):
 Severity: BLOCKER (breaks loop/progress/purchase), MAJOR (visible wrongness
 a player hits in one session), MINOR (polish). Never soften a blocker.
 
+Long-running commands: run them in the FOREGROUND, chunked under the tool
+timeout, or wait for them; never end a turn with a job or dev server you
+started still running — the session parks, the job dies, the result is
+lost.
+
 NO code edits, NO commits. Deliverable: findings report + screenshot
-corpus, ready for the fixing specialists.
+corpus + the step-7 probe table (probe → measured → budget → verdict),
+ready for the fixing specialists.

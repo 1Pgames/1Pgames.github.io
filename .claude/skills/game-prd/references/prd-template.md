@@ -80,6 +80,30 @@ references, and why it stays fun rather than merely different.
 **Derived content floors:** the §5.0 floor for this game =
 `max(playbook minimum, dossier floor)` — list the final numbers here.
 
+## 1c. Taste budgets (the numbers a player would otherwise report as "I don't like it")
+
+Every taste axis a user can reject is written here as a NUMBER with the gate
+that measures it, before any build agent starts. Defaults come from the
+family's playbook §Taste floors (`genre-playbooks.md` / `casual-playbooks.md`)
+and `design-heuristics.md` §4.3/§11.3/§18.2; the dossier (§1b) may only raise
+them. Checked by `node scripts/audit-check.mjs <slug>` (`taste:section`,
+`taste:axes`, `taste:na`, `taste:numbers`). One row per axis id; the first
+cell starts with the id. `n/a — <reason>` is legal only where the family allows
+it (world-scale/density: arena, side and track may not; build-variety: arena
+may not; meta-pacing: only hyper may; readability, audio, difficulty-live:
+never). Rows marked `[taste choice]` are offered to the user at `game-build`
+Step 5.9 with this value as the default.
+
+| Axis | Budget (number) | Measured by |
+| --- | --- | --- |
+| world-scale `[taste choice]` | <world area in 720×1280 screens; spawn position; where danger/loot depth rises — e.g. "≥ 150 screens, spawn at centre, depth rises to the edges"> | <mapgen/level selftest in `src/sim/kits/` + cert> |
+| readability | <enemy visible height ≥ 8% of screen width, hero ≥ 15%; outline scheme (`core/outline.ts`); floor value band L* 18-32; hues reserved for outlines> | cert `actorSize` (`budget:actor-size`) + `figure-ground.py` |
+| density | <POI spacing in screens; prop kinds per screen / per zone; same-kind spacing px; sprite overlap; decals per screen p95 + max alpha; clearings> | cert `composition` (`budget:composition`) + mapgen selftest |
+| build-variety | <unlocked-at-start ÷ slots; distinct loadouts at account L1 over 500 seeded runs; min pick share per item at the last rung; content floor (pairs, open at L1); start-choice unlock> | build-variety selftest (`src/sim/kits/`) |
+| meta-pacing | <first purchase after run N; 50% of the permanent tree at runs A-B; 100% at runs C-D; the named ENDLESS sink> | runs-to-max selftest fed by measured income (`design-heuristics.md` §4.3) |
+| audio `[taste choice]` | <voices per gameplay event; sfx requests/s at peak; SFX vs music loudness; sample source; signature sounds offered as 3-5 options> | cert `audioRate` (`budget:audio-rate`) + `game-art` Step 1d log |
+| difficulty-live `[taste choice]` | <novice + veteran live-bot targets from `design-heuristics.md` §18.2, and the step the build aims above the bots> | `scripts/live-bot.mjs` + the Step 4 sim-vs-live parity table |
+
 ## 2. Session architecture — **variant** (write exactly one of 2A-2E)
 
 ### 2A. Timed run beat sheet — families A and D
@@ -221,7 +245,7 @@ family slice, or `NEW: <path> — <one-line spec>`.
 
 | Family | Content atoms and minimum / comfortable volumes |
 | --- | --- |
-| A | Enemy archetypes 4/8 · upgrades 12/24 · bosses 1/3 · waves 6/16 |
+| A | Enemy archetypes 4/8 · upgrades 12/24 · bosses 1/3 · waves 6/16 · weapon-driven genres: **20 weapon↔charm pairs, 6 open at L1** (`genre-playbooks.md` §Taste floors) |
 | B | **20+ generated levels / 50+** · 6+ piece types · 3+ specials · 2+ boosters · 3+ blocker types |
 | C | 12/25 levels (or 8/20 terrain segment types if endless) · 5/10 hazard archetypes · 4/8 power-ups |
 | D | Cards 18/40 · enemy types 5/10 · relics 5/12 · map nodes 8/16 · bosses 1/2 |
@@ -388,9 +412,11 @@ duplicates, guaranteed category coverage, board-shuffle-on-no-moves).
 ## 9. Economy
 
 - In-session currency: sources, income per minute, sinks and prices.
-- Meta currency: earned per session (win vs loss), `cost(level) = base *
-  growth^level` with base/growth and the resulting grind length in sessions
-  (worked numbers).
+- Meta currency: earned per session (win vs loss) — a MEASURED income band
+  (sim/live-bot run-end payouts per skill tier), never an assumed average —
+  `cost(level) = base * growth^level` with base/growth and the resulting
+  runs-to-50% / runs-to-100% worked from that income (`design-heuristics.md`
+  §4.3); the named endless sink.
 - Casual families: lives/energy gate (count, refill minutes), booster prices,
   the retry offer after a fail, and the star→gate thresholds on the saga map.
 - Idle family: prestige currency conversion rate and what it buys.
@@ -415,8 +441,11 @@ Keep only the fields the meta shape uses; delete the rest rather than shipping
 dead schema.
 
 - Meta upgrade / star-gate / collection-set list with maxLevel, cost params,
-  and the `Modifier` or unlock each level grants.
-- Unlock pacing: sessions to first unlock, sessions to full clear.
+  and the `Modifier` or unlock each level grants — each with its runtime
+  reader (`Read by` file:symbol; §5.5).
+- Unlock pacing: must land inside §1c's meta-pacing bands.
+- Meta surface: tab list with each tab's one job (`design-heuristics.md` §11.5
+  — mid-core defaults to a tabbed hub, boot → run ≤ 2 taps).
 - Migration rule for `version` bumps.
 
 ## 11. Art direction
@@ -431,17 +460,28 @@ dead schema.
 
 ## 12. Audio
 
-Only `sfx()` names that exist: `ui tap pickup combo jump hit die levelup whoosh`.
-New sound = a `Voice` entry spec (wave, freq, freqEnd, attack, decay, gain, noise).
+Every gameplay event names a voice (`core/audio.ts` `VOICES`; a new name is a
+new entry). Default source is a generated SAMPLE (`game-art` Step 1d: ElevenLabs
+text-to-sound-effects prompt, processed and level-matched via `sampleGain`);
+the synth params are the failure fallback. §1c's audio row sets the rate and
+loudness numbers; signature sounds (level-up, evolution/rank-up, the run's
+payoff e.g. extract/level-clear) are marked and offered to the user as 3-5
+options at `game-build` Step 5.9.
 
-| Event | sfx | Params | Voice cap |
-| --- | --- | --- | --- |
-| Enemy hit / piece clear | `hit` | volume 0.5 | max 6/s |
-| … | | | |
+| Event | Voice | Sample prompt (≤ 12 words) | Synth fallback (wave, freq, freqEnd, attack, decay, gain, noise) | Cap | Signature? |
+| --- | --- | --- | --- | --- | --- |
+| Enemy hit / piece clear | `hit` | rusted blade striking flesh and bone | square 220→90, 2/80 ms, 0.5 | 6/s | no |
+| … | | | | | |
 
 ## 13. Juice table
 
-Every gameplay event: at least one visual and one sound, with values and spam caps.
+Every gameplay event: at least one visual and one sound, with values and spam
+caps. Any game with a draft/upgrade surface also carries these mandatory rows:
+**synergy visibility** (a draft card that pairs with an owned piece says so —
+"Pairs with your X → Y", `EVOLUTION READY` — pattern: duskhaul `ui/cards.ts`
+`evoMatch`) and **progression beats** (evolution cinematic ~2 s, time-dilated,
+skippable, reduce-motion honoured; rank-up; new weapon/charm/item —
+`ui/progressFx.ts` `playEvolution`/`playRankUp`/`playAcquire`).
 
 | Event | Visual | Values | Sound | Cap |
 | --- | --- | --- | --- | --- |
@@ -724,6 +764,11 @@ and put the measured-wrong number back.
   and every rect within its band.
 - [ ] Every node reachable in the built game appears in §14b, and every §14b
   node is reachable in the built game — no retired node, no undocumented state.
+- [ ] Every §1c taste row measured by its named gate on the built game and
+  inside its band; every content id has an icon and every weapon/evolution a
+  world fx (release-check `assets:coverage`, no `assets:placeholder`); every
+  tapped control changes state (cert `controls`); every paid/loadout field has
+  a runtime reader (`src/sim/kits/wiring.selftest.ts` over `src/sim/wiring.ts`).
 - Advisory only, not a gate: a muted 30s clip of the session should read as a
   game with escalating stakes.
 
@@ -823,3 +868,8 @@ Refuse to hand off until all hold:
 23. §14b contains no retired node: every node in the graph, tap-depth table,
     interruption matrix and edge-state inventory still exists in §14
     (`../SKILL.md` rule 16).
+24. §1c Taste budgets present with all seven axes, a number in every
+    non-`n/a` Budget cell and a gate in every `Measured by` cell; no `n/a` on
+    an axis the family forbids it for; `[taste choice]` on world-scale (where
+    not `n/a`), audio and difficulty-live (`../SKILL.md` rule 17; audit-check
+    `taste:*`).

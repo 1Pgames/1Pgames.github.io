@@ -30,10 +30,23 @@ Review contract (in priority order):
    `ui/coach.ts`, armour discipline on labels.
 4. **Determinism & parity**: rng flows through the passed `Rng`; any rule
    enforced twice (scene + sim) must import ONE shared module.
-5. **Test honesty**: new mechanics carry selftest fixtures; assertions test
-   behavior, not implementation trivia; no weakened gates.
-6. **Dead weight**: leftover debug hooks, unused exports, commented-out
-   code, stale comments contradicting the code.
+5. **Connectedness** (data exists → reader exists → art exists): a new
+   RunLoadout/meta-effect/settings field with no runtime reader or no row
+   in `src/sim/kits/wiring.selftest.ts`, a control with no state-changing
+   handler, a content id with no icon or (weapon/evolution) world fx in
+   `src/data/art.ts`, or a procedural placeholder standing in for art —
+   BLOCKER, even when every piece compiles.
+6. **Test honesty**: new mechanics carry selftest fixtures; assertions test
+   behavior, not implementation trivia; no weakened gates; wall-clock
+   budgets calibrated against a reference workload (duskhaul
+   `mapgen.timing.selftest.ts`), never a raw ms constant — MAJOR.
+7. **Dead weight**: leftover debug hooks, unused exports, commented-out
+   code, stale comments contradicting the code. The `?debug`-gated
+   `window.__DEV__` API (`src/core/dev.ts`) is a feature, not a leftover.
+
+Long-running commands: run them in the FOREGROUND, chunked under the tool
+timeout, or wait for them; never end a turn with a job still running — the
+session parks, the job dies, the result is lost.
 
 Verdict per finding: BLOCKER / MAJOR / NIT with file:line and the exact
 contract row violated. End with APPROVE or REQUEST-CHANGES and a one-line

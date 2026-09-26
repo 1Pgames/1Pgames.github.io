@@ -434,7 +434,7 @@ that satisfies the pitch and Q2's family, and record it in Assumptions:
 | Generated vs authored | **Generated + validated** for B/G/H/E tracks and C-endless terrain (the generator plus its `src/sim/families/<family>.ts` validator is cheaper than authoring 50 levels and is the family's sim gate); **procedurally generated** for the action-roguelike/extraction/dungeon subgenres of A/D (their playbooks mandate `floorgen.ts`/room graphs); **fixed hand-authored layouts** for everything else |
 | Inventory slots | **No** unless Q8 resolved to "Loot / equipment" → **yes** |
 | Multiple characters | **No** — one character/vehicle/deck kit is always cheaper (anti-pattern table, §14); extra ones are collection skins with no stat deltas, which is what J's 10-15 skins are |
-| Art/audio | **Generated** art (per Q5's default — the `game-art` pipeline); audio stays 100% synthesised `core/audio.ts` plus the generative `core/music.ts` layer, never licensed/streamed |
+| Art/audio | **Generated** art (per Q5's default — the `game-art` pipeline) and **generated SFX samples** (`game-art` Step 1d; synth `core/audio.ts` voices only as the flagged fallback) plus `core/music.ts` generative music or generated loops; never licensed/streamed |
 
 If the user defers (interactive mode), choose the cheapest option that
 satisfies the pitch and put it in Assumptions.

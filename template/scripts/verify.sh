@@ -29,20 +29,30 @@
 #
 # Stage 5 runs the kit selftests concurrently (`VERIFY_JOBS=N` caps them;
 # default: CPU count). A kit whose gate is a wall-clock budget is named
-# `src/sim/kits/*.timing.selftest.ts` instead: those run first, alone.
+# `src/sim/kits/*.timing.selftest.ts` instead: those run first, alone, and
+# scale their budgets with `src/sim/calibrate.ts`.
+#
+# WALL-TIME BUDGET: a push-profile run (`VERIFY_QUICK=1`, what CI runs per push)
+# must finish within VERIFY_BUDGET_S (default 300 s) × this runner's measured
+# speed (`calibrateRunner()`), or the run FAILS after every stage has reported.
+# The full profile (nightly) reports the same line without failing. Every stage
+# prints its seconds in the summary, so the stage that blew it is named.
 set -uo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 declare -a STAGE_NAMES=()
 declare -a STAGE_STATUS=()
+declare -a STAGE_SECS=()
 FAILED=0
+VERIFY_T0=$SECONDS
 
-# stage <name> <command...> — run it, remember the verdict, keep going.
+# stage <name> <command...> — run it, remember the verdict and its seconds, keep going.
 stage() {
   local name="$1"
   shift
   echo
   echo "== $name =="
+  local t0=$SECONDS
   if "$@"; then
     STAGE_NAMES+=("$name")
     STAGE_STATUS+=("pass")
@@ -53,6 +63,7 @@ stage() {
     FAILED=1
     echo "-- $name FAILED (exit $code) — continuing so every other stage still reports"
   fi
+  STAGE_SECS+=("$((SECONDS - t0))")
 }
 
 # ---------------------------------------------------------------- 1. types --
@@ -228,12 +239,43 @@ run_sim_gates() {
 }
 stage "sim gates (strict)" run_sim_gates
 
+# ---------------------------------------------------------- wall-time budget --
+# Runner speed only matters once the raw budget is exceeded (the scale floor is
+# 1), so the ~1 s calibration runs only then. No calibrate.ts → scale 1.
+runner_scale() {
+  if [ ! -f src/sim/calibrate.ts ]; then
+    echo 1
+    return
+  fi
+  node --import ./scripts/ts-resolve.mjs --input-type=module \
+    -e "const { calibrateRunner } = await import('./src/sim/calibrate.ts'); console.log(calibrateRunner().scale.toFixed(2));" \
+    2>/dev/null || echo 1
+}
+
+VERIFY_ELAPSED=$((SECONDS - VERIFY_T0))
+VERIFY_BUDGET="${VERIFY_BUDGET_S:-300}"
+BUDGET_LINE="wall time ${VERIFY_ELAPSED}s (push budget ${VERIFY_BUDGET}s)"
+if [ "$VERIFY_ELAPSED" -gt "$VERIFY_BUDGET" ]; then
+  scale="$(runner_scale)"
+  allowed="$(awk -v b="$VERIFY_BUDGET" -v s="$scale" 'BEGIN { printf "%d", b * s }')"
+  BUDGET_LINE="wall time ${VERIFY_ELAPSED}s (push budget ${VERIFY_BUDGET}s × runner ${scale} = ${allowed}s)"
+  if [ "$VERIFY_ELAPSED" -gt "$allowed" ]; then
+    if [ "${VERIFY_QUICK:-0}" = "1" ]; then
+      BUDGET_LINE="$BUDGET_LINE — OVER BUDGET: shrink the slowest stage (quick-profile samples, cache, parallelism)"
+      FAILED=1
+    else
+      BUDGET_LINE="$BUDGET_LINE — over the push budget (full profile: reported, not failed)"
+    fi
+  fi
+fi
+
 # ------------------------------------------------------------------ verdict --
 echo
 echo "== verify summary =="
 for i in "${!STAGE_NAMES[@]}"; do
-  printf '%-22s %s\n' "${STAGE_NAMES[$i]}" "${STAGE_STATUS[$i]}"
+  printf '%-22s %-16s %5ss\n' "${STAGE_NAMES[$i]}" "${STAGE_STATUS[$i]}" "${STAGE_SECS[$i]}"
 done
+echo "$BUDGET_LINE"
 
 if [ "$FAILED" -ne 0 ]; then
   echo

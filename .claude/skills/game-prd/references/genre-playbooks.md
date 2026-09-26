@@ -153,6 +153,22 @@ archetypes 4/8, upgrades 12/24, bosses 1/3, rooms-waves 6/16, towers-units
 4/10, items 6/16. Per-genre tables below sit at or above this floor and call
 out any genre that needs more.
 
+### Taste floors (PRD §1c defaults; every family-A/D genre below inherits them)
+
+Floors, not targets: a genre section may raise a number, never lower it. Each
+row names the gate that measures it; reference implementation in
+`games/2026-08-29-duskhaul/src/`.
+
+| Axis | Floor | Measured by (reference) |
+| --- | --- | --- |
+| world-scale | Open map (survivor, extraction, any "explore" pitch): **≥ 150 screens** of 720×1280; bounded arena-survival **≥ 30 screens**; room genres (action-RL, crawler, TD, bullet-hell arenas): rooms per run × screens per room, written as a number (e.g. 10 rooms × 1.5 screens); D-family turn-based boards: `n/a — turn-based board`. Spawn at the map **centre**; danger and loot depth rise toward the edges. | mapgen selftest (`systems/mapgen.ts`, `sim/kits/mapgen.selftest.ts`) |
+| readability | Enemy visible height **≥ 8%** of screen width (≥ 58 px), hero **≥ 15%** (≥ 108 px); any horde genre ships baked team outlines by default — hostile `#ff2d2d` 3/4/5 px trash/elite/boss, hero/allies `#39ff6a` (template `core/outline.ts`, never per-sprite filters); floor value band L* 18-32; red/green hues reserved for outlines. | cert `actorSize`; `figure-ground.py` |
+| density | Open map: POI every **2-3 screens** (nearest-POI median 1,200-2,200 px), placed along roads, not uniformly; clearings around gates/POIs stay free. Every world genre: blockers placed singly (sprite overlap **0**, gap **≥ 60 px**; structured stamps legal when pieces abut without overlap); **≥ 3** prop kinds per screen, **≥ 40** per zone (room genres: per room set), same kind **≥ 900 px** apart; decals **≤ 3 per screen p95**, no overlap, alpha **≤ 0.45**, desaturated into the floor band; floor variants feather-blend (no straight seams). D-family turn-based boards: `n/a — no world`. | cert `composition` over every screen of each generated map (kinds = median distinct kinds on screens holding ≥ 3 props; the scene exposes a `composition()` hook); mapgen selftest (`data/props.ts`, `data/stamps.ts`) |
+| build-variety | Weapon-driven genres: **20** weapon↔charm (evolution) pairs, **6** open at account L1, the rest on the unlock ladder by complexity; unlocked weapons at start **≥ 1.5×** weapon slots; **≥ 50** distinct full-slot weapon sets at L1 over 500 seeded runs; every weapon **≥ 10%** pick share at the last ladder rung; the first 3 drafts guarantee a weapon unlock; a start-weapon CHOICE exists (meta unlock); synergy is marked on draft cards and evolutions get a cinematic (PRD §13 mandatory rows). Other A/D genres: the same start ratio and pick-share floor over their build atom (towers, cards, units). | build-variety selftest (`sim/kits/arsenal.selftest.ts`; `scenes/hub/startWeapon.ts`) |
+| meta-pacing | `design-heuristics.md` §11.3 bands (first node after run 1; 50% at 25-35 runs; 100% at 80-120) from MEASURED income (§4.3), plus an endless sink; meta surface = tabbed hub (§11.5). | runs-to-max selftest (`sim/kits/metakit.selftest.ts`, `data/sanctum.ts`) |
+| audio | Every gameplay event → a voice; `design-heuristics.md` §9.5 floor (sfx requests/s with enemies near) and mix; samples by default (`game-art` Step 1d). | cert `audioRate` (`core/audio.ts`, `data/audio.ts`) |
+| difficulty-live | `design-heuristics.md` §18.2 live targets, aimed one step harder than the bots suggest. | `scripts/live-bot.mjs` |
+
 ## Selection table
 
 | # | Genre | Primary verb | Systems weight | Content volume (enemies/upgrades/rooms) | Build sessions | Best-fit pitch keywords |
@@ -224,8 +240,8 @@ skill expression"; weapons fire from `StatBlock` derived cooldowns.
 | Item | Target | Minimum viable |
 | --- | --- | --- |
 | Enemy archetypes | 8-12 | 5 (grunt, fast, tank, ranged, elite) |
-| Weapons | 5-7 | 3 (melee arc, projectile, orbiting) |
-| Upgrade cards (incl. weapon evolutions) | 16-24 | 12 |
+| Weapons (each paired with a charm → evolution) | 20-24 pairs, 6 open at L1 | 20 pairs, 6 open at L1 (§Taste floors build-variety; covers melee arc, projectile, orbiting, area, beam, summon) |
+| Upgrade cards (charms + stat cards; the 20 evolutions are the pair payoffs) | 20-24 charms + 10-12 stat cards | 20 charms + 8 stat cards |
 | Bosses | 1-2 | 1 |
 | Meta upgrades | 6-8 | 4 |
 
@@ -1948,7 +1964,8 @@ current loot, end the run safely); dying loses unbanked loot.
 | Enemy archetypes | 8-12 | 5 |
 | Loot tiers | 4 | 3 |
 | Loot item defs | 12-18 | 8 |
-| Rooms per run (max depth) | 8-14 | 8 |
+| Rooms per run (max depth) — room variant | 8-14 | 8 |
+| Open-map variant (the default for "explore/haul" pitches) | ≥ 150 screens, spawn at centre, extraction points on the depth ring | §Taste floors world-scale/density |
 | Extraction points | 2-3 (one mandatory, 1-2 optional deeper) | 1 |
 
 ### Numbers table
@@ -2278,7 +2295,8 @@ opens up all at once via `FogOfWar.reveal`.
 ## Audio guidance
 
 No licensed/streamed audio in any genre (see Red flags). `core/audio.ts`
-covers one-shot `sfx()` events; `core/music.ts` covers the generative
+covers one-shot `sfx()` events — generated samples by default, synth as the
+flagged fallback, at the §Taste floors audio row (`game-art` Step 1d); `core/music.ts` covers the generative
 background layer (`startMusic(mood: 'menu' | 'run')`,
 `setMusicIntensity(v: number /* 0..1 */)`, `setMusicLayer('boss', on)`,
 `stopMusic(fadeMs?)`). Every PRD's §12 Audio names a default `{menu, run,
@@ -2340,5 +2358,5 @@ regardless of genre pitch:
 | Hand-authored illustrated art with no generation pipeline (importing external artist files directly into the repo, bypassing `game-art`) | Illustrated art is supported via the `game-art` skill's `generate_image` → sprite-forge pipeline, not by hand-importing files; procedural primitives (`disc ring square spike star particle panel`) remain the always-available fallback and stay mandatory for particles, chrome, and debug visuals regardless of the art pipeline chosen. |
 | Save-scumming-dependent designs (permadeath value that assumes the player cannot reload a save to retry) | `storage.ts` persistence is local and player-controlled; any design relying on the player being unable to undo a bad outcome (e.g. permanent multiplayer consequences, server-authoritative loss) does not hold in a client-only, single-player context. |
 | Persistent server-side economy or anti-cheat | No backend exists; all currency/progression is `localStorage`-backed `MetaSave`, trivially editable client-side — designs must not assume tamper-resistance. |
-| Voice acting, licensed music, or streamed audio assets | Audio stays 100% synthesised: `core/audio.ts` (`sfx` names, effects) plus the generative music layer `core/music.ts` (`startMusic`, `setMusicIntensity`, `setMusicLayer`, `stopMusic` — see §Audio guidance below); adding audio *files* (voice, licensed tracks, streamed music) is an explicit escalation path in `AGENTS.md`, not a default, and is out of scope entirely. |
+| Voice acting, licensed music, or streamed audio assets | Out of scope. SFX are short GENERATED samples bundled with the game (`game-art` Step 1d, ≤ 6 MB audio tree) with `core/audio.ts` synth voices as the fallback; music is `core/music.ts` generative or a generated loop (§Audio guidance). Measured 2026-09-26: a playtester rejected the 100%-synth SFX set as "no SFX" — the synth-only rule is retracted. |
 

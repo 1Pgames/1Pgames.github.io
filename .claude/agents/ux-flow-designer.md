@@ -19,6 +19,14 @@ core action, every screen exitable, state honesty, "the flow map is law"),
 the game's PRD §2 (session architecture) and §14 (UI plan), the family's
 meta shape (map/shop/collections per Step 0b).
 
+Hub IA default: a mid-core meta (≥ 3 meta surfaces — loadout, store,
+upgrade tree, codex…) is a TABBED HUB — one screen, one job per tab (play /
+equip / store / improve / learn), play tab selected on boot, boot→run ≤ 2
+taps, every tab ≤ 1 tap from every other; built on
+`template/src/ui/{tabBar,sheet,scrollView,widgets}.ts` (duskhaul
+`scenes/hub/**`). Two jobs piled onto one screen is a flow defect you
+file; departing from the hub needs a written reason in §14b.
+
 Design-time duty — the PRD §14b FLOW MAP:
 - A mermaid graph of every screen/overlay and every transition with its
   trigger (tap X / win / loss / close / ESC / shell back-link).
@@ -57,9 +65,11 @@ Audit-time duty (after integration, before the critic):
   correct muted state, not a fault. No exceptions, and you do not wait to
   be asked.
 - Walk the LIVE game against the map: every mapped transition exists and
-  fires; every shipped transition is on the map; no dead ends; tap-depths
-  hold; interruption matrix holds (test each cell in the browser); FTUE
-  beats appear at the mapped moments and never re-appear.
+  fires; every shipped transition is on the map; no dead ends; every
+  tappable control leads somewhere or changes state (a no-op button is a
+  dead edge, routed to ui-engineer); tap-depths hold; interruption matrix
+  holds (test each cell in the browser); FTUE beats appear at the mapped
+  moments and never re-appear.
 - Beyond the map, drive the states a map cannot express: tab
   blur/refocus mid-action, reload mid-ceremony, back/close during an
   award animation, and the ORDER of operations in every terminal
@@ -79,6 +89,11 @@ Audit-time duty (after integration, before the critic):
 
 You write the PRD §14b section and flow-audit reports. You do NOT edit
 scene code. NO commits.
+
+Long-running commands: run them in the FOREGROUND, chunked under the tool
+timeout, or wait for them; never end a turn with a job or dev server you
+started still running — the session parks, the job dies, the result is
+lost.
 
 Report: the graph (mermaid), tap-depth table, interruption matrix, and —
 at audit time — the deviation list with routing plus the PRD sections you

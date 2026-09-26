@@ -186,6 +186,18 @@ playbook, or a heuristic default can already answer.
     matrix reads as a shipping requirement to the next agent. Measured
     provenance: a retired pause-draft node stayed in the matrix after the node
     itself was cut, so the flow audit certified a state that no longer existed.
+17. **Taste is a number written before the build (§1c Taste budgets).** World
+    scale, actor on-screen size + outlines, POI/prop/decal density, build
+    variety, meta pacing + endless sink, audio budget and live difficulty
+    each get a number and the gate that measures it
+    (`references/prd-template.md` §1c; defaults in the playbooks' §Taste
+    floors and `references/design-heuristics.md` §4.3/§11.3/§18.2).
+    Measured provenance: one shipped arena build had every one of these
+    rejected by its playtester — map scale asked for twice (8-16×, then 16×
+    more), enemies too small to read, the meta tree maxed within a few
+    runs, "the same weapons every run", synth SFX, and "too easy" after the
+    bots had called it hard — because none of them had been written down.
+    `node scripts/audit-check.mjs <slug>` fails a PRD without §1c.
 
 ## Workflow
 
@@ -462,7 +474,11 @@ scaffold gradient — so write `--desc` as a real sentence, not a label.
 Slug: `YYYY-MM-DD-<short-name>` for daily channel games. Then write
 `games/<slug>/PRD.md` following `references/prd-template.md` section by section,
 taking §2's per-family variant (beat sheet / level curve / ramp table / economy
-curve). All sections required; no placeholders, no "TBD".
+curve). All sections required; no placeholders, no "TBD". Write §1c Taste
+budgets right after §1b: copy the family's §Taste floors row (playbook), raise
+any number the dossier beats, then size §5 content, §9-§10 economy and §12
+audio FROM those numbers — a content table below its build-variety row or a
+cost curve outside its meta-pacing band is a PRD defect, not a tuning job.
 
 ### Step 4b — Art direction hand-off
 
@@ -471,9 +487,12 @@ must name the palette hex values, shape language, the colour code for
 threat/ally/reward, and any asset the template does not already have. Board and
 table families additionally name the piece-face set (one legible silhouette per
 piece type at 96px) and the board chrome; J names the single hero silhouette
-plus its skin variants. The generated template art is a coherent chibi set — a
-game that keeps it needs no art work; a game that wants its own look runs
-`game-art` with a new `art/style.json` before the build agents start on visuals.
+plus its skin variants. §1c's readability and density rows are part of the
+hand-off (actor on-screen size, outline scheme, floor value band, prop kinds
+per zone, decal budget): `game-art` plans sheets and props against them. The
+generated template art is a coherent chibi set — a game that keeps it needs no
+art work; a game that wants its own look runs `game-art` with a new
+`art/style.json` before the build agents start on visuals.
 
 ### Step 5 — Self-review, then hand off
 
@@ -506,6 +525,9 @@ counts as done:
 - The browser-bot playthrough loop (menu → session → mid-session decision →
   pause → win/lose → retry, screenshotted at each state) — owned and driven by
   the `game-build` skill, not by this one.
+- `node scripts/audit-check.mjs <slug>` — the PRD's structural gate, incl.
+  §1c (`taste:section`/`taste:axes`/`taste:na`/`taste:numbers`); every §1c row's
+  `Measured by` gate is part of this contract.
 
 Then the exact next commands:
 

@@ -19,10 +19,13 @@ npm run build    # typecheck + dist/
 - Internal resolution 720x1280, scaled `FIT` + centered — the TikTok / Reels /
   Shorts frame. Movement on a floating on-screen thumb stick, full keyboard
   parity (WASD / arrows), on-screen pause button + overlay.
-- Systems included: bounded arena with impassable props, authored-layout
+- Systems included: a generated 36-screen world (`systems/mapgen.ts`: centre
+  spawn, roads, single non-overlapping props, sparse muted decals, feathered
+  floor, POI/landmark anchors by data) rendered in lazy chunks, authored-layout
   support (`ArenaLayout` — the map-forge landing point) and a following camera;
   stat/modifier builds; health/crit/DoT with pause-safe i-frames; object pools;
-  spatial hash broad phase; BFS flow-field navigation; declarative wave
+  spatial hash broad phase; windowed BFS flow-field enemy steering with a
+  leash; baked team outlines; declarative wave
   director with spawn patterns and scripted events (chest / breather /
   elite-rush); weapon system (bolt / orbit / nova / rail + evolutions) with an
   upgrade pool of stat, weapon and legendary effect cards + one-per-draft

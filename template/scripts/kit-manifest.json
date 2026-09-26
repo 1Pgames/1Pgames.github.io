@@ -15,12 +15,17 @@
     ],
     "src/core/audio.ts": [
       "AudioStatus",
+      "PlayerSettings",
       "SfxName",
       "audioStatus",
       "getAudioContext",
       "initGeneratedAudio",
       "isMuted",
+      "musicInput",
       "onMuteChange",
+      "onSettingsChange",
+      "playerSettings",
+      "savePlayerSettings",
       "sfx",
       "sfxArp",
       "toggleMute",
@@ -143,6 +148,13 @@
       "DeckCounts",
       "EnergyTracker"
     ],
+    "src/core/dev.ts": [
+      "DEV_HOOKS",
+      "DevHook",
+      "devEnabled",
+      "installDevApi",
+      "registerDevHook"
+    ],
     "src/core/economy.ts": [
       "Economy",
       "EconomySnapshot",
@@ -205,6 +217,22 @@
       "startMusic",
       "stemCrossfade",
       "stopMusic"
+    ],
+    "src/core/outline.ts": [
+      "OUTLINE",
+      "OutlineEntry",
+      "OutlinePx",
+      "OutlineRank",
+      "OutlineTeam",
+      "bakeDeclaredOutlines",
+      "bakeOutlines",
+      "baseKeyOf",
+      "declareOutlines",
+      "ensureOutline",
+      "measuredSubjectHeight",
+      "outlineKey",
+      "outlineStats",
+      "teamOutline"
     ],
     "src/core/pool.ts": [
       "Pool"
@@ -317,6 +345,10 @@
       "EnemyBaseStats",
       "EnemyBehaviour",
       "EnemyDef",
+      "SUBJECT_HEIGHT",
+      "contactReach",
+      "displaySizeFor",
+      "outlineRankOf",
       "scaleEnemy"
     ],
     "src/data/metaCatalog.ts": [
@@ -329,7 +361,9 @@
       "DECALS",
       "DecalDef",
       "PROPS",
-      "PropDef"
+      "PropDef",
+      "propArtRadius",
+      "propBodyRadius"
     ],
     "src/data/trivia.ts": [
       "TRIVIA",
@@ -362,6 +396,12 @@
       "createWeaponState",
       "weaponBoostDamageMul",
       "weaponDef"
+    ],
+    "src/data/world.ts": [
+      "LandmarkDef",
+      "PoiRule",
+      "WORLD",
+      "WorldDef"
     ],
     "src/main.ts": [],
     "src/objects/blade.ts": [
@@ -407,6 +447,12 @@
       "LANES",
       "LanePolicy",
       "pickUpgrade"
+    ],
+    "src/sim/calibrate.ts": [
+      "RunnerCalibration",
+      "calibrateRunner",
+      "calibratedBudget",
+      "describeRunner"
     ],
     "src/sim/cli.ts": [],
     "src/sim/director-host.ts": [
@@ -457,11 +503,17 @@
     "src/sim/kits/diceloop.selftest.ts": [],
     "src/sim/kits/economy.selftest.ts": [],
     "src/sim/kits/hyperstack.selftest.ts": [],
+    "src/sim/kits/mapgen.selftest.ts": [],
+    "src/sim/kits/mapgen.timing.selftest.ts": [],
     "src/sim/kits/metakit.selftest.ts": [],
     "src/sim/kits/sidegen.selftest.ts": [],
     "src/sim/kits/trackmath.selftest.ts": [],
     "src/sim/kits/trivia.selftest.ts": [],
     "src/sim/kits/turns.selftest.ts": [],
+    "src/sim/kits/wiring.selftest.ts": [],
+    "src/sim/mapgen-cache.ts": [
+      "cachedGenerateWorld"
+    ],
     "src/sim/metrics.ts": [
       "LaneAggregate",
       "RunMetrics",
@@ -471,6 +523,13 @@
     "src/sim/model.ts": [
       "SimOptions",
       "simulateRun"
+    ],
+    "src/sim/wiring.ts": [
+      "FieldsPayload",
+      "IdsPayload",
+      "TuningPayload",
+      "WiringPayload",
+      "wiringPayloads"
     ],
     "src/slices/arena/game.ts": [
       "ART_GROUPS",
@@ -666,6 +725,22 @@
       "CombatCallbacks",
       "CombatSystem"
     ],
+    "src/systems/mapgen.ts": [
+      "DECAL_LATTICE",
+      "GeneratedWorld",
+      "NavRaster",
+      "PlacedDecal",
+      "PlacedProp",
+      "PoiAnchor",
+      "Point",
+      "RoadSegment",
+      "approachDetour",
+      "buildNav",
+      "depthAt",
+      "depthDangerMul",
+      "generateWorld",
+      "segmentsDistance"
+    ],
     "src/systems/placement.ts": [
       "PlacementCell",
       "PlacementOptions",
@@ -734,27 +809,93 @@
       "paintPanel",
       "paintPill"
     ],
+    "src/ui/progressFx.ts": [
+      "AcquireSpec",
+      "BeatAnchor",
+      "EvolutionSpec",
+      "RankUpSpec",
+      "ScreenPoint",
+      "beatTimeScale",
+      "evolutionPlaying",
+      "playAcquire",
+      "playEvolution",
+      "playRankUp"
+    ],
     "src/ui/sagaMap.ts": [
       "SagaMapHandle",
       "SagaMapLevel",
       "SagaMapOptions",
       "showSagaMap"
     ],
+    "src/ui/scrollView.ts": [
+      "Rect",
+      "ScrollView",
+      "cameraRouter"
+    ],
+    "src/ui/sheet.ts": [
+      "ConfirmOptions",
+      "OverlayHandle",
+      "SettingsSheetOptions",
+      "Sheet",
+      "SheetOptions",
+      "ToastOptions",
+      "actionToast",
+      "closeAllOverlays",
+      "confirmDialog",
+      "openSettingsSheet",
+      "openSheet"
+    ],
     "src/ui/shopTray.ts": [
       "ShopOffer",
       "ShopTray",
       "ShopTrayOptions"
+    ],
+    "src/ui/tabBar.ts": [
+      "TAB_BAR",
+      "TabBar",
+      "TabSpec"
+    ],
+    "src/ui/widgets.ts": [
+      "INK_ON_PRIMARY",
+      "PANEL",
+      "TAP_SLOP",
+      "TextOpts",
+      "TileOpts",
+      "badgeDot",
+      "bindTap",
+      "chip",
+      "clock",
+      "iconImage",
+      "itemTile",
+      "label",
+      "num",
+      "panelAt",
+      "pips",
+      "segmented",
+      "slider",
+      "tapZone",
+      "toggleRow"
     ]
   },
   "tuning": {
     "TUNING": [
       "arena.cameraLerp",
       "arena.cameraOffsetY",
-      "arena.decalCount",
+      "arena.decalMaxPerScreen",
+      "arena.decalsPerScreen",
+      "arena.depthDanger",
       "arena.height",
-      "arena.propsMax",
-      "arena.propsMin",
+      "arena.navCell",
+      "arena.poiMinSpacing",
+      "arena.poiRoadMaxPx",
+      "arena.propGap",
+      "arena.propsPerScreen",
+      "arena.roadLoopRatio",
+      "arena.roadNodeSpacing",
+      "arena.roadWidth",
+      "arena.sameKindPx",
       "arena.spawnClearRadius",
+      "arena.spawnJitter",
       "arena.tileSize",
       "arena.wallThickness",
       "arena.width",
@@ -795,7 +936,9 @@
       "enemy.healAuraRadius",
       "enemy.hitMs",
       "enemy.hpScaleCap",
+      "enemy.leashPx",
       "enemy.maxAlive",
+      "enemy.navWindowCells",
       "enemy.spawnMargin",
       "events.breatherHealRatio",
       "events.breatherSilenceMs",
@@ -826,6 +969,7 @@
       "player.range",
       "player.regenPerSecond",
       "player.size",
+      "player.visiblePx",
       "runSeconds",
       "weapons.bolt.boostCooldownMul",
       "weapons.bolt.boostDamageMul",

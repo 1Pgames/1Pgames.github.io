@@ -1,4 +1,4 @@
-import { getAudioContext, isMuted, onMuteChange, unlockAudio } from './audio';
+import { getAudioContext, isMuted, musicInput, onMuteChange, onSettingsChange, playerSettings, unlockAudio } from './audio';
 import { AUDIO, type MusicTrack } from '../data/audio';
 
 /**
@@ -21,9 +21,10 @@ import { AUDIO, type MusicTrack } from '../data/audio';
  *
  * API: `startMusic(mood)`, `setMusicIntensity(0..1)`, `setMusicLayer('boss',
  * on)`, `stopMusic(fadeMs?)`. All music is summed through one master gain
- * (≤ ~0.1) so it always sits under `core/audio.ts` sfx, and that master gain
- * is wired to the same mute state via `onMuteChange` so a single mute toggle
- * silences both buses.
+ * (≤ ~0.1 × the Settings music level) so it always sits under `core/audio.ts`
+ * sfx, and connects to `musicInput()` (the duck gain big beats dip). That
+ * master follows `onMuteChange` AND `onSettingsChange`, so the mute toggle and
+ * a Settings music slider both re-level whatever is playing, live.
  *
  * When the game DOES ship music files (registered in `src/data/audio.ts`, empty
  * in the template) this module plays those loops instead of synthesising: the
@@ -88,8 +89,11 @@ const BOSS_PEAK = 0.7;
 /**
  * File-stem bus level. Generated loops arrive near full scale, so they need a
  * far lower bus than the synth's summed peaks to sit under sfx the same way.
+ * Measured offline (Duskhaul audio audit, 2026-09): a 10 s combat SFX stream
+ * renders at −20.5 LUFS and a mid-intensity stem at 0.4 at −26.1 LUFS — the
+ * score at ~0.5× the SFX loudness, before the −6 dB duck on big beats.
  */
-const STEM_MASTER_GAIN = 0.5;
+const STEM_MASTER_GAIN = 0.4;
 /** Intensity at which the run mood is half `game-low`, half `game-high`. */
 const STEM_CROSSFADE_CENTER = 0.55;
 /** Intensity span the crossfade takes: full low below 0.35, full high above 0.75. */
@@ -201,6 +205,12 @@ let timerId: number | null = null;
 let nextStepTime = 0;
 let currentStep = 0;
 let muteSubscribed = false;
+/** Settings music level (0..1). Subscribed at import, so a save made before the first `startMusic` still counts. */
+let musicLevel = playerSettings().music;
+onSettingsChange((settings) => {
+  musicLevel = settings.music;
+  applyMusicVolume();
+});
 
 /**
  * Registered, still-usable stems for a mood. Empty means "synthesise this
@@ -214,23 +224,30 @@ function moodStems(target: MusicMood): MusicTrack[] {
   });
 }
 
+/**
+ * Re-levels both music buses to mute × Settings music, live. Runs on every
+ * mute toggle and every `savePlayerSettings` (a slider step), so the level is
+ * heard while dragging. Under `?mute` there is no context and it is a no-op.
+ */
+function applyMusicVolume(): void {
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  const silent = isMuted() || mood === null;
+  if (nodes) nodes.master.gain.setTargetAtTime(silent ? 0 : MASTER_GAIN * musicLevel, ctx.currentTime, 0.02);
+  if (stems) stems.master.gain.setTargetAtTime(silent ? 0 : STEM_MASTER_GAIN * musicLevel, ctx.currentTime, 0.02);
+}
+
 function ensureMuteSubscription(): void {
   if (muteSubscribed) return;
   muteSubscribed = true;
-  onMuteChange((mutedNow) => {
-    const ctx = getAudioContext();
-    if (!ctx) return;
-    const silent = mutedNow || mood === null;
-    if (nodes) nodes.master.gain.setTargetAtTime(silent ? 0 : MASTER_GAIN, ctx.currentTime, 0.02);
-    if (stems) stems.master.gain.setTargetAtTime(silent ? 0 : STEM_MASTER_GAIN, ctx.currentTime, 0.02);
-  });
+  onMuteChange(applyMusicVolume);
 }
 
 function ensureGraph(ctx: AudioContext): MusicNodes {
   if (nodes) return nodes;
   const master = ctx.createGain();
   master.gain.value = 0;
-  master.connect(ctx.destination);
+  master.connect(musicInput() ?? ctx.destination);
 
   const bassGain = ctx.createGain();
   const padGain = ctx.createGain();
@@ -511,7 +528,7 @@ function startStems(ctx: AudioContext, tracks: readonly MusicTrack[]): void {
   if (!stems) {
     const master = ctx.createGain();
     master.gain.value = 0;
-    master.connect(ctx.destination);
+    master.connect(musicInput() ?? ctx.destination);
     stems = { master, gains: new Map(), sources: new Map() };
   }
   const graph = stems;
@@ -532,7 +549,7 @@ function startStems(ctx: AudioContext, tracks: readonly MusicTrack[]): void {
     graph.gains.set(track, gain);
     graph.sources.set(track, source);
   }
-  graph.master.gain.setTargetAtTime(isMuted() ? 0 : STEM_MASTER_GAIN, ctx.currentTime, MIX_RAMP_TC);
+  graph.master.gain.setTargetAtTime(isMuted() ? 0 : STEM_MASTER_GAIN * musicLevel, ctx.currentTime, MIX_RAMP_TC);
   updateStemMix();
 }
 
@@ -585,7 +602,7 @@ export function startMusic(newMood: MusicMood): void {
   stopStems(ctx);
   const graph = ensureGraph(ctx);
   ensureScheduler(ctx);
-  graph.master.gain.setTargetAtTime(isMuted() ? 0 : MASTER_GAIN, ctx.currentTime, MIX_RAMP_TC);
+  graph.master.gain.setTargetAtTime(isMuted() ? 0 : MASTER_GAIN * musicLevel, ctx.currentTime, MIX_RAMP_TC);
   updateMix();
 }
 

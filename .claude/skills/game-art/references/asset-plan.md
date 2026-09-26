@@ -268,6 +268,11 @@ Ladder rules:
    assets get regenerated — mixing profiles is not a fallback, it is a bug.
 4. Record the rung per group in `art/manifest.json` so the next pass knows what
    still needs generating.
+5. **Fallback 2 (procedural) is a PROTOTYPE rung.** Legal for a greybox, a J
+   prototype, or non-content chrome; any content id (weapon, evolution,
+   charm, card, item, prop, enemy) still on it blocks release
+   (`release-check` `assets:placeholder`) — re-queue it on rung 0 with a
+   narrower brief instead.
 
 ## Core set (family A real-time-arena, 28-30 calls)
 
@@ -317,8 +322,9 @@ in the per-family tables above.
 | Enemy attack/telegraph anims | 0 | 1 per ranged/elite archetype | S each |
 | Death anims | hero only | hero + 2 enemy weight classes | S each |
 | Bosses | 1 (idle only) | 2 (+ attack action, +1 phase-2 variant) | M |
-| FX | 3 | 6 | S each |
-| UI icons + emblem | 4 icons + emblem | 8-10 icons + badges | S each |
+| FX | 3 + one world fx per weapon/evolution | 6 + one per weapon/evolution | S each |
+| UI icons + emblem | one icon per content id + emblem (§Completeness and consistency) | same + badges | S per icon sheet |
+| World props (open-map genres) | ≥ 40 kinds per zone (PRD §1c density) | same + a tall-top frame per tall prop | S per 3x3 sheet |
 | Victory/defeat splash | 0 (reuse backdrop) | 1 pair, distinct compositions | S |
 | Deckbuilder card art | — | 8-12 illustrated cards | S each |
 | Portraits | 0 | 1 per named unit (deckbuilder/tactics) | S each |
@@ -380,6 +386,7 @@ the asset registry:
 | Subject height per action | opaque bbox height of each cell | `scale = idleHeight / actionHeight`, re-applied on animation switch |
 | Facing | look at the art: which way does the cloak/weapon/lean point | `facesRight` flag driving `setFlipX` |
 | Opaque bbox vs cell | bbox / cell size | hitbox radius, so collision matches the visible body |
+| Visible height on screen | opaque bbox height × the engine's display scale (duskhaul: `data/enemies.ts` `visiblePx`) | must reach PRD §1c readability — enemy ≥ 8% of screen width, hero ≥ 15%; measured live by cert `actorSize` |
 
 Skipping the first two produces the two most common "the animation is broken"
 reports: the character resizes when it starts moving, and it runs backwards.
@@ -432,15 +439,59 @@ Per asset:
 
 ## Set-level gates (a group is not accepted on per-asset numbers)
 
-Two measurements compare assets to EACH OTHER rather than to a profile, which is
-the only way to see the two defects that shipped through a 103/103-green audit:
+Four checks compare assets to EACH OTHER (or to the game's content list)
+rather than to a profile — the only way to see the defects that shipped
+through a 103/103-green audit and past a playtest:
 
 | Gate | When | Catches |
 | --- | --- | --- |
 | `manifest-lint.py` | before fan-out | scaffold style lock, unlocked anchors, two-owner group, duplicate ids/aliases, a `scaleProfile` bound to a file nobody writes, unrecorded `strict:false` / budget overrun |
 | `figure-ground.py` | before a group containing a field asset is accepted | a backdrop/tile drawn in the same value band as the actors on it (`floor-desert` shipped at 27.45% clash), and a field busier than its actors (2.39x the hero readability ceiling) |
+| coverage matrix (below) | manifest time, then `release-check` `assets:coverage` | a content id with no icon, a weapon/evolution with no world fx (a playtester found icon-less powerups) |
+| frame-0 contact sheet (below) | before a character group is accepted | a persistent attribute that changes between animations (a hero's idle flipped the bag to the other shoulder) |
 
 `figure-ground.py` takes each scene's COMPLETE cast — a partial cast moves the
 actor p90 boundary and flips the verdict (the accepted desert floor reads 12.85%
 against 4 actor sheets and 20.04% against 2). Arena borders and walls are not
 fields: no actor stands on them.
+
+## Completeness and consistency (planned before generation)
+
+- **Coverage matrix.** Before the manifest is written, list every content id
+  in the game's data (weapons, evolutions, charms, draft cards, gear,
+  uniques, valuables, consumables, classes, affixes — whatever the PRD's §5
+  tables declare) and map each to (a) its icon cell and (b) for weapons and
+  evolutions its world fx (projectile / aura / impact) sheet cell. The
+  manifest sizes icon and fx sheets FROM that count. An id with no cell is a
+  manifest defect; an id drawn by a procedural shape is a release blocker
+  (`assets:placeholder`).
+- **Persistent attributes per character.** The character brief names the
+  attributes every animation must keep identical — carried item and its
+  side, weapon hand, cloak/hood, facing — and every action prompt repeats
+  them verbatim, with an anchor guide from the accepted idle frame.
+- **Frame-0 contact sheet.** Lay frame 0 of EVERY animation of a character
+  side by side at one scale and inspect the persistent attributes; a mismatch
+  regenerates the action, never ships on an exception.
+
+## Props, decals and density (open-map and track/side worlds)
+
+Counts come from PRD §1c's density row (`game-prd` playbooks §Taste floors);
+reference: `games/2026-08-29-duskhaul/src/data/props.ts`.
+
+- **Single props.** One object per cell — never a heap, pile or cluster: the
+  engine places props singly (sprite overlap 0, gap ≥ 60 px) and a baked heap
+  reads as one blob. Structured stamps (a ruin, a camp) are separate pieces
+  that abut without overlap.
+- **Many shapes.** ≥ 40 prop kinds per zone, spread across silhouette classes
+  (tall / wide / round / small / irregular), so ≥ 3 kinds per screen and the
+  same kind ≥ 900 px apart are satisfiable. Each prop records its footprint
+  and measured body radius for collision.
+- **Tall tops.** Every tall prop (tree, pillar, obelisk, totem) gets a
+  frame-exact upper-half cell on a `<sheet>-tall-top` sheet, drawn at the same
+  position/size above the actors for Y-sort occlusion — the hero walks
+  behind the canopy, not over it.
+- **Decals.** Flat ground debris only (bones, rubble, cracks, drifts) with no
+  standing object that reads as a blocker; drawn at alpha ≤ 0.45,
+  desaturated into the floor's value band, ≤ 3 per screen p95, no overlap —
+  a decal that competes with enemies is noise. Floor variants blend with a
+  feathered edge, never a straight seam.

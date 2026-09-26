@@ -306,7 +306,7 @@ const TABLE: readonly MetaEntry[] = [
   },
 ];
 
-/** Racer: a small permanent edge plus the cosmetic/class ladder. */
+/** Racer: a small permanent edge. */
 const TRACK: readonly MetaEntry[] = [
   {
     id: 'meta_tune_up',
@@ -315,15 +315,6 @@ const TRACK: readonly MetaEntry[] = [
     baseCost: 55,
     costGrowth: 1.35,
     maxLevel: 6,
-    kind: 'perk',
-  },
-  {
-    id: 'meta_championship',
-    name: 'Championship Entry',
-    description: 'Unlock one harder championship tier per level.',
-    baseCost: 150,
-    costGrowth: 1.55,
-    maxLevel: 3,
     kind: 'perk',
   },
 ];

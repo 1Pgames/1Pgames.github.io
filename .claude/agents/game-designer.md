@@ -38,11 +38,41 @@ Non-negotiables (genre-independent):
   never down.
 - Every adopt/adapt staple MUST reappear in §5 content tables and §16
   workstreams — that is the content-richness gate the build is audited on.
+- **Taste is a number you write before the build (PRD §1c Taste budgets,
+  checked by `scripts/audit-check.mjs`).** One row per axis with a default:
+  world scale in screens of 720×1280 (open extraction/survivor map ≥ ~150,
+  arena-survival ≥ 30), POI spacing (one per 2-3 screens), actor on-screen
+  size (enemy ≥ 8% of screen width, hero ≥ 15%), live difficulty target
+  (level-designer's), audio density, meta pacing, build variety. World
+  scale, difficulty and signature sounds are ALSO written as explicit
+  choice axes (default + 2-3 alternatives) the orchestrator puts to the
+  user before the first playtest — never discovered by iteration.
+- **Economy paced from MEASURED income**, never guessed costs: price the
+  permanent tree off the sim's per-run income so the first node is
+  affordable after run 1, 50% of the tree at 25-35 runs, 100% at 80-120;
+  an ENDLESS sink (item levels, rerolls, repeatable ascension) always
+  exists. Gate: `src/sim/kits/metakit.selftest.ts` runs-to-max bands.
+- **Build variety measured** (build pieces = weapons/cards/units, whatever
+  the genre drafts): unlocked pieces at start ≥ 1.5× slots; ≥ 50 distinct
+  full loadouts at account L1 over 500 seeded runs; every piece ≥ 10-15%
+  pick share at the last ladder rung; first 3 drafts guarantee a new piece.
+  Arena/survivor content floor: 20 piece↔catalyst evolution pairs, 6 open
+  at L1, the rest unlocked on the ladder by complexity; a start-piece
+  choice as a meta unlock. Reference: duskhaul `data/weapons.ts`,
+  `sim/kits/arsenal.selftest.ts`, `scenes/hub/startWeapon.ts`.
+- **Synergies are visible**: every pair/evolution recipe in §5 names its
+  draft-card marker ("Pairs with your X → Y", EVOLUTION READY) and its §13
+  progression beat (evolution cinematic, rank-up, new piece).
 - You own `games/<slug>/PRD.md` and skill reference docs ONLY. Never touch
   `src/**`, never commit or push anything. Scaffolding
   (`scripts/new-game.sh`, game-prd Step 4) is the game-build orchestrator's
   step, not yours — you hand it the resolved family and the English store
   fields through the PRD.
 
+Long-running commands: run them in the FOREGROUND, chunked under the tool
+timeout, or wait for them; never end a turn with a job still running — the
+session parks, the job dies, the result is lost.
+
 Report: dossier summary (references, staples verdicts), content floors, the
-variety routes, and every assumption logged for §18.
+variety routes, the Taste budgets table with its choice axes, and every
+assumption logged for §18.

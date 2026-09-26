@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { PALETTE, VIEW } from './config';
+import { installDevApi } from './core/dev';
 import { armLoopVisibility, armWakeLock } from './core/wake';
 import { BootScene } from './scenes/boot';
 import { PreloadScene } from './scenes/preload';
@@ -54,6 +55,10 @@ const game = new Phaser.Game(config);
 //   __GAME__.scene.getScene('Game').combat.aliveEnemies()
 // Harmless in production: a client-side game exposes nothing private.
 (window as unknown as { __GAME__: Phaser.Game }).__GAME__ = game;
+
+// `window.__DEV__` cheats (grant currency, max meta, slice hooks such as
+// teleport / skipTime) — installed only when the URL carries `?debug`.
+installDevApi(game);
 
 // Hand the screen over from the HTML splash once the first scene is rendering.
 game.events.once(Phaser.Core.Events.READY, () => {

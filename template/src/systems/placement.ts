@@ -35,10 +35,6 @@ export interface PlacementCell {
 
 export interface PlacementOptions {
   grid: NavGrid;
-  /** Grid dimensions matching how `grid` was constructed — `NavGrid` does not expose them. */
-  cols: number;
-  rows: number;
-  cellPx: number;
   /** World position of the grid's (0, 0) cell corner. */
   origin: { x: number; y: number };
   /** Cell units path toward; placement is rejected if it would cut every route there. */
@@ -50,10 +46,10 @@ export interface PlacementOptions {
 }
 
 /** Total cells with a finite `dist` after the grid's last `buildFlowField` call. */
-function reachableCount(grid: NavGrid, cols: number, rows: number): number {
+function reachableCount(grid: NavGrid): number {
   let n = 0;
-  for (let row = 0; row < rows; row += 1) {
-    for (let col = 0; col < cols; col += 1) {
+  for (let row = 0; row < grid.rows; row += 1) {
+    for (let col = 0; col < grid.cols; col += 1) {
       if (grid.pathExists(col, row)) n += 1;
     }
   }
@@ -86,7 +82,7 @@ export class PlacementSystem {
       this.ghost = this.scene.add
         .image(0, 0, TEX.square)
         .setAlpha(0.55)
-        .setDisplaySize(this.opts.cellPx * 0.86, this.opts.cellPx * 0.86)
+        .setDisplaySize(this.opts.grid.tileSize * 0.86, this.opts.grid.tileSize * 0.86)
         .setDepth(500);
     }
     this.ghost.setVisible(true);
@@ -140,14 +136,14 @@ export class PlacementSystem {
 
   /** True if tentatively blocking `cell` would strand a currently-reachable cell other than itself. */
   private wouldSealPath(cell: PlacementCell): boolean {
-    const { grid, cols, rows, goal } = this.opts;
+    const { grid, goal } = this.opts;
     grid.buildFlowField(goal.col, goal.row);
     const candidateWasReachable = grid.pathExists(cell.col, cell.row);
-    const before = reachableCount(grid, cols, rows);
+    const before = reachableCount(grid);
 
     grid.setBlocked(cell.col, cell.row, true);
     grid.buildFlowField(goal.col, goal.row);
-    const after = reachableCount(grid, cols, rows);
+    const after = reachableCount(grid);
     grid.setBlocked(cell.col, cell.row, false);
     grid.buildFlowField(goal.col, goal.row);
 
@@ -156,7 +152,8 @@ export class PlacementSystem {
   }
 
   private pointerToCell(pointer: Phaser.Input.Pointer): PlacementCell {
-    const { origin, cellPx } = this.opts;
+    const { origin } = this.opts;
+    const cellPx = this.opts.grid.tileSize;
     return {
       col: Math.floor((pointer.worldX - origin.x) / cellPx),
       row: Math.floor((pointer.worldY - origin.y) / cellPx),
@@ -164,7 +161,8 @@ export class PlacementSystem {
   }
 
   private cellCenter(cell: PlacementCell): { x: number; y: number } {
-    const { origin, cellPx } = this.opts;
+    const { origin } = this.opts;
+    const cellPx = this.opts.grid.tileSize;
     return { x: origin.x + cell.col * cellPx + cellPx / 2, y: origin.y + cell.row * cellPx + cellPx / 2 };
   }
 

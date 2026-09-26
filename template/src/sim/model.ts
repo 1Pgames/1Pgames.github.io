@@ -1,5 +1,8 @@
 import { PLAYER_BASE_STATS, TUNING, VIEW } from '../config';
-import { ENEMIES, scaleEnemy, type EnemyDef } from '../data/enemies';
+import { ENEMIES, contactReach, scaleEnemy, type EnemyDef } from '../data/enemies';
+import { WORLD } from '../data/world';
+import { approachDetour } from '../systems/mapgen';
+import { cachedGenerateWorld } from './mapgen-cache';
 import { PHASES, TIMELINE_EVENTS, WAVES } from '../data/waves';
 import { rollUpgradeChoices, type UpgradeDef } from '../data/upgrades';
 import { weaponBoostDamageMul, type WeaponPattern } from '../data/weapons';
@@ -10,6 +13,25 @@ import { Rng } from '../core/rng';
 import { createDirectorHost } from './director-host';
 import { pickUpgrade, type LanePolicy } from './bots';
 import type { RunMetrics } from './metrics';
+
+/**
+ * Travel through the generated world (`systems/mapgen.ts`): enemies route
+ * around props on the hero's flow field (`systems/combat.ts`), so an enemy
+ * closing in from the spawn ring walks `approachDetour` × the straight line.
+ * Measured once per process as the mean over `DETOUR_SEEDS` real worlds
+ * (disk-cached) and applied to every nav-steered convergence below — orbiters
+ * circle the real hero and are not nav-steered in the scene either.
+ */
+const DETOUR_SEEDS = 4;
+let worldDetourMemo: number | undefined;
+function worldDetour(): number {
+  if (worldDetourMemo === undefined) {
+    let sum = 0;
+    for (let i = 0; i < DETOUR_SEEDS; i += 1) sum += approachDetour(cachedGenerateWorld(WORLD, `sim-detour-${i}`));
+    worldDetourMemo = sum / DETOUR_SEEDS;
+  }
+  return worldDetourMemo;
+}
 
 /**
  * Headless balance simulator: replays a full 480s run against the REAL
@@ -429,11 +451,12 @@ export function simulateRun(options: SimOptions): RunMetrics {
     const deltaS = deltaMs / 1000;
     const evadeSpeed = stats.get('moveSpeed') * skill * KITE_EFFECTIVENESS;
     const holdDistance = stats.get('range') * KITE_HOLD_RANGE_RATIO;
+    const detour = worldDetour();
 
     const approach = (speed: number): void => {
       if (enemy.distance > holdDistance) {
-        // Convergence: full own speed down to the band edge.
-        enemy.distance = Math.max(holdDistance, enemy.distance - speed * deltaS);
+        // Convergence: full own speed down to the band edge, around the props.
+        enemy.distance = Math.max(holdDistance, enemy.distance - (speed / detour) * deltaS);
         return;
       }
       const netSpeed = speed - evadeSpeed;
@@ -474,7 +497,7 @@ export function simulateRun(options: SimOptions): RunMetrics {
         // which is how shooters actually die in the real game.
         const standoff = SHOOT_STANDOFF_PX * STANDOFF_DRIFT;
         if (enemy.distance > standoff) {
-          enemy.distance = Math.max(standoff, enemy.distance - enemy.speed * deltaS);
+          enemy.distance = Math.max(standoff, enemy.distance - (enemy.speed / detour) * deltaS);
         }
         break;
       }
@@ -489,7 +512,7 @@ export function simulateRun(options: SimOptions): RunMetrics {
         // The player closes this gap, not the boss (see BOSS_ENGAGE_MARGIN_PX):
         // the boss's crawl adds to the closing speed, the player's own
         // movement does the rest, and both stop at the engagement distance.
-        const engage = contactReach(enemy) + BOSS_ENGAGE_MARGIN_PX;
+        const engage = contactReach(enemy.def, TUNING.player.size) + BOSS_ENGAGE_MARGIN_PX;
         if (enemy.distance > engage) {
           const speedMul = bossPhase === 3 ? TUNING.boss.enrageSpeedMul : 1;
           enemy.distance = Math.max(engage, enemy.distance - (evadeSpeed + enemy.speed * speedMul) * deltaS);
@@ -553,12 +576,8 @@ export function simulateRun(options: SimOptions): RunMetrics {
     }
   }
 
-  function contactReach(enemy: SimEnemy): number {
-    return (enemy.def.size + TUNING.player.size) * 0.45;
-  }
-
   function tickContactDamage(enemy: SimEnemy): void {
-    if (enemy.distance > contactReach(enemy)) return;
+    if (enemy.distance > contactReach(enemy.def, TUNING.player.size)) return;
     if (simTimeMs - enemy.lastContactAt < TUNING.enemy.hitMs) return;
     enemy.lastContactAt = simTimeMs;
     // A telegraphed dash (0.4s windup flash + straight line) is sidestepped

@@ -309,8 +309,9 @@ not a free action.
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Cost | 20 | 27 | 36 | 49 | 66 | 90 | 121 | 163 |
 
-Worked grind length at an average blended income of **18 currency/run**
-(loss/win/extract mix at a plausible 50% early winrate):
+Worked grind length at an ASSUMED blended income of **18 currency/run** (loss/
+win/extract mix at a plausible 50% early winrate) — PRD-time only; the
+shipped prices are re-derived from MEASURED income, below:
 
 | Target level | Cumulative cost | Runs to reach it |
 | --- | --- | --- |
@@ -321,9 +322,20 @@ Worked grind length at an average blended income of **18 currency/run**
 | 10 | 1092 | 60.7 |
 
 A full 3-stat meta track to level 8 each costs ~1720 currency, ≈ **96
-runs** — recommended as the "full clear" pacing target (§11.3). If a
-playbook wants a shorter grind, raise `avgIncome` or lower `growth` to
-1.25-1.30 rather than changing the formula shape.
+runs** — inside the §11.3 full-clear band. If a playbook wants a shorter
+grind, raise `avgIncome` or lower `growth` to 1.25-1.30 rather than changing
+the formula shape.
+
+**Price from MEASURED income, never from the assumed one.** Before prices are
+frozen, measure meta income per run from the game's own settlement code (sim
+ceiling bot or `scripts/live-bot.mjs` veteran, a 20-run cycle matching the
+measured outcome mix — deaths included) and re-solve `base`/`growth` so the
+§11.3 bands hold at that SKILLED income: a novice only takes longer, a skilled
+player must not max early. The runs-to-first/50%/100% numbers are a selftest
+(reference: `games/2026-08-29-duskhaul/src/sim/kits/metakit.selftest.ts` over
+`data/sanctum.ts`, which also asserts the endless sink), re-run whenever a
+payout or price changes. Measured 2026-09-26: a tree priced on assumed income
+was maxed by the playtester "very fast".
 
 ### 4.4 Inflation control
 
@@ -653,15 +665,18 @@ stuttering, not landing hits. Rule: at most **one `hitstop` call per 100ms**
 scene-wide (a simple `lastHitstopAt` timestamp guard); every kill still gets
 its `floatText`/`burst`/sound, only the time-freeze is rate-limited.
 
-### 9.5 Audio voice limits
+### 9.5 Audio: a floor as well as a cap
 
-`sfx()` creates fresh WebAudio oscillator/gain nodes per call with no
-built-in polyphony cap. At 300 entities, unthrottled `sfx('hit')` calls can
-spawn dozens of simultaneous nodes per frame. Rule: cap **8 concurrent
-`sfx()` triggers per 100ms window** per event name; dedupe by event type
-inside that window (only the first `hit` in 50ms plays, the rest are
-suppressed) so combat noise reads as "a lot of hits" rather than clipping
-distortion.
+- **Cap:** `core/audio.ts` gives every voice a `poly` cap with oldest-steal
+  (a kill spike never stacks into clipping); spam RATE is capped at the call
+  site, per event, and a PRD's §12 `Cap` column is that rate.
+- **Floor:** combat must SOUND busy — **≥ 5 sfx requests/s with ≥ 20 enemies
+  within 900 px of the hero** (cert `audioRate`); a call-site cap that starves the floor is a
+  defect. Measured 2026-09-26: the playtester's first audio note was "there
+  are no SFX — why a slider?".
+- **Mix:** SFX ≈ −20 LUFS, music ≈ 0.5× SFX amplitude; voices flagged
+  `duck: true` (level-up, evolution, boss, extract) dip the music −6 dB;
+  per-voice `sampleGain` level-matches samples (`game-art` Step 1d).
 
 ---
 
@@ -762,8 +777,14 @@ drop fields the player earned.
 
 | Milestone | Target |
 | --- | --- |
-| Runs to first unlock | 2-3 (early dopamine hit, before the grind math in §4.3 has set expectations) |
-| Runs to a full meta-track clear | 60-100 (matches §4.3's worked 96-run full-clear estimate) |
+| First purchase | after run **1** (the first run's payout buys the first node) |
+| 50% of the permanent tree | runs **25-35** |
+| 100% of the permanent tree | runs **80-120** (§4.3's worked ~96) |
+| After 100% | an **ENDLESS sink** keeps currency meaningful: item/weapon levels, rerolls, or a repeatable ascension tier — "nothing to spend on" is a defect |
+
+Bands are checked at the skilled income tier (§4.3). Measured 2026-09-26: the
+old "first unlock at runs 2-3, full clear 60-100" band had no sink after the
+clear and no mid-point, so an over-generous income passed it unnoticed.
 
 ### 11.4 Daily-seed pattern
 
@@ -772,16 +793,19 @@ player on a given calendar day: wave layout, elite placement, boss variant.
 `dailySeed()` already exists in `core/rng.ts` and returns the ISO date —
 reuse it verbatim rather than rolling a custom date key.
 
-### 11.5 When meta becomes scope creep
+### 11.5 Meta surface size
 
-Flag as out of scope for a single-session build (move to Cut list) when:
-
-- the unlock tree exceeds **20 nodes**, or
-- the meta layer needs a dedicated shop/tree scene beyond `MenuScene`
-  (**NEW: needs a `MetaScene`** plus its own save-schema section in the PRD).
-
-A daily-seed layout and a currency/unlock counter fit in one session; a
-full talent-tree UI does not.
+- **Mid-core (A/D/E): a tabbed hub by default** — one screen, one job (play /
+  equip / store / improve / learn), boot → run ≤ 2 taps, built on template
+  `ui/tabBar.ts` + `ui/sheet.ts` + `ui/scrollView.ts` + `ui/widgets.ts`
+  (reference: `games/2026-08-29-duskhaul/src/scenes/hub/**`). A tree deep
+  enough for the §11.3 bands is in scope; piling every system onto one menu
+  screen is the defect. Measured 2026-09-26: the "20 nodes / no MetaScene" cap
+  produced a meta the playtester called thin and illogical — retracted for
+  mid-core.
+- **Casual/hyper (B/C/F/G/H/J, I):** the meta-kit components the playbook
+  names, on the family's existing screens; a separate talent-tree scene is
+  a Cut-list item.
 
 ---
 
@@ -1222,6 +1246,31 @@ over any of them) gate BOTH ends:
   a scene-only mercy silently invalidates every tuned number.
 
 Reference gate implementation: `template/src/sim/families/board.ts`.
+
+### 18.2 Live calibration (every family; PRD §1c difficulty-live)
+
+Sim bots certify a MODEL; difficulty is tuned against an honest bot driving
+the real build (`scripts/live-bot.mjs --policy novice|veteran`: real input,
+no refills, no invulnerability, no clock jumps; reports outcome, seconds,
+min HP %, drafts, first-objective time). Measured 2026-09-26: the bots called a build hard, its playtester
+called it "too easy".
+
+| Target | Novice | Veteran |
+| --- | --- | --- |
+| Arena/extraction | reaches the first objective (extraction/gate/boss) in ≥ 50% of runs, median min HP < 50% (live-bot `on-target`) | the second objective is contested (min HP < 50%); deaths are fine |
+| Every other family (same shape) | clears the first tier/level band but is visibly threatened — loses ≥ 1 attempt or ends within half the fail margin | contested at the last tier; level families also hold §18.1 |
+
+- **Parity before tuning.** For the three numbers the family's hard gates
+  depend on (arena: time-to-first-upgrade, contested-channel duration,
+  floor-bot run length), the sim and the live tab from the same start state
+  must agree within **±25%**; outside it the SIM is wrong — fix the model
+  before tuning with it (procedure: `game-build` Step 4).
+- **Aim one step harder than the bots suggest.** When the live targets are
+  met exactly, ship one tier of the game's own difficulty ladder harder (one
+  §2.3 phase step or one hazard tier): a skilled human outplays every honest
+  bot, and "too easy" costs a playtest round, "a bit hard" does not.
+- **Floor bot below the human.** The weak-human floor bot must lose to the
+  critic's recorded novice persona on the same build (`game-build` Step 4).
 
 ---
 

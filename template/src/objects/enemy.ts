@@ -2,9 +2,10 @@ import Phaser from 'phaser';
 import { PALETTE, TUNING, VIEW } from '../config';
 import { TEX } from '../core/keys';
 import { Health } from '../core/damage';
-import { scaleEnemy, type EnemyDef } from '../data/enemies';
+import { displaySizeFor, outlineRankOf, scaleEnemy, type EnemyDef } from '../data/enemies';
 import { Bar } from '../ui/bars';
-import { artFacesRight, artScale } from '../data/art';
+import { artFacesRight } from '../data/art';
+import { OUTLINE, outlineKey } from '../core/outline';
 
 /**
  * Pooled enemy body. One instance is reused for every archetype: `spawnWith`
@@ -28,6 +29,10 @@ const CHARGE_DASH_MUL = 2.6;
 const CHARGE_WINDUP_MUL = 0.6;
 const SHOOT_STANDOFF_PX = 320;
 const BOSS_STANDOFF_PX = 380;
+/** Physics body: world radius = this × `def.size`, centred on this source-cell point. */
+const BODY_RATIO = 0.289;
+const BODY_CENTER_X = 128;
+const BODY_CENTER_Y = 136;
 
 export type BossPhase = 1 | 2 | 3;
 
@@ -96,11 +101,15 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.clearTelegraph();
     this.clearRingTelegraph();
 
-    this.setTexture(def.texture);
+    // Actors play their baked team-outline sheet (`core/outline.ts`, declared by
+    // the slice) and fall back to the plain sheet when the bake is missing.
+    const outlined = outlineKey(def.texture, OUTLINE.px[outlineRankOf(def)]);
+    const key = this.scene.textures.exists(outlined) ? outlined : def.texture;
+    this.setTexture(key);
     this.setPosition(x, y);
-    // Per-asset scale keeps archetypes visually consistent even when a sheet
-    // does not fill its cell to the same height.
-    const size = def.size * artScale(def.texture);
+    // The silhouette is `visiblePx` tall on screen whatever share of its cell
+    // the art fills (`displaySizeFor`, from the sheet's measured subject height).
+    const size = displaySizeFor(def.texture, def.visiblePx);
     this.setDisplaySize(size, size);
     // Generated art is already coloured; tinting it would fight the style
     // profile. `def.tint` is only used for particles and damage flashes.
@@ -108,19 +117,21 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.setAngle(0);
     this.setActive(true).setVisible(true);
     this.enableBody(false, x, y, true, true);
-    // Body is measured in source-cell pixels: a 256px cell with transparent
-    // margin gives a ~60%-of-display hitbox, which matches the visible body.
-    this.body?.setCircle(74, 54, 62);
+    // Body is in source-cell px: a world radius of `BODY_RATIO × def.size`
+    // (the gameplay footprint, independent of the display size), centred on
+    // the cell's body point.
+    const radius = (BODY_RATIO * def.size * 256) / size;
+    this.body?.setCircle(radius, BODY_CENTER_X - radius, BODY_CENTER_Y - radius);
     this.setVelocity(0, 0);
     // Pooled sprites keep the previous animation's frame: always restart.
-    if (this.scene.anims.exists(def.texture)) this.play(def.texture, true);
+    if (this.scene.anims.exists(key)) this.play(key, true);
 
     // HP bars only for the enemies whose HP the player actually tracks.
     if (def.id === 'elite' || def.id === 'boss') {
-      this.bar ??= new Bar(this.scene, x, y, def.size + 24, 14);
+      this.bar ??= new Bar(this.scene, x, y, def.visiblePx + 24, 14);
       this.bar.setVisible(true);
       this.bar.setValue(this.health.hp, this.health.max);
-      this.bar.followTarget(this, -def.size * 0.75);
+      this.bar.followTarget(this, -def.visiblePx * 0.75);
     } else if (this.bar !== null) {
       this.bar.stopFollow();
       this.bar.setVisible(false);
@@ -287,13 +298,13 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
       this.ringTelegraphRing = this.scene.add
         .image(this.x, this.y, TEX.ring)
         .setTint(PALETTE.bad)
-        .setDisplaySize(this.def.size * 0.6, this.def.size * 0.6)
+        .setDisplaySize(this.def.visiblePx * 0.6, this.def.visiblePx * 0.6)
         .setAlpha(0.7)
         .setDepth(9);
       this.scene.tweens.add({
         targets: this.ringTelegraphRing,
-        displayWidth: this.def.size * 2.4,
-        displayHeight: this.def.size * 2.4,
+        displayWidth: this.def.visiblePx * 2.4,
+        displayHeight: this.def.visiblePx * 2.4,
         alpha: 0.15,
         duration: TUNING.boss.ringTelegraphMs,
         ease: 'Cubic.easeOut',

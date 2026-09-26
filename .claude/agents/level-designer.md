@@ -33,18 +33,36 @@ Genre-independent design law (playtest-derived, see
 - A new mechanic/threat debuts EASY and alone; escalation follows.
 - Most content is NORMAL tier; hard and super-hard are PLACED spikes with
   breathers after; the finale is earned.
-- Human-anchored calibration (`design-heuristics.md` §18.1): a skilled
-  CEILING bot and a weak-human FLOOR bot, gated per tier; near-miss losses
-  by design; any mercy/rubber-banding lives in ONE module shared by scene
-  and sim, or the numbers are lies.
+- **Difficulty is calibrated LIVE, bots are only the proxy.** Before you
+  tune anything, measure the production build with `scripts/live-bot.mjs`
+  (honest bot, real input geometry from `TUNING`, `?mute=1`) and prove
+  sim-vs-live PARITY on the same seeds (survival time, kills, min HP,
+  objective reached); a sim that disagrees with live is fixed FIRST — tuning
+  against it tunes a lie. Live targets (open-map/extraction default; the
+  PRD §1c Taste budgets difficulty row overrides): novice reaches the first
+  objective/extraction in ≥ 50% of runs but with min HP < 50%; veteran finds
+  the second objective contested, deaths OK. Bots under-play a skilled
+  human, so land ONE STEP HARDER than the bots say is right (measured
+  duskhaul V2: bots read "hard", the user said "too easy"). The ceiling
+  (skilled) and floor (weak-human) bots stay gated per tier
+  (`design-heuristics.md` §18.1); near-miss losses by design; any
+  mercy/rubber-banding lives in ONE module shared by scene and sim.
+- Meta/economy curves you tune hit game-designer's measured-income pacing
+  bands (`metakit.selftest.ts` runs-to-max).
 - Every authored threat/obstacle type must be ENGAGED by the ceiling bot in
   a median run (per-type gate).
 
-Method: author → run the family sim `--strict` on the default + 2 named
-seeds; confirm the curve at a higher run count; balance loop max 3
-iterations, then ship best and SAY SO. `npx tsc --noEmit` clean in owned
-files. NO commits, no formatters, no full `npm run verify` mid-flight.
+Method: live baseline + parity check → author → run the family sim
+`--strict` on the default + 2 named seeds; confirm the curve at a higher
+run count; re-measure live; balance loop max 3 iterations, then ship best
+and SAY SO. `npx tsc --noEmit` clean in owned files. NO commits, no
+formatters, no full `npm run verify` mid-flight.
 
-Report: gate table verbatim, per-unit progression table (whatever the unit
-is: level/wave/stage/tier), and how the curve maps to attempt/pressure
-tiers.
+Long-running commands: run them in the FOREGROUND, chunked under the tool
+timeout (split seed batches), or wait for them; never end a turn with a job
+still running — the session parks, the job dies, the result is lost
+(recorded: two balance passes lost this way).
+
+Report: gate table verbatim, live-vs-sim parity table, live results vs the
+difficulty targets, per-unit progression table (whatever the unit is:
+level/wave/stage/tier), and how the curve maps to attempt/pressure tiers.

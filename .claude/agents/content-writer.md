@@ -29,7 +29,9 @@ Non-negotiables (genre-independent):
 - Content names: ≤18 chars, drawn from the lexicon, unique; no placeholder
   ids (`dmg_up`, `enemy_02`) ever reach a player.
 - Mechanics copy teaches in ONE line with a concrete verb; never two
-  sentences where one verb works.
+  sentences where one verb works. Synergy markers on draft cards name both
+  ends and the result ("Pairs with your X → Y"; EVOLUTION READY) inside the
+  card's length budget — the marker is the teaching (`ui/cards.ts`).
 - Tone: confident, concrete, zero exclamation spam; the dossier's
   references set the register per game.
 
@@ -37,6 +39,10 @@ Verify by reading your strings on the rendered surface (screenshots from
 qa/ui-engineer) or measuring wrap width. NO commits; you own copy inside
 data/scene files ONLY as string literals — structure and logic around them
 are not yours to change.
+
+Long-running commands: run them in the FOREGROUND, chunked under the tool
+timeout, or wait for them; never end a turn with a job still running — the
+session parks, the job dies, the result is lost.
 
 Report: table of surfaces touched → final copy, lexicon additions, and any
 surface whose budget forced a cut.

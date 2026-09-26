@@ -18,6 +18,10 @@
  *   art        generated assets must not be a byte-copy of template art
  *   wiring     every texture a gameplay def names resolves to generated art —
  *              an unresolved key draws the procedural fallback square instead
+ *   assets     every declared content id (weapon, evolution, charm, card, gear,
+ *              valuable, consumable, class…) resolves to a loaded icon, every
+ *              content fx/art field to loaded art; a null/absent one is a
+ *              procedural placeholder (both BLOCKERS)
  *   audio      generated tracks/samples stay inside the download budget
  *   store      shots/og.png presence (warning)
  */
@@ -599,8 +603,11 @@ function parseArtRegistry(text) {
   };
   const rows = [];
   for (const list of ['SPRITES', 'IMAGES']) {
-    for (const r of listBody(list).matchAll(/\{\s*key:\s*'([^']+)'[^}]*?path:\s*'([^']+)'/g)) {
-      rows.push({ key: r[1], file: r[2] });
+    for (const r of listBody(list).matchAll(/\{\s*key:\s*'([^']+)'([^}]*)\}/g)) {
+      const file = /path:\s*'([^']+)'/.exec(r[2]);
+      if (!file) continue;
+      const frames = /frames:\s*(\d+)/.exec(r[2]);
+      rows.push({ key: r[1], file: file[1], frames: frames ? Number(frames[1]) : 1 });
     }
   }
   const aliases = [];
@@ -609,8 +616,9 @@ function parseArtRegistry(text) {
       aliases.push({ kind, alias: a[1], key: a[2], pruned: /not shipped/.test(a[3]) });
     }
   }
-  for (const a of mapBody('ICON').matchAll(/^\s*'?([\w$-]+)'?:\s*\{\s*key:\s*'([^']+)',[^}]*\},(.*)$/gm)) {
-    aliases.push({ kind: 'ICON', alias: a[1], key: a[2], pruned: /not shipped/.test(a[3]) });
+  for (const a of mapBody('ICON').matchAll(/^\s*'?([\w$-]+)'?:\s*\{\s*key:\s*'([^']+)',([^}]*)\},(.*)$/gm)) {
+    const frame = /frame:\s*(\d+)/.exec(a[3]);
+    aliases.push({ kind: 'ICON', alias: a[1], key: a[2], frame: frame ? Number(frame[1]) : null, pruned: /not shipped/.test(a[4]) });
   }
   return { rows, aliases };
 }
@@ -734,9 +742,11 @@ function checkArtWiring(dir) {
     }
   }
   const texts = [...sources.values()];
-  const dead = rows
-    .map((r) => r.key)
-    .filter((key) => !named.has(key) && !patterns.some((p) => p.test(key)) && !texts.some((t) => t.includes(key)));
+  const consumed = (name) => patterns.some((p) => p.test(name)) || texts.some((t) => t.includes(name));
+  // An icon sheet is consumed through its ICON aliases: `icon-wpn-${id}` names
+  // `icon-wpn-bolt`, which names the `icons-wpn-a` sheet it lives on.
+  for (const a of aliases) if (a.kind === 'ICON' && !a.pruned && consumed(a.alias)) noteRef(a.key, `ICON ${a.alias}`);
+  const dead = rows.map((r) => r.key).filter((key) => !named.has(key) && !consumed(key));
   if (dead.length > 0) {
     warn(
       'wiring:dead-art',
@@ -746,6 +756,432 @@ function checkArtWiring(dir) {
   } else {
     pass('wiring:dead-art', `art wiring: every one of the ${rows.length} loaded asset(s) is named by src/`);
   }
+}
+
+// --- content asset coverage -------------------------------------------------
+
+/**
+ * Just enough of a TypeScript lexer to READ content tables without executing
+ * them (a data module imports Phaser, config and siblings): strings, template
+ * literals (raw text, holes kept), identifiers, numbers and punctuation, with
+ * `...` and `=>` as single tokens. Comments and regex literals are dropped.
+ */
+function lexTs(text) {
+  const toks = [];
+  const n = text.length;
+  let i = 0;
+  let line = 1;
+  const countLines = (a, b) => {
+    for (let k = a; k < b; k += 1) if (text.charCodeAt(k) === 10) line += 1;
+  };
+  const skipQuoted = (at) => {
+    const q = text[at];
+    let j = at + 1;
+    while (j < n && text[j] !== q && text[j] !== '\n') j += text[j] === '\\' ? 2 : 1;
+    return j + 1;
+  };
+  const skipTemplate = (at) => {
+    let j = at + 1;
+    while (j < n) {
+      const c = text[j];
+      if (c === '\\') j += 2;
+      else if (c === '`') return j + 1;
+      else if (c === '$' && text[j + 1] === '{') {
+        let depth = 1;
+        j += 2;
+        while (j < n && depth > 0) {
+          const d = text[j];
+          if (d === '`') j = skipTemplate(j);
+          else if (d === "'" || d === '"') j = skipQuoted(j);
+          else {
+            if (d === '{') depth += 1;
+            else if (d === '}') depth -= 1;
+            j += 1;
+          }
+        }
+      } else j += 1;
+    }
+    return n;
+  };
+  const REGEX_AFTER = new Set(['(', ',', '=', ':', '[', '!', '&', '|', '?', '{', '}', ';', '=>', 'return']);
+  while (i < n) {
+    const c = text[i];
+    if (c === '\n') {
+      line += 1;
+      i += 1;
+    } else if (c === ' ' || c === '\t' || c === '\r') {
+      i += 1;
+    } else if (c === '/' && text[i + 1] === '/') {
+      while (i < n && text[i] !== '\n') i += 1;
+    } else if (c === '/' && text[i + 1] === '*') {
+      const e = text.indexOf('*/', i + 2);
+      const end = e < 0 ? n : e + 2;
+      countLines(i, end);
+      i = end;
+    } else if (c === "'" || c === '"') {
+      const end = skipQuoted(i);
+      toks.push({ t: 'str', v: text.slice(i + 1, end - 1), line });
+      i = end;
+    } else if (c === '`') {
+      const end = skipTemplate(i);
+      toks.push({ t: 'tpl', v: text.slice(i + 1, end - 1), line });
+      countLines(i, end);
+      i = end;
+    } else if (c === '/' && (toks.length === 0 || REGEX_AFTER.has(toks[toks.length - 1].v))) {
+      let j = i + 1;
+      let inClass = false;
+      while (j < n && text[j] !== '\n') {
+        const d = text[j];
+        if (d === '\\') {
+          j += 2;
+          continue;
+        }
+        if (d === '[') inClass = true;
+        else if (d === ']') inClass = false;
+        else if (d === '/' && !inClass) break;
+        j += 1;
+      }
+      j += 1;
+      while (j < n && /[a-z]/i.test(text[j])) j += 1;
+      i = j;
+    } else if (/[A-Za-z_$]/.test(c)) {
+      let j = i + 1;
+      while (j < n && /[\w$]/.test(text[j])) j += 1;
+      toks.push({ t: 'ident', v: text.slice(i, j), line });
+      i = j;
+    } else if (/[0-9]/.test(c)) {
+      let j = i + 1;
+      while (j < n && /[\w.]/.test(text[j])) j += 1;
+      toks.push({ t: 'num', v: text.slice(i, j), line });
+      i = j;
+    } else if (c === '.' && text[i + 1] === '.' && text[i + 2] === '.') {
+      toks.push({ t: 'punct', v: '...', line });
+      i += 3;
+    } else if (c === '=' && text[i + 1] === '>') {
+      toks.push({ t: 'punct', v: '=>', line });
+      i += 2;
+    } else {
+      toks.push({ t: 'punct', v: c, line });
+      i += 1;
+    }
+  }
+  return toks;
+}
+
+const OPENERS = new Set(['(', '[', '{']);
+const CLOSERS = new Set([')', ']', '}']);
+
+/** Index of the token that closes the bracket opened at `at`. */
+function closeOf(toks, at) {
+  let depth = 0;
+  for (let k = at; k < toks.length; k += 1) {
+    if (toks[k].t !== 'punct') continue;
+    if (OPENERS.has(toks[k].v)) depth += 1;
+    else if (CLOSERS.has(toks[k].v)) {
+      depth -= 1;
+      if (depth === 0) return k;
+    }
+  }
+  return toks.length - 1;
+}
+
+/** `toks[from, to)` split at its depth-0 commas. */
+function splitTop(toks, from, to) {
+  const parts = [];
+  let depth = 0;
+  let start = from;
+  for (let k = from; k < to; k += 1) {
+    const t = toks[k];
+    if (t.t !== 'punct') continue;
+    if (OPENERS.has(t.v)) depth += 1;
+    else if (CLOSERS.has(t.v)) depth -= 1;
+    else if (t.v === ',' && depth === 0) {
+      if (k > start) parts.push(toks.slice(start, k));
+      start = k + 1;
+    }
+  }
+  if (to > start) parts.push(toks.slice(start, to));
+  return parts;
+}
+
+/** An object literal's own fields: literal values kept (`str`/`tpl`/`null`), anything else `expr`. */
+function objectFields(el) {
+  const fields = new Map();
+  for (const part of splitTop(el, 1, el.length - 1)) {
+    if (part.length < 3 || part[1].v !== ':' || (part[0].t !== 'ident' && part[0].t !== 'str')) continue;
+    const val = part[3]?.v === 'as' ? part.slice(2, 3) : part.slice(2);
+    let v = { type: 'expr' };
+    if (val.length === 1) {
+      const t = val[0];
+      if (t.t === 'str') v = { type: 'str', v: t.v };
+      else if (t.t === 'tpl') v = t.v.includes('${') ? { type: 'tpl', v: t.v } : { type: 'str', v: t.v };
+      else if (t.t === 'ident' && (t.v === 'null' || t.v === 'undefined')) v = { type: 'null' };
+    }
+    fields.set(part[0].v, v);
+  }
+  return fields;
+}
+
+/**
+ * Every array table in `sources` whose elements are object literals with a
+ * literal `id` — the game's declared content — plus the ids it composes from
+ * other tables: `...OTHER` and `...OTHER.map((w) => ({ id: `w_unlock_${w.id}` }))`
+ * (how a draft-card pool is built from the weapon table).
+ */
+function contentTables(sources) {
+  const tables = [];
+  for (const [file, text] of sources) {
+    const toks = lexTs(text);
+    for (let i = 0; i + 3 < toks.length; i += 1) {
+      if (toks[i].t !== 'ident' || (toks[i].v !== 'const' && toks[i].v !== 'let') || toks[i + 1].t !== 'ident') continue;
+      let j = i + 2;
+      if (toks[j].v === ':') {
+        for (let depth = 0; j < toks.length; j += 1) {
+          const v = toks[j].v;
+          if (OPENERS.has(v) || v === '<') depth += 1;
+          else if (CLOSERS.has(v) || v === '>') depth -= 1;
+          else if ((v === '=' && depth <= 0) || v === ';') break;
+        }
+      }
+      if (toks[j]?.v !== '=' || toks[j + 1]?.v !== '[') continue;
+      const open = j + 1;
+      const close = closeOf(toks, open);
+      const table = { name: toks[i + 1].v, file, rows: [], spreads: [], maps: [] };
+      for (const el of splitTop(toks, open + 1, close)) {
+        if (el[0].v === '{') {
+          const fields = objectFields(el);
+          const id = fields.get('id');
+          if (id?.type === 'str') table.rows.push({ id: id.v, fields, line: el[0].line });
+        } else if (el[0].v === '...' && el[1]?.t === 'ident') {
+          if (el.length === 2) {
+            table.spreads.push(el[1].v);
+            continue;
+          }
+          if (el[2]?.v !== '.' || el[3]?.v !== 'map') continue;
+          const param = el.slice(4).find((t) => t.t === 'ident')?.v;
+          const at = el.findIndex((t, k) => t.v === 'id' && el[k + 1]?.v === ':');
+          const val = at < 0 ? null : el[at + 2];
+          if (!param || !val) continue;
+          if (val.t === 'ident' && val.v === param && el[at + 3]?.v === '.' && el[at + 4]?.v === 'id') {
+            table.maps.push({ from: el[1].v, prefix: '', suffix: '' });
+          } else if (val.t === 'tpl') {
+            const m = new RegExp(`^([^$\`]*)\\$\\{\\s*${param}\\.id\\s*\\}([^$\`]*)$`).exec(val.v);
+            if (m) table.maps.push({ from: el[1].v, prefix: m[1], suffix: m[2] });
+          }
+        }
+      }
+      if (table.rows.length > 0 || table.spreads.length > 0 || table.maps.length > 0) tables.push(table);
+      i = close;
+    }
+  }
+  return tables;
+}
+
+/** A field that names an icon (`icon`, `mmIcon`, `iconId`). */
+const ICON_FIELD = /icon/i;
+/** A field that names in-world art for a content row (`fx`, `fxEvolved`, `hitFx`, `art`, `sprite`, `anim`). `texture:` belongs to `wiring:procedural`. */
+const ASSET_FIELD = /^(?:fx|fx[A-Z]\w*|\w+Fx|art|sprite|anim)$/;
+
+/**
+ * "Some powerups have no icon; Bone Halo is a triangle in-world": the art for
+ * both existed as a generation job and was simply never wired, and nothing
+ * joined the content tables to the registry. `wiring:*` proves that every key
+ * the code NAMES resolves; this proves every piece of CONTENT the game declares
+ * is named — the dual.
+ *
+ * Generic by construction, no family knowledge:
+ *   - content = every array table in src/ (sim/ and selftests excluded) whose
+ *     rows are object literals with a literal `id`, plus the ids a table
+ *     composes from another (`...WEAPONS.map((w) => ({ id: `w_evo_${w.id}` }))`);
+ *   - icon families = every key-shaped template literal the code builds an icon
+ *     id with (`icon-wpn-${…}`), bound to a table either by context
+ *     (`WEAPONS.map((w) => … `icon-wpn-${w.id}`)`, `for (const b of GEAR_BASES)`)
+ *     or by measurement (at least half the table's ids already resolve under it);
+ *   - a bound table must resolve EVERY id — to an `ICON` entry whose sheet is
+ *     loaded and unpruned and whose frame exists, or to a loaded texture keyed by
+ *     the id itself. A composed row that misses may draw its source row's icon.
+ *   - literal fields: an `icon*` value must resolve the same way; an `fx*`/`art`/
+ *     `sprite`/`anim` value must name loaded art (a registry row or a
+ *     TEXTURE/ANIM alias of one).
+ * `assets:placeholder` is the other half: a content row whose art field is
+ * null/'' — or absent while most of its table carries one — draws the
+ * procedural fallback, which is a defect, never an accepted state.
+ * A family whose game declares no such tables (a board game with no icons)
+ * passes with nothing to cover.
+ */
+function checkAssetCoverage(dir) {
+  const artTsPath = path.join(dir, 'src', 'data', 'art.ts');
+  if (!existsSync(artTsPath)) return; // wiring:registry already failed
+  const { rows, aliases } = parseArtRegistry(readFileSync(artTsPath, 'utf8'));
+  const frames = new Map(rows.map((r) => [r.key, r.frames]));
+  const icons = new Map(aliases.filter((a) => a.kind === 'ICON').map((a) => [a.alias, a]));
+  const aliasKeys = new Set(aliases.filter((a) => a.kind !== 'ICON' && !a.pruned).map((a) => a.key));
+  /** null when `id` draws generated art; otherwise why it does not. */
+  const iconProblem = (id) => {
+    const slot = icons.get(id);
+    if (slot === undefined) return frames.has(id) ? null : 'no ICON entry';
+    if (slot.pruned) return `ICON sheet '${slot.key}' pruned`;
+    if (!frames.has(slot.key)) return `ICON sheet '${slot.key}' not loaded`;
+    if (slot.frame !== null && slot.frame >= frames.get(slot.key)) return `frame ${slot.frame} >= ${frames.get(slot.key)} frames of '${slot.key}'`;
+    return null;
+  };
+  const assetProblem = (key) => (frames.has(key) || aliasKeys.has(key) || icons.has(key) ? (icons.has(key) ? iconProblem(key) : null) : 'no loaded art');
+
+  const sources = tsSources(path.join(dir, 'src'));
+  sources.delete(path.join('data', 'art.ts'));
+  for (const file of [...sources.keys()]) {
+    if (file.startsWith(`sim${path.sep}`) || /\.(?:self)?test\.ts$/.test(file)) sources.delete(file);
+  }
+  const tables = contentTables(sources);
+  const byName = new Map();
+  for (const t of tables) byName.set(t.name, [...(byName.get(t.name) ?? []), t]);
+  const pick = (name, file) => {
+    const all = byName.get(name) ?? [];
+    return all.find((t) => t.file === file) ?? (all.length === 1 ? all[0] : null);
+  };
+  const entriesMemo = new Map();
+  /** Every id a table declares: its own rows plus composed ones, each with its origin row. */
+  const entries = (t, stack = new Set()) => {
+    if (entriesMemo.has(t)) return entriesMemo.get(t);
+    if (stack.has(t)) return [];
+    stack.add(t);
+    const out = t.rows.map((row) => ({ id: row.id, origin: row, own: true }));
+    for (const s of t.spreads) {
+      const src = pick(s, t.file);
+      if (src) out.push(...entries(src, stack).map((e) => ({ ...e, own: false })));
+    }
+    for (const m of t.maps) {
+      const src = pick(m.from, t.file);
+      if (src) out.push(...entries(src, stack).map((e) => ({ id: `${m.prefix}${e.id}${m.suffix}`, origin: e.origin, own: false })));
+    }
+    stack.delete(t);
+    entriesMemo.set(t, out);
+    return out;
+  };
+
+  // Icon families the code builds, and the tables their context binds them to.
+  const families = new Map();
+  const iconIds = [...icons.keys()];
+  for (const [file, text] of sources) {
+    const toks = lexTs(text);
+    toks.forEach((tok, k) => {
+      if (tok.t !== 'tpl') return;
+      const m = /^([A-Za-z][\w-]*[-_])\$\{\s*([^{}]*?)\s*\}([\w-]*)$/.exec(tok.v);
+      if (!m) return;
+      const [, prefix, hole, suffix] = m;
+      if (!prefix.startsWith('icon-') && !iconIds.some((id) => id.startsWith(prefix) && id.endsWith(suffix))) return;
+      const fam = `${prefix}\u0000${suffix}`;
+      if (!families.has(fam)) families.set(fam, { prefix, suffix, at: new Set(), bound: new Set() });
+      const f = families.get(fam);
+      f.at.add(file);
+      const v = /^(\w+)\.id$/.exec(hole)?.[1];
+      if (!v) return;
+      // The nearest enclosing `TABLE.map((v) =>` / `for (const v of TABLE)` names the table.
+      for (let b = k - 1; b >= Math.max(0, k - 80); b -= 1) {
+        const a = toks[b];
+        const viaMap = a.t === 'ident' && toks[b + 1]?.v === '.' && /^(?:map|flatMap|forEach|filter|some|every)$/.test(toks[b + 2]?.v ?? '') &&
+          toks.slice(b + 3, b + 7).some((t) => t.t === 'ident' && t.v === v);
+        const viaFor = a.v === 'const' && toks[b + 1]?.v === v && toks[b + 2]?.v === 'of' && toks[b + 3]?.t === 'ident';
+        const table = viaMap ? a.v : viaFor ? toks[b + 3].v : null;
+        if (table === null) continue;
+        const resolved = pick(table, file);
+        if (resolved) f.bound.add(resolved);
+        break;
+      }
+    });
+  }
+
+  const missing = [];
+  const emptyFamilies = [];
+  const bindings = [];
+  const idHasIcon = (id) => [...families.values()].some((f) => iconProblem(`${f.prefix}${id}${f.suffix}`) === null);
+  for (const f of families.values()) {
+    const name = `${f.prefix}\${…}${f.suffix}`;
+    if (!iconIds.some((id) => id.startsWith(f.prefix) && id.endsWith(f.suffix))) {
+      emptyFamilies.push(`${name} (${[...f.at].join(', ')})`);
+      continue;
+    }
+    for (const t of tables) {
+      const es = entries(t);
+      if (es.length === 0) continue;
+      const hits = es.filter((e) => iconProblem(`${f.prefix}${e.id}${f.suffix}`) === null).length;
+      if (!f.bound.has(t) && !(hits > 0 && hits * 2 >= es.length)) continue;
+      bindings.push({ table: t, label: `${t.name}→${f.prefix}*` });
+      for (const e of es) {
+        const icon = `${f.prefix}${e.id}${f.suffix}`;
+        const problem = iconProblem(icon);
+        if (problem === null || (!e.own && idHasIcon(e.origin.id))) continue;
+        missing.push(`${icon} [${problem}] (${t.name}, ${t.file})`);
+      }
+    }
+  }
+
+  // Literal art fields on content rows, and the placeholders among them.
+  const placeholders = [];
+  let fieldsChecked = 0;
+  for (const t of tables) {
+    const artFields = new Map();
+    for (const row of t.rows) {
+      for (const [key, v] of row.fields) {
+        if (!ICON_FIELD.test(key) && !ASSET_FIELD.test(key)) continue;
+        artFields.set(key, (artFields.get(key) ?? 0) + (v.type === 'null' ? 0 : 1));
+        if (v.type === 'null' || (v.type === 'str' && v.v.trim() === '')) {
+          placeholders.push(`${t.name}['${row.id}'].${key} = ${v.type === 'null' ? 'null' : "''"} (${t.file}:${row.line})`);
+          continue;
+        }
+        if (v.type !== 'str') continue;
+        fieldsChecked += 1;
+        const problem = ICON_FIELD.test(key) ? iconProblem(v.v) : assetProblem(v.v);
+        if (problem !== null) missing.push(`${t.name}['${row.id}'].${key} = '${v.v}' [${problem}] (${t.file}:${row.line})`);
+      }
+    }
+    for (const [key, count] of artFields) {
+      if (count * 2 < t.rows.length) continue;
+      for (const row of t.rows) {
+        if (!row.fields.has(key)) placeholders.push(`${t.name}['${row.id}'] has no ${key} while ${count}/${t.rows.length} rows do (${t.file}:${row.line})`);
+      }
+    }
+  }
+
+  // Named content nothing draws an icon for: a hole this check cannot see into
+  // (the UI may genuinely never tile it), so it is listed for a human, not failed.
+  const iconed = new Set(bindings.map((b) => b.table));
+  for (const t of tables) for (const e of entries(t)) if (iconed.has(t)) iconed.add(e.origin);
+  const unbound = tables.filter(
+    (t) =>
+      t.rows.length >= 3 &&
+      !iconed.has(t) &&
+      t.rows.filter((r) => r.fields.has('name')).length * 2 >= t.rows.length &&
+      !t.rows.some((r) => [...r.fields.keys()].some((k) => ICON_FIELD.test(k) || ASSET_FIELD.test(k) || k === 'texture')) &&
+      !t.rows.every((r) => iconed.has(r)),
+  );
+  if (unbound.length > 0) {
+    warn(
+      'assets:unbound',
+      `${unbound.length} named content table(s) have no icon family and no art field — confirm none is ever shown ` +
+        `as a tile, card or slot: ${unbound.map((t) => `${t.name} (${t.rows.length}, ${t.file})`).join(', ')}`,
+    );
+  }
+
+  const problems = [...emptyFamilies.map((f) => `code builds ${f} but ICON has no entry in that family`), ...new Set(missing)];
+  const list = (xs) => `${xs.slice(0, 14).join('; ')}${xs.length > 14 ? `; ... (+${xs.length - 14})` : ''}`;
+  if (bindings.length === 0 && fieldsChecked === 0 && problems.length === 0) {
+    pass('assets:coverage', 'asset coverage: no icon-bound content tables in src/ — nothing to cover');
+  } else {
+    check(
+      problems.length === 0,
+      'assets:coverage',
+      `asset coverage: every content id resolves to generated art — ${bindings.length} table→icon-family binding(s) ` +
+        `(${bindings.map((b) => b.label).join(', ')}) and ${fieldsChecked} literal icon/fx field(s)`,
+      `${problems.length} coverage gap(s): declared content draws NO generated art (procedural fallback at runtime): ${list(problems)}`,
+    );
+  }
+  check(
+    placeholders.length === 0,
+    'assets:placeholder',
+    'asset placeholders: no content row leaves its icon/fx/art field null, empty or absent',
+    `${placeholders.length} content row(s) ship a procedural placeholder instead of art: ${list(placeholders)}`,
+  );
 }
 
 /** Total bytes of every file under `root`, recursively; 0 when it does not exist. */
@@ -847,6 +1283,7 @@ if (typeof manifest.variantOf === 'string' && manifest.variantOf) {
   checkStyleLock(dir);
   checkArt(manifest, dir);
   checkArtWiring(dir);
+  checkAssetCoverage(dir);
   checkFuzz(dir);
   checkAudio(dir);
   report(findings.some((f) => f.level === 'error') ? 1 : 0, { variantOf: manifest.variantOf });
@@ -863,6 +1300,7 @@ checkCover(manifest, dir, slug);
 checkStyleLock(dir);
 checkArt(manifest, dir);
 checkArtWiring(dir);
+checkAssetCoverage(dir);
 checkAudio(dir);
 
 report(findings.some((f) => f.level === 'error') ? 1 : 0);

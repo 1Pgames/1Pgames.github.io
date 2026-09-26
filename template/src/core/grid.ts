@@ -1,31 +1,47 @@
 /**
- * Tile-grid navigation via BFS flow fields: the standard way to steer dozens
- * of tower-defense creeps toward a base, or roguelike/tactics units toward a
- * target tile, without per-entity A*. Build one flow field per goal per frame
- * (or whenever the goal/obstacles change) and every entity just reads its
- * current cell's precomputed direction — O(1) per entity per frame instead of
- * O(path length) per entity.
+ * Tile-grid navigation via BFS flow fields: the standard way to steer many
+ * swarm enemies toward one goal (the hero) without per-entity A*. Build one
+ * flow field per goal (or whenever the goal cell changes) and every entity
+ * reads its current cell's precomputed direction — O(1) per entity per frame.
  *
- * Do NOT use this for large open-world pathing with many simultaneous distinct
- * goals (that wants per-agent A-star/navmesh instead) — flow fields shine when
- * many agents share one or a few goals, which is exactly the TD/swarm case.
+ * Big-map mode: `buildFlowFieldWindow` only floods a square window of
+ * `radiusCells` around the goal (28 cells = 1,792 px at 64 px/cell), so a
+ * rebuild costs ≤ 57² cells regardless of world size. Outside the window
+ * `steer` returns false and the caller steers straight at the goal. The
+ * arena slice rebuilds it whenever the hero changes cell (`systems/combat.ts`)
+ * over `GeneratedWorld.nav` (`systems/mapgen.ts`). Also the tower-defense /
+ * base-builder grid (`systems/placement.ts`): whole-grid `buildFlowField`.
  *
- * Pure TypeScript, no Phaser import. `worldToCell`/`cellToWorldCenter` assume
- * the grid's origin is world (0, 0); offset world coordinates before calling
- * if the grid is placed elsewhere.
+ * Validity is tracked with a per-build generation stamp instead of clearing
+ * the distance array, so a rebuild touches only the cells it floods.
+ *
+ * Directions come from the 8-neighbour of lowest BFS distance (diagonals only
+ * when both orthogonal sides are open — no corner cutting through blockers),
+ * which gives smooth 45° steering instead of 4-way staircase motion.
+ *
+ * Pure TypeScript, no Phaser import. The grid origin is world (0, 0).
  */
 
 const UNREACHABLE = -1;
+const DIAG = Math.SQRT1_2;
 
 export class NavGrid {
-  private readonly cols: number;
-  private readonly rows: number;
-  private readonly tileSize: number;
+  readonly cols: number;
+  readonly rows: number;
+  readonly tileSize: number;
   private readonly blocked: Uint8Array;
   private readonly dist: Int32Array;
-  /** Per-cell steering direction, interleaved [dx0, dy0, dx1, dy1, ...]. */
+  /** Generation that wrote `dist[i]`; a cell is valid only when it equals `generation`. */
+  private readonly stamp: Uint32Array;
+  /** Per-cell unit steering direction, interleaved [dx0, dy0, dx1, dy1, ...]. */
   private readonly dir: Float32Array;
   private readonly bfsQueue: Int32Array;
+  private generation = 0;
+  private winMinCol = 0;
+  private winMaxCol = -1;
+  private winMinRow = 0;
+  private winMaxRow = -1;
+  private goalIndex = -1;
 
   constructor(cols: number, rows: number, tileSize: number) {
     this.cols = cols;
@@ -34,12 +50,19 @@ export class NavGrid {
     const cellCount = cols * rows;
     this.blocked = new Uint8Array(cellCount);
     this.dist = new Int32Array(cellCount);
+    this.stamp = new Uint32Array(cellCount);
     this.dir = new Float32Array(cellCount * 2);
     this.bfsQueue = new Int32Array(cellCount);
   }
 
-  private index(col: number, row: number): number {
-    return row * this.cols + col;
+  /** A grid over a pre-rasterised blocked mask (`GeneratedMap.nav`). The mask is copied. */
+  static fromBlocked(cols: number, rows: number, cell: number, blocked: Uint8Array): NavGrid {
+    if (blocked.length !== cols * rows) {
+      throw new Error(`NavGrid.fromBlocked: mask has ${blocked.length} cells, expected ${cols * rows}`);
+    }
+    const grid = new NavGrid(cols, rows, cell);
+    grid.blocked.set(blocked);
+    return grid;
   }
 
   private inBounds(col: number, row: number): boolean {
@@ -48,94 +71,149 @@ export class NavGrid {
 
   setBlocked(col: number, row: number, blockedFlag: boolean): void {
     if (!this.inBounds(col, row)) return;
-    this.blocked[this.index(col, row)] = blockedFlag ? 1 : 0;
+    this.blocked[row * this.cols + col] = blockedFlag ? 1 : 0;
   }
 
+  /** Out-of-bounds cells count as blocked. */
   isBlocked(col: number, row: number): boolean {
     if (!this.inBounds(col, row)) return true;
-    return this.blocked[this.index(col, row)] === 1;
+    return this.blocked[row * this.cols + col] === 1;
+  }
+
+  /** `isBlocked` for a world point (spawn-ring rejection). Outside the grid = blocked. */
+  isBlockedAt(worldX: number, worldY: number): boolean {
+    return this.isBlocked(Math.floor(worldX / this.tileSize), Math.floor(worldY / this.tileSize));
+  }
+
+  /** Whole-grid flow field toward a goal cell. */
+  buildFlowField(goalCol: number, goalRow: number): void {
+    this.buildFlowFieldWindow(goalCol, goalRow, Math.max(this.cols, this.rows));
   }
 
   /**
-   * BFS from the goal over 4-neighbours, filling `dist` (steps to goal, -1 if
-   * unreachable) and `dir` (unit vector pointing toward the neighbour closest
-   * to the goal). Reuses the pre-allocated typed arrays every call.
+   * BFS from the goal over 4-neighbours, restricted to the square
+   * window `goal ± radiusCells` (clamped to the grid), then resolves one
+   * steering direction per reached cell. Allocation-free.
    */
-  buildFlowField(goalCol: number, goalRow: number): void {
-    this.dist.fill(UNREACHABLE);
-    this.dir.fill(0);
+  buildFlowFieldWindow(goalCol: number, goalRow: number, radiusCells: number): void {
+    this.generation = (this.generation + 1) >>> 0;
+    if (this.generation === 0) {
+      this.stamp.fill(0);
+      this.generation = 1;
+    }
+    const gen = this.generation;
+    this.winMinCol = Math.max(0, goalCol - radiusCells);
+    this.winMaxCol = Math.min(this.cols - 1, goalCol + radiusCells);
+    this.winMinRow = Math.max(0, goalRow - radiusCells);
+    this.winMaxRow = Math.min(this.rows - 1, goalRow + radiusCells);
+    this.goalIndex = -1;
     if (!this.inBounds(goalCol, goalRow) || this.isBlocked(goalCol, goalRow)) return;
 
-    const goalIndex = this.index(goalCol, goalRow);
-    this.dist[goalIndex] = 0;
+    const cols = this.cols;
+    const goal = goalRow * cols + goalCol;
+    this.goalIndex = goal;
+    this.dist[goal] = 0;
+    this.stamp[goal] = gen;
+    const queue = this.bfsQueue;
     let head = 0;
     let tail = 0;
-    this.bfsQueue[tail] = goalIndex;
-    tail += 1;
+    queue[tail++] = goal;
 
     while (head < tail) {
-      const current = this.bfsQueue[head];
-      head += 1;
-      if (current === undefined) continue;
-      const row = Math.floor(current / this.cols);
-      const col = current - row * this.cols;
-      const currentDist = this.dist[current] ?? UNREACHABLE;
-
-      tail = this.relaxNeighbour(col + 1, row, col, row, currentDist, tail);
-      tail = this.relaxNeighbour(col - 1, row, col, row, currentDist, tail);
-      tail = this.relaxNeighbour(col, row + 1, col, row, currentDist, tail);
-      tail = this.relaxNeighbour(col, row - 1, col, row, currentDist, tail);
+      const cur = queue[head++]!;
+      const row = (cur / cols) | 0;
+      const col = cur - row * cols;
+      const nd = this.dist[cur]! + 1;
+      if (col < this.winMaxCol) tail = this.relax(cur + 1, nd, tail);
+      if (col > this.winMinCol) tail = this.relax(cur - 1, nd, tail);
+      if (row < this.winMaxRow) tail = this.relax(cur + cols, nd, tail);
+      if (row > this.winMinRow) tail = this.relax(cur - cols, nd, tail);
     }
+
+    // Direction pass over the flooded cells only (the queue holds them all).
+    for (let q = 1; q < tail; q += 1) this.resolveDir(queue[q]!);
+    this.dir[goal * 2] = 0;
+    this.dir[goal * 2 + 1] = 0;
   }
 
-  /** Relaxes one BFS neighbour; returns the (possibly advanced) queue tail. */
-  private relaxNeighbour(
-    nCol: number,
-    nRow: number,
-    curCol: number,
-    curRow: number,
-    currentDist: number,
-    tail: number,
-  ): number {
-    if (!this.inBounds(nCol, nRow) || this.isBlocked(nCol, nRow)) return tail;
-    const nIndex = this.index(nCol, nRow);
-    if ((this.dist[nIndex] ?? UNREACHABLE) !== UNREACHABLE) return tail;
-    this.dist[nIndex] = currentDist + 1;
-    // Direction points from the neighbour toward the current cell (closer to goal).
-    this.dir[nIndex * 2] = curCol - nCol;
-    this.dir[nIndex * 2 + 1] = curRow - nRow;
-    this.bfsQueue[tail] = nIndex;
+  private relax(n: number, nd: number, tail: number): number {
+    if (this.blocked[n] === 1 || this.stamp[n] === this.generation) return tail;
+    this.stamp[n] = this.generation;
+    this.dist[n] = nd;
+    this.bfsQueue[tail] = n;
     return tail + 1;
   }
 
+  /** Distance of a neighbour, or +∞ when it is outside the flood. */
+  private distOf(col: number, row: number): number {
+    if (col < this.winMinCol || col > this.winMaxCol || row < this.winMinRow || row > this.winMaxRow) {
+      return Number.POSITIVE_INFINITY;
+    }
+    const i = row * this.cols + col;
+    return this.stamp[i] === this.generation ? this.dist[i]! : Number.POSITIVE_INFINITY;
+  }
+
+  private resolveDir(i: number): void {
+    const row = (i / this.cols) | 0;
+    const col = i - row * this.cols;
+    const e = this.distOf(col + 1, row);
+    const w = this.distOf(col - 1, row);
+    const s = this.distOf(col, row + 1);
+    const n = this.distOf(col, row - 1);
+    let best = this.dist[i]!;
+    let dx = 0;
+    let dy = 0;
+    // Orthogonal first; a diagonal must be strictly better and needs both sides open.
+    if (e < best) { best = e; dx = 1; dy = 0; }
+    if (w < best) { best = w; dx = -1; dy = 0; }
+    if (s < best) { best = s; dx = 0; dy = 1; }
+    if (n < best) { best = n; dx = 0; dy = -1; }
+    const d = best - 1;
+    if (e !== Infinity && s !== Infinity) { const v = this.distOf(col + 1, row + 1); if (v <= d) { best = v; dx = DIAG; dy = DIAG; } }
+    if (w !== Infinity && s !== Infinity) { const v = this.distOf(col - 1, row + 1); if (v < best && v <= d) { best = v; dx = -DIAG; dy = DIAG; } }
+    if (e !== Infinity && n !== Infinity) { const v = this.distOf(col + 1, row - 1); if (v < best && v <= d) { best = v; dx = DIAG; dy = -DIAG; } }
+    if (w !== Infinity && n !== Infinity) { const v = this.distOf(col - 1, row - 1); if (v < best && v <= d) { best = v; dx = -DIAG; dy = -DIAG; } }
+    this.dir[i * 2] = dx;
+    this.dir[i * 2 + 1] = dy;
+  }
+
+  private reached(i: number): boolean {
+    return this.stamp[i] === this.generation && this.generation !== 0;
+  }
+
   /**
-   * Writes the normalised steering direction for the cell under the given
-   * world position into `out`. Returns false (and leaves `out` untouched) if
-   * the cell is unreachable or outside the grid.
+   * Writes the unit steering direction for the cell under a world position
+   * into `out`. Returns false (leaving `out` untouched) outside the grid, the
+   * last built window, or the reachable flood. At the goal cell `out` = (0,0).
    */
   steer(worldX: number, worldY: number, out: { x: number; y: number }): boolean {
     const col = Math.floor(worldX / this.tileSize);
     const row = Math.floor(worldY / this.tileSize);
-    if (!this.inBounds(col, row)) return false;
-    const cellIndex = this.index(col, row);
-    if ((this.dist[cellIndex] ?? UNREACHABLE) === UNREACHABLE) return false;
-    if (this.dist[cellIndex] === 0) {
+    if (col < this.winMinCol || col > this.winMaxCol || row < this.winMinRow || row > this.winMaxRow) return false;
+    const i = row * this.cols + col;
+    if (!this.reached(i)) return false;
+    if (i === this.goalIndex) {
       out.x = 0;
       out.y = 0;
       return true;
     }
-    const dx = this.dir[cellIndex * 2] ?? 0;
-    const dy = this.dir[cellIndex * 2 + 1] ?? 0;
-    const len = Math.hypot(dx, dy);
-    if (len === 0) return false;
-    out.x = dx / len;
-    out.y = dy / len;
+    const dx = this.dir[i * 2]!;
+    const dy = this.dir[i * 2 + 1]!;
+    if (dx === 0 && dy === 0) return false;
+    out.x = dx;
+    out.y = dy;
     return true;
   }
 
+  /** BFS steps from a cell to the last goal, or -1 when outside the flood. */
+  distanceAt(col: number, row: number): number {
+    if (col < this.winMinCol || col > this.winMaxCol || row < this.winMinRow || row > this.winMaxRow) return UNREACHABLE;
+    const i = row * this.cols + col;
+    return this.reached(i) ? this.dist[i]! : UNREACHABLE;
+  }
+
   pathExists(fromCol: number, fromRow: number): boolean {
-    if (!this.inBounds(fromCol, fromRow)) return false;
-    return (this.dist[this.index(fromCol, fromRow)] ?? UNREACHABLE) !== UNREACHABLE;
+    return this.distanceAt(fromCol, fromRow) !== UNREACHABLE;
   }
 
   worldToCell(worldX: number, worldY: number, out: { col: number; row: number }): void {

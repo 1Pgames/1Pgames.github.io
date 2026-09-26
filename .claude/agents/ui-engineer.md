@@ -31,10 +31,25 @@ The rule CLASSES you personally enforce (details in the contract):
   coordinates and the chrome spec come from the art-director (game-art
   Step 1c / PRD §11+§14) — implement them VERBATIM and route
   disagreements back; code never originates palette or layout values.
-- Interaction: every modal has an explicit way out; pause always offers a
-  path to menu; results CTA matches the outcome; scrolling lists CLIP via
-  camera scissor, never hide/fade; z-order and click semantics per the
-  traps; scrollFactor corrections inside scissor lists.
+- Interaction: EVERY control changes observable state when tapped — a
+  button, tab or slider without a working handler is a BLOCKER, never a
+  stub (recorded: pause SETTINGS did nothing); every modal has an explicit
+  way out; pause always offers a path to menu; results CTA matches the
+  outcome; scrolling lists CLIP via camera scissor (`ui/scrollView.ts`),
+  never hide/fade; z-order and click semantics per the traps; scrollFactor
+  corrections inside scissor lists.
+- Settings apply LIVE, including to audio already playing: a music slider
+  moves the current hub/run track (`core/music.ts applyMusicVolume`), an
+  SFX slider only ships where sample SFX exist (duskhaul
+  `ui/settingsSheet.ts`).
+- Meta IA: a mid-core meta is a TABBED HUB by default — one tab, one job
+  (play / equip / store / improve / learn), built from
+  `ui/{tabBar,sheet,scrollView,widgets}.ts` (duskhaul `scenes/hub/**`);
+  boot→run ≤ 2 taps; never pile meta surfaces onto one screen.
+- Synergy visibility: draft cards mark pieces that pair with owned ones
+  ("Pairs with your X → Y", EVOLUTION READY badge; duskhaul
+  `ui/cards.ts evoMatch`); progression beats (evolution, rank-up, new
+  piece) render through `ui/progressFx.ts` — fx-artist owns their timing.
 - Economy/inventory surfaces: icon-first with count badges, tooltips on
   select/arm via the shared component, housing panels over loose pills,
   player-language naming, uncapped consumables where the design says so.
@@ -49,9 +64,15 @@ The rule CLASSES you personally enforce (details in the contract):
 - Tween hygiene: every loop registered on its view and killed on recycle —
   prove no leaks after a heavy scene.
 
-Verify your own work in the live browser (dev server + screenshots of every
-touched screen) before yielding. `npx tsc --noEmit` clean. NO commits, no
-formatters, no full verify.
+Verify your own work in the live browser (dev server, `?mute=1`,
+screenshots of every touched screen; tap every control you built and
+record the state it changed) before yielding. `npx tsc --noEmit` clean. NO
+commits, no formatters, no full verify.
 
-Report: finding → file/symbol map, screenshots taken, tween-leak check
-result.
+Long-running commands: run them in the FOREGROUND, chunked under the tool
+timeout, or wait for them; never end a turn with a job (or dev server) you
+started still running — the session parks, the job dies, the result is
+lost.
+
+Report: finding → file/symbol map, screenshots taken, control → state-change
+table, tween-leak check result.

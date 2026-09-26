@@ -10,8 +10,10 @@ import { RunDirector, type EventSpec } from '../../core/run';
 import { metaModifiers, touchDailyStreak } from '../../core/progression';
 import { rollUpgradeChoices, type UpgradeDef, type UpgradeRollContext } from '../../data/upgrades';
 import { PHASES, WAVES, TIMELINE_EVENTS } from '../../data/waves';
-import { ANIM } from '../../data/art';
-import type { EnemyDef } from '../../data/enemies';
+import { ANIM, artScale } from '../../data/art';
+import { ENEMIES, displaySizeFor, outlineRankOf, type EnemyDef } from '../../data/enemies';
+import { declareOutlines, teamOutline } from '../../core/outline';
+import { DEV_HOOKS, registerDevHook } from '../../core/dev';
 import { applyEffect } from '../../core/effects';
 import { sfx } from '../../core/audio';
 import { startMusic, setMusicIntensity, setMusicLayer } from '../../core/music';
@@ -89,6 +91,16 @@ export class GameScene extends Phaser.Scene {
 
   constructor() {
     super(SCENES.game);
+    // Team outlines (horde-genre readability default): hero green, hostiles red
+    // 3/4/5 px by rank, baked once by `PreloadScene` at each sheet's on-screen
+    // cell size so the ring is the same screen width on every actor.
+    declareOutlines(() => {
+      const heroCell = displaySizeFor(ANIM.heroIdle, TUNING.player.visiblePx);
+      return [
+        ...[ANIM.heroIdle, ANIM.heroRun, ANIM.heroAttack, ANIM.heroHurt].map((key) => teamOutline(key, 'ally', 'trash', heroCell * artScale(key))),
+        ...ENEMIES.map((def) => teamOutline(def.texture, 'hostile', outlineRankOf(def), displaySizeFor(def.texture, def.visiblePx))),
+      ];
+    });
   }
 
   /** `scene.start(SCENES.game, { seed })` reruns the exact same run; omit for a fresh one. */
@@ -150,6 +162,25 @@ export class GameScene extends Phaser.Scene {
     // Bias the view upward so the player sits below the HUD band instead of
     // disappearing behind it at the arena's top edge.
     this.cameras.main.setFollowOffset(0, TUNING.arena.cameraOffsetY);
+    // `__DEV__.teleport(x?, y?)` (`?debug` only): an explicit world point, else
+    // the nearest POI anchor the world placed. Refuses blocked floor.
+    registerDevHook(
+      this,
+      'teleport',
+      (x?: number, y?: number) => {
+        const player = this.combat.player;
+        const pois = this.arena.world.pois;
+        let to: { x: number; y: number } | undefined = x !== undefined && y !== undefined ? { x, y } : undefined;
+        if (to === undefined) {
+          to = [...pois].sort((a, b) => Math.hypot(a.x - player.x, a.y - player.y) - Math.hypot(b.x - player.x, b.y - player.y))[0];
+        }
+        if (to === undefined) return 'this world has no POI anchors — pass teleport(x, y)';
+        if (this.arena.nav.isBlockedAt(to.x, to.y)) return `(${to.x}, ${to.y}) is blocked floor`;
+        player.setPosition(to.x, to.y);
+        return `hero at (${Math.round(to.x)}, ${Math.round(to.y)}), depth ${this.arena.depthAt(to.x, to.y).toFixed(2)}`;
+      },
+      DEV_HOOKS.teleport,
+    );
 
     this.hud = new Hud(this);
 

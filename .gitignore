@@ -6,3 +6,6 @@ dist/
 _site/
 **/art/exports/
 **/shots/cert/
+
+# Local MCP servers (ElevenLabs etc.); keys live outside the repo.
+.omp/mcp.json

@@ -8,9 +8,10 @@ import { sfx } from '../core/audio';
 import { ANIM } from '../data/art';
 import type { Rng } from '../core/rng';
 import type { Modifier } from '../core/stats';
-import { ENEMIES, type EnemyDef } from '../data/enemies';
+import { ENEMIES, contactReach, type EnemyDef } from '../data/enemies';
 import type { WaveSpec } from '../core/run';
 import type { Arena } from './arena';
+import { depthDangerMul } from './mapgen';
 import { Player } from '../objects/player';
 import { Enemy } from '../objects/enemy';
 import { Projectile } from '../objects/projectile';
@@ -63,6 +64,9 @@ for (const def of ENEMIES) DEFS[def.id] = def;
 
 /** Contact reach + hit radius scratch, in world px, per `dropOrb`/coin spawn spread. */
 const COIN_SCATTER_PX = 26;
+/** Spawn-ring tries before a blocked spawn is dropped, and the angle step between them. */
+const SPAWN_TRIES = 6;
+const SPAWN_TURN = Math.PI / 3;
 
 export class CombatSystem {
   readonly player: Player;
@@ -112,6 +116,10 @@ export class CombatSystem {
   private static readonly ANGLE_CACHE_MS = 1500;
   /** Absolute `scene.time.now` timestamp until which `spawn()` no-ops (breather scripted event). */
   private spawnSilencedUntilMs = -Infinity;
+  /** Hero nav cell the flow field was last built for (rebuilt when it changes). */
+  private readonly heroCell = { col: -1, row: -1 };
+  private readonly cellScratch = { col: 0, row: 0 };
+  private readonly steerDir = { x: 0, y: 0 };
 
   constructor(
     scene: Phaser.Scene,
@@ -126,7 +134,7 @@ export class CombatSystem {
     this.callbacks = callbacks;
     this.hash = new SpatialHash<Enemy>(TUNING.caps.spatialCellSize);
 
-    this.player = new Player(scene, arena.centerX, arena.centerY, metaMods);
+    this.player = new Player(scene, arena.spawn.x, arena.spawn.y, metaMods);
     scene.physics.add.collider(this.player, arena.obstacles);
 
     // Enemies live in a physics group purely so ONE collider handles every
@@ -221,7 +229,10 @@ export class CombatSystem {
 
   /**
    * Spawns one enemy just outside the camera view, clamped inside the arena, so
-   * threats always walk in from off-screen but never from outside the field.
+   * threats always walk in from off-screen but never from outside the field or
+   * inside a prop (a blocked nav cell rotates the angle, ≤ `SPAWN_TRIES`).
+   * Danger rises toward the world's edges: the difficulty is scaled by
+   * `depthDangerMul` at the hero's depth (exactly 1 in the spawn band).
    * No-ops at `TUNING.enemy.maxAlive`, or while a `breather` scripted event's
    * silence window is active — dropping spawns is how both the frame budget
    * and the scripted lull are kept; the run director keeps its timeline either way.
@@ -232,15 +243,24 @@ export class CombatSystem {
     const def = DEFS[id];
     if (def === undefined) return;
     const angle = this.spawnAngle(pattern);
+    if (!this.ringPoint(angle, def)) return;
+    const depthMul = depthDangerMul(this.arena.depthAt(this.player.x, this.player.y));
+    this.spawnEnemyAt(def, this.spawnPoint.x, this.spawnPoint.y, difficultyMul * depthMul);
+  }
+
+  /**
+   * Writes the first open spawn-ring point at `angle` (then rotated by
+   * `SPAWN_TURN` per retry) into `spawnPoint`; false when every try is blocked.
+   */
+  private ringPoint(angle: number, def: EnemyDef): boolean {
     const rx = VIEW.width / 2 + TUNING.enemy.spawnMargin;
     const ry = VIEW.height / 2 + TUNING.enemy.spawnMargin;
-    this.arena.clamp(
-      this.player.x + Math.cos(angle) * rx,
-      this.player.y + Math.sin(angle) * ry,
-      TUNING.arena.wallThickness + def.size,
-      this.spawnPoint,
-    );
-    this.spawnEnemyAt(def, this.spawnPoint.x, this.spawnPoint.y, difficultyMul);
+    for (let i = 0; i < SPAWN_TRIES; i += 1) {
+      const a = angle + i * SPAWN_TURN;
+      this.arena.clamp(this.player.x + Math.cos(a) * rx, this.player.y + Math.sin(a) * ry, TUNING.arena.wallThickness + def.size, this.spawnPoint);
+      if (!this.arena.nav.isBlockedAt(this.spawnPoint.x, this.spawnPoint.y)) return true;
+    }
+    return false;
   }
 
   /**
@@ -271,12 +291,18 @@ export class CombatSystem {
     return this.rng.float(0, Math.PI * 2);
   }
 
-  /** Spawns one enemy at an explicit world position — used for scripted events (elite-rush arcs). */
+  /**
+   * Spawns one enemy at an explicit world position — used for scripted events
+   * (elite-rush arcs). The point is clamped into the field; a point inside a
+   * prop falls back to the spawn ring in its direction.
+   */
   spawnAtPosition(id: string, x: number, y: number, difficultyMul: number): void {
     if (this.enemies.length >= TUNING.enemy.maxAlive) return;
     const def = DEFS[id];
     if (def === undefined) return;
-    this.spawnEnemyAt(def, x, y, difficultyMul);
+    this.arena.clamp(x, y, TUNING.arena.wallThickness + def.size, this.spawnPoint);
+    if (this.arena.nav.isBlockedAt(this.spawnPoint.x, this.spawnPoint.y) && !this.ringPoint(Math.atan2(y - this.player.y, x - this.player.x), def)) return;
+    this.spawnEnemyAt(def, this.spawnPoint.x, this.spawnPoint.y, difficultyMul);
   }
 
   private spawnEnemyAt(def: EnemyDef, x: number, y: number, difficultyMul: number): void {
@@ -335,10 +361,40 @@ export class CombatSystem {
     for (const enemy of this.enemies) this.hash.insert(enemy.x, enemy.y, enemy);
   }
 
+  /**
+   * Enemy movement on the world: the hero's flow field (a `navWindowCells`
+   * window, rebuilt only when the hero changes nav cell) routes every enemy
+   * inside the window around props — the AI then chases a point along the
+   * field direction at its true distance, so standoff/charge logic is
+   * unchanged. Orbiters circle the real hero; enemies outside the window steer
+   * straight. An enemy farther than `leashPx` is re-placed on the spawn ring:
+   * in a 36-screen world nobody is left behind across the map.
+   */
   private tickEnemies(deltaMs: number): void {
     const px = this.player.x;
     const py = this.player.y;
-    for (const enemy of this.enemies) enemy.tickAi(deltaMs, px, py);
+    const nav = this.arena.nav;
+    nav.worldToCell(px, py, this.cellScratch);
+    if (this.cellScratch.col !== this.heroCell.col || this.cellScratch.row !== this.heroCell.row) {
+      this.heroCell.col = this.cellScratch.col;
+      this.heroCell.row = this.cellScratch.row;
+      nav.buildFlowFieldWindow(this.heroCell.col, this.heroCell.row, TUNING.enemy.navWindowCells);
+    }
+    const leash = TUNING.enemy.leashPx;
+    for (const enemy of this.enemies) {
+      const dx = px - enemy.x;
+      const dy = py - enemy.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist > leash && enemy.def.behaviour !== 'boss' && this.ringPoint(this.rng.float(0, Math.PI * 2), enemy.def)) {
+        enemy.setPosition(this.spawnPoint.x, this.spawnPoint.y);
+        continue;
+      }
+      if (enemy.def.behaviour !== 'orbit' && dist > nav.tileSize && nav.steer(enemy.x, enemy.y, this.steerDir) && (this.steerDir.x !== 0 || this.steerDir.y !== 0)) {
+        enemy.tickAi(deltaMs, enemy.x + this.steerDir.x * dist, enemy.y + this.steerDir.y * dist);
+      } else {
+        enemy.tickAi(deltaMs, px, py);
+      }
+    }
   }
 
   /** Enemy ranged attack, wired into `Enemy.onShoot` at spawn time. */
@@ -707,7 +763,7 @@ export class CombatSystem {
     for (const enemy of this.near) {
       const dx = enemy.x - this.player.x;
       const dy = enemy.y - this.player.y;
-      const reach = (enemy.def.size + TUNING.player.size) * 0.45;
+      const reach = contactReach(enemy.def, TUNING.player.size);
       if (dx * dx + dy * dy > reach * reach) continue;
       if (now - enemy.lastContactAt < TUNING.enemy.hitMs) continue;
       enemy.lastContactAt = now;
@@ -744,7 +800,7 @@ export class CombatSystem {
     const scaled = enemy.shielded ? amount * TUNING.boss.shieldDamageMul : amount;
     const died = enemy.health.apply({ amount: scaled, crit, source: 'player' });
     enemy.syncBar();
-    playFx(this.scene, ANIM.hitSpark, enemy.x, enemy.y, enemy.def.size * 1.4);
+    playFx(this.scene, ANIM.hitSpark, enemy.x, enemy.y, enemy.def.visiblePx * 1.4);
     if (!died) return;
 
     if (this.bossAdds.delete(enemy) && this.bossAdds.size === 0) {
@@ -812,5 +868,5 @@ function flashBoss(scene: Phaser.Scene, boss: Enemy): void {
   scene.time.delayedCall(120, () => {
     if (boss.active) boss.clearTint();
   });
-  floatText(scene, boss.x, boss.y - boss.def.size * 0.6, 'PHASE', '#ffd166', 40);
+  floatText(scene, boss.x, boss.y - boss.def.visiblePx * 0.6, 'PHASE', '#ffd166', 40);
 }

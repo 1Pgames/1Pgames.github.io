@@ -76,7 +76,11 @@ Fixed pipeline decisions:
    explicit Image 1, which demotes the vision anchor to Image 2 (that cleared it
    first try), then visually confirm no anchor subject landed in the tile.
 2. **Never draw art with code.** No Canvas, SVG, CSS, procedural shapes or
-   ASCII. Placeholder procedural textures stay only for particles and debug.
+   ASCII. Procedural textures stay only for particles and debug: a content id
+   (weapon, evolution, charm, card, item, prop) drawn by a procedural shape
+   is a release BLOCKER (`release-check` `assets:placeholder`), never an
+   accepted fallback — a playtester found an evolution rendered in-world as a
+   bare triangle.
 3. **One `generate_image` call per coherent asset**, one `OMP_SPRITE_EXPORT`
    marker per call. Never pack unrelated actions as rows of one sheet.
 4. **Cell aspect is measured, not requested.** On a square canvas only `NxN`
@@ -88,10 +92,17 @@ Fixed pipeline decisions:
    fails and regenerate — never rescale a mismatched sheet, never relax QC.
 5. **Silhouette brief per asset.** Every enemy/prop states its mass and outline
    difference from its siblings. Sets generated without it come back as
-   variations of one blob, visible only at `renderScale`.
+   variations of one blob, visible only at `renderScale`. World props follow
+   `references/asset-plan.md` §Props, decals and density (single props, many
+   shapes, tall tops, decal limits) — the counts come from PRD §1c's density
+   row.
 6. **Colour coding is gameplay.** Threat / player / reward hues are fixed in the
    style profile's `temperature` and `saturationHierarchy` and must not be
-   negotiated per asset.
+   negotiated per asset. In any horde game the team outlines own saturated red
+   (`#ff2d2d`, hostile) and green (`#39ff6a`, hero/allies) — baked at load by
+   template `core/outline.ts`, never painted into sprites — so floors and
+   actors keep those hues out of their dominant colours, and floor tiles stay
+   in the L* 18-32 value band (PRD §1c readability).
 7. **Split UI by kind.** Chrome — panels, buttons, bar housings, frames — is
    *geometry*: draw it with primitives (`ui/primitives.ts`) so it adapts to any
    size and re-skins with `PALETTE`. Generate art only for UI that is genuinely
@@ -100,12 +111,16 @@ Fixed pipeline decisions:
    sizes it was not drawn for, and locks the palette into the pixels.
 8. **Gate every asset, then gate the SET.** Per asset: background preflight
    (automatic in export), `sprite_check_palette` against the profile, `art_review`
-   per group plus one multi-asset set call for silhouette variety. **Then the two
-   set-level gates, which are the only ones that can see a defect living BETWEEN
-   two assets:**
+   per group plus one multi-asset set call for silhouette variety. **Then the
+   set-level gates, which are the only ones that can see a defect living
+   BETWEEN two assets:**
    - `references/manifest-lint.py` — BEFORE fan-out (rule 11).
    - `references/figure-ground.py` — before a group is accepted
      (rule 9).
+   - **Coverage matrix** and **frame-0 contact sheet** — every content id has
+     its icon and every weapon/evolution its world fx; every animation of a
+     character keeps its persistent attributes (`references/asset-plan.md`
+     §Completeness and consistency; `release-check` `assets:coverage`).
    Never sign off a group on per-asset numbers alone. Measured: 103 of 103 assets
    passed individually, the 103-asset audit returned an EMPTY reject list and the
    verdict "Yes. I would ship this set." — and the desert floor was at 27.45%
@@ -293,50 +308,84 @@ direction; ui-engineer implements it verbatim and never re-derives it:
    this is the contract ui-engineer codes against; disagreements route
    back here, not into ad-hoc code values.
 
-### Step 1d — Audio identity (music + sfx brief; art-director owns)
+### Step 1d — Audio identity (brief + music: art-director; SFX samples: fx-artist)
 
 Sound is part of the same identity, and it is briefed from the SAME locked
 profile — right after the style/vision/UI lock, before generation fans out, so
-the audio brief cannot drift from what the art turned out to be. A game with
-no audio files is still finished (`core/audio.ts` synthesises every voice and
-`core/music.ts` the score); this step is how a game gets a VOICE of its own.
+the audio brief cannot drift from what the art turned out to be. SFX ship as
+generated SAMPLES by default: a playtester heard the all-synth set as "there
+are no SFX" (measured 2026-09-26). `core/audio.ts` synth voices are the
+failure fallback, not the design.
 
 1. **Brief from `art/style.json`.** Translate the locked profile into audio
    terms and write the brief down: mood (from `artStyle` + `lighting`), tempo
    (from the PRD's session pacing — menu calm, run pressure), instrumentation
    and timbre (from `plan.materials` and `plan.temperature`: chunky wooden
    percussion for a rustic set, glassy synths for neon retro). One paragraph
-   per track, one line per sfx.
+   per track; one line per voice for EVERY gameplay event in PRD §12 (not
+   just the template's nine names — weapons, pickups, gates and world beats
+   each get their own voice), plus one shared prompt suffix, e.g. `; <setting>
+   game sound effect, dry and close, crisp transient, no music, no voice, no
+   reverb tail`.
 2. **Music (`generate_music`).** Three stems at most, all seamless loops,
    30-60s, mono, ~96 kbps: `menu` (calm, under the menu mood), `game-low` and
    `game-high` (same key, same tempo, same bar length — `core/music.ts`
    crossfades them on `setMusicIntensity` around 0.55, so they MUST be
    interchangeable at any bar). Shipping only `game-low` is fine: its level
    then tracks intensity.
-3. **SFX (`generate_sfx`).** One short file per event name in `SfxName`
-   (`core/audio.ts`): `ui`, `tap`, `pickup`, `combo`, `jump`, `hit`, `die`,
-   `levelup`, `whoosh`. Generate only the ones the genre actually fires; every
-   name left unregistered keeps its synth voice, so a partial set is a valid
-   deliverable. Keep them dry and short (<0.5s for taps/hits) — `juice.ts`
-   layers them, the file must not carry its own tail or reverb.
-4. **Files + registry.** Write everything under `public/assets/audio/`
-   (`music/`, `sfx/`), then register the paths in `src/data/audio.ts` —
-   relative to `public/`, one file per entry. That registry is the ONLY switch:
-   a registered name plays its file, an unregistered one synthesises.
-   Registration is fx-artist's integration step (it owns `src/data/audio.ts`),
-   handed over with the file list; the art-director does not edit engine code.
-5. **Budget <= 6 MB total.** `node scripts/release-check.mjs <slug>` reports
+3. **SFX samples — fx-artist runs this (`.claude/agents/fx-artist.md`).**
+   - *Generate* with ElevenLabs text-to-sound-effects — MCP tool
+     `text_to_sound_effects` (`xd://mcp__elevenlabs_text_to_sound_effects`;
+     read its schema first). The API key lives in the MCP server's config or
+     the shell environment, NEVER in the repo, a brief, a log or a commit.
+     Requested length: 0.5 s taps/hits/UI, 0.6-1 s kills/pickups/weapons,
+     1.2-2.5 s signature and world beats. Raw files →
+     `art/briefs/sfx-elevenlabs/raw/<voice>.mp3`.
+   - *Process* every file identically (ffmpeg): decode to mono 44.1 kHz;
+     trim the head to the first sample above −50 dBFS minus 5 ms and the tail
+     after the last sample above −50 dBFS, then a 20 ms linear fade-out;
+     gain so the file's max momentary loudness (EBU R128 M, 400 ms — ffmpeg
+     `ebur128`) equals its voice's synth reference at volume 1, capped at
+     peak ≤ −1 dBTP; encode OGG Vorbis `-q:a 3` →
+     `public/assets/audio/sfx/<voice>.ogg`. Loudness the cap withheld is made
+     up by that voice's `sampleGain` in `core/audio.ts` `VOICES`.
+   - *Mix targets:* SFX ≈ −20 LUFS over a combat minute, music ≈ 0.5× SFX
+     amplitude, big beats `duck: true` (numbers: `game-prd`
+     design-heuristics §9.5).
+   - *Log* one row per voice in `art/briefs/sfx-elevenlabs/prompts.md`:
+     voice | prompt | requested s | raw s → shipped s | raw max M / peak |
+     synth max M | gain dB | shipped max M / peak | KB. Reference:
+     `games/2026-08-29-duskhaul/art/briefs/sfx-elevenlabs/prompts.md`. A voice
+     the game never fires gets no sample, and the log says so.
+4. **Signature sounds are the user's pick.** Level-up, evolution/rank-up and
+   the run's payoff beat (extract / level clear / prestige) each get 3-5
+   options from DIFFERENT prompts (instrument or character, not one prompt
+   reseeded), processed as above into
+   `public/assets/audio/sfx/options/<voice>-<A..E>.ogg` for `game-build` Step
+   5.9. The pick is copied to `sfx/<voice>.ogg`, the picked and rejected
+   prompts are logged, and `options/` is deleted before release.
+5. **Files + registry.** Music under `public/assets/audio/music/`, SFX under
+   `public/assets/audio/sfx/`, each registered in `src/data/audio.ts` —
+   relative to `public/`, one file per entry. That registry is the ONLY
+   switch: a registered name plays its file, an unregistered one synthesises.
+   fx-artist owns `src/data/audio.ts`; the art-director hands over the music
+   file list and edits no engine code.
+6. **Budget <= 6 MB total.** `node scripts/release-check.mjs <slug>` reports
    the tree as the `audio` finding and WARNS above 6 MB. Music loops are the
    weight — re-encode (shorter loop, mono, lower bitrate) rather than dropping
    the sfx set.
-6. **No audio provider, offline, or a failed generation?** Ship no files and
-   leave the registry empty: the synth score and voices are the designed
-   fallback, not a defect. FLAG it in the Step 7 report ("audio: synth only,
-   reason") so the integrator knows the silence is intentional.
+7. **Tool absent or generation failing (2 attempts per voice)?** Those voices
+   keep their synth fallback, and the Step 7 report FLAGS it ("audio: synth
+   only for <voices>, reason") — a flagged defect for the orchestrator to
+   route, never a silent default. The cert's `audioRate` floor applies either
+   way.
 
 ### Step 2 — Asset manifest (`art/manifest.json`), then LINT IT
 
-Enumerate every asset before generating: id, group, **exactly one owner agent**,
+Enumerate every asset before generating, starting from the coverage matrix
+(`references/asset-plan.md` §Completeness and consistency — one icon per
+content id, one world fx per weapon/evolution) and PRD §1c's readability and
+density rows (actor on-screen size, prop kinds per zone): id, group, **exactly one owner agent**,
 kind (`body`/`fx`/`ui`/`bg`), grid, action description, cell size, duration, and any
 `writeScaleProfile`/`scaleProfile` link. Volume targets and grid choices per asset
 class are in `references/asset-plan.md`; the field-by-field schema, including the

@@ -37,6 +37,27 @@ it.
 | J | hypercasual | `RampDirector` | side-follow or static-board | one-finger (tap or swipe) | 5-15 runs at 30-120s each |
 | I | hybrid (pattern, not a family) | casual core's director + meta-kit | inherited from the core | inherited | one J/B/F core loop + a meta layer between attempts |
 
+## Taste floors (PRD §1c defaults; floors, never targets)
+
+The same seven axes as `genre-playbooks.md` §Taste floors, per casual family.
+`n/a` only where this table says so; family-A numbers apply unchanged to any
+horde/arena core inside an I hybrid.
+
+| Axis | B / G / H (static board) | C side | E track | F idle | J hyper |
+| --- | --- | --- | --- | --- | --- |
+| world-scale | `n/a — static board` | levels: `lengthPx` 5,000-14,000 (≈ 7-19 screen widths, C1); endless: ≥ 6 one-screen chunk types (C2) | `track.lengthPx` 7,000-14,000 (E1) | `n/a — static UI` | `n/a — one-screen loop` |
+| readability | every piece legible at 96 px by shape as well as hue | hero ≥ 15% / hazards ≥ 8% of screen width; hazards readable against the floor (`figure-ground.py`) | cars ≥ 80 px long (`car.lengthPx`), rivals distinct from the player by hue AND shape | generator icons legible at 96 px | the player object ≥ 15% of screen width |
+| density | `n/a — authored boards` | 1 beat per ~1,100 px; ≥ 3 prop kinds per screen, same kind ≥ 900 px apart; decals ≤ 3 per screen | trackside props ≥ 3 kinds per screen, same kind ≥ 900 px apart; decals ≤ 3 per screen | `n/a` | `n/a` |
+| build-variety | `n/a` (variety is the §8 routes) | `n/a` | `n/a` (the E1 three-build lap proof) | `n/a` (economy routes) | `n/a` |
+| meta-pacing | the playbook's star/collection gates, checked with `design-heuristics.md` §11.3 method (measured income, endless sink) | same | same | prestige cadence `design-heuristics.md` §17.4 | `n/a — pure J` (I hybrids: §11.3) |
+| audio | every event → a voice (samples by default, `game-art` Step 1d); a signature sound on the payoff beat (level clear / star / prestige / new best); `design-heuristics.md` §9.5 mix | same | same | same | same |
+| difficulty-live | `design-heuristics.md` §18.1 + §18.2 | §18.2 | §18.2 | first prestige 15-30 min live (§17), §18.2 shape | §18.2 on median session |
+
+Connectedness applies to every family: every booster, shop item and paid
+effect has a runtime reader (`src/sim/kits/wiring.selftest.ts`), every
+tappable control changes state (cert `controls`), settings apply live
+(`core/audio.ts` `savePlayerSettings`).
+
 ## Director contracts
 
 All four directors implement `SessionDirector` from `core/session.ts` and are

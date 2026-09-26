@@ -19,13 +19,14 @@ npm run build     # typecheck + production bundle
 npm run sim       # headless balance sim + gates for THIS game's family
 npm run sim -- --family board   # gates of a specific family (arena adds --runs N --lane all --strict)
 npm run verify    # all 6 stages below, every one reported, sim gates LAST
+VERIFY_QUICK=1 npm run verify   # push profile (what CI runs): same thresholds, smaller samples, ≤ 5 min or FAIL
 ```
 
 ### URL parameters
 
 | Param | Effect |
 | --- | --- |
-| `?debug` | Arcade physics debug bodies, dev only |
+| `?debug` | Arcade physics debug bodies (dev only) + the `window.__DEV__` cheat console in ANY build (`core/dev.ts`): built-ins `help` / `grantCurrency(n)` / `maxMeta` / `resetSave`; each game registers the `DEV_HOOKS` it has the concept for (`grantXp`, `unlockAll`, `teleport`, `skipTime`, `spawnBoss`) via `registerDevHook(scene, name, fn, help)` — `help()` lists the missing ones |
 | `?d=YYYY-MM-DD` | pins the daily-challenge seed (`core/daily.ts`) |
 | `?mute=1` | forces silence for one page load — see below |
 
@@ -97,9 +98,11 @@ at the end, so a red stage never hides the stages behind it:
    that catches a perfectly built thing wired to nothing; five review blockers
    on the last build were all that one shape.
 4. **art registry** `--check`
-5. **kit selftests** — `src/sim/kits/*.timing.selftest.ts` (wall-clock budgets) first
-   and alone, then every `*.selftest.ts` concurrently (`VERIFY_JOBS=N` caps
-   them; each one's output is printed whole when it finishes)
+5. **kit selftests** — `src/sim/kits/*.timing.selftest.ts` (wall-clock budgets)
+   first and alone, then every `*.selftest.ts` concurrently (`VERIFY_JOBS=N`
+   caps them; each one's output is printed whole when it finishes). Among them
+   `wiring.selftest.ts`, the connectedness gate (§Non-negotiable rules,
+   "Everything paid or tappable has an effect")
 6. **sim gates** — last, because this is the one stage that legitimately
    ships flagged
 
@@ -109,6 +112,14 @@ workflow changed — with `VERIFY_QUICK=1` exported; a game with expensive
 seeded samples reads it in its `scripts/verify.sh` to shrink them (thresholds
 never change). `.github/workflows/nightly-verify.yml` runs the full profile
 for every game.
+
+**Verify budget: ≤ 5 min per push.** `scripts/verify.sh` prints every stage's
+seconds and, under `VERIFY_QUICK=1`, FAILS a run slower than
+`VERIFY_BUDGET_S` (300) × the runner scale of `src/sim/calibrate.ts` (full
+profile: reported only). Over budget → shrink the slowest stage's samples
+under `VERIFY_QUICK`, cache deterministic generation (`src/sim/mapgen-cache.ts`),
+parallelise (duskhaul arena sim `SIM_WORKERS`) —
+never loosen a threshold.
 
 Ordering is not cosmetic. When the permanently-flagged sim gates ran first
 under `set -e`, their failure skipped the art-registry check and all nine kit
@@ -203,6 +214,10 @@ The template default is `arena`.
     perk that changes mid-session.
   - `stat` entries: nothing to wire — `metaModifiers()` already folds them in
     at run start (arena only).
+  `wiring.selftest.ts` fails any perk or booster id that no file in
+  `slices/<code>/` spells: a shop entry the slice never consumes is sold for
+  nothing (a dead `meta_championship` perk shipped in the template until
+  2026-09-26).
   Level families additionally own the map/stars loop: `showSagaMap` before the
   first deal, `recordStars(levelId, director.stars)` on the win, and the level
   index persisted under a `<family>:last` storage key so `RETRY` — which
@@ -227,13 +242,17 @@ The template default is `arena`.
 | File | Role |
 | --- | --- |
 | `src/config.ts` | `VIEW` (720×1280), `SAFE` (top 140 / bottom 220 / side 40), `PALETTE`/`CSS`, `TEXT` presets, **`TUNING` = every balance number** |
-| `src/systems/arena.ts` | `Arena`: bounded field, tiled floor, decals, primitive walls + static bodies, seeded impassable props |
-| `src/data/props.ts` | prop and decal definitions (`bodyScale` drives the collision circle). **PLACEHOLDER ROWS, but LIVE** — the arena places them every run and an unresolved `texture` draws `tex-square`; replace them with real generated art (see §Generated art) |
+| `src/systems/arena.ts` | `Arena`: renders a `GeneratedWorld` (or an authored `ArenaLayout`) in lazy 1024² chunks (materialised within 2 chunks of the camera, released beyond 3): tiled floor + feathered variant/road brushes, baked desaturated decals, primitive walls, props with static circular bodies; `spawn`, `world`, `nav` (`NavGrid` over the world), `depthAt`, `clamp`/`isOutside`, `stats()` |
+| `src/systems/combat.ts` | `CombatSystem`: hero, weapons, pools, hit resolution; enemies steer on the arena `NavGrid` (flow-field window of `enemy.navWindowCells` rebuilt per hero cell), are re-placed on the spawn ring beyond `enemy.leashPx`, never spawn on blocked floor, and scale by `depthDangerMul` at the hero's depth; the arena slice registers `__DEV__.teleport(x?, y?)` (explicit point, else nearest POI) |
+| `src/systems/mapgen.ts` | `generateWorld(world, seed)` → `GeneratedWorld` (pure, deterministic): centre spawn, MST roads with loops, landmarks on road nodes, POI anchors along roads (`pois`, one per 2-3 screens, own clearings, depth bands), single-placement props (art gap `propGap`, same kind `sameKindPx`, variety per screen), capped muted decals, floor variants, `nav` raster flooded from the spawn. `depthAt` (0 spawn → 1 wall), `depthDangerMul` (combat's edge danger), `buildNav`, `approachDetour` (sim travel factor), `segmentsDistance`, `DECAL_LATTICE` |
+| `src/data/world.ts` | `WorldDef` / `WORLD`: which props, decals, roads, `landmarks` (`LandmarkDef`) and `pois` (`PoiRule`: kind, count, clearing radius, depth band) the world is made of — landmarks and POIs empty in the template; a game fills them and spawns its objects at `GeneratedWorld.pois` |
+| `src/data/props.ts` | prop kinds and decal definitions (`bodyScale` → collision circle, `artScale` → the no-overlap art circle, `grade`/`flipX` variant rows; decal `alpha` ≤ 0.45). **PLACEHOLDER ROWS, but LIVE** — 4 sheets as 8 kinds, placed every run; an unresolved `texture` draws `tex-square`; replace them with real generated art (≥ 40 kinds per zone, see §Generated art) |
+| `src/sim/mapgen-cache.ts` | node-only disk cache: `cachedGenerateWorld(world, seed)` keyed by mapgen's source closure + `TUNING.arena` + V8 (`.cache/mapgen/`, `MAPGEN_NO_CACHE=1` bypasses) — sim and selftests only |
 | `src/ui/joystick.ts` | `Joystick`: floating on-screen thumb stick (movement), `vector` carries throttle, `setEnabled` for overlays — re-enabling ADOPTS a pointer that is already down |
 | `src/core/controls.ts` | `Controls`: tap / swipe / drag / hold callbacks + `axisX/axisY` keyboard parity |
 | `src/core/juice.ts` | `shake`, `flash`, `pop`, `floatText`, `burst`, `hitstop`, `countTo`, `enterFromBottom`, `idleBob`, `starfield`. `flash(scene, color?, durationMs?, peakAlpha = 0.4)` is never opaque — hard-clamped to 0.6 and rate-capped at one flash per 220ms, so a burst of damage events reads as one hit and not a strobe. `enterFromBottom` is for INERT decor ONLY: it slides the hit area with the pixels |
 | `src/ui/entrance.ts` | `enterPinningHitArea(scene, obj, opts?) → Tween` — the only entrance helper permitted for interactive objects. `opts`: `delayMs` (0), `distance` (80), `from` (`'bottom'`\|`'top'`\|`'left'`\|`'right'`), `durationMs` (380), `ease` (`'Back.easeOut'`), `fade` (true), `fadeTo` (1), `onComplete`. Animates the VISUAL position only; pins every hit area in the object's tree (rect/circle/ellipse, nested and scaled containers corrected by accumulated scale) at its final rest rect, restores them on complete/stop, and starts alpha at 0.001 rather than 0. It does not tween scale. Template call sites: `menu.ts` play/shop/mute/daily, `gameover.ts` primary/shop/share/menu, `cards.ts` the three upgrade cards + reroll chip — everything else in those files is inert copy and stays on `enterFromBottom` |
-| `src/core/audio.ts` | `sfx(name)` — synthesised WebAudio, no files required: `ui tap pickup combo jump hit die levelup whoosh`; `sfxArp`, `isMuted`, `toggleMute`, `onMuteChange`. Generated samples are OPT-IN per name via `src/data/audio.ts` + `initGeneratedAudio()` (called once by `PreloadScene`); anything unregistered keeps its synth voice. `?mute` forces silence for one page load WITHOUT touching the stored preference (§URL parameters), and `audioStatus()` / `window.__AUDIO__()` expose `muted`, `forcedByUrl`, `storedPreference`, `masterGain`, `contextState`, `requested`, `played`, `lastRequested` so a silent run still proves its audio |
+| `src/core/audio.ts` | `sfx(name, {rate?, volume?, delay?})` over a voice table (`ui tap pickup combo jump hit die levelup whoosh`): every voice has a synth definition, a `poly` cap that STEALS the oldest instance (never stacks a kill spike into clipping), optional `duck` (dips the music bus −6 dB for 400 ms) and `sampleGain`; `sfxArp`, `isMuted`, `toggleMute`, `onMuteChange`. Mix: voice → SFX bus (glue compressor) → Settings×mute master; music enters through `musicInput()` (the duck gain). Generated samples registered in `src/data/audio.ts` are the shipping default, loaded by `initGeneratedAudio()` (once, `PreloadScene`); the synth voice is their failure fallback. Settings: `playerSettings()` / `savePlayerSettings(patch)` (music, sfx, reduceMotion; applied to what is playing NOW) / `onSettingsChange`. `?mute` forces silence for one page load WITHOUT touching the stored preference (§URL parameters), and `audioStatus()` / `window.__AUDIO__()` expose `muted`, `forcedByUrl`, `storedPreference`, `masterGain`, `contextState`, `requested`, `played`, `lastRequested` so a silent run still proves its audio |
 | `src/core/textures.ts` | procedural `disc / ring / square / spike / star / particle / panel`; `buildGradient` |
 | `src/ui/primitives.ts` | `drawPanel` / `drawPill` / `paintPanel` / `paintPill` — all UI chrome, palette-driven |
 | `src/ui/button.ts` | `Button` — primitive capsule, ≥88px tap target, pressed repaint, plays `sfx('ui')` |
@@ -246,7 +265,13 @@ The template default is `arena`.
 | `src/ui/coach.ts` | `showCoach(scene, {id, target, text, mode, isLive?, onExpire?})` / `hasSeenCoach(id)` — FTUE coach marks: 4-rect dim + spotlight cutout, pointer hand placed BESIDE the spotlight (never over it, bob travel included), one-line card; `'tap'` or `'swap-gate'` (the dim rects ARE the input gate); one-shot `tut:<id>` flags via `core/storage`. `isLive` is polled every 120ms and retires the beat (killing every loop) when it returns false, firing `onExpire`; `CoachHandle.spend()` is the imperative equivalent and is NOT a success — `onDone` stays silent |
 | `src/ui/background.ts` | `addBackground(scene)` — parallax `bg-layer-0/1/2` (cover-fit, camera scrollFactors) → single `bg-arena` → procedural gradient+starfield fallback |
 | `src/ui/background.ts` scrim | the generated-backdrop branch adds a `bgDeep` veil at depth -190 (full frame 0.45 + heavier top/bottom bands) — generated art is brighter than the gradient the UI was designed against, and ink text needs a guaranteed dark surface |
-| `src/core/music.ts` | generative music, zero assets by default: `startMusic('menu'\|'run')`, `setMusicIntensity(0..1)`, `setMusicLayer('boss', on)`, `stopMusic()`; muted together with sfx. Registered stems in `src/data/audio.ts` (`menu`, `game-low`+`game-high`, same key/tempo/bar length) replace the synth score per mood and crossfade at intensity ~0.55; a missing/undecodable file warns once and falls back to synth |
+| `src/core/music.ts` | generative music, zero assets by default: `startMusic('menu'\|'run')`, `setMusicIntensity(0..1)`, `setMusicLayer('boss', on)`, `stopMusic()`; muted together with sfx and re-levelled live by `onSettingsChange` (the Settings music slider). Registered stems in `src/data/audio.ts` (`menu`, `game-low`+`game-high`, same key/tempo/bar length) replace the synth score per mood and crossfade at intensity ~0.55; a missing/undecodable file warns once and falls back to synth |
+| `src/ui/tabBar.ts` | `TabBar` — bottom tab bar of a mid-core TABBED HUB (`TAB_BAR.height` 160, icon 56 over a label, active underline, NEW dot); tab changes never confirm and never move layout, the caller swaps content in `onSelect` |
+| `src/ui/scrollView.ts` | `cameraRouter(scene)` — every top-level object on exactly one camera, re-applied as a filter mask each PRE_RENDER (immune to camera-id reuse); `ScrollView` — scissor-clipped scrolling on its own camera: drag from anywhere, wheel, release momentum; once a press passes `TAP_SLOP` every control in the band gets a synthetic POINTER_OUT and ignores input until release, so a scroll that starts on a `Button` never fires it |
+| `src/ui/sheet.ts` | `openSheet` (bottom sheet on its own camera; closes on ESC, scrim tap and an 88×88 X; 120 ms cross-fade, no slide), `confirmDialog`, `actionToast`, `closeAllOverlays`, `openSettingsSheet` (music/SFX sliders applied live on every step, reduce-motion toggle, RESET SAVE only when `onReset` is passed) |
+| `src/ui/widgets.ts` | hub building blocks: `bindTap` (click semantics that survive scrolling, `TAP_SLOP` 12 px), `panelAt`, `tapZone`, `label`, `segmented`, `chip`, `pips`, `itemTile`, `toggleRow`, `slider`, `iconImage` (an unloaded key draws NOTHING and warns — never a stand-in) |
+| `src/ui/progressFx.ts` | progression beats on a real-time clock: `playEvolution` (~2.15 s cinematic, gameplay dilated ×0.2, tap-to-skip ×4, calm under reduce-motion), `playRankUp`, `playAcquire`, `evolutionPlaying`, `beatTimeScale(scene)` for slices that integrate their own sim. Screen layers draw on the MAIN camera (in a hub with ScrollView/sheet cameras, close overlays first); concurrent small beats stack in 160 px lanes over the anchor |
+| `src/core/outline.ts` | baked team outlines (`OUTLINE` colours/px by rank): `declareOutlines((has) => [teamOutline(key, 'hostile'\|'ally', rank, displayPx), …])` once, `PreloadScene` bakes after load, actors play `outlineKey(key, px)`; `ensureOutline` for a sheet first needed mid-run. Dormant until a slice declares a set |
 
 ### Systems (the reason this template exists)
 
@@ -257,7 +282,7 @@ The template default is `arena`.
 | `src/core/pool.ts` | `Pool<T>` (zero-allocation free list, live-set tracked `releaseAll`) — pure TS |
 | `src/core/spritePool.ts` | `SpritePool` for pooled arcade sprites (the Phaser half of pooling) |
 | `src/core/spatial.ts` | `SpatialHash` broad phase — mandatory above ~150 entities |
-| `src/core/grid.ts` | `NavGrid` BFS flow field — tower-defense/dungeon pathing |
+| `src/core/grid.ts` | `NavGrid` BFS flow field: `fromBlocked`, `buildFlowFieldWindow` (goal ± radius cells, generation-stamped — the arena's enemy steering around the hero), whole-grid `buildFlowField` (tower-defense/dungeon pathing), 8-way `steer`, `distanceAt`, `isBlockedAt` |
 | `src/core/session.ts` | `SessionDirector` (`update(deltaMs)`, `elapsedSeconds`, `pause/resume`, `ended`, `outcome`, `progress`), `SessionOutcome`, `ResultStat` — the one interface scenes, HUD, music and the sim drive every family through |
 | `src/core/run.ts` | `RunDirector`: declarative `WaveSpec[]` (spawn `pattern`: ring/arc/line/cluster) + `RunPhase[]` + scripted `EventSpec[]` (chest/breather/elite-rush) via `onEvent`; delta-driven, structural host (no Phaser import — headless-safe) |
 | `src/core/level.ts` | `LevelDirector`: `LevelGoal[]` + move/time budget → win/lose; families B/C/G/H |
@@ -273,13 +298,15 @@ The template default is `arena`.
 | `src/core/daily.ts` | UTC daily challenge: `sessionSeed()` (every slice's `init` seed default), `?d=YYYY-MM-DD` link pinning, `isDailyMode()`/`setDailyMode()`, per-day `loadDailyBest()`/`saveDailyBest()` |
 | `src/core/share.ts` | `shareResult({score, won})` → native share sheet, clipboard fallback, `'unavailable'` when neither is permitted; fires `track('share')` itself |
 | `src/core/wake.ts` | `armWakeLock()` — one call from `main.ts`: first-gesture Screen Wake Lock + re-acquire on tab return; no scene requests its own. `armLoopVisibility(loop)` — the LEVEL-triggered tab-visibility policy for `game.loop`, also called once from `main.ts`; idempotent, structurally typed (`{running, sleep(), wake()}`) so this file still imports nothing. It is the ONLY permitted caller of `loop.sleep()`/`loop.wake()` |
-| `src/data/enemies.ts` | archetypes as `{ base, behaviour, ... }` incl. `healer` aura, telegraphed `charge`, 3-phase `boss` (`TUNING.boss`: volley → summon+shield → enrage ring), `eliteDrop` coins; `scaleEnemy(def, difficultyMul)` |
+| `src/data/enemies.ts` | archetypes as `{ base, behaviour, size, visiblePx, ... }` incl. `healer` aura, telegraphed `charge`, 3-phase `boss` (`TUNING.boss`: volley → summon+shield → enrage ring), `eliteDrop` coins; `scaleEnemy(def, difficultyMul)`, `displaySizeFor(key, visiblePx)` + `SUBJECT_HEIGHT`, `contactReach(def, playerSize)` (scene + sim), `outlineRankOf(def)` |
 | `src/data/weapons.ts` | `WeaponDef` catalog: `bolt / orbit / nova / rail` + evolutions; per-weapon numbers in `TUNING.weapons`; patterns implemented in `systems/combat.ts` |
 | `src/data/upgrades.ts` | card pool with `kind: 'stat' \| 'weapon-unlock' \| 'weapon-boost'`, slot/ownership gating via `UpgradeRollContext`, 2 legendary `effect` cards, meta upgrades, `rollUpgradeChoices()`, boot-time `validateUpgradeStats` |
 | `src/core/effects.ts` | `EFFECT_HOOKS` registry consuming `UpgradeDef.effect` (`glass-cannon`, `bulwark`) — behaviour cards, not stat tweaks |
 | `src/data/waves.ts` | reference 480s run: phases, waves, `TIMELINE_EVENTS` (2 chests, breather, elite-rush) |
 | `src/objects/coin.ts`, `src/objects/blade.ts` | pooled elite-drop currency pickup; pooled orbit blade |
 | `src/sim/*` | headless balance sim over the REAL data. `families/<code>.ts` holds one family's bots/solvers and gates (`board` greedy-vs-random solver ladder, `hyper` skill-parameterised session length, `idle` economy curves and prestige floor, `table` dice win-rate band, `word` bank integrity + accuracy bots over all five packs, `side` generator validation + hop bot, `track` lap completion + bot spread); `arena` is `cli.ts`'s own lane pipeline; `family.ts` holds the scaffolded default; `kits/*.selftest.ts` guard the shared kits |
+| `src/sim/wiring.ts` + `src/sim/kits/wiring.selftest.ts` | connectedness manifest + gate: every declared payload has a reader in RUN code (`src/` minus `sim/**` and selftests, comments and string contents stripped). Kinds: `fields` (interface fields read through named receivers, one-level inline objects included), `ids` (spelled as a literal or a custom `reader` pattern), `tuning` (every leaf of a TUNING subtree). Template rows: `GameOverData`, `PauseOverlayActions`, `HudModel`, `PlayerSettings` (read outside the `ui/sheet.ts` that writes them), each present slice's paid perk/booster ids (read inside `slices/<code>/`), `PLAYER_BASE_STATS` via `.get('<key>')`, `TUNING.effects`/`TUNING.weapons`. A game APPENDS its own; `exempt` needs a reason per name and is printed every run |
+| `src/sim/calibrate.ts` | `calibrateRunner()` → `{refMs, scale}` (fixed reference workload, min of 5; `scale = max(1, refMs / 95)`), `calibratedBudget(ms, runner)`, `describeRunner(runner)` — the only way a wall-clock budget is asserted (any `src/sim/kits/*.timing.selftest.ts`; duskhaul `mapgen.timing.selftest.ts` is the pattern) and the scale `verify.sh`'s push budget uses |
 | `src/scenes/*` | `boot → preload → menu → meta → game → gameover` wired with fades. `meta.ts` is the SHOP: a drag-scrolled row list clipped by its OWN camera viewport (a real GPU scissor — Phaser 4 has no `setMask`), identity scroll, mutual `ignore` with the main camera, re-hooked per visit. `gameover.ts` obeys one CTA law: `won && next` → PLAY NEXT (`levelIndex`), `won && !next` → PLAY AGAIN (the retry action relabelled, plus the neutral `ALL CLEAR!` note), a loss → RETRY (same seed) — SPACE always mirrors the primary, and the shop pill is labelled SHOP everywhere, never UPGRADES. It also closes the funnel: one `win-<level>`/`loss-<level>` event per run (plain `win`/`loss` when the family passes no `level`), `retry` on the seed-replay CTA, the per-day best via `saveDailyBest` in daily mode, and a half-width SHARE next to SHOP (label flashes COPIED!/NO SHARE) — read back with `node scripts/telemetry-pull.mjs --slug <slug>` |
 
 ### Genre kits (dormant until a PRD needs them)
@@ -289,7 +316,7 @@ The template default is `arena`.
 | `src/core/turns.ts` | `TurnManager`: synchronous phase/round state machine with per-side action points — tactics/deckbuilder |
 | `src/core/deck.ts` | `Deck<TCard>`: draw/discard/exhaust with seeded shuffle + energy tracker; one-zone invariant |
 | `src/core/autobattle.ts` | `resolveCombat(playerBoard, enemyBoard, rng)`: deterministic fixed-dt resolver returning a full `CombatEvent` log for replay |
-| `src/systems/placement.ts` | `PlacementSystem`: tap-to-place with ghost preview + `NavGrid` reachability validation — tower defense / base builder |
+| `src/systems/placement.ts` | `PlacementSystem`: tap-to-place with ghost preview + `NavGrid` reachability validation (grid size and cell px come from the `NavGrid` itself) — tower defense / base builder |
 | `src/systems/board.ts` + `src/systems/boardMath.ts` | drag-drop bench/board with cell snap, swap, sell zone; pure cell math lives in `boardMath.ts` (headless-testable) |
 | `src/ui/hand.ts` | `HandView`: bottom-docked card fan, tap-select/tap-target or drag-up-to-play |
 | `src/ui/shopTray.ts` | `ShopTray`: docked offer slots with reroll cost and lock toggle — auto-battler |
@@ -366,35 +393,45 @@ Regenerating or adding art is the `game-art` skill's job, not hand-drawing:
   art: use `ui/primitives.ts` so it fits any size and re-skins with `PALETTE`.
   Generated art in the UI is limited to icon glyphs, the emblem and the
   backdrop. Repaint chrome only on state changes, never from `update`.
-- **The template's content tables are placeholders that are LIVE.**
-  `src/data/props.ts` ships four rows (`prop-rock`, `prop-crystal`,
-  `prop-pillar`, `prop-stump`) and `enemies.ts` / `waves.ts` / `upgrades.ts`
-  ship reference content. These are not inert examples: `systems/arena.ts`
-  places them every run, and a row whose `texture` key is not in the loaded
-  registry silently draws the tinted procedural `tex-square` instead. That is
-  exactly how a shipped build put 72 generated prop cells on disk under
-  `public/assets/generated/props/**` and drew squares on the field — in a game
-  whose PRD forbade procedural gameplay art — while §19 acceptance (prose
-  checkboxes) reported green. Replacing every placeholder row with real art is
-  part of implementing the PRD, and it is checkable two ways, both required:
-  - **Static, and gated:** `node scripts/release-check.mjs <slug>` FAILS when
-    a gameplay texture key resolves to no generated art — every
-    `texture: '<key>'` literal and every `ArtSlot` `{ key: '<key>' }` in
-    `src/`, plus every `TEXTURE`/`ANIM`/`ICON` alias the code reads, must
-    have a row in the generated `src/data/art.ts`. The untouched template
-    passes — its registry declares all six placeholder keys, so it is
-    internally consistent, as it must be. The failure appears the moment a
-    game REGENERATES its prop art and keeps this `props.ts`: the registry is
-    now 103 rows of `props-<zone>-<n>` and the six template keys resolve to
-    nothing, which is exactly what shipped. That is the defect stated as a
-    failure instead of a checkbox. A key that resolves nowhere is a defect,
-    not a fallback. The same check WARNS on the other direction — generated
-    sheets nothing in `src/` ever names, 37 of 103 on the last build — so an
-    art run that produced work the code never plays is visible too.
-  - **Runtime:** dump the running scene's display list in a browser and count
-    gameplay objects whose texture key starts `tex-`. When the PRD forbids
-    procedural art that count is **0**. `fallbackTint` exists so a missing
-    sheet degrades instead of crashing — it is never the shipping path.
+- **Every content id ships its art; a procedural placeholder is a DEFECT,
+  never an accepted fallback.** The template's content tables are
+  placeholders that are LIVE: `src/data/props.ts` ships eight kinds over four
+  sheets (`prop-rock`, `prop-crystal`, `prop-pillar`, `prop-stump`) and `enemies.ts`
+  / `waves.ts` / `upgrades.ts` ship reference content, and `systems/arena.ts`
+  places them every run — a row whose `texture` key is not in the loaded
+  registry silently draws the tinted `tex-square`. A shipped build put 72
+  generated prop cells on disk and drew squares on the field while prose
+  acceptance reported green; the next one shipped powerups with no icon and
+  a weapon that was a triangle in the world. Completeness means: every
+  content id (weapon, evolution, charm, card, gear, consumable…) has an icon,
+  every weapon/evolution has world fx, and every character's persistent
+  attributes (bag side, held weapon, cloak) are identical across ALL its
+  animations — art QC compares a side-by-side frame-0 sheet of every anim
+  (an idle that flipped the bag side shipped). Checked three ways, all
+  required:
+  - **Static, gated — `node scripts/release-check.mjs <slug>`**: every
+    `texture: '<key>'` literal, `ArtSlot` `{ key }` and `TEXTURE`/`ANIM`/
+    `ICON` alias `src/` reads has a row in the generated `src/data/art.ts`
+    (an untouched template passes; a game that REGENERATES prop art and
+    keeps the template `props.ts` fails — exactly what shipped), and it WARNS
+    on generated sheets nothing in `src/` names. `assets:coverage` BLOCKS any
+    id of an icon-bound content table without a loaded, unpruned `ICON`
+    frame and any `icon*`/`fx*`/`art`/`texture` row field resolving to no
+    art; `assets:placeholder` BLOCKS a row whose art field is empty while its
+    siblings carry art.
+  - **Runtime:** dump the running scene's display list and count gameplay
+    objects whose texture key starts `tex-`: **0** when the PRD forbids
+    procedural art. `fallbackTint` keeps a missing sheet from crashing; it
+    is never the shipping path.
+
+### Release gates (repo-root `scripts/`, run against a built game)
+
+| File | Role |
+| --- | --- |
+| `scripts/release-check.mjs <slug>` | ship gate: art-key resolution, `assets:coverage` / `assets:placeholder` BLOCKERs (§Generated art), the cert report (`checkCert` demands `passed === true`) and the rest of its checks |
+| `scripts/cert-driver.mjs` | machine playtest of the production build; measured budgets (`report.measurements.<key>`, verdict `pass`/`fail`/`unmeasured`): `budget:controls` — taps every interactive control, fails one that changes no state unless it carries `setData('noop', '<reason>')`; `budget:audio-rate` — ≥ 5 sfx requests/s over a window with ≥ 20 enemies within 900 px of the hero; `budget:actor-size` — enemy kind median ≥ 8% / hero ≥ 15% of game width (optional scene method `actors()` → `{ hero: { visiblePx }, enemies: [{ kind, visiblePx }] }`, else it measures the sprites); `budget:composition` — scene method `composition()` → `{ width, height, props: [{ kind, x, y, r, group? }], decals: [{ x, y, r, alpha }] }` for ALL placed scenery of the map (world px, `r` = drawn-art radius, same `group` = stamp pieces exempt from overlap), NOT the camera view (the camera lives in clearings); the cert tiles it into camera-sized screens (border ring skipped): decals ≤ 3/screen p95, alpha ≤ 0.45, prop overlap 0, median ≥ 3 prop kinds on screens holding ≥ 3 props. Without the hook it reads `scene.map.props/decals/splats` (overlap unmeasured). A control that is legitimately inert (already selected/equipped) declares `setData('noop', reason)`; anything else it flags is a real dead control |
+| `scripts/live-bot.mjs` | `--url <preview>/ --family arena --policy novice\|veteran [--runs N] [--seconds S] [--json]` — honest live bot (no refills, no invulnerability) on the production preview; per run `minHpPct`, drafts, outcome (`extracted`/`died`/`timeout`), seconds — the difficulty-calibration source (§Quality budgets) |
+| `scripts/audit-check.mjs <slug>` | PRD audit incl. `taste:section`/`taste:axes`/`taste:na`/`taste:numbers` — the `## 1c. Taste budgets` table, 7 axes, family-mandatory ones never n/a |
 
 ## How to implement a PRD
 
@@ -420,7 +457,9 @@ Regenerating or adding art is the `game-art` skill's job, not hand-drawing:
 7. **Balance loop is the sim.** After every change to `TUNING` or the slice's
    `tuning.ts`/level data, run this family's gate:
    `npm run sim -- --family <code>` (arena also takes `--runs 20 --lane all`).
-   Hard gates must stay green. Tune data, never the sim's bot constants.
+   Hard gates must stay green. Tune data, never the sim's bot constants. The
+   sim HOLDS difficulty; live bots SET it (§Quality budgets, "Meta pacing,
+   build variety, difficulty").
 8. **Music is two lines:** `startMusic('run')` + `setMusicIntensity(...)` from
    the difficulty curve, `setMusicLayer('boss', on)` around the boss. Internals
    live in `core/music.ts` — do not touch them per game.
@@ -615,7 +654,8 @@ Regenerating or adding art is the `game-art` skill's job, not hand-drawing:
   into a REUSED array (`last.length = next.length; for (…) last[i] = next[i]`),
   never a fresh one.
 - **Every gameplay event gets feedback:** one of `shake / pop / flash / burst /
-  floatText / hitstop` plus one `sfx()`, respecting the PRD's spam caps (damage
+  floatText / hitstop` plus its own `sfx()` voice (rates and mix: §Quality
+  budgets, "Audio is content"), respecting the PRD's spam caps (damage
   numbers per second, no shake at very high entity counts). Persistent states
   are designed too: earned specials pulse/glow while idle (loop tweens killed
   on recycle), and the selection highlight is themed, never a default circle.
@@ -626,21 +666,39 @@ Regenerating or adding art is the `game-art` skill's job, not hand-drawing:
 - **A session must be completable** in the PRD's target window, with win and
   loss both reachable through the director's `SessionOutcome`, and one-tap
   retry.
-- **Upgrade stat keys are a contract.** `PLAYER_BASE_STATS` in `src/config.ts`
-  is the only list of stats the game reads; every modifier in `src/data/*` must
-  use one of those keys. A typo is silent — the modifier applies to a key nobody
-  queries, so the card costs a level-up and does nothing. `PreloadScene` runs
-  `validateUpgradeStats(Object.keys(PLAYER_BASE_STATS))` at boot and logs any
-  offender. Rate stats are multipliers (`attackSpeed` divides `attackMs`),
-  never millisecond deltas.
-- **A selftest asserts the INVARIANT, never today's constant.** The migration
-  test's invariant is "a v1 save lands on the CURRENT version", so it asserts
-  `migrated.version === DEFAULT_META.version` — never `=== 2`. A frozen
-  literal turns the next legitimate `META_VERSION` bump into a red selftest
-  for the wrong reason, and the agent who then "fixes" it by bumping the
-  literal has quietly disabled the check that was there to catch a broken
-  migration chain. Same rule for any selftest naming a number the source owns:
-  read it from the source (`src/sim/kits/metakit.selftest.ts` is the pattern).
+- **Everything paid or tappable has an effect.** Presence is not
+  connectedness: a paid "start at level 2" was folded into the run loadout and
+  read by nothing, a pause SETTINGS button did nothing, the music slider left
+  the playing hub track at full volume — each typechecked and passed every
+  sim. Three checks, all required:
+  - **Static — `src/sim/kits/wiring.selftest.ts`** (verify stage 5): every
+    payload in `src/sim/wiring.ts` has a reader in RUN code (`src/` minus
+    `sim/**` and selftests; comments and string contents never count). A game
+    APPENDS its run-loadout interface, meta-node ids and mutator/modifier
+    params there — a paid effect missing from the manifest is unchecked, which
+    is the defect again. `PLAYER_BASE_STATS` (`src/config.ts`) stays the only
+    stat list: `PreloadScene` runs `validateUpgradeStats` so every modifier
+    names one (a typo'd key is a card that does nothing), and the wiring gate
+    proves the run `.get()`s it. Rate stats are multipliers (`attackSpeed`
+    divides `attackMs`), never millisecond deltas.
+  - **Every control changes state when tapped** — cert `budget:controls`
+    (`scripts/cert-driver.mjs`) taps each one and fails any that changes
+    nothing unless it declares `setData('noop', '<reason>')`.
+  - **Settings apply live** to what is already playing, on every slider step:
+    `savePlayerSettings` (`core/audio.ts`) re-levels the SFX bus and, through
+    `onSettingsChange`, the running music bus (`core/music.ts`). A setting
+    read only at the next scene start is a dead control; one nothing reads
+    outside the Settings sheet fails the `PlayerSettings` wiring payload.
+- **A selftest asserts the INVARIANT, never today's constant — or today's
+  machine.** The migration test's invariant is "a v1 save lands on the CURRENT
+  version", so it asserts `migrated.version === DEFAULT_META.version` — never
+  `=== 2`; the agent who "fixes" a frozen literal by bumping it has quietly
+  disabled the check. Any number the source owns is read from the source
+  (`src/sim/kits/metakit.selftest.ts` is the pattern). A wall-clock budget is
+  written in reference-machine ms and asserted through `calibratedBudget(ms,
+  calibrateRunner())` (`src/sim/calibrate.ts`) inside a
+  `*.timing.selftest.ts` (runs alone): a raw 600 ms gate failed CI at 653 ms
+  on a runner where the code was fine.
 - **Determinism where it matters:** anything that must be reproducible uses `Rng`,
   never `Math.random`.
 - **No new dependency** without a reason the template cannot cover.
@@ -663,9 +721,13 @@ Regenerating or adding art is the `game-art` skill's job, not hand-drawing:
   and writing anywhere outside the workspace. Load every automated run with
   `?mute` (§URL parameters), never by writing the persisted preference, and
   assert audio through `audioStatus()` instead of playing it.
+- **Never end a turn with a job still running**: long commands run in the
+  FOREGROUND, chunked under the tool timeout (`game-build` SKILL.md preflight
+  item 7, the rule's home).
 - **`npm run verify` must pass** — all six stages (§Commands: typecheck,
-  content contract, consumer edges, art registry, kit selftests, sim gates),
-  and you must play the full loop of your family in a browser before claiming
+  content contract, consumer edges, art registry, kit selftests, sim gates)
+  within the push budget (≤ 5 min under `VERIFY_QUICK=1`, §Commands) — and
+  you must play the full loop of your family in a browser before claiming
   done, with `?mute` in the URL — menu → session → the family's
   mid-session decision surface (arena upgrade draft with reroll, board
   goal/moves budget, hyper instant retry, idle buy/automate, table roll, word
@@ -676,7 +738,14 @@ Regenerating or adding art is the `game-art` skill's job, not hand-drawing:
 
 Every budget below is measurable in the running game; game-qa measures them,
 game-critic judges against them, fx-artist and ui-engineer are held to them.
-A build over budget is a defect even when every feature "works".
+A build over budget is a defect even when every feature "works". Every
+"I don't like it" from a playtest so far was a number nobody wrote down: the
+PRD's `## 1c. Taste budgets` table (`scripts/audit-check.mjs` `taste:*`)
+records this game's value per axis — world-scale, readability, density,
+build-variety, meta-pacing, audio, difficulty-live — and the numbers here are
+the floors it may not go under. Present those axes to the user as explicit
+choices with defaults BEFORE the first playtest, never discover them by
+iteration.
 
 ### Responsiveness
 - **Input acknowledgment ≤ 100ms** (ideally next frame): every tap/drag gets
@@ -694,16 +763,76 @@ A build over budget is a defect even when every feature "works".
 - **Meaningful events stack ≥ 2 feedback channels** (visual + audio minimum;
   big beats add scale/shake/hitstop) with spam caps from the PRD's §13
   juice table.
+- **Audio is content.** Every gameplay event kind has its own voice;
+  sample-generated SFX (registered in `src/data/audio.ts`) are the default
+  and the synth voice is only the load-failure fallback; `duck: true` voices
+  dip the music bus (`core/audio.ts` voice table). Rate and mix floors
+  (checked by cert `budget:audio-rate`): `game-prd` design-heuristics §9.5.
+  Signature-sound options: generated per `game-art` SKILL.md Step 1d item 4,
+  offered to the user per `game-build` SKILL.md Step 5.9.
 - **Payoff cadence**: no stretch of normal play longer than ~20s without a
   reward beat (family's §9 feel budget refines this); idle/persistent
   states have designed presence (pulse/glow), never static sprites.
 - **Animation tempo**: core-loop action animations 120-400ms; anything
   longer is skippable or fast-forwardable (tap-to-skip on finales and
   ceremonies). Nothing the player waits on twice per minute exceeds 700ms.
+- **Progress is shown, not implied** (build/draft genres): draft cards mark
+  a piece that pairs with an owned one ("Pairs with your X → Y", EVOLUTION
+  READY — duskhaul `ui/cards.ts` `evoMatch`); an evolution plays a ~2 s
+  cinematic (gameplay dilated, tap-to-skip, calm under
+  `playerSettings().reduceMotion`) and rank-up / new weapon / new charm each
+  get a beat — `ui/progressFx.ts` `playEvolution` / `playRankUp` /
+  `playAcquire`; a slice integrating its own sim scales its delta by
+  `beatTimeScale(scene)`.
+
+### Readability & world (action families)
+- **Actors read at arm's length**: enemy on-screen silhouette height ≥ 8% of
+  screen width (≥ 58 px at 720), hero ≥ 15% (≥ 108 px) — cert
+  `budget:actor-size`. Content rows carry the silhouette height
+  (`data/enemies.ts` `visiblePx`, `TUNING.player.visiblePx`), never the sheet
+  cell size: the display size is `displaySizeFor(key, visiblePx)` from the
+  sheet's measured `SUBJECT_HEIGHT` (update the row when a sheet is
+  regenerated). `size` stays the gameplay footprint (contact reach —
+  `contactReach`, one formula for scene and sim — and the physics body).
+- **Team outlines by default in any horde genre**: hostile `#ff2d2d` at
+  3/4/5 px (trash/elite/boss), hero and allies `#39ff6a`, BAKED once into
+  outlined texture copies at preload (the slice calls `declareOutlines` with
+  `teamOutline` rows from `core/outline.ts`, then plays `outlineKey(key,
+  px)`), never a per-sprite filter — the arena slice does exactly this
+  (`slices/arena/game.ts` constructor, `objects/enemy.ts`/`player.ts`). Floor
+  art sits in the value band L* 18-32; red and green hues are reserved for
+  the outlines.
+- **World composition (camera-scrolled worlds)**: world scale, spawn/POI
+  layout, blocker spacing, prop variety and decal density floors are in
+  `game-prd` genre-playbooks §Taste floors (casual families: casual-playbooks
+  §Taste floors). The arena slice's default world already meets them:
+  `systems/mapgen.ts generateWorld` (36 screens, centre spawn, roads, single
+  props with ≥ 60 px art gaps and same kind ≥ 900 px apart, ≤ 3 decals per
+  screen, feathered floor variants, nav + sealed crevices; POIs/landmarks by
+  data in `data/world.ts`), asserted by `src/sim/kits/mapgen.selftest.ts` and
+  timed by `mapgen.timing.selftest.ts`, plus cert `budget:composition`
+  (§Release gates). A game sizes `TUNING.arena` from its PRD (open maps
+  ≥ 150 screens), fills `WORLD.pois`/`landmarks`, and replaces the 8
+  placeholder prop kinds with ≥ 40 real ones per zone.
+
+### Meta pacing, build variety, difficulty (measured, not felt)
+Numbers: runs-to-X unlock pacing plus an endless sink in `game-prd`
+design-heuristics §11.3; build variety in genre-playbooks §Taste floors;
+live difficulty targets and sim-vs-live parity in design-heuristics §18.2.
+Each one is asserted by a gate, not by prose: the game's
+`src/sim/kits/metakit.selftest.ts` runs-to-X bands and
+`src/sim/kits/arsenal.selftest.ts` variety sample (duskhaul is the pattern),
+and honest `scripts/live-bot.mjs --policy novice|veteran` runs on the
+production preview. Bots rated V2 hard and the user found it too easy, so
+the sim HOLDS difficulty and the live bot SETS it.
 
 ### Flow logic
 - **≤ 2 taps from boot to the core action** (menu → [map] → playing);
   every extra gate needs a design reason in the PRD.
+- **One screen, one job.** A mid-core meta is a TABBED HUB by default, built
+  on `ui/tabBar.ts` + `ui/sheet.ts` + `ui/scrollView.ts` (tab set and meta
+  surface size: design-heuristics §11.5). Never pile every surface onto one
+  screen; the user called exactly that "illogical".
 - **Every screen is exitable**: no dead ends; back/close never destroys
   progress without confirmation; the pause path always reaches the menu.
 - **State honesty**: empty/zero/maxed states are designed (empty shop,

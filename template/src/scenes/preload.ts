@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { PALETTE, PLAYER_BASE_STATS, TEXT, VIEW } from '../config';
 import { initGeneratedAudio } from '../core/audio';
+import { bakeDeclaredOutlines } from '../core/outline';
 import { SCENES } from '../core/keys';
 import { IMAGES, SPRITES } from '../data/art';
 import { validateUpgradeStats } from '../data/upgrades';
@@ -78,6 +79,10 @@ export class PreloadScene extends Phaser.Scene {
         repeat: asset.loop ? -1 : 0,
       });
     }
+
+    // Team outlines a slice declared (`core/outline.ts declareOutlines`) bake
+    // once here, after their base sheets and animations exist. None by default.
+    bakeDeclaredOutlines(this);
 
     // Registered audio samples (none in the template) start downloading here and
     // decode into the shared context; every unregistered voice stays synthesised.

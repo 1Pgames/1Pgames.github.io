@@ -2,8 +2,15 @@ import Phaser from 'phaser';
 import { PALETTE, PLAYER_BASE_STATS, TUNING } from '../config';
 import { TEX } from '../core/keys';
 import { ANIM, artFacesRight, artScale } from '../data/art';
+import { displaySizeFor } from '../data/enemies';
+import { OUTLINE, baseKeyOf, outlineKey } from '../core/outline';
 import { Health } from '../core/damage';
 import { StatBlock, type Modifier } from '../core/stats';
+
+/** Hero hitbox radius in world px, centred on this source-cell point (the chibi body). */
+const HERO_BODY_PX = 26;
+const HERO_BODY_CENTER_X = 128;
+const HERO_BODY_CENTER_Y = 136;
 
 /**
  * The player avatar for a survivor-like: a stat-driven body that moves toward a
@@ -41,11 +48,8 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.health = new Health(this.stats.get('maxHp'));
     this.health.invulnMs = TUNING.player.invulnMs;
 
-    this.setDisplaySize(TUNING.player.size, TUNING.player.size).setDepth(20);
-    // Hitbox in source-cell pixels (256px cell, transparent margin around the
-    // chibi body), deliberately smaller than the art so grazes feel fair.
-    this.body?.setCircle(70, 58, 66);
-    this.play(ANIM.heroIdle);
+    this.setDepth(20);
+    this.playArt(ANIM.heroIdle);
     // The arena sets the physics world bounds; the body keeps the player inside
     // them, so no screen-space clamping (the camera scrolls now).
     this.setCollideWorldBounds(true);
@@ -153,7 +157,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     const vx = this.body?.velocity.x ?? 0;
     const moving = Math.abs(vx) + Math.abs(this.body?.velocity.y ?? 0) > 24;
     const want = moving ? ANIM.heroRun : ANIM.heroIdle;
-    if (this.anims.currentAnim?.key !== want) this.playArt(want);
+    if (baseKeyOf(this.anims.currentAnim?.key ?? '') !== want) this.playArt(want);
     if (moving) this.faceVelocity(vx);
   }
 
@@ -163,16 +167,24 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
    * character visibly shrinks or grows when its state changes.
    */
   private playArt(key: string): void {
-    const size = TUNING.player.size * artScale(key);
+    // Hero silhouette = `player.visiblePx` (idle), each action sheet scaled by its
+    // registry factor so the body never grows or shrinks between states.
+    const size = displaySizeFor(ANIM.heroIdle, TUNING.player.visiblePx) * artScale(key);
     this.setDisplaySize(size, size);
-    this.play(key, true);
+    // Hitbox: `HERO_BODY_PX` world px whatever the display size (source px =
+    // world × 256 / size), deliberately smaller than the art so grazes feel fair.
+    const radius = (HERO_BODY_PX * 256) / size;
+    this.body?.setCircle(radius, HERO_BODY_CENTER_X - radius, HERO_BODY_CENTER_Y - radius);
+    // The baked GREEN team outline (`core/outline.ts`, declared by the slice); plain sheet if missing.
+    const outlined = outlineKey(key, OUTLINE.px.trash);
+    this.play(this.scene.anims.exists(outlined) ? outlined : key, true);
     this.faceVelocity(this.body?.velocity.x ?? 0);
   }
 
   /** Mirrors the sprite so it moves face-first, whichever way the art was drawn. */
   private faceVelocity(vx: number): void {
     if (vx === 0) return;
-    const key = this.anims.currentAnim?.key ?? ANIM.heroIdle;
+    const key = baseKeyOf(this.anims.currentAnim?.key ?? ANIM.heroIdle);
     this.setFlipX(artFacesRight(key) ? vx < 0 : vx > 0);
   }
 

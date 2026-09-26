@@ -17,6 +17,9 @@
  *   ph         TBD / TODO / placeholder / <angle stubs> outside code fences
  *   dossier    §1b staples checklist: >=8 rows, adopt|adapt|cut, cut has a why
  *   feel       §13 feel-budget table: six budget rows, no unfilled cells
+ *   taste      §1c taste budgets: 7 axes with numbers + instrument; n/a only
+ *              with a reason on an axis the family does not force (blocks for
+ *              draft games; released/variant games are grandfathered to warn)
  *   flow       §14b flow map: mermaid + tap-depth + interruptions + edges + confirm
  *   retired    a §14b-retired node is named nowhere live (graph, matrix, prose)
  *   band       §14 band-ownership table: an owner and an arbitration path per band
@@ -51,6 +54,27 @@ const FLOW_BLOCKS = [
   ['edge-state inventory', (s) => /edge[\s-]?state/i.test(s.text)],
   ['confirmation policy', (s) => /confirmation/i.test(s.text)],
 ];
+/**
+ * §1c Taste budgets: every "I don't like it" from a playtest was a number
+ * nobody wrote down (world scale, actor size, density, variety, meta pace,
+ * audio, live difficulty). Each axis row carries a number and the instrument
+ * that measures it; `n/a — <reason>` is legal only on an axis the family does
+ * not force (TASTE_FORCED).
+ */
+const TASTE_AXES = ['world-scale', 'readability', 'density', 'build-variety', 'meta-pacing', 'audio', 'difficulty-live'];
+/** Axes a family may NOT mark n/a (on top of TASTE_FORCED.all). A family not listed (e.g. a D-family turn-based board with no world) gets `default`. */
+const TASTE_FORCED = {
+  all: ['readability', 'audio', 'difficulty-live'],
+  arena: ['world-scale', 'density', 'build-variety', 'meta-pacing'],
+  side: ['world-scale', 'density', 'meta-pacing'],
+  track: ['world-scale', 'density', 'meta-pacing'],
+  board: ['meta-pacing'],
+  word: ['meta-pacing'],
+  table: ['meta-pacing'],
+  idle: ['meta-pacing'],
+  hyper: [],
+  default: ['meta-pacing', 'build-variety'],
+};
 const TASK_STATUS = new Set(['pending', 'running', 'done', 'dead', 'taken-over']);
 /** Angle-bracket spans that are markup or links, not spec stubs. */
 const HTML_TAGS = /^\/?(br|hr|p|div|span|a|b|i|em|strong|title|canvas|script|img|meta|link|html|head|body|code|pre|ul|ol|li|table|tr|td|th|button|input|style|svg)\b/i;
@@ -310,6 +334,78 @@ function checkFlowMap(doc) {
     'flow:blocks',
     '§14b flow map: all five blocks present (graph, tap-depth, interruptions, edge states, confirmations)',
     `§14b flow map missing block(s): ${missing.join('; ')}`,
+  );
+}
+
+/**
+ * §1c Taste budgets. A game that postdates this gate BLOCKS on a missing or
+ * hollow table; a game already `released` (or a `variantOf` build) predates it
+ * and is reported at warn level — grandfathered, never silently skipped.
+ */
+function checkTasteBudgets(doc, manifest) {
+  const grandfathered = manifest !== null && (manifest.status === 'released' || typeof manifest.variantOf === 'string');
+  const gate = (ok, id, okMsg, failMsg) => {
+    if (ok) pass(id, okMsg);
+    else if (grandfathered) warn(id, `${failMsg} (grandfathered: ${manifest.status ?? 'variant'} predates §1c)`);
+    else fail(id, failMsg);
+    return ok;
+  };
+  const sec = section(doc, '1c');
+  const table = sec ? tables(doc, sec).find((t) => t.header.some((h) => /axis/i.test(h)) && t.header.some((h) => /budget/i.test(h))) : null;
+  if (
+    !gate(
+      !!table,
+      'taste:section',
+      '§1c taste budgets table present',
+      sec
+        ? '§1c has no `| Axis | Budget | Measured by |` table'
+        : '§1c Taste budgets missing — world scale, actor size, density, variety, meta pace, audio and live difficulty are unwritten taste numbers',
+    )
+  ) {
+    return;
+  }
+  const col = (re) => table.header.findIndex((h) => re.test(h));
+  const budgetAt = col(/budget/i);
+  const measuredAt = col(/measur/i);
+  const family = typeof manifest?.family === 'string' && manifest.family ? manifest.family : 'unknown';
+  const forced = new Set([...TASTE_FORCED.all, ...(family !== 'all' && TASTE_FORCED[family] ? TASTE_FORCED[family] : TASTE_FORCED.default)]);
+  const clean = (s) => (s ?? '').replace(/[*`_]/g, '').trim();
+  const rowOf = (axis) => table.rows.find((r) => clean(r.cells[0]).toLowerCase().startsWith(axis));
+
+  const missing = TASTE_AXES.filter((axis) => !rowOf(axis));
+  gate(
+    missing.length === 0,
+    'taste:axes',
+    `§1c: all ${TASTE_AXES.length} taste axes present`,
+    `§1c taste budgets missing axis row(s): ${missing.join(', ')}`,
+  );
+
+  const badNa = [];
+  const hollow = [];
+  for (const axis of TASTE_AXES) {
+    const row = rowOf(axis);
+    if (!row) continue;
+    const budget = clean(row.cells[budgetAt]);
+    const na = /^n\/?a\b\s*[—–:-]*\s*(.*)$/i.exec(budget);
+    if (na) {
+      if (forced.has(axis)) badNa.push(`L${row.line} ${axis} is mandatory for the ${family} family`);
+      else if (!/[a-z]{3}/i.test(na[1])) badNa.push(`L${row.line} ${axis} n/a without a reason`);
+      continue;
+    }
+    if (!/\d/.test(budget)) hollow.push(`L${row.line} ${axis} budget has no number`);
+    if (measuredAt >= 0 && !/[a-z]{2}/i.test(clean(row.cells[measuredAt]))) hollow.push(`L${row.line} ${axis} names no instrument`);
+  }
+  gate(
+    badNa.length === 0,
+    'taste:na',
+    `§1c: every n/a axis carries a reason and none is mandatory for ${family}`,
+    `§1c illegal n/a: ${badNa.join('; ')}`,
+  );
+  gate(
+    hollow.length === 0,
+    'taste:numbers',
+    '§1c: every live taste axis has a number and a measuring instrument',
+    `§1c hollow taste budgets: ${hollow.join('; ')}`,
   );
 }
 
@@ -625,6 +721,14 @@ if (!existsSync(dir) || !statSync(dir).isDirectory()) {
   report(1, { error: `no such game: games/${slug}/` });
 }
 
+const manifestPath = path.join(dir, 'game.json');
+let manifest = null;
+try {
+  manifest = existsSync(manifestPath) ? JSON.parse(readFileSync(manifestPath, 'utf8')) : null;
+} catch {
+  manifest = null;
+}
+
 const prdPath = path.join(dir, 'PRD.md');
 const relPath = `games/${slug}/PRD.md`;
 if (existsSync(prdPath)) {
@@ -634,6 +738,7 @@ if (existsSync(prdPath)) {
   checkPlaceholders(doc);
   checkDossier(doc);
   checkFeelBudget(doc);
+  checkTasteBudgets(doc, manifest);
   checkFlowMap(doc);
   checkFlowRetirement(doc);
   checkBandOwnership(doc);

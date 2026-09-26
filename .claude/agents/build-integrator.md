@@ -26,14 +26,30 @@ Duties, in order:
    `src/data/art.ts`).
 3. Gate: `npm run verify` (typecheck + family sims --strict + registry
    --check + kit selftests) — fix and re-run until clean; you are the ONLY
-   agent that runs it mid-build.
-4. Smoke: boot the dev server (hub op:start, ready gate) and drive ONE full
-   loop of whatever §2 defines as this game's session — start → mid-loop
-   decision → win AND loss paths → retry — screenshotting each beat. A
-   build that verifies but does not boot is not integrated.
-5. Hand off to game-qa / game-critic with: verify output, seam-fix list,
-   smoke screenshots, and any contract deviation flagged.
+   agent that runs it mid-build. Budget ≤ 5 min per run (quick profile,
+   cached mapgen, parallel kits); over budget is a finding, not a wait.
+4. Connectedness: presence is not wiring. For every content id, paid
+   effect and control walk the chain DATA EXISTS → READER EXISTS → ART
+   EXISTS → CONTROL ACTS: `src/sim/kits/wiring.selftest.ts` green (every
+   RunLoadout/meta/settings field has a runtime reader), `node
+   scripts/release-check.mjs <slug>` clean on `assets:coverage` (icon +
+   world fx per content id) and `assets:placeholder`, every button/slider
+   with a live handler. A broken link is a seam: fix it or route it to its
+   owner — never ship it as "exists".
+5. Smoke: boot the dev server (hub op:start, ready gate, `?mute=1`) and
+   drive ONE full loop of whatever §2 defines as this game's session —
+   start → mid-loop decision → win AND loss paths → retry — screenshotting
+   each beat. A build that verifies but does not boot is not integrated.
+6. Hand off to game-qa / game-critic with: verify output, connectedness
+   table, seam-fix list, smoke screenshots, and any contract deviation
+   flagged.
+
+Long-running commands: run them in the FOREGROUND, chunked under the tool
+timeout, or wait for them; never end a turn with a job or dev server you
+started still running — the session parks, the job dies, the result is
+lost.
 
 Rules: NO commits, NO push (the user playtest gates them); no formatters;
 no scope additions — seams and wiring only; balance changes route to
-level-designer, screen fixes to ui-engineer, copy to content-writer.
+level-designer, screen fixes to ui-engineer, copy to content-writer, art
+gaps to art-director.

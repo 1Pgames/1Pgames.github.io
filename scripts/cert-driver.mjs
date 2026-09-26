@@ -110,6 +110,16 @@
  *    driven beat, and tap depth from boot to the core action. fps blocks on the
  *    beats the adapter NAMES (`heavyBeats`, from the PRD's peak-beat table);
  *    the scanned worst-3s window is a lead, not a gate — see `scoreMeasurements`.
+ *    Plus the taste budgets that read the running game (`scoreTasteBudgets`):
+ *    the CONTROL SWEEP (`ctx.sweepControls`: every visible control on the swept
+ *    surfaces changes state or is a declared no-op, `setData('noop', reason)`),
+ *    COMBAT AUDIO RATE (>= 5 sfx requests/s with >= 20 enemies within 900 px,
+ *    from `__AUDIO__().requested`), ACTOR SIZE (enemy >= 8% / hero >= 15% of
+ *    the game width on screen) and WORLD COMPOSITION over every screen of each
+ *    generated map (decals/screen p95 <= 3, decal alpha <= 0.45, >= 3 prop
+ *    kinds on screens holding >= 3 props, overlap 0) — the last three from
+ *    the adapter's in-page probe (`page.installProbe`/`page.drainProbe`). What
+ *    the build does not expose is `unmeasured`, never a blocker.
  * 6. The adapter's invariant sweep after every settled action. A violation is a
  *    blocker: it means the view layer and the model have drifted apart.
  *
@@ -162,8 +172,9 @@
  *   blockers[]        {id, message, evidence?, seen?} — release-blocking
  *   majors[]          same shape — recorded, not release-blocking
  *   measurements      ack | swallowedInput | transitions | retryToPlayable |
- *                     fps | tapDepth, each with its budget, samples and a
- *                     pass/fail/unmeasured verdict
+ *                     fps | tapDepth | controls | audioRate | actorSize |
+ *                     composition, each with its budget, samples and a
+ *                     pass/fail/unmeasured verdict (unmeasured carries `reason`)
  *   beats[]           {id, shot, gated} — one per FTUE coach beat walked
  *   surfaces[]        {name, shot} — every screen captured
  *   outcomes          {win, loss} — both must be non-null
@@ -204,6 +215,24 @@ export const BUDGETS = {
   fpsMinMin: 40,
   /** Taps from boot to the core action. */
   tapDepth: 2,
+  /**
+   * Control sweep: every visible control on the swept surfaces (hub tabs and
+   * the sheets they open, pause, results) changes state when tapped, or is a
+   * DECLARED no-op (`gameObject.setData('noop', '<reason>')`). A control that
+   * does nothing is how "pause SETTINGS did nothing" shipped.
+   */
+  deadControlsMax: 0,
+  /** Combat audio: sfx requests per second while this many enemies are on screen (`__AUDIO__().requested` delta). */
+  audioReqPerSec: 5,
+  audioMinEnemies: 20,
+  /** Actor readability: visible body height as a percent of the game width (screen px). */
+  enemyHeightPctW: 8,
+  heroHeightPctW: 15,
+  /** World composition over every screen of each generated map (only when the scene exposes it); kinds on screens holding >= 3 props. */
+  decalsPerScreenP95: 3,
+  decalAlphaMax: 0.45,
+  propKindsPerScreenMedian: 3,
+  propOverlapMax: 0,
 };
 
 const SHOT_DIR = ['shots', 'cert'];
@@ -657,6 +686,120 @@ export function withMute(url) {
     if (/[?&]mute(=|&|$)/.test(url)) return url;
     return url + (url.includes('?') ? '&' : '?') + 'mute=1';
   }
+}
+
+/**
+ * What a tap can change, as comparable parts (the control sweep's before/after):
+ * active scenes with their camera counts (a sheet or overlay is a camera in
+ * the template's UI), the game's localStorage (a purchase, an equip, a
+ * setting), every visible text with digits masked (a toast, a toggled label —
+ * a ticking clock is not a reaction), the interactive-object count, and a
+ * coarse visual signature (texture/frame/position/tint per object, the command
+ * buffer of every Graphics) for reactions that are pure drawing.
+ */
+const pgFingerprint = () => {
+  const g = window.__GAME__;
+  const scenes = g.scene.scenes.filter((s) => s.scene.isActive());
+  const texts = [];
+  const visual = [];
+  let interactive = 0;
+  const hash = (str) => {
+    let h = 2166136261;
+    for (let i = 0; i < str.length; i += 1) {
+      h ^= str.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return (h >>> 0).toString(36);
+  };
+  const walk = (list, chainAlpha) => {
+    for (const o of list) {
+      if (o.visible === false) continue;
+      const a = chainAlpha * (o.alpha ?? 1);
+      if (a < 0.05) continue;
+      if (o.input && o.input.enabled !== false) interactive += 1;
+      if (typeof o.text === 'string' && o.text.trim()) texts.push(o.text.replace(/\d+/g, '#'));
+      if (o.type === 'Graphics' && Array.isArray(o.commandBuffer)) {
+        visual.push(`G:${Math.round(o.x)}:${Math.round(o.y)}:${hash(o.commandBuffer.slice(0, 600).join(','))}`);
+      } else if (o.type !== 'Container') {
+        visual.push(`${o.type}:${o.texture ? o.texture.key : ''}:${o.frame ? o.frame.name : ''}:${Math.round(o.x / 4)}:${Math.round(o.y / 4)}:${o.tintTopLeft ?? ''}`);
+      }
+      if (o.list) walk(o.list, a);
+    }
+  };
+  for (const s of scenes) walk(s.children.list, 1);
+  let storage = '';
+  try {
+    for (let i = 0; i < localStorage.length; i += 1) {
+      const k = localStorage.key(i);
+      storage += `${k}=${localStorage.getItem(k)};`;
+    }
+  } catch {
+    storage = 'unreadable';
+  }
+  return {
+    scenes: scenes.map((s) => `${s.scene.key}/${s.cameras.cameras.length}`).join('+'),
+    storage: hash(storage),
+    interactive,
+    texts: texts.sort(),
+    visual: visual.sort(),
+  };
+};
+
+/**
+ * How many entries of sorted `b` have no partner in sorted `a` (multiset).
+ * Only ADDITIONS count as a reaction: a toast from the previous tap fading out
+ * during this one removes text, and must not be billed as this control working.
+ */
+function multisetAdded(a, b) {
+  let i = 0;
+  let j = 0;
+  let n = 0;
+  while (i < a.length && j < b.length) {
+    if (a[i] === b[j]) {
+      i += 1;
+      j += 1;
+    } else if (a[i] < b[j]) {
+      i += 1;
+    } else {
+      n += 1;
+      j += 1;
+    }
+  }
+  return n + (b.length - j);
+}
+
+/** Part-by-part difference of two `pgFingerprint` reads (`b` after `a`). */
+function fingerprintDiff(a, b) {
+  return {
+    scenes: a.scenes !== b.scenes,
+    storage: a.storage !== b.storage,
+    interactive: a.interactive !== b.interactive,
+    texts: multisetAdded(a.texts, b.texts),
+    visual: multisetAdded(a.visual, b.visual),
+  };
+}
+
+/** Idle churn of a surface: two untouched reads, compared both ways. */
+function fingerprintNoise(a, b) {
+  const ab = fingerprintDiff(a, b);
+  const ba = fingerprintDiff(b, a);
+  return { ...ab, texts: Math.max(ab.texts, ba.texts), visual: Math.max(ab.visual, ba.visual) };
+}
+
+/**
+ * Did a tap change anything, beyond what the surface changes on its own? `noise`
+ * is the diff of two untouched reads of the same surface: a part that moved
+ * while nobody touched it is not evidence, and a visual count must clear the
+ * idle churn with margin. Returns the parts that moved, or [] for a dead tap.
+ */
+function reactionParts(d, noise) {
+  const parts = [];
+  if (d.scenes && !noise.scenes) parts.push('scene/overlay');
+  if (d.storage && !noise.storage) parts.push('save');
+  if (d.interactive && !noise.interactive) parts.push('controls');
+  if (d.texts > noise.texts) parts.push(`text(${d.texts})`);
+  if (d.visual > noise.visual * 2 + 2) parts.push(`visual(${d.visual})`);
+  return parts;
 }
 
 /**
@@ -1755,6 +1898,7 @@ const arenaAdapter = {
     arenaPhaseExtraction,
     arenaPhaseLateGameDeath,
     arenaPhaseSurfaces,
+    arenaPhaseControlSweep,
   ],
 
   page: {
@@ -1913,6 +2057,8 @@ const arenaAdapter = {
                 inView: sx >= cam.x && sx <= cam.x + cam.width && sy >= cam.y && sy <= cam.y + cam.height,
                 card: !!(o.getData && o.getData('banishFrame')),
                 cardId: (o.getData && o.getData('cardId')) ?? null,
+                noop: (o.getData && o.getData('noop')) || null,
+                camOrder: cams.indexOf(cam),
                 type: o.type,
               });
             }
@@ -2328,6 +2474,215 @@ const arenaAdapter = {
         content: s.scroll ? s.scroll.root.list.length : null,
         overlays: s.cameras.cameras.length,
       };
+    },
+
+    /**
+     * The in-page probe behind the engine's taste budgets (`scoreTasteBudgets`):
+     * a poststep hook that, while the run is live and taking input, records
+     * every 250 ms the sfx request counter (`__AUDIO__().requested`) and the
+     * enemies within 900 px of the hero, every 2 s the on-screen actor heights,
+     * and once per generated map the composition of every screen of it. A
+     * height is the actor's own `visiblePx` (world px) when it has one, else
+     * the opaque-pixel rows of its current frame x displayHeight — never the
+     * padded cell — times the camera zoom. A Game scene `actors()` /
+     * `composition()` hook wins over reading objects (the contract a new arena
+     * slice should implement; shapes at the use sites below). Idempotent.
+     */
+    installProbe: () => {
+      const g = window.__GAME__;
+      const c = window.__CERT__;
+      if (!g || !c) return false;
+      if (c.probe && c.probe.hook) return true;
+      const P = { audio: [], actors: [], composition: [], lastA: 0, lastB: 0, rows: new Map(), maps: new Set(), hook: null };
+      c.probe = P;
+      const opaqueShare = (frame) => {
+        const key = `${frame.texture.key}#${frame.name}`;
+        if (P.rows.has(key)) return P.rows.get(key);
+        let out = null;
+        try {
+          const w = frame.cutWidth;
+          const h = frame.cutHeight;
+          const cv = document.createElement('canvas');
+          cv.width = w;
+          cv.height = h;
+          const cx = cv.getContext('2d', { willReadFrequently: true });
+          cx.drawImage(frame.source.image, frame.cutX, frame.cutY, w, h, 0, 0, w, h);
+          const d = cx.getImageData(0, 0, w, h).data;
+          let top = -1;
+          let bottom = -1;
+          for (let y = 0; y < h; y += 1) {
+            for (let x = 0; x < w; x += 1) {
+              if (d[(y * w + x) * 4 + 3] > 40) {
+                if (top < 0) top = y;
+                bottom = y;
+                break;
+              }
+            }
+          }
+          out = top < 0 ? 0 : (bottom - top + 1) / (frame.realHeight || h);
+        } catch {
+          out = null;
+        }
+        P.rows.set(key, out);
+        return out;
+      };
+      const heightOf = (o, zoom) => {
+        if (typeof o.visiblePx === 'number' && o.visiblePx > 0) return { px: Math.round(o.visiblePx * zoom), src: 'visiblePx' };
+        const share = o.frame ? opaqueShare(o.frame) : null;
+        if (share !== null) return { px: Math.round(o.displayHeight * share * zoom), src: 'opaque-rows' };
+        return { px: Math.round(o.displayHeight * zoom), src: 'displayHeight' };
+      };
+      P.hook = () => {
+        const now = performance.now();
+        if (now - P.lastA < 250) return;
+        P.lastA = now;
+        const s = g.scene.getScene('Game');
+        if (!s || !s.scene.isActive() || !s.built || !s.combat || s.paused || s.ended || s.drafting || s.dying || s.fenceOpen) return;
+        const cam = s.cameras.main;
+        const v = cam.worldView;
+        const all = Array.isArray(s.combat.enemies) ? s.combat.enemies : [];
+        const p = s.combat.player;
+        const onScreen = all.filter((e) => e.active !== false && e.visible !== false && v.contains(e.x, e.y));
+        // "Near" = within 900 px of the hero: the density radius the horde spawner and the live bots use.
+        const near = p ? all.filter((e) => e.active !== false && (e.x - p.x) ** 2 + (e.y - p.y) ** 2 <= 900 * 900).length : onScreen.length;
+        const au = typeof window.__AUDIO__ === 'function' ? window.__AUDIO__() : null;
+        if (au && typeof au.requested === 'number') {
+          P.audio.push({ t: Math.round(now), req: au.requested, near, onScreen: onScreen.length });
+          if (P.audio.length > 8000) P.audio.shift();
+        }
+        if (now - P.lastB < 2000) return;
+        P.lastB = now;
+        const zoom = cam.zoom;
+        const t = Math.round(now);
+        const hooked = typeof s.actors === 'function' ? s.actors() : null;
+        if (hooked) {
+          P.actors.push({
+            t,
+            gameW: g.scale.width,
+            hero: hooked.hero ? { px: Math.round(hooked.hero.visiblePx * zoom), src: 'scene.actors()' } : null,
+            enemies: (hooked.enemies || []).map((e) => ({ kind: String(e.kind), px: Math.round(e.visiblePx * zoom), src: 'scene.actors()' })),
+          });
+        } else {
+          P.actors.push({
+            t,
+            gameW: g.scale.width,
+            hero: p ? heightOf(p, zoom) : null,
+            enemies: onScreen.slice(0, 60).map((e) => ({ kind: String(e.def && e.def.id ? e.def.id : e.texture ? e.texture.key : 'enemy'), ...heightOf(e, zoom) })),
+          });
+        }
+        if (P.actors.length > 600) P.actors.shift();
+        // World composition: once per generated map, over EVERY screen of it —
+        // the camera itself lives in clearings (spawn, gates, POIs are kept
+        // open by design), so sampling what it happens to show would measure
+        // the clearings. Sources: a Game scene `composition()` hook returning
+        // all placed scenery `{ width, height, props: [{kind,x,y,r,group?}],
+        // decals: [{x,y,r,alpha}] }` (radii make overlap measurable), else the
+        // generated map a Duskhaul-lineage scene keeps (`s.map.props`,
+        // `s.map.decals` minus road brushes, `s.map.splats`; overlap unmeasured).
+        const mapKey = `${s.loadout ? `${s.loadout.zone}:${s.loadout.seed}` : ''}:${s.map ? s.map.width : ''}`;
+        if (P.maps.has(mapKey)) return;
+        P.maps.add(mapKey);
+        let src = null;
+        if (typeof s.composition === 'function') {
+          const r = s.composition() || {};
+          src = { source: 'scene.composition()', width: r.width, height: r.height, props: r.props || [], decals: r.decals || [], radii: true };
+        } else if (s.map && Array.isArray(s.map.props) && Array.isArray(s.map.decals)) {
+          src = {
+            source: 'scene.map',
+            width: s.map.width,
+            height: s.map.height,
+            props: s.map.props.map((q) => ({ kind: q.id, x: q.x, y: q.y })),
+            decals: [...s.map.decals.filter((d) => !/^road-/.test(d.id)), ...(Array.isArray(s.map.splats) ? s.map.splats : [])].map((d) => ({ x: d.x, y: d.y, alpha: d.alpha })),
+            radii: false,
+          };
+        }
+        if (!src || !(src.width > 0) || !(src.height > 0)) return;
+        const tw = cam.width / zoom;
+        const th = cam.height / zoom;
+        const cols = Math.max(1, Math.floor(src.width / tw));
+        const rows = Math.max(1, Math.floor(src.height / th));
+        // The outer ring of screens holds the border band; skip it when the map is big enough to have an inside.
+        const ring = cols >= 3 && rows >= 3;
+        const tileOf = (x, y) => {
+          const col = Math.floor(x / tw);
+          const row = Math.floor(y / th);
+          if (col < 0 || row < 0 || col >= cols || row >= rows) return -1;
+          if (ring && (col === 0 || row === 0 || col === cols - 1 || row === rows - 1)) return -1;
+          return row * cols + col;
+        };
+        const tiles = new Map();
+        const tile = (i) => {
+          if (!tiles.has(i)) tiles.set(i, { props: 0, kinds: new Set(), decals: 0, alpha: 0, overlaps: 0 });
+          return tiles.get(i);
+        };
+        for (const q of src.props) {
+          const i = tileOf(q.x, q.y);
+          if (i < 0) continue;
+          tile(i).props += 1;
+          tile(i).kinds.add(q.kind);
+        }
+        for (const d of src.decals) {
+          const i = tileOf(d.x, d.y);
+          if (i < 0) continue;
+          tile(i).decals += 1;
+          tile(i).alpha = Math.max(tile(i).alpha, d.alpha ?? 0);
+        }
+        if (src.radii) {
+          const bucket = new Map();
+          const cell = 512;
+          const items = [...src.props.map((q) => ({ ...q, prop: true })), ...src.decals.map((d) => ({ ...d, prop: false }))];
+          items.forEach((q, n) => {
+            const k = `${Math.floor(q.x / cell)},${Math.floor(q.y / cell)}`;
+            if (!bucket.has(k)) bucket.set(k, []);
+            bucket.get(k).push(n);
+          });
+          items.forEach((A, n) => {
+            const bx = Math.floor(A.x / cell);
+            const by = Math.floor(A.y / cell);
+            for (let dx = -1; dx <= 1; dx += 1) {
+              for (let dy = -1; dy <= 1; dy += 1) {
+                for (const m of bucket.get(`${bx + dx},${by + dy}`) ?? []) {
+                  const B = items[m];
+                  if (m <= n || A.prop !== B.prop || (A.group !== undefined && A.group === B.group)) continue;
+                  if (Math.hypot(A.x - B.x, A.y - B.y) < (A.r ?? 0) + (B.r ?? 0)) {
+                    const i = tileOf(A.x, A.y);
+                    if (i >= 0) tile(i).overlaps += 1;
+                  }
+                }
+              }
+            }
+          });
+        }
+        for (let row = 0; row < rows; row += 1) {
+          for (let col = 0; col < cols; col += 1) {
+            if (ring && (col === 0 || row === 0 || col === cols - 1 || row === rows - 1)) continue;
+            const x = tiles.get(row * cols + col);
+            P.composition.push({
+              t,
+              source: src.source,
+              props: x ? x.props : 0,
+              kinds: x ? x.kinds.size : 0,
+              decals: x ? x.decals : 0,
+              decalAlphaMax: x ? Math.round(x.alpha * 100) / 100 : 0,
+              overlaps: src.radii ? (x ? x.overlaps : 0) : null,
+            });
+          }
+        }
+        if (P.composition.length > 6000) P.composition.splice(0, P.composition.length - 6000);
+      };
+      g.events.on('poststep', P.hook);
+      return true;
+    },
+
+    /** Hands the probe's buffered samples to the driver and clears them. */
+    drainProbe: () => {
+      const P = window.__CERT__ && window.__CERT__.probe;
+      if (!P) return null;
+      const out = { audio: P.audio, actors: P.actors, composition: P.composition };
+      P.audio = [];
+      P.actors = [];
+      P.composition = [];
+      return out;
     },
   },
 
@@ -3402,6 +3757,79 @@ async function arenaPhaseSurfaces(ctx) {
   await adapter.releaseKeys(ctx);
 }
 
+/**
+ * "Pause SETTINGS did nothing", "Start at level 2 did nothing": the control
+ * sweep (`ctx.sweepControls`, `BUDGETS.deadControlsMax`). Every visible control
+ * on the pause overlay, the Results screen and each Hub tab — and on the
+ * sheets their controls open, one level deep — must change state when tapped
+ * or be a declared no-op (`setData('noop', reason)`). Runs LAST: its taps
+ * spend currency, equip and toggle settings, and nothing after it reads the
+ * save. Navigation the other phases certify (tab bar, EMBARK, CONTINUE, RUN
+ * AGAIN, RETRY SAME MAP, RESUME) and destructive controls are skipped by label.
+ */
+async function arenaPhaseControlSweep(ctx) {
+  const { adapter } = ctx;
+  ctx.log('phase: control sweep');
+  const TABS = [['EXPEDITION', 'expedition'], ['ARMORY', 'armory'], ['VAULT', 'vault'], ['SANCTUM', 'sanctum'], ['CODEX', 'codex']];
+  const NAV = /^(RESUME|ABANDON RUN|ABANDON|CONTINUE|RUN AGAIN|RETRY SAME MAP|EMBARK|DESCEND|START|PLAY|II)$|RESET|DELETE|WIPE|ERASE|QUIT/i;
+  const skip = (c) => NAV.test((c.label || '').trim()) || (c.scene === 'Hub' && c.y >= 1120 && TABS.some(([t]) => t === c.label));
+  const inScene = (scene) => async () => (await adapter.controls(ctx)).filter((c) => c.scene === scene);
+
+  await adapter.clearDraft(ctx);
+  if (!(await adapter.openPause(ctx, 'sweep: pause open'))) {
+    ctx.major('controls:sweep-no-pause', 'the control sweep could not open the pause overlay', await ctx.state());
+    return;
+  }
+  await ctx.sleep(300);
+  await ctx.sweepControls('pause', {
+    list: inScene('Game'),
+    skip,
+    here: async () => (await ctx.state()).pauseOpen === true,
+    restore: async () => {
+      if (!(await ctx.state()).pauseOpen) await adapter.openPause(ctx, 'sweep: reopen pause');
+      await ctx.sleep(260);
+      return true;
+    },
+  });
+
+  if (!(await ctx.state()).pauseOpen) await adapter.openPause(ctx, 'sweep: pause for ABANDON');
+  await adapter.press(ctx, adapter.label('ABANDON RUN'), { what: 'ABANDON RUN', label: 'sweep: ABANDON RUN', measureAck: false });
+  await ctx.sleep(300);
+  if ((await adapter.controls(ctx)).some((c) => c.scene === 'Game' && c.label === 'ABANDON' && c.visible)) {
+    await adapter.press(ctx, adapter.label('ABANDON'), { what: 'ABANDON (confirm)', label: 'sweep: confirm ABANDON', measureAck: false });
+  }
+  await ctx.waitFor(async () => (await ctx.sceneKeys()).includes('GameOver'), { label: 'results for the sweep', timeout: 15000 });
+  await ctx.sleep(1200);
+  await ctx.sweepControls('results', {
+    list: inScene('GameOver'),
+    skip,
+    here: async () => (await ctx.sceneKeys()).includes('GameOver'),
+    restore: async () => (await ctx.sceneKeys()).includes('GameOver'),
+  });
+
+  await adapter.go(ctx, adapter.label('CONTINUE'), 'Hub', { what: 'CONTINUE', label: 'sweep: results CONTINUE' });
+  for (const [name, id] of TABS) {
+    const toTab = async () => {
+      if (!(await ctx.sceneKeys()).includes('Hub')) return false;
+      if ((await ctx.evalPage(adapter.page.hub))?.tab === id) return true;
+      await adapter.press(ctx, adapter.tab(name), { what: `${name} tab`, measureAck: false });
+      await adapter.poll(ctx, async () => (await ctx.evalPage(adapter.page.hub))?.tab === id, 3000);
+      await ctx.sleep(260);
+      return true;
+    };
+    if (!(await toTab())) {
+      ctx.major('controls:sweep-left-hub', `the control sweep lost the Hub before the ${name} tab`, { keys: await ctx.sceneKeys() });
+      break;
+    }
+    await ctx.sweepControls(`hub:${id}`, {
+      list: inScene('Hub'),
+      skip,
+      here: async () => (await ctx.evalPage(adapter.page.hub))?.tab === id,
+      restore: toTab,
+    });
+  }
+}
+
 // --- engine -----------------------------------------------------------------
 
 export const adapters = { board: boardAdapter, arena: arenaAdapter };
@@ -3463,6 +3891,20 @@ export async function runCert({
       retryToPlayable: { budgetMs: BUDGETS.retryMs, worstMs: null, samples: [], verdict: 'unmeasured' },
       fps: { medianMin: BUDGETS.fpsMedianMin, windows: [], verdict: 'unmeasured' },
       tapDepth: { budget: BUDGETS.tapDepth, taps: null, verdict: 'unmeasured' },
+      controls: { budgetDead: BUDGETS.deadControlsMax, tapped: 0, reacted: 0, dead: [], dimmedNoReaction: [], declaredNoop: [], surfaces: [], verdict: 'unmeasured' },
+      audioRate: { budgetPerSec: BUDGETS.audioReqPerSec, minEnemies: BUDGETS.audioMinEnemies, windows: [], medianPerSec: null, verdict: 'unmeasured', reason: null },
+      actorSize: { enemyPctW: BUDGETS.enemyHeightPctW, heroPctW: BUDGETS.heroHeightPctW, gameW: null, hero: null, kinds: [], verdict: 'unmeasured', reason: null },
+      composition: {
+        decalsPerScreenP95: BUDGETS.decalsPerScreenP95,
+        decalAlphaMax: BUDGETS.decalAlphaMax,
+        propKindsPerScreenMedian: BUDGETS.propKindsPerScreenMedian,
+        propOverlapMax: BUDGETS.propOverlapMax,
+        source: null,
+        screens: 0,
+        measured: null,
+        verdict: 'unmeasured',
+        reason: null,
+      },
     },
     beats: [],
     surfaces: [],
@@ -3603,6 +4045,12 @@ function makeCtx({ tab, page, slug, baseUrl, shotsDir, report, adapter, log }) {
      * its own epoch and measurements are harvested before the page goes away.
      */
     epochs: [],
+    /**
+     * Samples from the adapter's in-page probe (`page.installProbe` /
+     * `page.drainProbe`), drained with every harvest: combat audio rate,
+     * actor sizes and world composition. Empty for an adapter without one.
+     */
+    probe: { audio: [], actors: [], composition: [] },
     /** Scene keys already entered once, so a cold-start cost can be named. */
     warmScenes: new Set(),
     /** The open teleport span, or null. See `ctx.teleport`. */
@@ -3719,6 +4167,7 @@ function makeCtx({ tab, page, slug, baseUrl, shotsDir, report, adapter, log }) {
     async install() {
       const r = await tab.evaluate(pgInstall);
       if (!r || !r.ok) throw new Error(`instrumentation failed: ${r ? r.why : 'no result'}`);
+      if (adapter.page.installProbe) await tab.evaluate(adapter.page.installProbe).catch(() => null);
       await ctx.silence();
       await ctx.refreshView();
       return r;
@@ -3775,6 +4224,10 @@ function makeCtx({ tab, page, slug, baseUrl, shotsDir, report, adapter, log }) {
 
     /** Drains the page recorders into a new epoch. Safe to call repeatedly. */
     async harvest(label) {
+      if (adapter.page.drainProbe) {
+        const p = await tab.evaluate(adapter.page.drainProbe).catch(() => null);
+        if (p) for (const k of Object.keys(ctx.probe)) ctx.probe[k].push(...(p[k] ?? []).map((x) => ({ ...x, epoch: ctx.epochs.length })));
+      }
       const data = await tab.evaluate(pgCollect).catch(() => null);
       if (data === null) return null;
       ctx.epochs.push({ label: `until:${label}`, ...data });
@@ -3845,6 +4298,154 @@ function makeCtx({ tab, page, slug, baseUrl, shotsDir, report, adapter, log }) {
         await ctx.sleep(16);
       }
       await page.mouse.up();
+    },
+
+    /**
+     * The control sweep (`BUDGETS.deadControlsMax`): taps every visible, in-view,
+     * reachable (not under a later camera's or deeper container's hit area)
+     * control `list()` returns on the current surface and records whether the
+     * game changed (`pgFingerprint`, judged against the surface's own idle
+     * churn). Not tapped: `skip(c)` (navigation a phase certifies elsewhere, or
+     * controls that would destroy the surface — EMBARK, ABANDON, RESET), a
+     * control whose game object carries `setData('noop', '<reason>')` (recorded
+     * as a DECLARED no-op), a backdrop (a tap-catcher over most of the screen)
+     * and a Sound/Mute toggle (the harness forces mute, so it cannot react).
+     * A wide control (slider, segmented) that ignores its exact centre gets a
+     * second probe a quarter in. After every tap the surface is put back: ESC
+     * while an overlay the tap opened is still up, then `restore(base)` (the
+     * adapter's way back — re-select the tab, reopen the pause). `here()` says
+     * the surface is still the one swept; an overlay a tap opened ON it is swept
+     * one level deep (`nested` per surface), a tap that left it is navigation.
+     * Controls that showed nothing get a SECOND pass after all the others: an
+     * option that was already selected (the current segment, the active
+     * hazard) reacts once a sibling has moved the selection. What stays silent
+     * is dead (or `dimmed` when drawn disabled). Lands in
+     * `measurements.controls.surfaces`.
+     */
+    async sweepControls(surface, { list, skip = () => false, restore = async () => true, here = async () => true, maxTaps = 30, nested = 2 } = {}) {
+      const m = report.measurements.controls;
+      const fp = () => tab.evaluate(pgFingerprint);
+      const camsOf = (f) => f.scenes.split('+').reduce((n, s) => n + Number(s.split('/')[1] || 0), 0);
+      const neutral = async () => {
+        const v = await ctx.refreshView();
+        await page.mouse.move(v.left + 2, v.top + 2);
+      };
+      const rec = { surface, tapped: 0, reacted: [], dead: [], dimmed: [], declared: [], skipped: [], aborted: null };
+      m.surfaces.push(rec);
+      await neutral();
+      await ctx.sleep(300);
+      const base = await fp();
+      await ctx.sleep(600);
+      const noise = fingerprintNoise(base, await fp());
+      const putBack = async () => {
+        for (let i = 0; i < 3; i += 1) {
+          const now = await fp();
+          if (now.scenes === base.scenes || camsOf(now) <= camsOf(base)) break;
+          await page.keyboard.down('Escape');
+          await page.keyboard.up('Escape');
+          await ctx.sleep(350);
+        }
+        if ((await restore(base).catch(() => false)) === false) return false;
+        await ctx.sleep(250);
+        return (await fp()).scenes === base.scenes;
+      };
+      const v = await ctx.refreshView();
+      const listed = (await list()).filter((c) => c.visible && c.inView && c.alpha > 0.05 && c.w >= 8 && c.h >= 8);
+      const rank = (o) => (o.camOrder ?? 0) * 1e6 + (o.depth ?? 0);
+      const covered = (c) => listed.some((o) => o !== c && rank(o) > rank(c) && Math.abs(o.x - c.x) <= o.w / 2 && Math.abs(o.y - c.y) <= o.h / 2);
+      const controls = [];
+      for (const c of listed) {
+        if (covered(c)) continue;
+        if (controls.some((o) => Math.abs(o.x - c.x) <= 6 && Math.abs(o.y - c.y) <= 6)) continue;
+        controls.push(c);
+      }
+      // An earlier tap may have rebuilt the surface (a purchase re-lays a list):
+      // a control is tapped where it is NOW, or reported gone.
+      const locate = async (c) =>
+        (await list()).find((o) => o.scene === c.scene && o.label === c.label && o.visible && o.inView && Math.hypot(o.x - c.x, o.y - c.y) <= (c.label ? 60 : 8)) ?? null;
+      const probe = async (c, name) => {
+        const cur = await locate(c);
+        if (cur === null) return null;
+        const points = [[cur.x, cur.y]];
+        if (cur.w > cur.h * 2.5) points.push([Math.round(cur.x - cur.w / 4), cur.y]);
+        let parts = [];
+        let before = null;
+        let after = null;
+        for (const [x, y] of points) {
+          before = await fp();
+          const vv = await ctx.refreshView();
+          await page.mouse.move(vv.left + x * vv.sx, vv.top + y * vv.sy);
+          await ctx.sleep(120);
+          await ctx.tap(x, y, { label: `sweep ${surface}: ${name}` });
+          await neutral();
+          await ctx.sleep(450);
+          after = await fp();
+          parts = reactionParts(fingerprintDiff(before, after), noise);
+          if (parts.length > 0) break;
+        }
+        return { cur, parts, before, after };
+      };
+      const silence = (c, name) => (c.alpha < 0.95 ? rec.dimmed : rec.dead).push({ label: name, x: c.x, y: c.y, alpha: c.alpha, scene: c.scene });
+      let nestedLeft = nested;
+      const silent = [];
+      for (const c of controls) {
+        const name = c.label ? c.label.replace(/\s+/g, ' ') : `${c.type}@${c.x},${c.y}`;
+        if (skip(c)) rec.skipped.push(name);
+        else if (/^(sound|mute)$/i.test((c.label || '').trim())) rec.skipped.push(`${name} (mute is forced by the harness)`);
+        else if (c.noop) rec.declared.push({ label: name, reason: c.noop });
+        else if (c.w * c.h > 0.45 * v.designW * v.designH) rec.skipped.push(`${name} (backdrop)`);
+        else if (rec.tapped >= maxTaps) rec.skipped.push(`${name} (over the ${maxTaps}-tap cap)`);
+        else {
+          const r = await probe(c, name);
+          if (r === null) {
+            rec.skipped.push(`${name} (gone after an earlier tap)`);
+            continue;
+          }
+          rec.tapped += 1;
+          if (r.parts.length === 0) silent.push({ c, name });
+          else {
+            rec.reacted.push(`${name}: ${r.parts.join('+')}`);
+            if (nestedLeft > 0 && camsOf(r.after) > camsOf(r.before) && (await here())) {
+              nestedLeft -= 1;
+              const parent = new Set(listed.map((o) => `${o.scene}:${o.x}:${o.y}`));
+              await ctx.shot(`sweep-${surface}-${name}`.replace(/[^a-z0-9]+/gi, '-').toLowerCase().slice(0, 60));
+              const open = r.after;
+              await ctx.sweepControls(`${surface} > ${name}`, {
+                list: async () => (await list()).filter((o) => !parent.has(`${o.scene}:${o.x}:${o.y}`)),
+                skip,
+                maxTaps: 12,
+                nested: 0,
+                // A tap inside the overlay that closed it: back to the surface, then reopen it.
+                restore: async () => {
+                  if (camsOf(await fp()) >= camsOf(open)) return true;
+                  await putBack();
+                  await ctx.tap(r.cur.x, r.cur.y, { label: `sweep ${surface}: reopen ${name}` });
+                  await neutral();
+                  await ctx.sleep(500);
+                  return true;
+                },
+              });
+            }
+          }
+          if (!(await putBack())) {
+            rec.aborted = `could not return to ${surface} after tapping "${name}"`;
+            break;
+          }
+        }
+      }
+      for (const { c, name } of silent) {
+        if (rec.aborted) {
+          rec.skipped.push(`${name} (silent, second pass lost to the abort)`);
+          continue;
+        }
+        const r = await probe(c, name);
+        if (r === null) rec.skipped.push(`${name} (gone before its second pass)`);
+        else if (r.parts.length > 0) rec.reacted.push(`${name}: ${r.parts.join('+')} (second pass)`);
+        else silence(c, name);
+        if (!(await putBack())) rec.aborted = `could not return to ${surface} after the second pass on "${name}"`;
+      }
+      ctx.log(`sweep ${surface}: ${rec.tapped} tapped, ${rec.reacted.length} reacted, ${rec.dead.length} dead, ${rec.declared.length} declared no-op, ${rec.skipped.length} skipped`);
+      return rec;
     },
 
     /**
@@ -4228,6 +4829,7 @@ async function scoreMeasurements(ctx) {
   const { report } = ctx;
   const m = report.measurements;
   await ctx.harvest('end of run');
+  scoreTasteBudgets(ctx);
   const epochs = ctx.epochs;
   if (epochs.length === 0) {
     ctx.major('measure:no-data', 'instrumentation never recorded a sample');
@@ -4389,6 +4991,163 @@ async function scoreMeasurements(ctx) {
     marks: e.marks.map((k) => k.name),
     sceneTrail: e.scenes.map((s) => `${s.t}:${s.keys}`),
   }));
+}
+
+const p95 = (xs) => (xs.length === 0 ? null : [...xs].sort((a, b) => a - b)[Math.max(0, Math.ceil(xs.length * 0.95) - 1)]);
+const listOf = (xs, n = 10) => `${xs.slice(0, n).join('; ')}${xs.length > n ? `; ... (+${xs.length - n})` : ''}`;
+
+/**
+ * The four taste budgets that read the running game instead of a clock: the
+ * control sweep, combat audio rate, actor size and world composition. Their
+ * data comes from the adapter (`sweepControls` calls, the in-page probe);
+ * what the build does not expose stays `unmeasured` with a reason and never
+ * blocks, and a budget the build is measurably over does.
+ */
+function scoreTasteBudgets(ctx) {
+  const m = ctx.report.measurements;
+
+  const c = m.controls;
+  for (const s of c.surfaces) {
+    c.tapped += s.tapped;
+    c.reacted += s.reacted.length;
+    c.dead.push(...s.dead.map((d) => ({ surface: s.surface, ...d })));
+    c.dimmedNoReaction.push(...s.dimmed.map((d) => ({ surface: s.surface, ...d })));
+    c.declaredNoop.push(...s.declared.map((d) => ({ surface: s.surface, ...d })));
+    if (s.aborted) ctx.major('controls:sweep-aborted', `control sweep of ${s.surface} stopped early: ${s.aborted}`, s);
+  }
+  if (c.surfaces.length > 0) {
+    c.verdict = c.dead.length <= BUDGETS.deadControlsMax ? 'pass' : 'fail';
+    if (c.verdict === 'fail') {
+      ctx.blocker(
+        'budget:controls',
+        `${c.dead.length} visible control(s) changed nothing when tapped and are not declared no-ops ` +
+          `(setData('noop', reason)): ${listOf(c.dead.map((d) => `${d.surface}: "${d.label}"`))}`,
+        c.dead,
+      );
+    }
+    if (c.dimmedNoReaction.length > 0) {
+      ctx.major(
+        'controls:dimmed-silent',
+        `${c.dimmedNoReaction.length} dimmed control(s) gave no feedback when tapped — a locked control says why (toast/shake): ` +
+          listOf(c.dimmedNoReaction.map((d) => `${d.surface}: "${d.label}"`)),
+        c.dimmedNoReaction,
+      );
+    }
+  }
+
+  // Combat audio: requested-count delta over >= 2 s of live play with the horde on screen.
+  const a = m.audioRate;
+  const runs = [];
+  let cur = [];
+  let peakNear = 0;
+  for (const s of ctx.probe.audio) {
+    peakNear = Math.max(peakNear, s.near);
+    const prev = cur[cur.length - 1];
+    const hot = s.near >= BUDGETS.audioMinEnemies;
+    if (hot && prev && prev.epoch === s.epoch && s.t - prev.t <= 700 && s.req >= prev.req) {
+      cur.push(s);
+    } else {
+      if (cur.length > 1) runs.push(cur);
+      cur = hot ? [s] : [];
+    }
+  }
+  if (cur.length > 1) runs.push(cur);
+  for (const run of runs) {
+    let start = 0;
+    for (let i = 1; i < run.length; i += 1) {
+      const ms = run[i].t - run[start].t;
+      if (ms >= 3000 || (i === run.length - 1 && ms >= 2000)) {
+        const requests = run[i].req - run[start].req;
+        a.windows.push({
+          epoch: run[i].epoch,
+          fromMs: run[start].t,
+          ms,
+          requests,
+          perSec: Math.round((requests * 10000) / ms) / 10,
+          enemiesMin: Math.min(...run.slice(start, i + 1).map((x) => x.near)),
+        });
+        start = i;
+      }
+    }
+  }
+  if (ctx.probe.audio.length === 0) {
+    a.reason = 'the build exposes no window.__AUDIO__().requested, or no live combat was sampled';
+  } else if (a.windows.length === 0) {
+    a.reason = `never ${BUDGETS.audioMinEnemies}+ enemies on screen for 2 s of live play (peak ${peakNear})`;
+  } else {
+    a.medianPerSec = median(a.windows.map((w) => w.perSec));
+    a.verdict = a.medianPerSec >= BUDGETS.audioReqPerSec ? 'pass' : 'fail';
+    if (a.verdict === 'fail') {
+      ctx.blocker(
+        'budget:audio-rate',
+        `combat with ${BUDGETS.audioMinEnemies}+ enemies on screen requested a median ${a.medianPerSec} sfx/s over ` +
+          `${a.windows.length} window(s) (budget >= ${BUDGETS.audioReqPerSec}/s): every gameplay event needs a voice`,
+        a.windows,
+      );
+    }
+  }
+
+  // Actor size: median visible height per enemy kind and for the hero, in screen px.
+  const s = m.actorSize;
+  const act = ctx.probe.actors;
+  if (act.length === 0) {
+    s.reason = 'no live run exposed its actors to the probe';
+  } else {
+    s.gameW = act[0].gameW;
+    const pct = (px) => Math.round((px * 1000) / s.gameW) / 10;
+    const heroPx = act.filter((x) => x.hero).map((x) => x.hero.px);
+    if (heroPx.length > 0) s.hero = { px: Math.round(median(heroPx)), pctW: pct(median(heroPx)), src: act.find((x) => x.hero).hero.src, samples: heroPx.length };
+    const byKind = new Map();
+    for (const x of act) {
+      for (const e of x.enemies) {
+        const k = byKind.get(e.kind) ?? { px: [], src: e.src };
+        k.px.push(e.px);
+        byKind.set(e.kind, k);
+      }
+    }
+    s.kinds = [...byKind].map(([kind, k]) => ({ kind, px: Math.round(median(k.px)), pctW: pct(median(k.px)), src: k.src, samples: k.px.length }));
+    s.kinds.sort((x, y) => x.pctW - y.pctW);
+    const small = s.kinds.filter((k) => k.pctW < BUDGETS.enemyHeightPctW);
+    const heroSmall = s.hero !== null && s.hero.pctW < BUDGETS.heroHeightPctW;
+    s.verdict = s.hero === null && s.kinds.length === 0 ? 'unmeasured' : small.length === 0 && !heroSmall ? 'pass' : 'fail';
+    if (s.verdict === 'fail') {
+      ctx.blocker(
+        'budget:actor-size',
+        `actors read too small on screen (enemy >= ${BUDGETS.enemyHeightPctW}% of the game width, hero >= ${BUDGETS.heroHeightPctW}%): ` +
+          listOf([...(heroSmall ? [`hero ${s.hero.pctW}%`] : []), ...small.map((k) => `${k.kind} ${k.pctW}% (${k.px}px)`)]),
+        { hero: s.hero, small },
+      );
+    }
+  }
+
+  // World composition, per screen of every generated map.
+  const w = m.composition;
+  const comp = ctx.probe.composition;
+  if (comp.length === 0) {
+    w.reason = 'the scene exposes no composition data (Game scene `composition()` hook)';
+  } else {
+    w.source = comp[0].source;
+    w.screens = comp.length;
+    const withProps = comp.filter((x) => x.props >= 3);
+    const overlapSamples = comp.filter((x) => x.overlaps !== null);
+    w.measured = {
+      decalsP95: p95(comp.map((x) => x.decals)),
+      decalAlphaMax: Math.max(0, ...comp.map((x) => x.decalAlphaMax ?? 0)),
+      propsMedian: median(comp.map((x) => x.props)),
+      propKindsMedian: withProps.length > 0 ? median(withProps.map((x) => x.kinds)) : null,
+      overlaps: overlapSamples.length > 0 ? overlapSamples.reduce((n, x) => n + x.overlaps, 0) : null,
+    };
+    const over = [];
+    if (w.measured.decalsP95 > BUDGETS.decalsPerScreenP95) over.push(`decals p95 ${w.measured.decalsP95}/screen > ${BUDGETS.decalsPerScreenP95}`);
+    if (w.measured.decalAlphaMax > BUDGETS.decalAlphaMax + 1e-6) over.push(`decal alpha ${w.measured.decalAlphaMax} > ${BUDGETS.decalAlphaMax}`);
+    if (w.measured.propKindsMedian !== null && w.measured.propKindsMedian < BUDGETS.propKindsPerScreenMedian) {
+      over.push(`median ${w.measured.propKindsMedian} distinct prop kind(s) on screens holding >= 3 props < ${BUDGETS.propKindsPerScreenMedian}`);
+    }
+    if (w.measured.overlaps !== null && w.measured.overlaps > BUDGETS.propOverlapMax) over.push(`${w.measured.overlaps} overlapping prop/decal pair(s)`);
+    if (w.measured.overlaps === null) w.reason = 'overlap unmeasured: the scene exposes no drawn radius/group per prop';
+    w.verdict = over.length === 0 ? 'pass' : 'fail';
+    if (over.length > 0) ctx.blocker('budget:composition', `world composition over budget over ${comp.length} sampled screen(s): ${over.join('; ')}`, w.measured);
+  }
 }
 
 /**

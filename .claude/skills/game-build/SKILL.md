@@ -521,14 +521,14 @@ One integrator (this skill directly, or a single dedicated `task`):
    is a SECOND implementation of the rules and it will certify a game that does
    not exist: `src/sim/families/arena.ts` passed the gate "every upgrade-card
    modifier targets a stat the run model reads" by measuring the SIM's reader,
-   not the scene's, while the shipped scene ignored 8 modifiers. Pick the three
-   numbers this family's hard gates depend on (arena: time-to-first-upgrade,
-   contested-channel duration, floor-bot run length), measure the same three in
-   the live browser tab from the same starting state, and record a parity
-   table: `metric | sim | live | delta%`. **Any gate-bearing number off by more
-   than 25% means the SIM is wrong, not the game** — fix the sim model before
-   tuning anything with it. Measured in Duskhaul: contested channel 17.4s in
-   sim vs 35-40s live, and the balance loop tuned against the 17.4s.
+   not the scene's, while the shipped scene ignored 8 modifiers. Measure the
+   family's three gate-bearing numbers (list and tolerance:
+   `skill://game-prd/references/design-heuristics.md` §18.2) in the live
+   browser tab from the same starting state, and record a parity table:
+   `metric | sim | live | delta%`. **A number outside the tolerance means the
+   SIM is wrong, not the game** — fix the sim model before tuning anything
+   with it. Measured in Duskhaul: contested channel 17.4s in sim vs 35-40s
+   live, and the balance loop tuned against the 17.4s.
 6. **A gate that asserts something about the SCENE must read the SCENE.** If
    the assertion is "the game reads this stat / registers this effect id /
    spawns this content", the check imports the scene's own symbol or it is not
@@ -541,6 +541,22 @@ One integrator (this skill directly, or a single dedicated `task`):
    (reaction delay, aim error, idle frames) until it lands below the critic's
    measured run, and record both numbers in the report. Duskhaul's floor bot
    outperformed the human; its "playable at low skill" gate meant nothing.
+8. **Difficulty is signed off LIVE, not by the sim.** Against the production
+   preview (`npm run preview`) and a HEADLESS Chrome with
+   `--remote-debugging-port` (§Side effects on the user's machine), run both
+   policies:
+   `node scripts/live-bot.mjs <slug> --url http://localhost:<port>/ --policy novice|veteran [--runs 3] [--seconds 480] [--endpoint http://127.0.0.1:9222]`
+   (honest: no refills, no invulnerability, no clock jumps; `?mute=1`
+   forced; with `--fresh` the FTUE run is listed but not scored; writes
+   `games/<slug>/live-bot-<policy>.json` — per-run outcome, seconds,
+   minHpPct, drafts, firstExtractS, a summary, and a verdict: novice
+   `too-hard`|`too-easy`|`on-target`, veteran `too-easy`|`on-target`).
+   Compare with PRD §1c's difficulty-live row (targets: design-heuristics
+   §18.2). Any verdict other than `on-target` is a miss, and a miss is
+   a balance-loop iteration (counts toward the 3 above); when the targets are
+   met exactly, go one difficulty step harder, per §18.2. The live-bot table
+   goes into the Step 7 report next to the parity table. Duskhaul's bots
+   called the build hard; its user called it "too easy".
 
 ### Step 5 — Browser bot procedure
 
@@ -739,14 +755,26 @@ Do this in writing, before declaring the build green:
 
 1. **Collect one line per measuring system that ran:** the sim gate table,
    `cert-report.json` `blockers[]` **and** `majors[]`, `fuzz-report.json`, the
-   critic's persona notes, the balance loop's deep-run stats, game-qa findings,
-   the flow audit. A system with no line did not run — run it.
+   critic's persona notes, the balance loop's deep-run stats, the Step 4
+   parity and live-bot tables, game-qa findings, the flow audit. A system with
+   no line did not run — run it.
    `node scripts/release-check.mjs <slug> --json` hands you the machine
-   handles for three of these rows: finding ids prefixed `cert:major:` (a
-   passing cert's majors, printed with their evidence), `wiring:dead-art`
-   (generated assets nothing in `src/` names — Duskhaul: 37 of 103) and
-   `fuzz:coverage` (the fuzz sweep never left one scene). Start the table from
-   those; they are the rows a human reconciliation forgets.
+   handles for these rows: finding ids prefixed `cert:major:` (a passing
+   cert's majors, printed with their evidence), `wiring:dead-art` (generated
+   assets nothing in `src/` names — Duskhaul: 37 of 103), `fuzz:coverage`
+   (the fuzz sweep never left one scene), `assets:coverage` (a content id
+   with no icon, a weapon/evolution with no world fx) and `assets:placeholder`
+   (content drawn by a procedural fallback). Then one row per PRD §1c taste
+   axis, each from its own measurement: cert `report.measurements`
+   `actorSize` / `composition` / `audioRate` / `controls` (verdict
+   `pass`/`fail`/`unmeasured` — `unmeasured` is a row to close, not a pass),
+   the build-variety and runs-to-max selftests, the live-bot table, and
+   `node scripts/audit-check.mjs <slug>` `taste:*`; plus the wiring selftest
+   (`src/sim/kits/wiring.selftest.ts`: every paid/loadout field has a reader).
+   Start the table from those; they are the rows a human reconciliation
+   forgets. Duskhaul's user found an unread "start at level 2", a no-op
+   pause SETTINGS button, icon-less powerups and a triangle placeholder
+   in-world — each a row here, none a playtest finding.
 2. **Build the table above for THIS game,** with a fourth column the systems
    never write: **the player-visible fact** ("the player can/cannot X"). The
    wording column never matches across systems; the fact column is the whole
@@ -766,6 +794,37 @@ Do this in writing, before declaring the build green:
 5. Green requires zero unexplained pairs and zero unproven content. Paste the
    finished table into the Step 7 report; it is the input to Step 8's delta
    table.
+
+### Step 5.9 — Taste checkpoint (before the user playtest)
+
+A taste axis discovered by iteration costs a whole fix round per guess.
+Duskhaul's user asked for a bigger map TWICE (8-16×, then 16× more), called
+the bot-certified difficulty "too easy", and picked the level-up sound only
+after rejecting the synth set. Offer those axes up front, as choices with
+defaults, before handing over the build:
+
+1. **Build the taste sheet from PRD §1c's `[taste choice]` rows** — 3-4 axes,
+   never more: **world scale** (the shipped screens count plus two
+   alternatives, e.g. ×0.5 and ×2-4; skip when §1c says `n/a`),
+   **difficulty** (the Step 4.8 live-bot result, plus one step easier and one
+   harder), **signature sounds** (level-up, evolution/rank-up, the run's
+   payoff beat — 3-5 generated options each, `game-art` Step 1d), and at most
+   one game-specific axis the critic flagged. Every option carries the
+   measured number behind it; the shipped value is the recommended default.
+2. **Sounds are PLAYED, never described.** List each option as a direct URL
+   on the preview server (`/assets/audio/sfx/options/<voice>-<A..E>.ogg`) so
+   the user clicks through them; a written description of a sound is not a
+   choice. After the pick the `options/` folder is deleted (`game-art` Step
+   1d) — it never ships.
+3. **Interactive run:** one `ask` batch with the defaults marked; apply the
+   picks before the playtest URL is handed over, and log each changed §1c
+   number in PRD §18's amendment table. **Headless run:** ship the defaults
+   and put the sheet in the Step 7 report next to the playtest URL.
+4. The playtest hand-off names the `?debug` dev API (`window.__DEV__`,
+   template `core/dev.ts`: grant XP/currency, unlock all, max meta, plus the
+   slice's teleport/skip/boss hooks) so the user can reach late content
+   without a grind. Never on the store build: the API exists only behind
+   `?debug`.
 
 ### Step 6 — Store listing + publish
 
@@ -803,7 +862,10 @@ Do this in writing, before declaring the build green:
    `texture:`/`ArtSlot` key resolves to generated art** (an unresolved key
    draws the procedural fallback — this is how 72 generated props shipped
    unplaced behind `tex-square`); **every `TEXTURE`/`ANIM`/`ICON` alias the
-   code reads is declared by the registry**; a `cert-report.json` with
+   code reads is declared by the registry**; **every content id has an icon
+   and every weapon/evolution a world fx** (`assets:coverage`) and **no
+   content draws a procedural placeholder** (`assets:placeholder` — a
+   placeholder is a defect, never an accepted fallback); a `cert-report.json` with
    `passed: true` **for every family, adapter or not**, and a
    `fuzz-report.json` (both missing-report cases are blockers now, Step 5.7);
    **`playtest.approved: true` recorded by a real user
@@ -822,7 +884,8 @@ Do this in writing, before declaring the build green:
 3. **User playtest gate (blocking).** The user plays the game before it
    ships — no exceptions:
    - Keep the Step-5 server running (or restart it) and hand the user the URL
-     plus a one-line "what to try" (the family's core loop verbs). **This is
+     plus a one-line "what to try" (the family's core loop verbs) AND the
+     Step 5.9 taste sheet. **This is
      the one URL that does NOT carry `?mute=1`** — the human is playing on
      purpose and audio is part of what they are judging. Say so when you hand
      it over, and confirm the automated tabs are closed so nothing else is
@@ -887,8 +950,9 @@ Report, in this order:
 6. Any fallback taken under §Failure policy, stated plainly, not buried.
 7. **The Step 5.8 reconciliation table** in full (system | wording | number |
    player-visible fact), including the rows that agreed, plus the Step 4
-   sim-vs-live parity table (`metric | sim | live | delta%`) and the floor-bot
-   vs novice-persona comparison.
+   sim-vs-live parity table (`metric | sim | live | delta%`), the floor-bot
+   vs novice-persona comparison, the Step 4.8 live-bot table, and the Step
+   5.9 taste sheet with the user's picks (or the defaults shipped).
 8. **The wave record.** Every `build-state.json` `waves[]` row that ended
    `dead` or `taken-over`, with its machine-recorded `cause.kind`, the verbatim
    `cause.evidence`, and the recovery taken. "A subagent died" without a cause
@@ -1058,6 +1122,12 @@ Run this before every `task` batch. Each item cost this pipeline a wave.
    that opens a browser tab on a user's desktop is running on their hardware,
    and the default is: make no sound, steal no focus, write nothing outside the
    workspace.
+7. **Never yield with background jobs.** Every dispatch carries, verbatim:
+   *"Run long commands in the FOREGROUND, chunked under the tool timeout, or
+   wait for them; never end your turn while a background job, server or
+   async command of yours is still running — a parked session kills its jobs
+   and their results are lost."* Balance (twice) and SeamOwner parked
+   mid-measurement this way and their numbers died with the jobs.
 
 ### Side effects on the user's machine
 
@@ -1180,6 +1250,21 @@ nobody had told it what to do when it ran long.
 - **Never let one gate block more than two workstreams.** If four are waiting,
   the gate is on the critical path: split its scope, or start the workstreams
   whose files the verdict cannot change.
+- **Machine gates have budgets too: `npm run verify` ≤ 5 min per push.**
+  `template/scripts/verify.sh` prints per-stage seconds, and the push profile
+  (`VERIFY_QUICK=1`) FAILS `OVER BUDGET` above `VERIFY_BUDGET_S` (300 s) ×
+  the runner's measured speed; the full profile reports it without failing.
+  CI verifies only changed games on push (`scripts/ci-verify.sh run
+  changed`, mapgen cache keyed by `mapgen-cache-key`) and everything nightly.
+  An over-budget run is fixed at its slowest stage (quick-profile samples,
+  cache, parallelism, or move it to the nightly profile) — never raised
+  away; the Duskhaul user asked for exactly this.
+- **Wall-clock assertions are calibrated, never absolute.** A gate that
+  asserts a duration scales it by the runner's measured speed:
+  `calibratedBudget(ms, calibrateRunner())` from `template/src/sim/calibrate.ts`
+  (reference workload), used by every `src/sim/kits/*.timing.selftest.ts`.
+  Measured: a mapgen timing assert failed CI at 653 ms > 600 ms on a slower
+  runner with the code unchanged.
 
 ## Checkpoints and dead agents
 
@@ -1309,6 +1394,7 @@ it looks answered.
 | `tool-missing` | the agent reports a required tool is unavailable, OR its transcript shows zero calls to the tool its job needs plus shell workarounds (`omp -p`, `curl`, a nested session) | Dispatch bug, not agent failure: re-dispatch to an agent type that mounts the tool, and discard the workaround's output. Does not consume respawn budget. |
 | `killed-by-interrupt` | the job aborted with an inbound message among its final events; the result never delivered | Your bug (§Message discipline). Do not respawn blind: read `history://<id>` — the verdict is usually IN the transcript — and check the owned files against §16.1 before deciding anything. |
 | `timeout` | exceeded 1.5x its dispatched timebox with no interim verdict | Take the interim verdict if any, unblock the dependents, and re-dispatch only the REMAINDER, as a narrower question. Never re-ask the whole question. |
+| `parked-with-jobs` | the agent's final turn ended while its own background/async job or service was still running (the job result arrives after the agent parked, or never) | Dispatch bug (preflight item 7 missing). Recover whatever the job wrote to disk, then respawn with the SAME task plus the preflight-7 clause and "re-run only the unfinished measurement, in the foreground". Does not consume respawn budget. |
 | `unknown` | none of the above matched | Quote the raw tail of the job result in `cause.evidence` and name it as unknown in the Step 7 report. Never invent a kind to fill the field. |
 
 **When a subagent dies** (no result, provider/stream error, or a result that
@@ -1338,8 +1424,9 @@ does not match its ownership globs):
    Frozen contracts and file ownership are unchanged — never widen a respawn's
    ownership to cover a sibling's files.
 4. **Maximum 2 respawns per task**, counting only `context-exhaustion`,
-   `provider-error` and `killed-by-interrupt`. `tool-missing`, and
-   `rate-limit` recovered by a model swap, are dispatch corrections and do not
+   `provider-error` and `killed-by-interrupt`. `tool-missing`,
+   `parked-with-jobs`, and `rate-limit` recovered by a model swap, are
+   dispatch corrections and do not
    count. After the second death, the orchestrator takes the slice over itself,
    finishes it inline, appends a `taken-over` row, and says so in the Step 7
    report.
@@ -1353,10 +1440,12 @@ the history is the evidence.
 ## Failure policy
 
 - **Art asset fails QC budget** (palette drift, silhouette collision,
-  clipped limbs after `game-art`'s retry budget) → keep the template's
-  default procedural/chibi asset for that slot, record a `qcExceptions`
-  entry with the reason, and continue — never block the whole build on one
-  asset.
+  clipped limbs after `game-art`'s retry budget) → record a `qcExceptions`
+  entry, keep the wave moving, and re-queue the slot on the next rung of
+  `game-art`'s fallback ladder (regenerate from a narrower brief, or same-style
+  template art). A content slot left on a procedural placeholder is a release
+  BLOCKER (`assets:placeholder`), never an accepted fallback — Duskhaul's
+  user found "Bone Halo is a triangle".
 - **Family has no starter slice (family D, or an exotic pitch).** D ships the
   kits but no `src/slices/` dir and no `src/sim/families/` gate. Do not
   scaffold D as arena and do not pretend a gate passed. Instead: scaffold with
@@ -1395,9 +1484,10 @@ the history is the evidence.
 - **Two systems disagree, or one says MAJOR while another says "flagged"** →
   they are reconciled per Step 5.8 before anything is called green.
   Corroboration raises severity; it never averages it.
-- **A sim gate and the live game disagree by > 25% on a gate-bearing number**
-  → the sim is wrong until proven otherwise. Fix the sim model before tuning
-  the game with it, and report both numbers.
+- **A sim gate and the live game disagree beyond the parity tolerance
+  (design-heuristics §18.2) on a gate-bearing number** → the sim is wrong
+  until proven otherwise. Fix the sim model before tuning the game with it,
+  and report both numbers.
 - **A broadcast killed an agent's result** → recover it from `history://<id>`
   before respawning anything, record `killed-by-interrupt`, and state the cost
   in the Step 7 report. This is the orchestrator's own defect, and it is

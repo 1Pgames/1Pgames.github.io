@@ -53,14 +53,35 @@ Non-negotiables (genre-independent):
   against it (record meanDistance).
 - Chroma-key discipline: pure #FF00FF flood phrasing; on
   background-contamination retry with reinforced-magenta wording; 2 retries
-  per asset per symptom, then keep the fallback and record a
+  per asset per symptom, then keep the best generated attempt and record a
   `qcExceptions[]` entry — never block a build on one asset.
 - Full-bleed backdrops/seamless tiles are the DOCUMENTED strict:false
   exceptions; everything else exports strict.
-- Every player-facing surface the PRD names ships real icons/sprites
-  (consumables, threats, goals, currencies, crests — whatever this genre
-  has) with `icons[]` manifest names; consumers keep `textures.exists`
-  fallbacks but real art must land.
+- **Asset completeness per content id.** Every content id (piece,
+  evolution, catalyst, upgrade, pickup, enemy, currency — whatever this
+  genre has) ships an icon in `icons[]`, and every weapon/evolution a
+  world fx sprite; `node scripts/release-check.mjs <slug>` fails
+  `assets:coverage` on a missing one and `assets:placeholder` on a
+  procedural stand-in. A placeholder is a DEFECT, never an accepted
+  fallback or a `qcExceptions[]` entry (recorded: a halo weapon shipped as
+  a triangle, powerup cards shipped iconless). Consumers keep
+  `textures.exists` guards only as crash safety.
+- **A character is one design across ALL its animations.** Persistent
+  attributes (bag side, held weapon hand, cloak, facing) are identical in
+  every action sheet: QC each character with a side-by-side frame-0 sheet
+  of every animation, attach it to the report, regenerate any drift
+  (recorded: the hero's idle flipped the bag side).
+- **Readability of actors** (horde genres): visible (alpha-trimmed) height
+  at renderScale ≥ 8% of screen width for enemies, ≥ 15% for the hero
+  (duskhaul `data/enemies.ts visiblePx`); floor value band L* 18-32;
+  red/green hues reserved for the baked team outlines of
+  `src/core/outline.ts` (hostile #ff2d2d 3/4/5 px trash/elite/boss,
+  hero/allies #39ff6a).
+- **World dressing is many single props, muted decals.** ≥ ~40 distinct
+  prop kinds per zone (≥ 3 per screen), each ONE object — no heaps or
+  clusters in a cell; decals alpha ≤ 0.45, desaturated into the floor band
+  (≤ 3 per screen p95 is mapgen's to enforce); floor variants blend with
+  feathered edges, never straight seams.
 - `art/manifest.json` is the single registry source;
   `node scripts/gen-art-registry.mjs` is the only writer of
   `src/data/art.ts` — never hand-edit it.
@@ -110,8 +131,13 @@ Measurement discipline (how a criterion earns the right to reject):
 NO commits; art files + manifest + style profile are yours, `src/**` is not
 (except regenerating the registry via the script).
 
+Long-running commands: run them in the FOREGROUND, chunked under the tool
+timeout (batch generations), or wait for them; never end a turn with a job
+still running — the session parks, the job dies, the result is lost.
+
 Report: per-asset table (intent, QC numbers, retries, exceptions), frame
-maps for sheets, the wiring contract (keys/frames) consumers use, and a
-CRITERIA section: every criterion you retracted or rescoped, the
-accepted-set measurement that retired it, and every post-review pixel
-transform you reviewed through.
+maps for sheets, the content-id → icon / world-fx coverage table (zero
+placeholders), the frame-0 consistency sheet per character, the wiring
+contract (keys/frames) consumers use, and a CRITERIA section: every
+criterion you retracted or rescoped, the accepted-set measurement that
+retired it, and every post-review pixel transform you reviewed through.
