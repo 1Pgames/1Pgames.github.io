@@ -1,0 +1,84 @@
+{
+  "group": "icons-v4",
+  "owner": "ArtArsenalIcons",
+  "note": "Arsenal-20 icons for the 8 new weapon/charm pairs (PRD-V2 \u00a75.8b.5). Static sheets addressed by frame via ICON.<id>; drawn at 48-96 px; cool hero palette, no red/green rims (rarity/state frames stay in UI code).",
+  "assets": [
+    {
+      "id": "icons-arsenal-wpn",
+      "kind": "ui",
+      "rows": 4,
+      "cols": 4,
+      "duration": 0,
+      "loop": false,
+      "attempts": 1,
+      "icons": [
+        "icon-wpn-aura",
+        "icon-wpn-chakram",
+        "icon-wpn-wake",
+        "icon-wpn-snares",
+        "icon-evo-aura",
+        "icon-evo-chakram",
+        "icon-evo-wake",
+        "icon-evo-snares",
+        "icon-wpn-siphon",
+        "icon-wpn-bombs",
+        "icon-wpn-totem",
+        "icon-wpn-thralls",
+        "icon-evo-siphon",
+        "icon-evo-bombs",
+        "icon-evo-totem",
+        "icon-evo-thralls"
+      ],
+      "action": "Arsenal-20 weapon + evolution icons for the 8 new pairs (rows: base, evolved, base, evolved), PRD-V2 \u00a75.8b.5",
+      "cellPx": 96,
+      "strict": true
+    },
+    {
+      "id": "icons-arsenal-charm-a",
+      "kind": "ui",
+      "rows": 2,
+      "cols": 2,
+      "duration": 0,
+      "loop": false,
+      "attempts": 0,
+      "icons": [
+        "icon-charm-c_pin",
+        "icon-charm-c_knuckle",
+        "icon-charm-c_sole",
+        "icon-charm-c_fuse"
+      ],
+      "action": "Arsenal-20 partner charms 1-4 (\u00a75.8b.2): Widow's Pin, Cheater's Knucklebone, Pilgrim's Sole, Sexton's Fuse",
+      "cellPx": 96,
+      "strict": true
+    },
+    {
+      "id": "icons-arsenal-charm-b",
+      "kind": "ui",
+      "rows": 2,
+      "cols": 2,
+      "duration": 0,
+      "loop": false,
+      "attempts": 0,
+      "icons": [
+        "icon-charm-c_vial",
+        "icon-charm-c_powder",
+        "icon-charm-c_hymnal",
+        "icon-charm-c_collar"
+      ],
+      "action": "Arsenal-20 partner charms 5-8 (\u00a75.8b.2): Marrow Vial, Ossuary Powder, Dirge Hymnal, Bone Collar",
+      "cellPx": 96,
+      "strict": true
+    }
+  ],
+  "qcExceptions": [
+    {
+      "id": "icons-v4/icons-arsenal-*",
+      "reason": "Export provenance, same class as icons-v2/icons-*: native generate_image (xai-oauth; inputs vision-1 + an accepted icons-v2 raw) exported by sprite-forge process-sprite.ts CLI --strict with --style-profile from the preserved raw, not by the OMP_SPRITE_EXPORT middleware, because xai returns the key as hot pink (~rgb(252,48,186)); art/briefs/v4-icons/normalize-key.py maps the sampled bg to #FF00FF first (pixels only ever become key). rebuild.sh reproduces every export from art/briefs/v4-icons/raw/."
+    },
+    {
+      "id": "icons-v4/icons-arsenal-wpn",
+      "reason": "allowSourceEdgeTouch reviewed: only frame 14 (icon-evo-totem, Cathedral of Bones) touches the raw cell top with the tip of a violet flame wisp (<4 px); the reliquary reads complete. Raw is a same-position cell composite (compose-cells.py) of attempt 1 + the xai edit attempt 2 cells r1c2/r2c2/r3c3, which removed the totem flame crossing into the wake cell and recoloured the Legion's orange collar straps to bone/steel; attempt 2 deleted the reliquary, so r3c2 stays attempt 1."
+    }
+  ],
+  "missing": []
+}

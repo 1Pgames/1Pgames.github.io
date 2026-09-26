@@ -1,0 +1,242 @@
+{
+  "source": {
+    "file": "choirwraith-attack-raw.png",
+    "provider": "xai",
+    "rawFile": "raw-source.png",
+    "width": 2020,
+    "height": 2020
+  },
+  "grid": {
+    "rows": 2,
+    "cols": 2
+  },
+  "output": {
+    "cellSize": 256,
+    "cellHeight": 256,
+    "align": "feet",
+    "scaleMode": "preserve",
+    "fit": 0.86,
+    "fullBleed": false,
+    "threshold": 180,
+    "feather": 0,
+    "edgeThreshold": 210,
+    "sampling": "nearest",
+    "durationMs": 110,
+    "componentMode": "all",
+    "componentPadding": 0,
+    "minComponentArea": 64,
+    "profileApplied": "choirwraith",
+    "overrides": [
+      "componentMode",
+      "minComponentArea"
+    ]
+  },
+  "qc": {
+    "strict": true,
+    "passed": true,
+    "failures": [],
+    "waived": [],
+    "notes": [],
+    "keyedPixels": 3383277,
+    "summary": {
+      "frameCount": 4,
+      "validFrameCount": 4,
+      "emptyCount": 0,
+      "sourceEdgeTouchCount": 0,
+      "outputEdgeTouchCount": 0,
+      "pasteClampedCount": 0,
+      "bodyScaleMean": 0.6413366336633664,
+      "bodyScaleCv": 0.044347475111244095,
+      "anchorXStd": 0.026594803997155036,
+      "anchorYStd": 0.0075849274485369185,
+      "anchorYMean": 0.825,
+      "outputSubjectHeightMean": 141.25,
+      "profileBodyScaleDrift": 0.046445880452342436,
+      "outputSubjectHeightDrift": 0.04629629629629628
+    },
+    "retryHints": [],
+    "background": {
+      "keyedFraction": 0.8281104793647681,
+      "edgeKeyFraction": 1,
+      "foreignRegionCount": 0,
+      "cellCoverage": [
+        0.13984805411234194,
+        0.1749004999509852,
+        0.2115870993039898,
+        0.16122242917361043
+      ],
+      "emptyCells": [],
+      "cell": {
+        "width": 1010,
+        "height": 1010,
+        "aspect": 1
+      },
+      "geometryMismatch": false,
+      "contaminated": false,
+      "findings": []
+    }
+  },
+  "scaleProfile": {
+    "path": "/Users/tmwh/homework/1Pgames/games/2026-08-29-duskhaul/public/assets/generated/enemies-v2/choirwraith-scale.json",
+    "name": "choirwraith",
+    "version": 2
+  },
+  "frames": [
+    {
+      "index": 0,
+      "file": "frames/frame-000.png",
+      "sourceBox": {
+        "left": 0,
+        "top": 0,
+        "width": 1010,
+        "height": 1010
+      },
+      "subjectBox": {
+        "left": 330,
+        "top": 251,
+        "width": 365,
+        "height": 618
+      },
+      "alignedBox": {
+        "left": 89,
+        "top": 114,
+        "width": 80,
+        "height": 135
+      },
+      "sourceAnchor": {
+        "x": 507,
+        "y": 821
+      },
+      "targetAnchor": {
+        "x": 128,
+        "y": 238
+      },
+      "empty": false,
+      "componentCount": 6,
+      "subjectArea": 141809,
+      "droppedArea": 0,
+      "bodyScale": 0.6118811881188119,
+      "sourceEdgeTouch": false,
+      "outputEdgeTouch": false,
+      "pasteClamped": false,
+      "scale": 0.21798019801980198
+    },
+    {
+      "index": 1,
+      "file": "frames/frame-001.png",
+      "sourceBox": {
+        "left": 1010,
+        "top": 0,
+        "width": 1010,
+        "height": 1010
+      },
+      "subjectBox": {
+        "left": 251,
+        "top": 209,
+        "width": 510,
+        "height": 660
+      },
+      "alignedBox": {
+        "left": 75,
+        "top": 101,
+        "width": 111,
+        "height": 144
+      },
+      "sourceAnchor": {
+        "x": 496,
+        "y": 836
+      },
+      "targetAnchor": {
+        "x": 128,
+        "y": 238
+      },
+      "empty": false,
+      "componentCount": 16,
+      "subjectArea": 177143,
+      "droppedArea": 0,
+      "bodyScale": 0.6534653465346535,
+      "sourceEdgeTouch": false,
+      "outputEdgeTouch": false,
+      "pasteClamped": false,
+      "scale": 0.21798019801980198
+    },
+    {
+      "index": 2,
+      "file": "frames/frame-002.png",
+      "sourceBox": {
+        "left": 0,
+        "top": 1010,
+        "width": 1010,
+        "height": 1010
+      },
+      "subjectBox": {
+        "left": 146,
+        "top": 245,
+        "width": 718,
+        "height": 624
+      },
+      "alignedBox": {
+        "left": 64,
+        "top": 108,
+        "width": 157,
+        "height": 136
+      },
+      "sourceAnchor": {
+        "x": 441,
+        "y": 842
+      },
+      "targetAnchor": {
+        "x": 128,
+        "y": 238
+      },
+      "empty": false,
+      "componentCount": 19,
+      "subjectArea": 213485,
+      "droppedArea": 0,
+      "bodyScale": 0.6178217821782178,
+      "sourceEdgeTouch": false,
+      "outputEdgeTouch": false,
+      "pasteClamped": false,
+      "scale": 0.21798019801980198
+    },
+    {
+      "index": 3,
+      "file": "frames/frame-003.png",
+      "sourceBox": {
+        "left": 1010,
+        "top": 1010,
+        "width": 1010,
+        "height": 1010
+      },
+      "subjectBox": {
+        "left": 326,
+        "top": 181,
+        "width": 359,
+        "height": 689
+      },
+      "alignedBox": {
+        "left": 89,
+        "top": 96,
+        "width": 78,
+        "height": 150
+      },
+      "sourceAnchor": {
+        "x": 504,
+        "y": 834
+      },
+      "targetAnchor": {
+        "x": 128,
+        "y": 238
+      },
+      "empty": false,
+      "componentCount": 8,
+      "subjectArea": 163732,
+      "droppedArea": 0,
+      "bodyScale": 0.6821782178217822,
+      "sourceEdgeTouch": false,
+      "outputEdgeTouch": false,
+      "pasteClamped": false,
+      "scale": 0.21798019801980198
+    }
+  ]
+}

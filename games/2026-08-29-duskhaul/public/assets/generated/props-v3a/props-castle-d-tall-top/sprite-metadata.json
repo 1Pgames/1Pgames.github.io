@@ -1,0 +1,100 @@
+{
+  "source": {
+    "file": "derived: crop of base prop frames (art/briefs/v3-props-a/build.py)",
+    "provider": "derived",
+    "width": 768,
+    "height": 768
+  },
+  "grid": {
+    "rows": 3,
+    "cols": 3
+  },
+  "output": {
+    "cellSize": 256,
+    "durationMs": 0,
+    "frameCount": 3,
+    "derivation": "upper half of each tall base frame (rows above alignedBox.top + height//2), identical cell geometry; cells after frameCount are empty"
+  },
+  "qc": {
+    "strict": true,
+    "passed": true,
+    "failures": [],
+    "notes": [
+      "derived-crop: registers pixel-for-pixel with its base cell"
+    ]
+  },
+  "frames": [
+    {
+      "index": 0,
+      "file": "frames/frame-000.png",
+      "name": "castle-obelisk-top",
+      "base": {
+        "asset": "props-castle-d",
+        "group": "props-v3a",
+        "frame": 0,
+        "alignedBox": {
+          "left": 79,
+          "top": 35,
+          "width": 99,
+          "height": 187
+        }
+      },
+      "cutY": 128,
+      "alignedBox": {
+        "left": 98,
+        "top": 35,
+        "width": 61,
+        "height": 93
+      },
+      "empty": false
+    },
+    {
+      "index": 1,
+      "file": "frames/frame-001.png",
+      "name": "castle-gargoyle-top",
+      "base": {
+        "asset": "props-castle-d",
+        "group": "props-v3a",
+        "frame": 4,
+        "alignedBox": {
+          "left": 71,
+          "top": 27,
+          "width": 114,
+          "height": 202
+        }
+      },
+      "cutY": 128,
+      "alignedBox": {
+        "left": 80,
+        "top": 27,
+        "width": 105,
+        "height": 101
+      },
+      "empty": false
+    },
+    {
+      "index": 2,
+      "file": "frames/frame-002.png",
+      "name": "castle-bollard-top",
+      "base": {
+        "asset": "props-castle-d",
+        "group": "props-v3a",
+        "frame": 7,
+        "alignedBox": {
+          "left": 73,
+          "top": 33,
+          "width": 110,
+          "height": 190
+        }
+      },
+      "cutY": 128,
+      "alignedBox": {
+        "left": 86,
+        "top": 33,
+        "width": 80,
+        "height": 95
+      },
+      "empty": false
+    }
+  ]
+}

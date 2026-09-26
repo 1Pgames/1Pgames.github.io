@@ -1,0 +1,338 @@
+{
+  "owner": "ArtArsenalFx",
+  "styleProfile": "games/2026-08-29-duskhaul/art/style.json",
+  "groups": [
+    {
+      "group": "weapon-fx-v2",
+      "owner": "ArtArsenalFx",
+      "assets": [
+        {
+          "id": "wpn-aura",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 140,
+          "loop": true,
+          "action": "Mourning Pall hollow cold-mist damage ring 4f slow swirl loop, radial, drawn under actors (code alpha)",
+          "attempts": 1
+        },
+        {
+          "id": "wpn-aura-evo",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 140,
+          "loop": true,
+          "action": "Pall of the Dead thick violet shroud ring with ghost-skull faces 4f swirl loop, radial (evolved)",
+          "attempts": 1
+        },
+        {
+          "id": "wpn-chakram",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 60,
+          "loop": true,
+          "action": "Ossuary Disc bone ring chakram 4f spin loop, no facing (rotated in code)",
+          "attempts": 2
+        },
+        {
+          "id": "wpn-chakram-evo",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 60,
+          "loop": true,
+          "action": "Wheel of Sorrows spoked rib wheel with violet hub 4f spin loop, no facing (evolved)",
+          "attempts": 1
+        },
+        {
+          "id": "wpn-wake",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 110,
+          "loop": true,
+          "action": "Gloam Wake cold violet ground fire patch 4f flicker loop, ground decal",
+          "attempts": 1
+        },
+        {
+          "id": "wpn-wake-evo",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 110,
+          "loop": true,
+          "action": "River of Dusk swirling indigo fire pool with drifting bones 4f flicker loop, ground decal (evolved)",
+          "attempts": 1
+        },
+        {
+          "id": "wpn-snares",
+          "kind": "fx",
+          "rows": 1,
+          "cols": 2,
+          "duration": 300,
+          "loop": true,
+          "action": "Grave Snare rib-ring skull trap 2f armed idle rune pulse loop",
+          "attempts": 1
+        },
+        {
+          "id": "wpn-snares-evo",
+          "kind": "fx",
+          "rows": 1,
+          "cols": 2,
+          "duration": 300,
+          "loop": true,
+          "action": "Ossuary Mine horned skull in spiked vertebra ring 2f armed idle pulse loop (evolved)",
+          "attempts": 1
+        },
+        {
+          "id": "wpn-snares-blast",
+          "kind": "fx",
+          "rows": 1,
+          "cols": 5,
+          "duration": 70,
+          "loop": false,
+          "action": "Grave Snare bone-shard and cyan rune blast 5f one-shot, radial",
+          "attempts": 2
+        },
+        {
+          "id": "wpn-snares-blast-evo",
+          "kind": "fx",
+          "rows": 1,
+          "cols": 5,
+          "duration": 70,
+          "loop": false,
+          "action": "Ossuary Minefield violet-cyan bone blast 5f one-shot, radial (evolved)",
+          "attempts": 2
+        },
+        {
+          "id": "wpn-siphon",
+          "kind": "fx",
+          "rows": 4,
+          "cols": 1,
+          "duration": 80,
+          "loop": true,
+          "action": "Marrow Siphon violet braided tether with bone core 4f flow loop, horizontal segment pointing right, tiles end-to-end",
+          "attempts": 2
+        },
+        {
+          "id": "wpn-siphon-evo",
+          "kind": "fx",
+          "rows": 4,
+          "cols": 1,
+          "duration": 80,
+          "loop": true,
+          "action": "Heartdrinker thick violet braid beam with bone core and cyan sparks 4f flow loop, horizontal segment pointing right (evolved)",
+          "attempts": 1
+        },
+        {
+          "id": "wpn-bombs",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 90,
+          "loop": true,
+          "action": "Rattle Urn bone-clay urn with cyan runes 4f tumble loop, no facing",
+          "attempts": 2
+        },
+        {
+          "id": "wpn-bombs-evo",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 90,
+          "loop": true,
+          "action": "Ossuary Barrage skull-lidded urn with violet cracks 4f tumble loop (evolved)",
+          "attempts": 1
+        },
+        {
+          "id": "wpn-bombs-blast",
+          "kind": "fx",
+          "rows": 1,
+          "cols": 5,
+          "duration": 70,
+          "loop": false,
+          "action": "Rattle Urn bone-clay shatter blast with cyan rune flash 5f one-shot, radial",
+          "attempts": 2
+        },
+        {
+          "id": "wpn-bombs-blast-evo",
+          "kind": "fx",
+          "rows": 1,
+          "cols": 5,
+          "duration": 70,
+          "loop": false,
+          "action": "Ossuary Barrage violet-cyan urn shatter blast 5f one-shot, radial (evolved)",
+          "attempts": 2
+        },
+        {
+          "id": "wpn-bombs-shard",
+          "kind": "fx",
+          "rows": 1,
+          "cols": 1,
+          "action": "Ossuary Barrage bone shard projectile, static, points right",
+          "attempts": 1
+        },
+        {
+          "id": "wpn-totem",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 140,
+          "loop": true,
+          "action": "Dirge Totem skull stake with cold violet flame 4f idle loop, upright, no flip",
+          "attempts": 1
+        },
+        {
+          "id": "wpn-totem-evo",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 140,
+          "loop": true,
+          "action": "Cathedral of Bones rib-arched skull spire with twin violet flames 4f idle loop, upright, no flip (evolved)",
+          "attempts": 1
+        },
+        {
+          "id": "wpn-totem-pulse",
+          "kind": "fx",
+          "rows": 1,
+          "cols": 5,
+          "duration": 80,
+          "loop": false,
+          "action": "Dirge Totem expanding violet dirge ring pulse 5f one-shot, radial ring",
+          "attempts": 3
+        },
+        {
+          "id": "wpn-totem-pulse-evo",
+          "kind": "fx",
+          "rows": 1,
+          "cols": 5,
+          "duration": 80,
+          "loop": false,
+          "action": "Cathedral of Bones violet-cyan double dirge ring pulse 5f one-shot, radial ring (evolved)",
+          "attempts": 3
+        },
+        {
+          "id": "wpn-thralls-move",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 120,
+          "loop": true,
+          "action": "Husk Thrall pallid grey crawling ally 4f scuttle loop, faces right",
+          "attempts": 3
+        },
+        {
+          "id": "wpn-thralls-bite",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 90,
+          "loop": false,
+          "action": "Husk Thrall lunge bite 4f one-shot, faces right",
+          "attempts": 1
+        },
+        {
+          "id": "wpn-thralls-death",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 110,
+          "loop": false,
+          "action": "Husk Thrall crumble to bone dust 4f one-shot, faces right",
+          "attempts": 1
+        },
+        {
+          "id": "wpn-thralls-evo-move",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 120,
+          "loop": true,
+          "action": "Legion of the Hollow collared thrall with violet runes 4f scuttle loop, faces right (evolved)",
+          "attempts": 1
+        },
+        {
+          "id": "wpn-thralls-evo-bite",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 90,
+          "loop": false,
+          "action": "Legion of the Hollow thrall lunge bite 4f one-shot, faces right (evolved)",
+          "attempts": 1
+        },
+        {
+          "id": "wpn-thralls-evo-burst",
+          "kind": "fx",
+          "rows": 1,
+          "cols": 5,
+          "duration": 70,
+          "loop": false,
+          "action": "Legion of the Hollow thrall bursts into violet bone shrapnel 5f one-shot, radial (evolved)",
+          "attempts": 1
+        }
+      ]
+    }
+  ],
+  "qcExceptions": [
+    {
+      "id": "weapon-fx-v2/wpn-thralls-move",
+      "reason": "attempt 3 shipped: xai returned a 3x2 sheet (a1) then 4 near-identical frames (a2); a3 has 4 distinct but subtle crawl poses (arch, reach) \u2014 reads as a scuttle at the 70 px target height with the code's move bob; identity, cyan eyes and feet line consistent."
+    },
+    {
+      "id": "weapon-fx-v2/wpn-totem-pulse-evo",
+      "reason": "attempt 3 written before generation: a1 (1x5 strip) rings crossed cell boundaries, a2 came back an irregular non-uniform 3x3 panel layout with a ring clipped at the canvas edge; a3 is requested on the 3x3 layout xai actually honours and 5 of its cells are selected (clean.py RETILE)."
+    },
+    {
+      "id": "weapon-fx-v2/wpn-totem-pulse",
+      "reason": "attempt 3 written before generation: a1 (1x5 strip) rings crossed cells and carried a white letterbox; a2 returned 3x3 but 5 of its 9 cells were so faint the ring keys away with the magenta (cell coverage <0.5%), leaving only 4 usable frames of the 5 the PRD asks for."
+    },
+    {
+      "id": "weapon-fx-v2/wpn-aura",
+      "reason": "palette meanDistance 61.84 > 48: PRD \u00a75.8b.1 mandates cyan #6fd6ff / violet #ad6eef hero fx and style.json's list has no cyan or mid-lilac entry (same list gap as canon weapon-fx-v1/wpn-rail 83.0, wpn-nova-evo 52.6); visually hard-edged cool pixel fx, no red/amber/white."
+    },
+    {
+      "id": "weapon-fx-v2/wpn-aura-evo",
+      "reason": "palette meanDistance 56.72 > 48: PRD \u00a75.8b.1 mandates cyan #6fd6ff / violet #ad6eef hero fx and style.json's list has no cyan or mid-lilac entry (same list gap as canon weapon-fx-v1/wpn-rail 83.0, wpn-nova-evo 52.6); visually hard-edged cool pixel fx, no red/amber/white."
+    },
+    {
+      "id": "weapon-fx-v2/wpn-wake",
+      "reason": "palette meanDistance 65.41 > 48: PRD \u00a75.8b.1 mandates cyan #6fd6ff / violet #ad6eef hero fx and style.json's list has no cyan or mid-lilac entry (same list gap as canon weapon-fx-v1/wpn-rail 83.0, wpn-nova-evo 52.6); visually hard-edged cool pixel fx, no red/amber/white."
+    },
+    {
+      "id": "weapon-fx-v2/wpn-wake-evo",
+      "reason": "palette meanDistance 51.87 > 48: PRD \u00a75.8b.1 mandates cyan #6fd6ff / violet #ad6eef hero fx and style.json's list has no cyan or mid-lilac entry (same list gap as canon weapon-fx-v1/wpn-rail 83.0, wpn-nova-evo 52.6); visually hard-edged cool pixel fx, no red/amber/white."
+    },
+    {
+      "id": "weapon-fx-v2/wpn-snares-blast",
+      "reason": "palette meanDistance 62.71 > 48: PRD \u00a75.8b.1 mandates cyan #6fd6ff / violet #ad6eef hero fx and style.json's list has no cyan or mid-lilac entry (same list gap as canon weapon-fx-v1/wpn-rail 83.0, wpn-nova-evo 52.6); visually hard-edged cool pixel fx, no red/amber/white."
+    },
+    {
+      "id": "weapon-fx-v2/wpn-snares-blast-evo",
+      "reason": "palette meanDistance 59.39 > 48: PRD \u00a75.8b.1 mandates cyan #6fd6ff / violet #ad6eef hero fx and style.json's list has no cyan or mid-lilac entry (same list gap as canon weapon-fx-v1/wpn-rail 83.0, wpn-nova-evo 52.6); visually hard-edged cool pixel fx, no red/amber/white."
+    },
+    {
+      "id": "weapon-fx-v2/wpn-bombs-blast",
+      "reason": "palette meanDistance 52.42 > 48: PRD \u00a75.8b.1 mandates cyan #6fd6ff / violet #ad6eef hero fx and style.json's list has no cyan or mid-lilac entry (same list gap as canon weapon-fx-v1/wpn-rail 83.0, wpn-nova-evo 52.6); visually hard-edged cool pixel fx, no red/amber/white."
+    },
+    {
+      "id": "weapon-fx-v2/wpn-bombs-blast-evo",
+      "reason": "palette meanDistance 53.55 > 48: PRD \u00a75.8b.1 mandates cyan #6fd6ff / violet #ad6eef hero fx and style.json's list has no cyan or mid-lilac entry (same list gap as canon weapon-fx-v1/wpn-rail 83.0, wpn-nova-evo 52.6); visually hard-edged cool pixel fx, no red/amber/white."
+    },
+    {
+      "id": "weapon-fx-v2/wpn-totem-pulse-evo",
+      "reason": "palette meanDistance 67.22 > 48: PRD \u00a75.8b.1 mandates cyan #6fd6ff / violet #ad6eef hero fx and style.json's list has no cyan or mid-lilac entry (same list gap as canon weapon-fx-v1/wpn-rail 83.0, wpn-nova-evo 52.6); visually hard-edged cool pixel fx, no red/amber/white."
+    },
+    {
+      "id": "weapon-fx-v2/wpn-thralls-evo-burst",
+      "reason": "palette meanDistance 58.52 > 48: PRD \u00a75.8b.1 mandates cyan #6fd6ff / violet #ad6eef hero fx and style.json's list has no cyan or mid-lilac entry (same list gap as canon weapon-fx-v1/wpn-rail 83.0, wpn-nova-evo 52.6); visually hard-edged cool pixel fx, no red/amber/white."
+    },
+    {
+      "id": "weapon-fx-v2/wpn-siphon*",
+      "reason": "exported fullBleed + allow-source-edge-touch on purpose: a beam SEGMENT whose braid must run to its own left/right edges so code can repeat/stretch it end-to-end (canon wpn-rail pattern); contamination verdict waived by fullBleed, measurement kept in qc.background."
+    }
+  ]
+}

@@ -402,20 +402,22 @@ function checkPlaceholders(m, dir, slug) {
     check(!html.includes('GAME_TITLE'), 'ph:index', 'index.html: <title> customised', 'index.html still contains the GAME_TITLE placeholder');
   } else fail('ph:index', 'index.html missing');
 
-  const menuPath = path.join(dir, 'src', 'scenes', 'menu.ts');
-  if (existsSync(menuPath)) {
+  // The title scene is `scenes/menu.ts` (template) or `scenes/hub/hub.ts` (games whose menu became a tabbed hub).
+  const menuPath = [path.join(dir, 'src', 'scenes', 'menu.ts'), path.join(dir, 'src', 'scenes', 'hub', 'hub.ts')].find((p) => existsSync(p));
+  if (menuPath) {
+    const menuName = path.relative(path.join(dir, 'src', 'scenes'), menuPath);
     const menu = readFileSync(menuPath, 'utf8');
-    check(!menu.includes('GAME\\nTITLE'), 'ph:menu', 'menu.ts: title art customised', "menu.ts still renders the 'GAME\\nTITLE' placeholder");
+    check(!menu.includes('GAME\\nTITLE'), 'ph:menu', `${menuName}: title art customised`, `${menuName} still renders the 'GAME\\nTITLE' placeholder`);
     if (m.family !== 'arena') {
       check(
         !menu.includes(SCAFFOLD_HOWTO),
         'ph:howto',
-        'menu.ts: how-to line written for this game',
-        `menu.ts still shows the arena default how-to ("${SCAFFOLD_HOWTO}") in a "${m.family}" game`,
+        `${menuName}: how-to line written for this game`,
+        `${menuName} still shows the arena default how-to ("${SCAFFOLD_HOWTO}") in a "${m.family}" game`,
       );
     }
-    if (CYRILLIC.test(menu)) warn('ph:menu-lang', 'menu.ts contains Cyrillic text — in-game chrome should be English too');
-  } else fail('ph:menu', 'src/scenes/menu.ts missing');
+    if (CYRILLIC.test(menu)) warn('ph:menu-lang', `${menuName} contains Cyrillic text — in-game chrome should be English too`);
+  } else fail('ph:menu', 'no title scene: src/scenes/menu.ts or src/scenes/hub/hub.ts');
 
   check(
     String(m.title).trim().toLowerCase() !== slug.toLowerCase(),

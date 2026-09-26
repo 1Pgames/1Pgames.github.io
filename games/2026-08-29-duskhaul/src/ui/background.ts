@@ -12,7 +12,7 @@ const LAYER_SCROLL_FACTORS = [0, 0.05, 0.12] as const;
 const GRADIENT_KEY = 'bg-gradient';
 
 /**
- * Backdrop for the SHELL scenes (Menu / Stash / Results) — the only callers.
+ * Backdrop for the SHELL scenes (Hub / Results) — the only callers.
  * The arena has no single backdrop: `systems/zone.ts` hands `Arena` a per-zone
  * `ArenaLayout` whose `floorKey` is the zone's own generated floor tile, so the
  * run's ground is zone art, not one image.
@@ -20,8 +20,8 @@ const GRADIENT_KEY = 'bg-gradient';
  * Priority order: registered parallax layers (`bg-layer-0/1/2`), else the
  * full-bleed generated `bg-menu` portrait image, else a procedural gradient —
  * so a scene always has a background even before an art run finishes. Drifting
- * motes are layered on top for parallax. One call per shell scene keeps Menu /
- * Stash / Results visually continuous, which is what makes a 30-second video
+ * motes are layered on top for parallax. One call per shell scene keeps Hub and
+ * Results visually continuous, which is what makes a 30-second video
  * look like one product instead of three screens.
  *
  * Every layer is uniform-cover-fit (`scale = max(view/w, view/h)`, centred,

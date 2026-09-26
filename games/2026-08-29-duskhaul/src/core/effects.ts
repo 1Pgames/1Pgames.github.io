@@ -1,4 +1,5 @@
 import { TUNING } from '../config';
+import { FILLER } from '../data/upgrades';
 import type { Player } from '../objects/player';
 
 /**
@@ -12,18 +13,17 @@ import type { Player } from '../objects/player';
  * run is read back out of `EffectState` by the system that needs it, keyed by
  * the same id.
  *
- * Exactly ONE hook, because Duskhaul's §5.3 pool carries exactly one
- * behavioural card. The template's example `glass-cannon` and `bulwark` hooks
- * shipped here live with no card in the 26-row pool naming either id, so their
- * `EffectState` fields could never be set and two of the three had no reader at
- * all. They are CUT rather than given cards: nothing in the PRD asks for them,
- * and a hook whose trigger does not exist is an invitation to tune numbers no
- * player can claim. A future behavioural card adds its hook here and its
- * `effect` id on the row in the same change — never one without the other.
+ * One hook per behavioural card in the §5.10 pool: `last-gasp`
+ * (`fx_lastgasp`) and the two fillers `fill-bread` / `fill-purse`, which are
+ * one-shot and keep no state. A future behavioural card adds its hook here
+ * and its `effect` id on the row in the same change — never one without the
+ * other.
  */
 
 export interface EffectContext {
   player: Player;
+  /** Adds run shards (◆) to the carried haul — `fill_purse`. */
+  grantShards(amount: number): void;
 }
 
 /** Per-run state a hook needs other systems to observe (combat, damage). Reset each run by the scene. */
@@ -52,10 +52,17 @@ export function createEffectState(): EffectState {
 const EFFECT_HOOKS: Record<string, (ctx: EffectContext, state: EffectState) => void> = {
   'last-gasp': (_ctx, state) => {
     const cfg = TUNING.effects.lastGasp;
-    // Stack limit 1 (§5.3), so this is a set, not an increment.
-    state.lastGaspCharges = 1;
-    state.lastGaspReviveRatio = cfg.reviveHpRatio;
-    state.lastGaspIframesMs = cfg.iframesMs;
+    // The card is maxStacks 1, but it ADDS to a Sanctum Last Rite charge (`m_revive`)
+    // instead of overwriting it, and never downgrades Undying Husk's (`b_undying`) terms.
+    state.lastGaspCharges += 1;
+    state.lastGaspReviveRatio = Math.max(state.lastGaspReviveRatio, cfg.reviveHpRatio);
+    state.lastGaspIframesMs = Math.max(state.lastGaspIframesMs, cfg.iframesMs);
+  },
+  'fill-bread': (ctx) => {
+    ctx.player.health.heal(ctx.player.health.max * FILLER.breadHealPct);
+  },
+  'fill-purse': (ctx) => {
+    ctx.grantShards(FILLER.purseShards);
   },
 };
 

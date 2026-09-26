@@ -1,255 +1,40 @@
 {
-  "wave": "awaiting user playtest (two-build storefront wired)",
+  "wave": "v2 awaiting user playtest",
   "release": {
-    "status": "draft",
-    "releaseCheck": "1 blocking issue, 0 warnings \u2014 game.json.playtest missing (the user playtest gate). Everything else passes.",
-    "cert": "passed 2026-08-29T19:21:30Z \u2014 arenaAdapter written for family A and registered in CERT_ADAPTED; the warning is now a hard gate for every future arena game",
-    "fuzz": "passed \u2014 274 actions / 45s, zero failures",
-    "preview": "shots/preview.webm captured, 10.9s"
+    "status": "awaiting V2 user playtest",
+    "releaseCheck": "PASS except playtest gate (V1 approval moved to playtestHistory)",
+    "cert": "passed 2026-09-25T18:37Z, 0 blockers, 1 major (unnamed fps window at boot, host load 5-7)",
+    "fuzz": "passed, 328 actions / 60 s",
+    "verify": "typecheck, contract, consumer-edge, art registry, all 8 kit selftests green; strict sim: 4 §19 bands fail (drafts 40 vs 20-24 [sim bot kills 1.5-2x live], live@420 62 vs 80-140, Delver 35% vs 40-60, spread 0.65, Collapse 0/320) — shipped debt, PRD-V2 §18c"
   },
   "tasks": [
     {
-      "name": "PrdDesigner",
+      "name": "CertV2",
       "ownershipGlobs": [
-        "PRD.md",
-        "(scaffold)"
+        "scripts/cert-driver.mjs (repo root, arenaAdapter only)",
+        "cert-report.json",
+        "fuzz-report.json"
       ],
       "status": "done"
     },
     {
-      "name": "FlowMap",
-      "ownershipGlobs": [
-        "PRD.md#14b"
-      ],
-      "status": "done"
-    },
-    {
-      "name": "GreyboxTwist",
-      "ownershipGlobs": [
-        "src/slices/arena/**",
-        "src/systems/{extraction,bag}.ts"
-      ],
-      "status": "done"
-    },
-    {
-      "name": "GreyboxCritic",
+      "name": "QAv2",
       "ownershipGlobs": [],
-      "status": "done",
-      "note": "verdict FUN; job exited 1 after my broadcasts repeatedly interrupted its yield \u2014 report recovered via IRC",
-      "readOnly": true
-    },
-    {
-      "name": "ArtDirector",
-      "ownershipGlobs": [
-        "art/**"
-      ],
-      "status": "dead",
-      "note": "context limit mid-write; delivered style.json + manifest + vision lock + 4 briefs; remainder respawned split three ways"
-    },
-    {
-      "name": "ArtBriefsFx",
-      "ownershipGlobs": [
-        "art/briefs/{pickups-fx,gates-collapse,ui-icons,cover}.md"
-      ],
       "status": "done"
     },
     {
-      "name": "ArtBriefsZones",
-      "ownershipGlobs": [
-        "art/briefs/zone-*.md"
-      ],
-      "status": "done"
-    },
-    {
-      "name": "ArtInterface",
-      "ownershipGlobs": [
-        "PRD.md#11",
-        "PRD.md#14",
-        "art/{probe.py,coherence-audit.md,style.json}"
-      ],
-      "status": "done",
-      "note": "final audit: 102 assets, reject list EMPTY, verdict = reads as one game"
-    },
-    {
-      "name": "BriefFix",
-      "ownershipGlobs": [
-        "art/briefs/*.md"
-      ],
-      "status": "done",
-      "note": "19 substitutions; caught the blue token inside my own mandated palette clause"
-    },
-    {
-      "name": "DesignFix",
-      "ownershipGlobs": [
-        "PRD.md"
-      ],
-      "status": "done"
-    },
-    {
-      "name": "ContentData",
-      "ownershipGlobs": [
-        "src/data/*.ts"
-      ],
-      "status": "done"
-    },
-    {
-      "name": "ExtractBank",
-      "ownershipGlobs": [
-        "src/systems/{extraction,bag}.ts"
-      ],
-      "status": "done"
-    },
-    {
-      "name": "CombatZones",
-      "ownershipGlobs": [
-        "src/slices/arena/game.ts",
-        "src/systems/{zone,combat}.ts",
-        "src/objects/{relic,enemy}.ts"
-      ],
-      "status": "done"
-    },
-    {
-      "name": "UiMeta",
-      "ownershipGlobs": [
-        "src/ui/**",
-        "src/scenes/{meta,menu,gameover}.ts",
-        "src/core/progression.ts"
-      ],
-      "status": "done"
-    },
-    {
-      "name": "SimGates",
-      "ownershipGlobs": [
-        "src/sim/**",
-        "src/data/waves.ts"
-      ],
-      "status": "done",
-      "note": "3-iteration balance loop; deleted the template timer model; falsified its own Collapse prediction"
-    },
-    {
-      "name": "GenHero/EnemiesLightA/EnemiesLightB/EnemiesHeavy/Elites/Warden/PickupsFx/GatesUi/ZoneCastle/ZoneOutlands/ZoneDesert/ZoneWinter",
-      "ownershipGlobs": [
-        "public/assets/generated/**"
-      ],
-      "status": "done",
-      "note": "12 generation agents, 103/103 assets, zero unshipped"
-    },
-    {
-      "name": "ReviewGate",
+      "name": "CriticV2",
       "ownershipGlobs": [],
-      "status": "done",
-      "note": "found 5 BLOCKERs \u2014 every one a seam where a workstream built its half and the other half was never connected",
-      "readOnly": true
-    },
-    {
-      "name": "Integrator",
-      "ownershipGlobs": [
-        "src/**",
-        "art/manifest.json"
-      ],
       "status": "done"
-    },
-    {
-      "name": "SliceWiring",
-      "ownershipGlobs": [
-        "src/slices/arena/game.ts",
-        "src/config.ts#PLAYER_BASE_STATS"
-      ],
-      "status": "done"
-    },
-    {
-      "name": "UiPolish",
-      "ownershipGlobs": [
-        "src/ui/**"
-      ],
-      "status": "done"
-    },
-    {
-      "name": "PropWiring",
-      "ownershipGlobs": [
-        "src/data/props.ts",
-        "src/systems/{zone,arena}.ts"
-      ],
-      "status": "done"
-    },
-    {
-      "name": "FeelPass",
-      "ownershipGlobs": [
-        "src/core/{juice,audio}.ts",
-        "src/config.ts#caps"
-      ],
-      "status": "done"
-    },
-    {
-      "name": "UiAdapt",
-      "ownershipGlobs": [
-        "src/ui/**",
-        "src/scenes/**"
-      ],
-      "status": "done",
-      "note": "per-zone measured floor grading against the canonical sprite pair"
-    },
-    {
-      "name": "QaSweep",
-      "ownershipGlobs": [],
-      "status": "done",
-      "note": "golden path completable; banking/casket/channel/abandon all verified",
-      "readOnly": true
-    },
-    {
-      "name": "FlowAudit",
-      "ownershipGlobs": [],
-      "status": "done",
-      "readOnly": true
-    },
-    {
-      "name": "ShipCritic",
-      "ownershipGlobs": [],
-      "status": "done",
-      "note": "NOT-SHIP on 2 blockers; both fixed and re-verified since",
-      "readOnly": true
-    },
-    {
-      "name": "SliceFix",
-      "ownershipGlobs": [
-        "src/slices/arena/game.ts",
-        "src/core/juice.ts",
-        "src/ui/joystick.ts"
-      ],
-      "status": "done"
-    },
-    {
-      "name": "CardsUi",
-      "ownershipGlobs": [
-        "src/ui/**",
-        "src/scenes/{menu,gameover,meta}.ts"
-      ],
-      "status": "done"
-    },
-    {
-      "name": "ZoneArt",
-      "ownershipGlobs": [
-        "public/assets/generated/zone-{desert,winter}/**"
-      ],
-      "status": "done"
-    },
-    {
-      "name": "CertAdapter",
-      "ownershipGlobs": [
-        "scripts/cert-driver.mjs",
-        "scripts/release-check.mjs"
-      ],
-      "status": "done",
-      "note": "wrote family-A arenaAdapter; made the cert phase sequence adapter-owned rather than board-shaped"
     }
   ],
   "shippedDebt": [
-    "sim: win-rate spread 0.40 vs a 0.35 bound (courier 85% / reaper 45% / lance 50%) \u2014 3 balance iterations spent, best shipped",
-    "sim: no run reaches the Collapse. Measured cause is survival, not incentive \u2014 only ~4 of 20 deep runs are alive at 420s and they arrive at 6-13% HP, so extract.collapseHaulBonus is currently unclaimable. Kept as a monitored no-op with a postCollapse% column in the lane table",
-    "PRD \u00a77 amended DOWN on measurement: weapon.slots 4\u21923 and maxRank 5\u21924 (4 slots dropped deep-lane extraction 45%\u219220%)",
-    "no cert-report.json \u2014 family 'arena' has no cert adapter in scripts/cert-driver.mjs yet",
+    "sim: win-rate spread 0.40 vs a 0.35 bound (courier 85% / reaper 45% / lance 50%) — 3 balance iterations spent, best shipped",
+    "sim: no run reaches the Collapse. Measured cause is survival, not incentive — only ~4 of 20 deep runs are alive at 420s and they arrive at 6-13% HP, so extract.collapseHaulBonus is currently unclaimable. Kept as a monitored no-op with a postCollapse% column in the lane table",
+    "PRD §7 amended DOWN on measurement: weapon.slots 4→3 and maxRank 5→4 (4 slots dropped deep-lane extraction 45%→20%)",
+    "no cert-report.json — family 'arena' has no cert adapter in scripts/cert-driver.mjs yet",
     "audio is synth-only: no image/audio provider was available for music or sfx, which core/audio.ts and core/music.ts are designed to cover",
-    "bag overflow (9th relic) never observed live \u2014 needs ~4min survival; present in code and covered by a sim gate"
+    "bag overflow (9th relic) never observed live — needs ~4min survival; present in code and covered by a sim gate"
   ],
   "variants": {
     "2026-08-29-duskhaul-ai": {
@@ -274,13 +59,467 @@
       "recorded": "context limit",
       "actual": "HTTP 429, retry-after-ms=259932000 (72.2h)",
       "evidence": "ArtDirector.jsonl: 6x '429', 1x 'retry-after-ms=259932000', 'rate_limit'",
-      "why_it_matters": "finding #34 \u2014 the wrong cause was recorded, so the real mitigation (model swap) was documented nowhere"
+      "why_it_matters": "finding #34 — the wrong cause was recorded, so the real mitigation (model swap) was documented nowhere"
     },
     "certPassedOverstated": {
       "recorded": "cert passed",
       "actual": "passed:true WITH majors[arena:unreachable]; driver teleported via placeAtGate to certify the channel",
       "evidence": "cert-report.json majors[0]; cert-driver.mjs:2316-2321; release-check.mjs:170 reads only .passed",
-      "why_it_matters": "finding #7 \u2014 gate reachability by real navigation was never proven"
+      "why_it_matters": "finding #7 — gate reachability by real navigation was never proven"
     }
-  }
+  },
+  "waves": [
+    {
+      "wave": "v2-research",
+      "agent": "DesignAudit",
+      "type": "game-designer",
+      "attempt": 1,
+      "ownershipGlobs": [
+        "local://duskhaul-design-audit.md",
+        "PRD-V2.md"
+      ],
+      "startedAt": "2026-09-25T10:56:00Z",
+      "endedAt": "2026-09-25T11:26:21Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "history://DesignAudit"
+    },
+    {
+      "wave": "v2-research",
+      "agent": "FlowAudit",
+      "type": "ux-flow-designer",
+      "attempt": 1,
+      "ownershipGlobs": [
+        "local://duskhaul-flow-audit.md"
+      ],
+      "startedAt": "2026-09-25T10:56:00Z",
+      "endedAt": "2026-09-25T11:26:21Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "history://FlowAudit"
+    },
+    {
+      "wave": "v2-research",
+      "agent": "TechMap",
+      "type": "scout",
+      "attempt": 1,
+      "ownershipGlobs": [],
+      "startedAt": "2026-09-25T10:56:00Z",
+      "endedAt": "2026-09-25T11:26:21Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "history://TechMap"
+    },
+    {
+      "wave": "v2-research",
+      "agent": "BaselineCritic",
+      "type": "game-critic",
+      "attempt": 1,
+      "ownershipGlobs": [],
+      "startedAt": "2026-09-25T10:56:00Z",
+      "endedAt": "2026-09-25T11:26:21Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "history://BaselineCritic"
+    },
+    {
+      "wave": "v2-contracts",
+      "agent": "SeamOwner",
+      "type": "build-integrator",
+      "attempt": 1,
+      "ownershipGlobs": [
+        "src/core/keys.ts",
+        "src/config.ts",
+        "src/data/types-v2.ts",
+        "src/core/stats.ts",
+        "src/systems/weapons.ts",
+        "scripts/w1-contract-check.mjs",
+        "(stub files for NEW producers)"
+      ],
+      "startedAt": "2026-09-25T11:26:21Z",
+      "endedAt": "2026-09-25T11:52:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://SeamOwner"
+    },
+    {
+      "wave": "v2-art",
+      "agent": "ArtLead",
+      "type": "art-director",
+      "attempt": 1,
+      "ownershipGlobs": [
+        "art/**",
+        "public/assets/generated/**"
+      ],
+      "startedAt": "2026-09-25T11:26:21Z",
+      "endedAt": "2026-09-25T11:36:00Z",
+      "status": "dead",
+      "cause": {
+        "kind": "tool-missing",
+        "evidence": "blocked: required tool missing — generate_image. ... Dispatching `xd://generate_image` fails with \"No such tool\"",
+        "source": "job result"
+      },
+      "artifact": null
+    },
+    {
+      "wave": "v2-art",
+      "agent": "ArtWorld",
+      "type": "art-director",
+      "attempt": 1,
+      "ownershipGlobs": [
+        "art/v2/ArtWorld.*",
+        "art/briefs/v2-world/**",
+        "public/assets/generated/floors-v2/**",
+        "public/assets/generated/props-v2/**",
+        "public/assets/generated/landmarks/**"
+      ],
+      "startedAt": "2026-09-25T11:37:00Z",
+      "endedAt": "2026-09-25T12:20:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://ArtWorld"
+    },
+    {
+      "wave": "v2-art",
+      "agent": "ArtEnemies",
+      "type": "art-director",
+      "attempt": 1,
+      "ownershipGlobs": [
+        "art/v2/ArtEnemies.*",
+        "art/briefs/v2-enemies/**",
+        "public/assets/generated/enemies-v2/**"
+      ],
+      "startedAt": "2026-09-25T11:37:00Z",
+      "endedAt": "2026-09-25T12:20:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://ArtEnemies"
+    },
+    {
+      "wave": "v2-art",
+      "agent": "ArtPOI",
+      "type": "art-director",
+      "attempt": 1,
+      "ownershipGlobs": [
+        "art/v2/ArtPOI.*",
+        "art/briefs/v2-poi/**",
+        "public/assets/generated/{poi,gates-v2,breakables,pickups-v2,weapon-fx,boss-fx,fx-v2}/**"
+      ],
+      "startedAt": "2026-09-25T11:37:00Z",
+      "endedAt": "2026-09-25T12:20:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://ArtPOI"
+    },
+    {
+      "wave": "v2-art",
+      "agent": "ArtIcons",
+      "type": "art-director",
+      "attempt": 1,
+      "ownershipGlobs": [
+        "art/v2/ArtIcons.*",
+        "art/briefs/v2-icons/**",
+        "public/assets/generated/icons-v2/**"
+      ],
+      "startedAt": "2026-09-25T11:37:00Z",
+      "endedAt": "2026-09-25T12:20:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://ArtIcons"
+    },
+    {
+      "wave": "v2-build",
+      "agent": "WorldGen",
+      "type": "gameplay-programmer",
+      "attempt": 1,
+      "ownershipGlobs": [
+        "src/systems/mapgen.ts",
+        "src/systems/arena.ts",
+        "src/data/props.ts",
+        "src/data/stamps.ts",
+        "src/data/zones.ts",
+        "src/systems/zone.ts",
+        "src/core/grid.ts",
+        "src/sim/kits/mapgen.selftest.ts"
+      ],
+      "startedAt": "2026-09-25T11:55:00Z",
+      "endedAt": "2026-09-25T12:45:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://WorldGen",
+      "note": "partial: bands not all met at timebox (see artifact)"
+    },
+    {
+      "wave": "v2-build",
+      "agent": "Actors",
+      "type": "gameplay-programmer",
+      "attempt": 1,
+      "ownershipGlobs": [
+        "src/objects/enemy.ts",
+        "src/objects/player.ts",
+        "src/objects/corpse.ts",
+        "src/core/outline.ts",
+        "src/scenes/preload.ts",
+        "src/data/enemies.ts",
+        "src/data/eliteAffixes.ts",
+        "src/systems/combat.ts",
+        "src/core/damage.ts",
+        "src/core/juice.ts"
+      ],
+      "startedAt": "2026-09-25T11:55:00Z",
+      "endedAt": "2026-09-25T12:45:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://Actors"
+    },
+    {
+      "wave": "v2-build",
+      "agent": "Arsenal",
+      "type": "gameplay-programmer",
+      "attempt": 1,
+      "ownershipGlobs": [
+        "src/systems/weapons.ts",
+        "src/data/weapons.ts",
+        "src/data/charms.ts",
+        "src/data/upgrades.ts",
+        "src/objects/projectile.ts",
+        "src/objects/blade.ts",
+        "src/objects/xporb.ts",
+        "src/core/effects.ts"
+      ],
+      "startedAt": "2026-09-25T11:55:00Z",
+      "endedAt": "2026-09-25T12:45:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://Arsenal"
+    },
+    {
+      "wave": "v2-build",
+      "agent": "Loot",
+      "type": "gameplay-programmer",
+      "attempt": 1,
+      "ownershipGlobs": [
+        "src/systems/bag.ts",
+        "src/systems/poi.ts",
+        "src/systems/extraction.ts",
+        "src/objects/breakable.ts",
+        "src/objects/relic.ts",
+        "src/objects/coin.ts",
+        "src/data/pickups.ts",
+        "src/data/valuables.ts",
+        "src/data/pois.ts",
+        "src/data/relics.ts",
+        "src/sim/kits/loot.selftest.ts"
+      ],
+      "startedAt": "2026-09-25T11:55:00Z",
+      "endedAt": "2026-09-25T12:45:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://Loot"
+    },
+    {
+      "wave": "v2-build",
+      "agent": "Meta",
+      "type": "gameplay-programmer",
+      "attempt": 1,
+      "ownershipGlobs": [
+        "src/core/progression.ts",
+        "src/core/collections.ts",
+        "src/core/daily.ts",
+        "src/core/contracts.ts",
+        "src/data/gear.ts",
+        "src/data/affixes.ts",
+        "src/data/sanctum.ts",
+        "src/data/classes.ts",
+        "src/data/contracts.ts",
+        "src/data/achievements.ts",
+        "src/data/hazards.ts",
+        "src/data/mutators.ts",
+        "src/data/metaCatalog.ts",
+        "src/sim/kits/metakit.selftest.ts",
+        "src/core/audio.ts"
+      ],
+      "startedAt": "2026-09-25T11:55:00Z",
+      "endedAt": "2026-09-25T12:45:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://Meta"
+    },
+    {
+      "wave": "v2-build",
+      "agent": "UIHub",
+      "type": "ui-engineer",
+      "attempt": 1,
+      "ownershipGlobs": [
+        "src/scenes/hub/**",
+        "src/scenes/menu.ts",
+        "src/scenes/meta.ts",
+        "src/scenes/gameover.ts",
+        "src/main.ts",
+        "src/ui/tabBar.ts",
+        "src/ui/sheet.ts",
+        "src/ui/entrance.ts",
+        "src/ui/button.ts",
+        "src/ui/primitives.ts",
+        "src/ui/background.ts",
+        "src/ui/duskChrome.ts"
+      ],
+      "startedAt": "2026-09-25T11:55:00Z",
+      "endedAt": "2026-09-25T12:45:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://UIHub"
+    },
+    {
+      "wave": "v2-build",
+      "agent": "UIRun",
+      "type": "ui-engineer",
+      "attempt": 1,
+      "ownershipGlobs": [
+        "src/ui/hud.ts",
+        "src/ui/minimap.ts",
+        "src/ui/bagStrip.ts",
+        "src/ui/bagPips.ts",
+        "src/ui/gateCompass.ts",
+        "src/ui/pauseOverlay.ts",
+        "src/ui/cards.ts",
+        "src/ui/coach.ts",
+        "src/ui/coachBeats.ts",
+        "src/ui/channelBar.ts",
+        "src/ui/wardenMark.ts",
+        "src/ui/bossBar.ts",
+        "src/ui/joystick.ts",
+        "src/ui/bars.ts"
+      ],
+      "startedAt": "2026-09-25T11:55:00Z",
+      "endedAt": "2026-09-25T12:45:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://UIRun"
+    },
+    {
+      "wave": "v2-build",
+      "agent": "Balance",
+      "type": "level-designer",
+      "attempt": 1,
+      "ownershipGlobs": [
+        "src/data/waves.ts",
+        "src/sim/families/arena.ts",
+        "src/sim/bots.ts",
+        "src/sim/cli.ts",
+        "src/sim/family.ts",
+        "src/sim/director-host.ts",
+        "src/sim/kits/content.selftest.ts",
+        "src/sim/kits/extraction.selftest.ts"
+      ],
+      "startedAt": "2026-09-25T11:55:00Z",
+      "endedAt": "2026-09-25T12:45:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://Balance",
+      "note": "partial: bands not all met at timebox (see artifact)"
+    },
+    {
+      "wave": "v2-build",
+      "agent": "WorldGen",
+      "type": "gameplay-programmer",
+      "attempt": 2,
+      "ownershipGlobs": [
+        "src/systems/mapgen.ts",
+        "src/systems/arena.ts",
+        "src/data/props.ts",
+        "src/data/stamps.ts",
+        "src/data/zones.ts",
+        "src/systems/zone.ts",
+        "src/core/grid.ts",
+        "src/sim/kits/mapgen.selftest.ts",
+        "scripts/mapgen-preview.mjs"
+      ],
+      "startedAt": "2026-09-25T12:45:00Z",
+      "endedAt": "2026-09-25T13:25:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://WorldGen",
+      "note": "finish pass: bands, perf, lattice/roads/cluster visuals"
+    },
+    {
+      "wave": "v2-integrate",
+      "agent": "SeamOwner",
+      "type": "build-integrator",
+      "attempt": 1,
+      "ownershipGlobs": [
+        "src/slices/arena/game.ts",
+        "src/scenes/game.ts",
+        "src/scenes/boot.ts",
+        "src/core/music.ts",
+        "src/core/share.ts",
+        "src/config.ts",
+        "src/core/keys.ts",
+        "src/data/art.ts",
+        "art/manifest.json",
+        "(cruft deletions §16.3)"
+      ],
+      "startedAt": "2026-09-25T12:45:00Z",
+      "endedAt": "2026-09-25T13:40:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://SeamOwner"
+    },
+    {
+      "wave": "v2-verify",
+      "agent": "CertV2",
+      "type": "build-integrator",
+      "attempt": 1,
+      "ownershipGlobs": [
+        "scripts/cert-driver.mjs (repo root, arenaAdapter only)",
+        "cert-report.json",
+        "fuzz-report.json"
+      ],
+      "startedAt": "2026-09-25T13:40:00Z",
+      "endedAt": "2026-09-25T20:05:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://CertV2"
+    },
+    {
+      "wave": "v2-verify",
+      "agent": "QAv2",
+      "type": "game-qa",
+      "attempt": 1,
+      "ownershipGlobs": [],
+      "startedAt": "2026-09-25T13:40:00Z",
+      "endedAt": "2026-09-25T20:05:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://QAv2"
+    },
+    {
+      "wave": "v2-verify",
+      "agent": "CriticV2",
+      "type": "game-critic",
+      "attempt": 1,
+      "ownershipGlobs": [],
+      "startedAt": "2026-09-25T13:40:00Z",
+      "endedAt": "2026-09-25T20:05:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://CriticV2"
+    }
+  ],
+  "standingOrders": [
+    {
+      "id": "so-v2-1",
+      "order": "Art agents get image generation via kernel-hosted tool `generate_image` (tools=[\"generate_image\"]); art split into 4 agents with disjoint group dirs; each writes a manifest fragment art/v2/<Agent>.groups.json; integrator merges fragments into art/manifest.json",
+      "issuedAt": "2026-09-25T11:37:00Z",
+      "evidence": "probe: tool.generate_image from orchestrator kernel returned image path (grok-imagine-image)",
+      "supersedes": null
+    },
+    {
+      "id": "so-v2-2",
+      "order": "User playtest round 1: difficulty +25-30% (trash dmgMul 0.8, hpMul 2, density +20% from 120 s, elite/boss hp +20%, regen 0.6, bread 0.3 elite / 0.08 low-HP); six V1 weapons given world art (group weapon-fx-v1); hit flash alpha 0.35 / 50 ms",
+      "issuedAt": "2026-09-25T22:40:00Z",
+      "evidence": "live bot k1w-k10v: Wicket 2/2 extract; novice 4/4 Gate A (min HP 25-73%); veteran→B 1/4 extract, 3 deaths 2:35-2:55",
+      "supersedes": null
+    }
+  ]
 }

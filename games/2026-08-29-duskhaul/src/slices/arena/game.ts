@@ -1,73 +1,69 @@
 import Phaser from 'phaser';
-import { CSS, PALETTE, SAFE, TEXT, TUNING, VIEW, bareText } from '../../config';
+import { CSS, PALETTE, TEXT, TUNING, VIEW } from '../../config';
 import { SCENES } from '../../core/keys';
 import { Controls } from '../../core/controls';
-import { Joystick } from '../../ui/joystick';
 import { Rng } from '../../core/rng';
-import { isDailyMode, saveDailyBest, sessionSeed } from '../../core/daily';
+import { NavGrid } from '../../core/grid';
 import { resetDamageClock, setDamageClock } from '../../core/damage';
 import { Pool } from '../../core/pool';
 import { RunDirector, type EventSpec, type WaveSpec } from '../../core/run';
-import {
-  bankRelics,
-  clearRunJournal,
-  grantCurrency,
-  loadMeta,
-  recordRunResult,
-  recordWardenKill,
-  runLoadout,
-  settleAbandonedRun,
-  touchDailyStreak,
-  writeRunJournal,
-  type RunLoadout,
-} from '../../core/progression';
-import { track } from '../../core/telemetry';
-import { rollUpgradeChoices, type UpgradeDef, type UpgradeRollContext } from '../../data/upgrades';
-import { PHASES, WAVES, TIMELINE_EVENTS } from '../../data/waves';
-import { ANIM, TEXTURE } from '../../data/art';
-import { eliteEnemies, type EnemyDef } from '../../data/enemies';
-import { relicDef, rollRelic, type RelicDef } from '../../data/relics';
-import { STARTING_ZONE, zoneDef, type ZoneDef } from '../../data/zones';
+import { combatBonuses, loadMeta, runLoadout, settleRun, writeRunJournal } from '../../core/progression';
 import { applyEffect } from '../../core/effects';
-import { sfx, sfxArp } from '../../core/audio';
-import { startMusic, setMusicIntensity, setMusicLayer } from '../../core/music';
-import {
-  allowEffect,
-  banner,
-  burst,
-  desaturate,
-  edgeFlash,
-  flash,
-  floatText,
-  hitstop,
-  pop,
-  shake,
-  toast,
-} from '../../core/juice';
+import { sfx } from '../../core/audio';
+import { setMusicIntensity, setMusicLayer, startMusic } from '../../core/music';
+import { allowEffect, banner, burst, deathBeat, edgeFlash, floatText, setTimeDilation, shake, timeDilation } from '../../core/juice';
+import { charmName, evolutionInfo, evolutionPlaying, playEvolution, playNewCharm, playNewWeapon, playRankUp } from '../../ui/evolveFx';
+import { cardModifiers, describeCard, rollUpgradeChoices, type UpgradeDef } from '../../data/upgrades';
+import { PHASES, TIMELINE_EVENTS, rollElite, wavesFor } from '../../data/waves';
+import { ANIM, TEXTURE } from '../../data/art';
+import { weaponDef } from '../../data/weapons';
+import { zoneDef, type ZoneDef } from '../../data/zones';
+import { rollGear } from '../../data/gear';
+import { hazardDef } from '../../data/hazards';
+import { mutatorDef, type MutatorRunParams } from '../../data/mutators';
+import { Belt } from '../../data/pickups';
+import type {
+  BagSettlement,
+  ConsumableId,
+  EventKind,
+  FenceOffer,
+  GateCandidate,
+  GateId,
+  GeneratedMap,
+  HudModelV2,
+  KillReport,
+  LootItem,
+  MinimapModel,
+  PoiKind,
+  RunLoadoutV2,
+  RunReport,
+  WeaponId,
+} from '../../data/types-v2';
+import { generateMap } from '../../systems/mapgen';
 import { Arena } from '../../systems/arena';
 import { CombatSystem } from '../../systems/combat';
-import { ZoneSystem, zoneArenaLayout, type ZoneHazardKind } from '../../systems/zone';
-import { Hud, type HudModel } from '../../ui/hud';
-import { showUpgradeCards, type UpgradeCardsHandle } from '../../ui/cards';
-import { showPauseOverlay, type PauseBagRelic, type PauseOverlayHandle } from '../../ui/pauseOverlay';
-import { Button } from '../../ui/button';
-import { GateCompass, type GateCompassGate, type GateCompassModel } from '../../ui/gateCompass';
-import { BagPips, type BagPipsModel } from '../../ui/bagPips';
-import { ChannelBar, type ChannelBarModel } from '../../ui/channelBar';
-import { BUTTON_STYLE, IDENTITY, paintScrim, tierColor, tierColorCss } from '../../ui/duskChrome';
-import { hasSeenCoach, type CoachHandle, type CoachRect } from '../../ui/coach';
-import { showGateCoach, startOpeningCoach, type OpeningCoach } from '../../ui/coachBeats';
-import {
-  ExtractionSystem,
-  type ExtractionEvent,
-  type GateSpec,
-  type GateState,
-} from '../../systems/extraction';
-import { Bag, resolveBagCapacity } from '../../systems/bag';
-import type { GameOverData, HaulRelic } from '../../scenes/gameover';
-import { RelicPickup } from '../../objects/relic';
-import { WardenMark } from '../../ui/wardenMark';
+import { ZoneSystem } from '../../systems/zone';
+import { ExtractionSystem, greedMul, type ExtractionEvent, type GateState } from '../../systems/extraction';
+import { Bag, itemCodexKey } from '../../systems/bag';
+import { PoiSystem } from '../../systems/poi';
+import { BreakableField } from '../../objects/breakable';
 import type { Enemy } from '../../objects/enemy';
+import { LootPickup, type LootPayload } from '../../objects/relic';
+import { Hud } from '../../ui/hud';
+import { BagStrip, openBagSheet, type BagSheetHandle } from '../../ui/bagStrip';
+import { Minimap } from '../../ui/minimap';
+import { GateCompass, type CompassModel } from '../../ui/gateCompass';
+import { ChannelBar, type ChannelBarModel } from '../../ui/channelBar';
+import { showUpgradeCards, type UpgradeCardsHandle } from '../../ui/cards';
+import { showPauseOverlay, type PauseModel, type PauseOverlayHandle } from '../../ui/pauseOverlay';
+import { coachToast, endCoach } from '../../ui/coach';
+import { holdToasts, showToast } from '../../ui/toast';
+import { openSheet } from '../../ui/sheet';
+import { Button } from '../../ui/button';
+import { Joystick } from '../../ui/joystick';
+import { BUTTON_STYLE, HUD_DEPTH, IDENTITY } from '../../ui/duskChrome';
+import type { GameOverData } from '../../scenes/gameover';
+import type { RunStart } from '../../scenes/hub/hub';
 
 /**
  * `art/manifest.json` groups this slice loads. `PreloadScene` downloads only
@@ -87,1190 +83,1145 @@ export const ART_GROUPS = [
   'zone-desert',
   'zone-winter',
   'ui-icons',
+  'floors-v2',
+  'props-v2',
+  'landmarks',
+  'enemies-v2',
+  'icons-v2',
+  'poi',
+  'gates-v2',
+  'breakables',
+  'pickups-v2',
+  'weapon-fx',
+  'boss-fx',
+  'fx-v2',
+  'icons-v3',
+  'weapon-fx-v1',
+  'weapon-fx-v2',
+  'icons-v4',
+  'props-v3a',
+  'props-v3b',
 ] as const;
 
-/** A ground-spawned relic arms after this beat so an overflow drop isn't instantly re-vacuumed. */
-const RELIC_PICKUP_ARM_MS = 1200;
-/** §15: relic pickup pool. A run sees ~12 relic opportunities; 16 covers overlap. */
-const RELIC_POOL_SIZE = 16;
-/** At most this many shard caches sit on the field at once (§15 entity budget). */
-const MAX_CACHES = 3;
-/** World-space gate ring styling per gate state. */
-const GATE_RING_STYLE: Record<GateState, { color: number; alpha: number }> = {
-  closed: { color: IDENTITY.cooled, alpha: 0.35 },
-  open: { color: IDENTITY.gateOpen, alpha: 0.95 },
-  closing: { color: IDENTITY.hazardAmber, alpha: 0.95 },
-  spent: { color: IDENTITY.cooled, alpha: 0.2 },
-};
+/** Ground loot arms after this beat so an overflow drop is not re-vacuumed at once. */
+const LOOT_ARM_MS = 400;
+/** Gate-open identity violet (#8546dd) as a CSS colour, for the callout stroke. */
+const GATE_OPEN_CSS = `#${IDENTITY.gateOpen.toString(16).padStart(6, '0')}`;
+/** A kept-but-paused gate hold (hero outside the ring) is drawn in this grey. */
+const CHANNEL_PAUSED_TINT = 0x7e7376;
 /**
- * Gate arch display size as a multiple of `TUNING.gate.radius`. The art is a
- * free-standing archway drawn ~62% of its square cell, so 2.4x the radius puts
- * a ~180px-wide arch on a 120px-radius ring — read as a structure you walk to,
- * without covering the bodies contesting it.
+ * §5.28 Wicket: the Ash Locket lies this far from spawn, ON SCREEN (critic
+ * v2b M5: at 400 px it sat at the screen edge under the Gate A chip).
  */
+const WICKET_LOCKET_PX = 240;
+/** The locket is collected by walking onto it (not vacuumed), so run 1 teaches the pickup. */
+const LOCKET_COLLECT_PX = 110;
+/** Screen band the locket must land in (design px): clear of the HUD band, compass chips and the stick. */
+const LOCKET_SCREEN = { left: 180, right: 540, top: 470, bottom: 1000 } as const;
+/** …and never under the joystick's resting ring (bottom-left). */
+const LOCKET_STICK_KEEPOUT = { right: 300, top: 950 } as const;
+/** Beacon art over the locket until it is picked up. */
+const LOCKET_BEACON = 'fx-chest-beam';
+/** Minimum angle between the locket and the Gate A bearing from spawn. */
+const LOCKET_OFF_GATE_RAD = Math.PI / 3;
+/** Beacon draws above tall props (≤ 11) and prop tops (30), below HUD. */
+const LOCKET_BEACON_DEPTH = 31;
+/** Screen box (design px) inside which the locket counts as visible; the arrow rides its edge otherwise. */
+const LOCKET_ARROW_BOX = { left: 70, right: 650, top: 470, bottom: 1010 } as const;
+const WICKET_LOCKET_UID = 'wicket-ash-locket';
+/** The 'Grab the Ash Locket' coach beat shows this many seconds into the Wicket. */
+const WICKET_LOCKET_COACH_S = 2;
+/** §13.2 low-HP heartbeat below this HP ratio (one beat per 1.2 s). */
+const LOW_HP_RATIO = 0.3;
+/** A POI XP burst drops as this many orbs (Loot sizes the burst in `takeXpBursts`). */
+const XP_BURST_ORBS = 6;
+/** Modifier tag for the low-level orb vacuum (`TUNING.xp.earlyVacuum`). */
+const EARLY_VACUUM_SOURCE = 'early:vacuum';
+/** Channel coach fires when the hero first comes this close to an open gate. */
+const CHANNEL_COACH_PX = 300;
+/** Breather toast only when the hero is actually clear: fewer than this many bodies within `BREATHER_CLEAR_PX`. */
+const BREATHER_TOAST_MAX_NEAR = 8;
+const BREATHER_CLEAR_PX = 300;
+/** Gate callout on-screen life (hold + fade), during which the toast lane waits. */
+const GATE_CALLOUT_MS = 1200;
+/** Draft-time world still: texture key and depth (under every world object's replacement, above nothing). */
+const FREEZE_KEY = 'draft-world-still';
+const FREEZE_DEPTH = -1000;
+/** Minimum spacing between two gate callouts' start times. */
+const CALLOUT_GAP_MS = 800;
+/** Zone boss arrives this far from the hero, on the way to Gate C, when Gate C is far. */
+const BOSS_NEAR_PX = 900;
+/** Gate C counts as "near" (boss spawns at the arch) inside this range of the hero. */
+const BOSS_AT_GATE_PX = 1600;
+/** Gate arch display size as a multiple of `TUNING.gate.radius`. */
 const GATE_ART_SCALE = 2.4;
-/**
- * Cross-fade for the `gate-opening` -> `gate-open` handoff. Measured: the two
- * sheets are geometrically identical to within 1px (bbox 87x110 in both) but
- * `gate-opening` ends a mean 43 RGB points BRIGHTER than every frame of the
- * `gate-open` loop, so a hard cut steps down visibly. A start-frame search does
- * not help (all four frames sit within 1.2 of each other); a short fade over
- * identical geometry does, with no ghosting to betray it.
- */
-const GATE_HANDOFF_MS = 100;
-/** A spent gate keeps its dead arch but drops back — it is scenery now. */
 const GATE_SPENT_ALPHA = 0.4;
-/** World height of one Collapse curtain segment. Never stretched to the cell. */
+/** Collapse curtain segment geometry (see `paintCollapseCurtain`). */
 const COLLAPSE_SEGMENT_H = 150;
-/** Nominal world width of one segment; the real width is the arc step it covers. */
 const COLLAPSE_SEGMENT_W = 130;
-/**
- * Segments widened against their arc step so neighbours overlap by ~3px. The
- * sheet's alpha width varies 97.7%-100.0% of the cell across its four frames,
- * so an exact 1.0x spacing opens and closes a dotted seam as the loop cycles.
- */
 const COLLAPSE_SEGMENT_OVERLAP = 1.03;
-/** Enough segments for the widest ring that fits the camera at once (§15). */
 const COLLAPSE_SEGMENT_POOL = 32;
-/** Warden zone skins (§11): four generated idle sheets, one per zone. */
-const WARDEN_SKIN: Record<string, string> = {
-  castle: ANIM.wardenIdle,
-  outlands: ANIM.wardenIdleOutlands,
-  desert: ANIM.wardenIdleDesert,
-  winter: ANIM.wardenIdleWinter,
-};
-/**
- * The §5.4 Gate B guard pack: one elite plus `TUNING.elite.gateGuardAdds`
- * trash, which is the composition the 250s wave row authors ("reaper + 8
- * husks"). The adds go through `ZoneSystem.pickSpawnId`, so a zone may
- * substitute its own exclusive for the husk — the elite is the pack's identity
- * and is not substituted.
- */
-const GATE_GUARD_ELITE_ID = 'elite_reaper';
+/** Bag quick-sheet runs the world at this fraction (§14.11, not a pause). */
+const BAG_SHEET_TIMESCALE = 0.2;
+/** Arena prop culling cadence (§16.1 E3). */
+const CULL_EVERY_MS = 250;
+/** Candidate park bearings around Gate B (the one farthest from the hero wins). */
+const GUARD_BEARINGS = 16;
+/** Gate B guard pack adds (the elite is rolled). */
 const GATE_GUARD_ADD_ID = 'husk';
+/** §5.15.4 Rimeheart: Frost Salt pickups freeze this long. */
+const RIMEHEART_FREEZE_MS = 5000;
+/** Sanctum Homeward (`e_speedgate`): `loadout.speedNearGateMul` applies within this range of an open gate. */
+const SPEED_GATE_PX = 600;
+const SPEED_GATE_SOURCE = 'sanctum:e_speedgate';
+/** Den bone walls use this texture when loaded. */
+const DEN_WALL_TEXTURE = 'poi-den-wall';
 
-/**
- * §14.2's authored compass ring, vertically: an arrow never leaves this band,
- * so the `tut:gate` spotlight is clamped to it too — a spotlight cut over the
- * HUD band or the joystick would teach the wrong widget.
- */
-const COACH_GATE_RING = { top: 200, bottom: 1000 } as const;
-/** Spotlight size: the 48px arrow plus its countdown chip, with room to breathe. */
-const COACH_GATE_SPOT = 160;
+const GATE_RING_STYLE: Record<GateState, { color: number; alpha: number }> = {
+  closed: { color: 0x7e7376, alpha: 0.5 },
+  open: { color: IDENTITY.gateOpen, alpha: 0.95 },
+  closing: { color: 0xe8c547, alpha: 0.95 },
+  spent: { color: 0x3a3440, alpha: 0.4 },
+};
 
-/**
- * The `breather` lull's calm edge band, resting alpha. BELOW the channel
- * vignette's 0.30 floor: the channel is the run's most urgent state and this is
- * its opposite, so the two must never read as the same escalation — relief is a
- * tint, pressure is a wash. Measured in the browser at 0.14 first, which was
- * invisible over the castle floor's own blue-green; 0.22 reads as a green
- * screen edge without ever competing with a live rite.
- */
-const BREATHER_CALM_ALPHA = 0.22;
-/**
- * Share of the lull that plays as the hand-back. A RATIO, not a duration, so
- * the warning stays proportional to whatever `events.breatherSilenceMs` is —
- * at the authored 8000ms that is the last two seconds.
- */
-const BREATHER_STIR_RATIO = 0.25;
-/**
- * The lull chip's anchor: below §14.2's compass ring top (200) and above
- * §14.3's banner band (300), i.e. the one screen row where an 8-second
- * indicator can sit without covering a gate countdown or a banner.
- */
-const BREATHER_CHIP_Y = 250;
-/** Text block the lull chip's scrim is sized for ("THE DUSK STIRS" is the longest line). */
-const BREATHER_CHIP_BLOCK = { width: 240, height: 30 } as const;
+const SHRINE_COPY: Partial<Record<PoiKind, string>> = {
+  shrine_blood: 'BLOOD SHRINE — 2 UPGRADES',
+  shrine_gilt: 'GILT SHRINE — SHARDS +30%',
+  shrine_bone: 'BONE SHRINE',
+  shrine_grave: 'GRAVE SHRINE — HEALED',
+  shrine_curse: 'CURSE SHRINE — ELITES COME',
+};
 
-/**
- * The Collapse ignition's physical cue: bursts laid along the arc of the ring
- * facing the player, and the step between them. Three is what covers the
- * visible arc at the authored start radius without becoming a wall of
- * particles on the run's densest frame (§15).
- */
-const COLLAPSE_IGNITE_POINTS = 3;
-const COLLAPSE_IGNITE_STEP_MS = 60;
-/**
- * How long the COLLAPSE banner waits for the world. Long enough that the ring
- * lighting is the first thing on screen, short enough that the announcement is
- * still part of the same beat — the whole ceremony stays under the 700ms hold
- * the banner itself uses.
- */
-const COLLAPSE_BANNER_DELAY_MS = 220;
+const EVENT_COPY: Record<EventKind, string> = {
+  ev_caravan: 'GILDED CARAVAN',
+  ev_vigil: 'BELL VIGIL',
+  ev_rising: 'GRAVE RISING',
+};
 
-/** Ids the Collapse injects; cycled so the finale is not one elite on repeat. */
-const COLLAPSE_ELITE_IDS: readonly string[] = eliteEnemies().map((def) => def.id);
+interface GateVisual {
+  gate: GateCandidate;
+  ring: Phaser.GameObjects.Arc;
+  sprite: Phaser.GameObjects.Sprite | null;
+  state: GateState | null;
+}
 
-/** One shard cache on the ground — the non-kill income floor (§6, `loot.cache*`). */
-interface ShardCache {
-  img: Phaser.GameObjects.Image;
-  value: number;
-  expiresAtMs: number;
+interface GroundLoot {
+  pickup: LootPickup;
+  payload: LootPayload;
 }
 
 /**
- * Integrator scene for Duskhaul: wires the director, combat, the zone and its
- * hazard, the extraction gates, the bag and the HUD components together, and
- * translates their callbacks into feedback.
+ * Integrator scene for Duskhaul V2 (PRD-V2 §16.2 step 3): wires mapgen →
+ * Arena → NavGrid → Zone → Combat (+Weapons, breakables) → POI → Bag →
+ * Extraction → HUD/minimap/bag strip/compass/cards/pause/coach → finish
+ * (`bag.settle` → `settleRun` → Results). Every system owns its rules; this
+ * file only routes callbacks and feeds read models.
  *
- * The one rule this scene exists to protect: THE RUN RESOLVES ONLY BY
- * EXTRACTION OR DEATH. There is no timer win anywhere in this file — past
- * `collapse.atS` the dusk-fire ring makes death inevitable, but it is still a
- * death, and the only other exit is a completed gate channel.
+ * Public fields are the cert driver's / `window.__GAME__` probes.
  */
 export class GameScene extends Phaser.Scene {
+  map!: GeneratedMap;
+  arena!: Arena;
+  nav!: NavGrid;
+  combat!: CombatSystem;
+  zoneSystem!: ZoneSystem;
+  extraction!: ExtractionSystem;
+  bag!: Bag;
+  poi!: PoiSystem;
+  field!: BreakableField;
+  belt!: Belt;
+  director!: RunDirector;
+  loadout!: RunLoadoutV2;
+  zone!: ZoneDef;
+
+  /** False until `build` has run (map generation is deferred one frame). */
+  built = false;
+  paused = false;
+  ended = false;
+  drafting = false;
+  pendingDrafts = 0;
+  bossActive = false;
+  kills = 0;
+  taken: string[] = [];
+  banished: string[] = [];
+
+  private start: RunStart = { zone: 'castle', hazard: 1, mode: 'normal' };
   private rng!: Rng;
-  private seed = '';
   private simTimeMs = 0;
-  private arena!: Arena;
   private controls!: Controls;
   private joystick!: Joystick;
-  private combat!: CombatSystem;
-  private director!: RunDirector;
   private hud!: Hud;
-  private pauseButton!: Button;
-
-  private kills = 0;
-  private taken: string[] = [];
-  private drafting = false;
-  /**
-   * Draft requests deferred because one was already on screen, or because the
-   * player is mid-channel — see `queueDraft`. Never dropped, only delayed.
-   */
-  private pendingDrafts = 0;
-  private paused = false;
-  private ended = false;
+  private bagStrip!: BagStrip;
+  private minimap!: Minimap;
+  private compass!: GateCompass;
+  private channelBar!: ChannelBar;
   private cards: UpgradeCardsHandle | null = null;
   private pauseOverlay: PauseOverlayHandle | null = null;
-  private rerollsUsedThisDraft = 0;
-  /**
-   * Mirrors whether the pause icon is currently tappable, so the enable/disable
-   * pair runs on TRANSITIONS rather than every frame (`syncPauseAffordance`).
-   */
-  private pauseAffordanceLive = true;
-  private bossActive = false;
-
-  /**
-   * Everything the meta save contributes to THIS run, read exactly once in
-   * `create()` (PRD §10). Nothing here is re-read per frame and nothing mutates
-   * `TUNING`: the run's numbers are latched at run start, which is what keeps a
-   * seed reproducible while the shop is being bought out between runs.
-   */
-  private loadout!: RunLoadout;
-
-  // --- §14b FTUE beats -----------------------------------------------------
-  private openingCoach: OpeningCoach | null = null;
-  private gateCoach: CoachHandle | null = null;
-  /** True while a coach beat is holding the run (a superset of `paused`). */
-  private coachHold = false;
-  /** True once the `tut:stick` beat is the live one, so the stick is unlocked. */
-  private coachStickLive = false;
-  /** True while `teardown` is running: the beats must not resume a dead scene. */
-  private tearingDown = false;
-
-  /**
-   * §14b interruption matrix: a tab-hidden/wake on a LIVE combat state must
-   * auto-pause, so the player is never dropped back into an ambush frame they
-   * did not see coming — the arena they left is not the arena they return to.
-   * `main.ts` sleeps and wakes the loop around the same event; this decides
-   * whether the run is allowed to be running once it is awake.
-   *
-   * A class-property arrow so the identity is stable and `teardown` can take it
-   * off the document: a DOM listener is the one subscription that outlives a
-   * Phaser scene without complaint.
-   */
-  private readonly onTabVisibility = (): void => {
-    if (document.hidden) return;
-    // Something else already owns the screen (a draft, a coach beat, PAUSED
-    // itself, or the results fade) — waking must not stack a second overlay on
-    // it, which is the exact §14b violation `togglePause` now refuses.
-    if (this.ended || this.paused || this.drafting || this.coachHold) return;
-    this.togglePause();
-  };
-
-  // --- §14b abandon rule journal ------------------------------------------
-  /** ms since the shard checkpoint was last written (refresh is capped at 1Hz). */
-  private journalAccMs = 0;
-
-  // --- §2A Gate B guard pack ----------------------------------------------
-  /** Latched once the pack has been placed, so it can never spawn twice. */
-  private gateGuardPlaced = false;
-  /** Scheduled spawns still to be absorbed by the pack that already landed. */
-  private gateGuardAbsorb = 0;
-
-  /** Scratch for the pause overlay's bag row — rebuilt per read, never per frame. */
-  private readonly bagRowRelics: PauseBagRelic[] = [];
-
-  // --- zone, extraction and loot state (every field re-reset in `create`; the
-  // --- scene instance survives `scene.start` round-trips) ---
-  private zoneId = STARTING_ZONE.id;
-  private zone!: ZoneDef;
-  private zoneSystem!: ZoneSystem;
-  private zoneGates: GateSpec[] = [];
-  private extraction!: ExtractionSystem;
-  private bag!: Bag;
-  private tookHitSinceTick = false;
-  private collapseBonus = 0;
-  private collapseElitesSpawned = 0;
-  private fireFlashAccMs = 0;
-  private relicDripAccMs = 0;
-  private firstRelicDone = false;
-  private cacheAccMs = 0;
-  private caches: ShardCache[] = [];
-  private relicPool!: Pool<RelicPickup>;
-  private relics: RelicPickup[] = [];
-  private gateRings: Record<GateSpec['id'], Phaser.GameObjects.Arc> | null = null;
-  /**
-   * The generated gate arch per gate, one sprite driven by gate state (§11: the
-   * gate is gameplay, so it is art, not a primitive). Null when the
-   * `gates-collapse` group is not loaded, in which case `gateRings` stays
-   * visible as the crash-safe fallback.
-   */
-  private gateSprites: Record<GateSpec['id'], Phaser.GameObjects.Sprite> | null = null;
-  /**
-   * Tangential segments of the generated Collapse curtain. Only the ones inside
-   * the camera view are given a position each frame, so a 1200px-radius ring
-   * costs ~24 sprites instead of ~58 (§15 entity budget). Empty when the art is
-   * absent, in which case `collapseGfx` strokes the ring instead.
-   */
+  private bagSheet: BagSheetHandle | null = null;
+  private fenceOpen = false;
+  private rerolls = 0;
+  private banishes = 0;
+  private mutRun: MutatorRunParams = {};
+  private gates: GateCandidate[] = [];
+  private gateVisuals: GateVisual[] = [];
   private collapseSegments: Phaser.GameObjects.Sprite[] = [];
-  private gateRingState: Record<GateSpec['id'], GateState | null> = { a: null, b: null, c: null };
-  private gatePreviewed: Record<GateSpec['id'], boolean> = { a: false, b: false, c: false };
   private channelGfx!: Phaser.GameObjects.Graphics;
   private collapseGfx!: Phaser.GameObjects.Graphics;
-  private channelVignette!: Phaser.GameObjects.Graphics;
-  private shrineMarker: Phaser.GameObjects.Image | null = null;
-  private shrineX = 0;
-  private shrineY = 0;
-  private shrineArmed = false;
-  private shrineSpawnAccMs = 0;
-  /** Composition ramp: next run-second at which a trash spawn becomes an elite. */
+  private lootPool!: Pool<LootPickup>;
+  private ground: GroundLoot[] = [];
+
+  private tookHit = false;
+  private collapseBonus = 0;
+  private collapseElitesSpawned = 0;
   private nextEliteSwapS = 0;
-  private eliteSwapIndex = 0;
-
-  // --- the Warden beat's screen-space marker (§13 "Warden spawn") ----------
-  /**
-   * The plate + off-screen arrow, alive for exactly as long as the Warden is:
-   * built by `showWardenMark` on the spawn callback, destroyed on the boss
-   * kill path (`onWardenDown`) and again in `teardown`, so a run that ends
-   * with the Warden alive cannot carry boss chrome into the next one.
-   */
-  private wardenMark: WardenMark | null = null;
-  /**
-   * The Warden's own body, so the marker can point at it rather than at the
-   * arch it spawned beside — the Warden CHASES (`objects/enemy.ts:tickBoss`),
-   * so Gate C stops being its position within a second of the entrance.
-   *
-   * Resolved from the display list once, on the spawn callback: this slice does
-   * not own `systems/combat.ts` and `spawnAtPosition` hands back nothing. The
-   * body is pooled, so `def.behaviour` is re-checked every frame — after the
-   * kill the same sprite is recycled as ordinary trash.
-   */
-  private wardenBody: Enemy | null = null;
-  /** Reused marker model — fed every frame while the Warden lives, so it never reallocates. */
-  private readonly wardenModel = { playerX: 0, playerY: 0, wardenX: 0, wardenY: 0, hpRatio: 1 };
-
-  // --- the `breather` lull (§2's one recovery beat) -------------------------
-  /**
-   * `time.now` at which the lull ends. The SAME clock and the SAME duration key
-   * `CombatSystem.silenceSpawns` runs on (`TUNING.events.breatherSilenceMs`),
-   * read once per beat, so a retune of that key moves the mechanic and every
-   * frame of its feedback together.
-   */
-  private breatherEndsAtMs = -Infinity;
-  private breatherWindowMs = 0;
-  /** Whole seconds last written to the chip — the text is diffed, not rewritten. */
-  private breatherShownS = -1;
-  /** Latched once the "the lull is ending" copy has replaced the countdown. */
-  private breatherStirred = false;
-  private breatherVignette!: Phaser.GameObjects.Graphics;
-  private breatherChip!: Phaser.GameObjects.Container;
-  private breatherChipText!: Phaser.GameObjects.Text;
-
-  // --- HUD components (owned by UiMeta, fed from here) ---
-  private compass!: GateCompass;
-  private bagPips!: BagPips;
-  private channelBar!: ChannelBar;
-
-  /** Reused HUD models — the HUD is diffed, so these are never reallocated. */
-  private readonly compassGates: GateCompassGate[] = [];
-  private readonly compassModel: GateCompassModel = {
-    playerX: 0,
-    playerY: 0,
-    elapsedS: 0,
-    gates: this.compassGates,
-  };
-  private readonly bagRelicTiers: number[] = [];
-  private readonly bagCasketTiers: number[] = [];
-  private readonly bagModel: BagPipsModel = {
-    slots: TUNING.bag.slots,
-    used: 0,
-    relicTiers: this.bagRelicTiers,
-    casketSlots: TUNING.bag.casketSlots,
-    casketTiers: this.bagCasketTiers,
-    shards: 0,
-  };
-  private readonly channelModel: ChannelBarModel = {
-    active: false,
-    gateId: null,
-    progress: 0,
-    interrupted: false,
-  };
-  /**
-   * §13 "Channel progress — per 25% `tap` pitch-up". The last quarter that
-   * sounded, so the four ticks fire once each on the way up and RE-arm after a
-   * setback drops the fill back below a line the player had already passed.
-   */
-  private channelQuarter = 0;
-  /** True on the frames a channel is up — drives the one-shot start beat. */
+  private gateGuardPlaced = false;
+  private giltUntilS = -1;
+  private nextBellWaveS = Infinity;
+  private journalAccMs = 0;
+  private cullAccMs = 0;
+  private lowFpsMs = 0;
+  private lowTier = false;
+  private fireFlashAcc = 0;
+  private movedPx = 0;
+  private lastX = 0;
+  private lastY = 0;
+  private attackCoached = false;
+  private gateCoached = false;
+  private channelCoached = false;
+  private locketBeacon: Phaser.GameObjects.Sprite | null = null;
+  /** Where the Wicket Ash Locket lies until it is picked up. */
+  private locketAt: { x: number; y: number } | null = null;
+  private locketArrow: Phaser.GameObjects.Container | null = null;
+  private locketCoached = false;
+  /** World objects hidden behind the draft still (`freezeWorld`). */
+  private readonly frozenWorld: (Phaser.GameObjects.GameObject & Phaser.GameObjects.Components.Visible)[] = [];
+  private freezeImage: Phaser.GameObjects.Image | null = null;
+  private calloutQueue: { label: string; strokeColor: string }[] = [];
+  private calloutBusyUntil = 0;
+  private earlyVacuum = false;
+  private mapCoached = false;
+  private itemCoached = false;
   private channelWasActive = false;
-  /** Scratch for the in-ring enemy census fed to the channel. */
-  private readonly contest = { enemies: 0, elites: 0 };
+  private channelQuarter = 0;
+  /** Homeward speed mod currently applied (toggled on gate proximity). */
+  private speedGateOn = false;
+  /** Gates whose channel already granted Gloamwalk (`e_gloamwalk`, once per gate). */
+  private readonly gloamwalked = new Set<GateId>();
 
-  private readonly model: HudModel = {
-    hp: TUNING.player.maxHp,
-    hpMax: TUNING.player.maxHp,
-    level: 1,
-    xp: 0,
-    xpNeeded: 1,
-    timeMs: 0,
-    runSeconds: TUNING.runSeconds,
-    phase: '',
-    collapsing: false,
+  // RunReport tallies
+  private killsByEnemy: Record<string, number> = {};
+  private killsByWeapon: Record<string, number> = {};
+  private affixKills: Record<string, number> = {};
+  private eliteKills = 0;
+  private bossKilled = false;
+  private minHpRatio = 1;
+  private itemsSeen = new Set<string>();
+  private evolutions: WeaponId[] = [];
+
+  private readonly threatBuf: { x: number; y: number; kind: 'elite' | 'boss' }[] = [];
+  private readonly compassThreats: { x: number; y: number; boss: boolean }[] = [];
+  private readonly channelModel: ChannelBarModel = { active: false, kind: 'gate', gateId: null, poiKind: null, progress: 0, interrupted: false, paused: false };
+
+  private readonly onTabVisibility = (): void => {
+    if (document.hidden) return;
+    if (this.ended || this.paused || this.drafting) return;
+    this.togglePause();
   };
 
   constructor() {
     super(SCENES.game);
   }
 
-  /** `scene.start(SCENES.game, { seed, zone })` reruns the exact same run. */
-  init(data: { seed?: string; zone?: string } = {}): void {
-    this.seed = data.seed ?? sessionSeed();
-    this.zoneId = (data.zone ?? STARTING_ZONE.id) as ZoneDef['id'];
+  /** `scene.start(SCENES.game, RunStart)` — the Hub's DESCEND, preload's Wicket route. */
+  init(data: Partial<RunStart> = {}): void {
+    const meta = loadMeta();
+    // §5.28: until the Wicket is done (extracted, or `ftue.maxRetries` deaths),
+    // every run IS the Wicket, whatever route asked for a run.
+    if (!meta.flags.ftueDone) {
+      this.start = { zone: 'castle', hazard: 1, mode: 'ftue', seed: 'wicket' };
+      return;
+    }
+    const zone = data.zone ?? meta.selection.zone;
+    this.start = {
+      zone,
+      hazard: data.hazard ?? meta.selection.hazard[zone] ?? 1,
+      mode: data.mode ?? 'normal',
+      ...(data.seed !== undefined ? { seed: data.seed } : {}),
+    };
   }
 
+  /**
+   * Map generation on the 24576² world takes ~300-550 ms, so the scene first
+   * paints a GENERATING MAP label, lets one frame render it, and only then
+   * builds the run (`build`). `update` is inert until `built`.
+   */
   create(): void {
-    this.kills = 0;
-    this.taken = [];
-    this.drafting = false;
-    this.pendingDrafts = 0;
-    this.paused = false;
-    this.ended = false;
-    this.cards = null;
-    this.pauseOverlay = null;
-    this.rerollsUsedThisDraft = 0;
-    // A fresh `Button` is built below and is interactive, so the mirror starts
-    // true — scene instances survive `scene.start`, and a stale `false` here
-    // would leave the icon permanently deaf on the second run.
-    this.pauseAffordanceLive = true;
-    this.bossActive = false;
-    this.simTimeMs = 0;
-    this.tookHitSinceTick = false;
-    this.collapseBonus = 0;
-    this.collapseElitesSpawned = 0;
-    this.fireFlashAccMs = 0;
-    this.relicDripAccMs = 0;
-    this.firstRelicDone = false;
-    this.cacheAccMs = 0;
-    this.shrineMarker = null;
-    this.shrineArmed = false;
-    this.shrineSpawnAccMs = 0;
-    this.nextEliteSwapS = TUNING.wave.compositionFromS;
-    this.eliteSwapIndex = 0;
-    // The marker's display objects died with the previous visit's scene, but
-    // the references and the beat's latches are instance state.
-    this.wardenMark = null;
-    this.wardenBody = null;
-    this.breatherEndsAtMs = -Infinity;
-    this.breatherWindowMs = 0;
-    this.breatherShownS = -1;
-    this.breatherStirred = false;
-    // The previous visit's display objects died with the scene — only the
-    // instance-level references need dropping.
-    this.relics = [];
-    this.caches = [];
-    this.gateRings = null;
-    this.gateSprites = null;
-    this.collapseSegments = [];
-    this.gateRingState = { a: null, b: null, c: null };
-    this.gatePreviewed = { a: false, b: false, c: false };
-    this.compassGates.length = 0;
-    this.bagRelicTiers.length = 0;
-    this.bagCasketTiers.length = 0;
-    this.openingCoach = null;
-    this.gateCoach = null;
-    this.coachHold = false;
-    this.coachStickLive = false;
-    this.tearingDown = false;
-    this.journalAccMs = 0;
-    this.gateGuardPlaced = false;
-    this.gateGuardAbsorb = 0;
-    this.bagRowRelics.length = 0;
+    this.resetState();
+    this.built = false;
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.teardown());
+    const label = this.add
+      .text(VIEW.width / 2, VIEW.height / 2, 'GENERATING MAP…', { ...TEXT.heading, fontSize: '40px', color: CSS.inkSoft })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(5000);
+    // After the frame that drew the label, wait two animation frames so the
+    // browser has composited it before generateMap blocks the main thread.
+    this.game.events.once(Phaser.Core.Events.POST_RENDER, () => {
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+          if (!this.sys.isActive()) return;
+          label.destroy();
+          this.build();
+          this.built = true;
+        }),
+      );
+    });
+  }
 
-    // One seed drives the entire run — arena layout, hazard sites, spawns and
-    // upgrade rolls — so the same seed always replays identically.
-    this.rng = new Rng(this.seed);
-    // The damage clock ticks only while the run is actually advancing (see
-    // `update`), so i-frames can't be swallowed by wall-clock time passing
-    // during a paused run or an upgrade draft.
+  private build(): void {
     setDamageClock(() => this.simTimeMs);
 
-    // The meta save is read HERE and only here (§10): one parse, one latch.
-    this.loadout = runLoadout();
+    // Meta is read HERE and only here (§10): one latch per run.
+    this.loadout = runLoadout(this.start);
+    const loadout = this.loadout;
+    this.zone = zoneDef(loadout.zone);
+    this.rng = new Rng(`run:${loadout.seed}`);
+    for (const id of loadout.mutators) Object.assign(this.mutRun, mutatorDef(id).run);
+    this.rerolls = loadout.rerollsPerRun;
+    this.banishes = loadout.banishesPerRun;
+    const ftue = loadout.mode === 'ftue';
 
-    this.zone = zoneDef(this.zoneId);
-    // The arena owns the field: floor, walls, props and the world/camera
-    // bounds. The zone supplies its own floor art.
-    this.arena = new Arena(this, this.seed, zoneArenaLayout(this.zone));
+    // E1 → E3 → E4
+    this.map = generateMap(this.zone, loadout.seed, { ftue, gateWindowBonusS: loadout.gateWindowBonusS });
+    this.gates = this.runGates(this.map.gates, ftue);
+    this.arena = new Arena(this, this.map, this.zone);
+    this.nav = NavGrid.fromBlocked(this.map.nav.cols, this.map.nav.rows, this.map.nav.cell, this.map.nav.blocked);
 
-    // === BEGIN replaceable gameplay ===
+    // E8/E9 combat (+ weapons inside)
     this.combat = new CombatSystem(
       this,
-      this.rng,
       this.arena,
       {
-        onEnemyKilled: (def, x, y, shards) => this.onEnemyKilled(def, x, y, shards),
+        onEnemyKilled: (k) => this.onEnemyKilled(k),
         onPlayerHit: (ratio) => this.onPlayerHit(ratio),
-        onPlayerDied: () => this.die(),
-        onPlayerRevived: () => this.onPlayerRevived(),
-        onLevelUp: (_level, gained) => this.onLevelUp(gained),
-        onPlayerAttack: () => sfx('tap', { volume: 0.25 }),
-        onBossSpawned: () => this.onBossSpawned(),
-        onBossKilled: () => this.onWardenDown(),
-        onWeaponEvolved: (name) => this.onWeaponEvolved(name),
-        onCoinCollected: (value) => this.onCoinCollected(value),
+        onPlayerDied: (killer) => this.die(killer),
+        onPickup: (kind, value) => this.onPickup(kind, value),
+        onBreakableHit: () => {
+          if (allowEffect('smash-sfx', 6)) sfx('smash', { volume: 0.7 });
+        },
       },
-      this.loadout.modifiers,
+      loadout,
     );
-    // The Warden wears this zone's own generated idle sheet (§11: four real
-    // skins with a shoulder/crown silhouette swap, not a recolour). An unloaded
-    // key falls back to the castle base inside `Enemy.spawnWith`.
-    this.combat.setBossSkin(WARDEN_SKIN[this.zone.id] ?? null);
-
-    // Equipped-gear riders that are not stats (§5.5): Widow's Veil lengthens
-    // contact i-frames, Sorrowplate scales the blow itself, Last Rite arms one
-    // refusal of the grave. Applied to the systems that own each rule, so the
-    // relic works through the same path the card of the same name does.
-    this.combat.player.health.invulnMs = TUNING.player.invulnMs + this.loadout.iframesMsBonus;
-    this.combat.setContactDamageMul(this.loadout.contactDamageMul);
-    if (this.loadout.reviveCharges > 0) {
-      const effects = this.combat.effects;
-      effects.lastGaspCharges = this.loadout.reviveCharges;
-      effects.lastGaspReviveRatio = this.loadout.reviveHpRatio;
-      effects.lastGaspIframesMs = TUNING.effects.lastGasp.iframesMs;
-    }
-
-    this.cameras.main.startFollow(
-      this.combat.player,
-      true,
-      TUNING.arena.cameraLerp,
-      TUNING.arena.cameraLerp,
-    );
-    // Bias the view upward so the player sits below the HUD band instead of
-    // disappearing behind it at the arena's top edge.
-    this.cameras.main.setFollowOffset(0, TUNING.arena.cameraOffsetY);
-
-    this.hud = new Hud(this);
-
-    // The zone owns its hazard, its gate positions and its spawn-table bias.
-    this.zoneSystem = new ZoneSystem(this, this.rng, this.arena, this.zone, this.combat.player, {
-      onHazardHit: (amount, x, y) => this.onHazardHit(amount, x, y),
-      onHazardDrain: (amount) => this.onHazardDrain(amount),
-      onHazardTelegraph: (kind, x, y) => this.onHazardTelegraph(kind, x, y),
-      onHazardStrike: (kind, x, y) => this.onHazardStrike(kind, x, y),
+    this.combat.setDamageBonuses(combatBonuses());
+    this.combat.setNav(this.nav, this.map);
+    this.combat.setRunMutators({
+      enemySpeedMul: this.mutRun.enemySpeedMul ?? 1,
+      densityMul: this.mutRun.maxAliveMul ?? 1,
+      maxAliveCap: this.mutRun.maxAliveCap ?? TUNING.enemy.maxAlive,
     });
-    this.zoneGates = [...this.zoneSystem.gates];
+    this.itemsSeen.add(`wpn:${loadout.startWeapon}`);
 
+    const player = this.combat.player;
+    // Sanctum 'Fore-Rite' (b_startlevel): start above L1 and cash in each skipped level as a draft.
+    if (loadout.startLevel > player.level) {
+      const levels = loadout.startLevel - player.level;
+      player.level = loadout.startLevel;
+      this.queueDraft(levels);
+    }
+    this.cameras.main.startFollow(player, true, TUNING.arena.cameraLerp, TUNING.arena.cameraLerp);
+    this.cameras.main.setFollowOffset(0, TUNING.arena.cameraOffsetY);
+    this.arena.setFocus(player);
+    this.arena.updateCulling(this.cameras.main);
+    this.lastX = player.x;
+    this.lastY = player.y;
+
+    // E6 zone hazards
+    this.zoneSystem = new ZoneSystem(this, this.zone, this.map, {
+      onHazardHit: (amount, x, y) => this.onHazardHit(amount, x, y),
+      onHazardDrain: (amount) => this.onHazardDrain(amount, 'the dark'),
+      onHazardTelegraph: (_kind, x, y) => {
+        if (this.onScreen(x, y)) sfx('whoosh', { volume: 0.3 });
+      },
+      onHazardStrike: (_kind, x, y) => {
+        if (this.onScreen(x, y)) burst(this, x, y, IDENTITY.hazardAmber, 10, 200);
+      },
+    });
+    this.zoneSystem.setSubject(player);
+
+    // E22 bag + belt, E20 breakables
+    this.bag = new Bag({ cells: loadout.bagCells, casketSlots: loadout.casketSlots }, TUNING.bag);
+    this.belt = new Belt(loadout.belt);
+    this.field = new BreakableField(this, this.map, new Rng(`breakables:${loadout.seed}`), loadout.breakableDropMul, (drop, x, y) => {
+      switch (drop.kind) {
+        case 'shards':
+          this.combat.dropShards(x, y, drop.coins);
+          return;
+        case 'xp':
+          this.combat.dropXp(x, y, drop.orbs, drop.value);
+          return;
+        case 'pickup':
+          if (drop.id === 'pk_bread' && this.mutRun.noGraveBread === true) return;
+          this.dropLoot({ kind: 'pickup', id: drop.id }, x, y, null);
+          return;
+        case 'item':
+          this.dropLoot({ kind: 'item', item: { kind: 'gear', item: this.rollItem(drop.tierBias, 0) } }, x, y, null);
+          return;
+      }
+    });
+    this.combat.setBreakables(this.field);
+
+    // E18/E19 POIs
+    this.poi = new PoiSystem(this, this.map, {
+      rng: new Rng(`poi:${loadout.seed}`),
+      zone: this.zone,
+      loadout,
+      callbacks: {
+        onLoot: (items, shards, x, y) => {
+          sfx('chest', { volume: 0.9 });
+          if (shards > 0) this.bankShards(shards, x, y);
+          items.forEach((item, i) => this.dropLoot({ kind: 'item', item }, x + (i - (items.length - 1) / 2) * 60, y + 40, null));
+        },
+        onEliteChest: (x, y, boss) => this.onEliteChest(x, y, boss),
+        onShrine: (kind) => this.onShrine(kind),
+        onEvent: (kind, phase) => this.onPoiEvent(kind, phase),
+        onFence: (offers) => this.openFence(offers),
+        onVein: (shards) => {
+          sfx('smash', { rate: 0.7 });
+          sfx('coin');
+          this.bankShards(shards, this.combat.player.x, this.combat.player.y);
+        },
+        onLore: () => {
+          sfx('pickup', { volume: 0.5, rate: 0.8 });
+          showToast(this, { text: 'LORE STONE READ — see CODEX', key: 'lore' });
+        },
+        onBell: (rung) => {
+          this.extraction.ringBell();
+          sfx('gate', { volume: 0.5, rate: 0.8 });
+          showToast(this, { text: `BELL ${rung}/${TUNING.gates.bell.bells} RUNG`, key: 'bell' });
+        },
+        requestSpawn: (spec) => this.combat.spawnPopulation(spec),
+        onDenLock: (locked) => {
+          if (!locked) return;
+          const walls = this.poi.denWalls();
+          if (walls.length === 0) return;
+          const tex = this.textures.exists(DEN_WALL_TEXTURE) ? DEN_WALL_TEXTURE : TEXTURE.gateClosed;
+          this.combat.walls(walls, walls[0]?.r ?? 130, TUNING.midboss.lockS * 1000, tex);
+          banner(this, 'THE DEN SEALS', CSS.warn, 500);
+        },
+      },
+    });
+
+    // E27 extraction
+    this.extraction = new ExtractionSystem(
+      this.gates,
+      {
+        channelMs: TUNING.extract.channelMs,
+        radius: TUNING.gate.radius,
+        collapseAtS: ftue ? TUNING.ftue.runS : loadout.hazardExtras.collapseAtS,
+        closingWarnS: TUNING.gate.closingWarnS,
+        channel: TUNING.extract,
+        collapse: TUNING.collapse,
+      },
+      loadout,
+      {
+        payCondition: (gate) => {
+          if (gate.kind === 'toll') {
+            const paid = this.bag.payToll(loadout.tollPct, TUNING.gates.toll.min);
+            if (paid > 0) floatText(this, gate.x, gate.y - 120, `TOLL −${paid} ◆`, CSS.warn, 36);
+            else showToast(this, { text: `TOLL NEEDS ${TUNING.gates.toll.min} ◆`, key: 'toll' });
+            return paid > 0;
+          }
+          if (gate.kind === 'offering') {
+            const given = this.bag.takeHighestValue();
+            if (given === null) showToast(this, { text: 'THE ALTAR WANTS AN ITEM', key: 'offering' });
+            return given !== null;
+          }
+          return true;
+        },
+        onEvent: (e, gate) => this.onExtractionEvent(e, gate),
+      },
+    );
+    this.combat.setSpawnFilter((x, y) => !this.extraction.spawnSuppressed(x, y));
+
+    // E38 director
     this.director = new RunDirector(
       this,
-      WAVES,
+      wavesFor(this.zone.id),
       PHASES,
       (id, _index, _total, pattern) => this.onDirectorSpawn(id, pattern),
       {
-        durationSeconds: TUNING.runSeconds,
-        onPhaseChange: (phase) => {
-          this.model.phase = phase.name;
-          sfx('whoosh', { volume: 0.5 });
-        },
+        onPhaseChange: () => sfx('whoosh', { volume: 0.5 }),
         onEvent: (event) => this.onScriptedEvent(event),
-        events: TIMELINE_EVENTS,
+        events: ftue ? TIMELINE_EVENTS.filter((e) => e.kind === 'breather') : TIMELINE_EVENTS,
       },
     );
+    if (this.mutRun.bellWaveEveryS !== undefined) this.nextBellWaveS = this.mutRun.bellWaveEveryS;
 
-    // Extraction twist: gates + bag + Collapse. The run ends ONLY through a
-    // completed gate channel or death — there is no timer win (PRD §2A).
-    //
-    // The bag's size and the channel's length are the player's PURCHASES, not
-    // constants: `bagSlots` and `channelMs` are frozen §16.1 stat keys, so
-    // Marrow Sack, Bleak Haste and the Gravekey all arrive as modifiers on the
-    // player's own `StatBlock` and are read back out here as DELTAS from the
-    // authored base. That is the single application point `data/relics.ts`
-    // names — nothing mutates `TUNING`, which is shared and frozen.
-    const stats = this.combat.player.stats;
-    const capacity = resolveBagCapacity(TUNING.bag, {
-      bagSlotsBonus: Math.round(stats.get('bagSlots')) - TUNING.bag.slots,
-      casketSlotsBonus: this.loadout.casketSlotsBonus,
+    this.lootPool = new Pool<LootPickup>(() => new LootPickup(this), (p) => p.despawn(), 16);
+    this.buildWorldVisuals();
+    this.tickEarlyVacuum();
+    if (ftue) this.placeWicketLocket();
+
+    // E39-E44 UI
+    this.hud = new Hud(this, {
+      onPause: () => this.togglePause(),
+      onBelt: (slot) => this.useBelt(slot),
+      gateTicksS: this.gates.filter((g) => g.id !== 'x').map((g) => g.opensS),
+      collapseAtS: ftue ? TUNING.ftue.runS : loadout.hazardExtras.collapseAtS,
     });
-    this.bag = new Bag(capacity.slots, capacity.casketSlots);
-    this.extraction = new ExtractionSystem(this.zoneGates, {
-      channelMs: TUNING.extract.channelMs,
-      radius: TUNING.gate.radius,
-      collapseAtS: TUNING.collapse.atS,
-      closingWarnS: TUNING.gate.closingWarnS,
-      gateWindowBonusS: TUNING.extract.gateWindowBonusS + this.loadout.gateWindowBonusS,
-      channel: {
-        ...TUNING.extract,
-        channelMsDelta:
-          TUNING.extract.channelMsDelta + (stats.get('channelMs') - TUNING.extract.channelMs),
-      },
-      collapse: TUNING.collapse,
-    });
-    this.extraction.onEvent((e, id) => this.onExtractionEvent(e, id));
-    // Spawn policy lives here, not in combat: nothing NEW appears inside
-    // `extract.suppressRadius` of a live gate, so "clear the ring, then hold"
-    // is a real plan instead of a race against an infinite faucet.
-    this.combat.setSpawnFilter((x, y) => !this.extraction.spawnSuppressed(x, y));
-
-    this.relicPool = new Pool<RelicPickup>(
-      () => new RelicPickup(this),
-      (pickup) => pickup.despawn(),
-      RELIC_POOL_SIZE,
-    );
-
-    this.buildGateVisuals();
-    this.buildHudComponents();
-    // === END replaceable gameplay ===
-
-    // Movement is the joystick; `Controls` stays for keyboard parity.
+    this.bagStrip = new BagStrip(this, () => this.toggleBagSheet());
+    this.minimap = new Minimap(this, this.map, loadout.minimapRevealPx);
+    this.minimap.onPeek(() => coachToast(this, 'map'));
+    this.compass = new GateCompass(this, loadout.previewS);
+    this.channelBar = new ChannelBar(this);
     this.joystick = new Joystick(this);
     this.controls = new Controls(this);
 
-    // §14.1 row 2: 88x88 hit area at (592, 0), i.e. centred (636, 44). The
-    // template centred it on `SAFE.top / 2` = y 70, which put the capsule at
-    // y 26-114 and dropped its bottom 32px straight onto the §14.1 shard
-    // counter (x 550-680, y 82-118). Chrome is §14.4 `BUTTON.idle`, not the
-    // template's stray `#e8ecf6`.
-    this.pauseButton = new Button(this, 636, 44, 'II', () => this.togglePause(), {
-      width: 88,
-      height: 88,
-      fill: BUTTON_STYLE.idle.fill,
-      stroke: BUTTON_STYLE.idle.stroke,
-      textColor: BUTTON_STYLE.idle.textColor,
-      fontSize: '36px',
-    });
-    // Above the draft overlay (2000) and below the pause overlay (2100). It
-    // stays above the draft dim NOT so pause-over-draft is reachable — that
-    // stack is now refused outright (see `togglePause`) — but so the icon can
-    // be SEEN going dim and deaf while the cards are up, instead of silently
-    // vanishing under the dim and leaving the player tapping a shape they can
-    // no longer see. Measured in the browser.
-    this.pauseButton.setDepth(2050);
-
     this.input.keyboard?.on('keydown-ESC', () => this.togglePause());
     this.input.keyboard?.on('keydown-P', () => this.togglePause());
-
-    // Auto-pause on tab wake (§14b). Registered on the DOCUMENT, so it is
-    // removed in `teardown` rather than left to the scene's own event bus.
     document.addEventListener('visibilitychange', this.onTabVisibility);
 
-    // Scene instances survive `scene.start`, so every long-lived subsystem is
-    // unhooked here rather than trusting the next `create` to overwrite it.
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.teardown());
-
     this.cameras.main.fadeIn(220, 0, 0, 0);
-    this.markDailyStreak();
-
     startMusic('run');
     setMusicIntensity(0.25);
-
-    // §14b abandon rule: the marker goes down BEFORE the first frame, so even a
-    // reload one second into the run settles as a death instead of vanishing.
     this.refreshJournal();
 
-    // §14b FTUE: the opening sequence runs before the director's first tick.
-    // The hooks hold the whole run (not just the director) and the joystick is
-    // gated until the drag the beat is teaching actually happens.
-    this.openingCoach = startOpeningCoach(this, {
-      pause: () => this.holdForCoach(true),
-      resume: () => this.holdForCoach(false),
-    });
-    if (this.openingCoach !== null) this.joystick.setEnabled(false);
+    if (ftue) coachToast(this, 'move');
+    if (loadout.belt.some((b) => b !== null)) coachToast(this, 'belt');
+    this.installDebugHandle();
+  }
+
+  private resetState(): void {
+    this.paused = false;
+    this.ended = false;
+    this.dying = false;
+    this.drafting = false;
+    this.pendingDrafts = 0;
+    this.bossActive = false;
+    this.kills = 0;
+    this.taken = [];
+    this.banished = [];
+    this.simTimeMs = 0;
+    this.cards = null;
+    this.pauseOverlay = null;
+    this.bagSheet = null;
+    this.fenceOpen = false;
+    this.mutRun = {};
+    this.gateVisuals = [];
+    this.collapseSegments = [];
+    this.ground = [];
+    this.tookHit = false;
+    this.collapseBonus = 0;
+    this.collapseElitesSpawned = 0;
+    this.nextEliteSwapS = TUNING.wave.compositionFromS;
+    this.gateGuardPlaced = false;
+    this.giltUntilS = -1;
+    this.nextBellWaveS = Infinity;
+    this.journalAccMs = 0;
+    this.cullAccMs = 0;
+    this.lowFpsMs = 0;
+    this.lowTier = false;
+    this.fireFlashAcc = 0;
+    this.movedPx = 0;
+    this.attackCoached = false;
+    this.gateCoached = false;
+    this.channelCoached = false;
+    this.locketBeacon = null;
+    this.locketAt = null;
+    this.locketArrow = null;
+    this.locketCoached = false;
+    this.calloutQueue = [];
+    this.frozenWorld.length = 0;
+    this.freezeImage = null;
+    this.calloutBusyUntil = 0;
+    this.earlyVacuum = false;
+    this.mapCoached = false;
+    this.itemCoached = false;
+    this.channelWasActive = false;
+    this.channelQuarter = 0;
+    this.speedGateOn = false;
+    this.gloamwalked.clear();
+    this.killsByEnemy = {};
+    this.killsByWeapon = {};
+    this.affixKills = {};
+    this.eliteKills = 0;
+    this.bossKilled = false;
+    this.minHpRatio = 1;
+    this.itemsSeen = new Set();
+    this.evolutions = [];
   }
 
   /**
-   * Freezes/thaws the whole run for a coach beat. A beat must stop the DIRECTOR
-   * and the extraction clock, not just the spawner: a gate window that ticks
-   * away while the tutorial explains gates is the tutorial killing the run.
+   * §5.28: the Wicket's first item, a Worn Ash Locket, lies ~400 px ahead of
+   * spawn toward Gate A, so run 1 teaches pickup → bag → casket.
    */
-  private holdForCoach(hold: boolean): void {
-    if (this.tearingDown || this.ended) return;
-    this.coachHold = hold;
-    if (hold) {
-      this.director.pause();
-      this.combat.setPaused(true);
-      return;
+  private placeWicketLocket(): void {
+    const player = this.combat.player;
+    const a = this.gates.find((g) => g.id === 'a');
+    // Offset ≥ 60° from the Gate A bearing so the beacon never covers the
+    // Gate A compass marker at spawn (QA v2c NEW-5); try both sides.
+    const gateBearing = a === undefined ? Math.PI / 2 : Math.atan2(a.y - player.y, a.x - player.x);
+    const view = this.cameras.main;
+    // Where the hero sits on screen once the follow settles (camera centre + offset).
+    const heroSX = view.width / 2;
+    const heroSY = view.height / 2 + TUNING.arena.cameraOffsetY;
+    let spot: { x: number; y: number } | null = null;
+    // Prefer the direction of Gate A, then fan out ±30° steps until a walkable
+    // spot lands inside the on-screen band.
+    for (let step = 0; step < 16 && spot === null; step += 1) {
+      const off = LOCKET_OFF_GATE_RAD + Math.floor(step / 2) * (Math.PI / 12);
+      const angle = gateBearing + (step % 2 === 0 ? off : -off);
+      for (let d = WICKET_LOCKET_PX; d >= 180; d -= 20) {
+        const sx = heroSX + Math.cos(angle) * d;
+        const sy = heroSY + Math.sin(angle) * d;
+        if (sx < LOCKET_SCREEN.left || sx > LOCKET_SCREEN.right || sy < LOCKET_SCREEN.top || sy > LOCKET_SCREEN.bottom) continue;
+        if (sx < LOCKET_STICK_KEEPOUT.right && sy > LOCKET_STICK_KEEPOUT.top) continue;
+        const x = player.x + Math.cos(angle) * d;
+        const y = player.y + Math.sin(angle) * d;
+        if (!this.combat.spawnable(x, y)) continue;
+        spot = { x, y };
+        break;
+      }
     }
-    this.openingCoach = null;
-    this.gateCoach = null;
-    this.coachStickLive = false;
-    // A pause overlay or a draft opened over the beat owns the run now.
-    if (this.paused || this.drafting) return;
-    this.director.resume();
-    this.combat.setPaused(false);
-    this.joystick.setEnabled(true);
+    const at = spot ?? { x: player.x, y: player.y + 200 };
+    const locket: LootItem = {
+      kind: 'gear',
+      item: { uid: WICKET_LOCKET_UID, base: 'ash-locket', slot: 'amulet', rarity: 2, level: 1, affixes: [{ id: 'a_hp', value: 8 }] },
+    };
+    this.dropLoot({ kind: 'item', item: locket }, at.x, at.y, null);
+    this.locketAt = at;
+    this.buildLocketArrow();
+    if (this.textures.exists(LOCKET_BEACON)) {
+      // Above tall props and their tops (critic v2d: novices never saw the light).
+      this.locketBeacon = this.add.sprite(at.x, at.y - 90, LOCKET_BEACON).setOrigin(0.5, 0.65).setDepth(LOCKET_BEACON_DEPTH).setAlpha(0.95);
+      if (this.playable(LOCKET_BEACON)) this.locketBeacon.play(LOCKET_BEACON);
+    }
   }
 
-  /**
-   * Drives the opening sequence from `update`. The stick beat is `swap-gate`:
-   * it ends on the taught DRAG and on nothing else, so the run is safe to sit
-   * in forever (§14b "run 1, player never moves").
-   */
-  private tickOpeningCoach(): void {
-    const coach = this.openingCoach;
-    if (coach === null) return;
-    if (!this.coachStickLive) {
-      // `showCoach` writes `tut:<id>` the moment a beat APPEARS, so this flag
-      // flipping is the goal beat handing over to the stick beat.
-      if (!hasSeenCoach('stick')) return;
-      this.coachStickLive = true;
-      this.joystick.setEnabled(true);
-      return;
-    }
-    // ANY supported movement input clears the beat, not just the stick. Gating
-    // on `joystick.vector` alone soft-locked keyboard-only players FOREVER: the
-    // beat never dismissed, the run clock stayed frozen at 0.00s, and the run
-    // could not be started at all — on the first screen of the game, with WASD
-    // a documented input (§3) that the very next lines use to drive the player.
-    const stick = this.joystick.vector;
-    const moving =
-      stick.x !== 0 || stick.y !== 0 || this.controls.axisX !== 0 || this.controls.axisY !== 0;
-    if (!moving) return;
-    coach.finishStick();
+  /** Screen-edge gilt arrow + "LOCKET" chip toward the Wicket locket while it is off screen. */
+  private buildLocketArrow(): void {
+    const g = this.add.graphics();
+    g.fillStyle(IDENTITY.gilt, 1);
+    g.lineStyle(3, 0x03040b, 1);
+    g.beginPath();
+    g.moveTo(22, 0);
+    g.lineTo(-14, -16);
+    g.lineTo(-14, 16);
+    g.closePath();
+    g.fillPath();
+    g.strokePath();
+    const chip = this.add
+      .text(0, 34, 'LOCKET', { ...TEXT.label, fontSize: '22px', color: CSS.ink, stroke: '#03040b', strokeThickness: 6 })
+      .setOrigin(0.5);
+    this.locketArrow = this.add.container(0, 0, [g, chip]).setScrollFactor(0).setDepth(HUD_DEPTH.compass).setVisible(false);
   }
 
-  /** Kills everything that outlives a scene swap: components, pools, hazards. */
+  private tickLocketArrow(): void {
+    const arrow = this.locketArrow;
+    const at = this.locketAt;
+    if (arrow === null || at === null) return;
+    const view = this.cameras.main.worldView;
+    const sx = at.x - view.x;
+    const sy = at.y - view.y;
+    const m = LOCKET_ARROW_BOX;
+    const onScreen = sx >= m.left && sx <= m.right && sy >= m.top && sy <= m.bottom;
+    arrow.setVisible(!onScreen);
+    if (onScreen) return;
+    const cx = VIEW.width / 2;
+    const cy = (m.top + m.bottom) / 2;
+    const angle = Math.atan2(sy - cy, sx - cx);
+    // Clamp onto the box edge along the bearing.
+    const dx = Math.cos(angle);
+    const dy = Math.sin(angle);
+    const tx = dx === 0 ? Infinity : ((dx > 0 ? m.right : m.left) - cx) / dx;
+    const ty = dy === 0 ? Infinity : ((dy > 0 ? m.bottom : m.top) - cy) / dy;
+    const t = Math.min(tx, ty);
+    arrow.setPosition(cx + dx * t, cy + dy * t);
+    (arrow.list[0] as Phaser.GameObjects.Graphics).setRotation(angle);
+  }
+
+  /** FTUE keeps only Gate A (§5.28); Early Dusk shifts timed gates earlier (§5.24). */
+  private runGates(gates: readonly GateCandidate[], ftue: boolean): GateCandidate[] {
+    const shift = this.mutRun.gateShiftS ?? 0;
+    return gates
+      .filter((g) => !ftue || g.id === 'a')
+      .map((g) =>
+        shift === 0 || g.kind !== 'timed'
+          ? g
+          : { ...g, opensS: Math.max(0, g.opensS + shift), closesS: g.closesS === null ? null : Math.max(0, g.closesS + shift) },
+      );
+  }
+
+  /** `window.__GAME__.scene.getScene('Game')` already exposes this scene; this names the run's handles for the cert driver. */
+  private installDebugHandle(): void {
+    Reflect.set(window, '__RUN__', () => ({
+      map: this.map,
+      arena: this.arena,
+      nav: this.nav,
+      combat: this.combat,
+      extraction: this.extraction,
+      bag: this.bag,
+      poi: this.poi,
+    }));
+  }
+
   private teardown(): void {
-    this.tearingDown = true;
-    // A document listener does not belong to the scene's bus and will happily
-    // fire into a dead scene, which is the black-screen trap in AGENTS.md.
     document.removeEventListener('visibilitychange', this.onTabVisibility);
-    // A live beat must not resume a scene that is being destroyed, which is why
-    // the flag above is set first: `destroy()` calls back into `holdForCoach`.
-    this.openingCoach?.destroy();
-    this.openingCoach = null;
-    this.gateCoach?.destroy();
-    this.gateCoach = null;
+    if (!this.built) {
+      resetDamageClock();
+      return;
+    }
+    this.cards?.destroy();
+    this.pauseOverlay?.destroy();
+    this.bagSheet?.close();
+    this.minimap?.destroy();
     this.compass?.destroy();
-    this.bagPips?.destroy();
     this.channelBar?.destroy();
-    // The Warden marker owns a repeating arrow pulse, so it is killed with the
-    // rest of the HUD rather than left to the display list: a `repeat: -1`
-    // tween surviving a `scene.restart` is the leak AGENTS.md names.
-    this.wardenMark?.destroy();
-    this.wardenMark = null;
-    this.wardenBody = null;
+    this.bagStrip?.destroy();
     this.zoneSystem?.destroy();
-    for (const pickup of this.relics) pickup.despawn();
-    this.relics.length = 0;
-    // The damage clock is a MODULE-level closure over this scene's sim time.
-    // Left installed, the next scene's `Health` reads a frozen clock and every
-    // i-frame window it opens never closes.
+    this.poi?.destroy();
+    this.field?.destroy();
+    for (const g of this.ground) g.pickup.despawn();
+    this.ground.length = 0;
+    // Combat/Arena bodies die with the scene's physics world (which shuts down
+    // before this listener runs); their destroy() is for in-scene rebuilds only.
+    this.time.timeScale = 1;
     resetDamageClock();
   }
 
-  /**
-   * Advances the daily streak once per run (the menu chip reads it back on the
-   * next visit) and celebrates only the day it actually grew.
-   */
-  private markDailyStreak(): void {
-    const streak = touchDailyStreak();
-    if (!streak.extended) return;
-    this.time.delayedCall(600, () => {
-      floatText(this, VIEW.centerX, SAFE.top + 60, `DAY ${streak.days} STREAK!`, '#ffd166', 46);
-      sfx('combo', { volume: 0.5 });
-    });
-  }
+  // === frame ================================================================
 
-  update(_time: number, delta: number): void {
-    if (this.ended) return;
+  update(_time: number, rawDelta: number): void {
+    if (!this.built || this.ended) return;
+    // Every slow-mo source (bag sheet, evolution peak, hitstop) composes in core/juice.
+    const delta = rawDelta * timeDilation(this);
 
     this.controls.update();
     const player = this.combat.player;
-    // Keyboard wins while a key is held; otherwise the stick drives movement.
-    if (this.controls.axisX !== 0 || this.controls.axisY !== 0) {
-      player.setAxis(this.controls.axisX, this.controls.axisY);
-    } else {
-      player.setAxis(this.joystick.vector.x, this.joystick.vector.y);
-    }
+    if (this.controls.axisX !== 0 || this.controls.axisY !== 0) player.setAxis(this.controls.axisX, this.controls.axisY);
+    else player.setAxis(this.joystick.vector.x, this.joystick.vector.y);
 
-    // A live coach beat holds the run exactly as a draft does, so the beats are
-    // part of THIS gate rather than a special case inside each subsystem.
-    const running = !this.drafting && !this.paused && !this.coachHold;
-    if (this.openingCoach !== null) this.tickOpeningCoach();
-
+    const running = !this.drafting && !this.paused && !this.fenceOpen;
     if (running) {
+      this.simTimeMs += delta;
       this.director.update(delta);
       this.combat.update(delta, this.runDifficulty);
+      if (this.ended) return;
       this.zoneSystem.update(delta, this.director.elapsedSeconds);
 
-      // §12: the score tracks the SESSION's pressure curve, not just the
-      // difficulty ramp. The Warden and the Collapse are the two peaks the §2
-      // architecture is built around, and both pin it to full — otherwise the
-      // music is still playing mid-run mood over the finale.
-      const pressure =
-        this.bossActive || this.extraction.collapse?.active === true
-          ? 1
-          : 0.25 + 0.75 * Math.min(1, this.runDifficulty / 2.6);
-      setMusicIntensity(pressure);
-
-      // No timer win: past 480s the Collapse (ticked below) ends the run
-      // through fire, never through the clock.
-      this.tickExtraction(delta);
+      const hero = { x: player.x, y: player.y, hpRatio: player.health.ratio };
+      this.field.update(hero);
+      this.poi.update(delta, hero, (x, y, r) => this.combat.enemiesInRing(x, y, r), this.tookHit);
+      const gate = this.extraction.channelingGate;
+      const g = gate === null ? undefined : this.gates.find((c) => c.id === gate);
+      const contest = g === undefined ? undefined : this.combat.enemiesInRing(g.x, g.y, TUNING.gate.radius);
+      this.extraction.update(delta, player.x, player.y, this.tookHit, contest);
+      this.tookHit = false;
+      this.tickGateBoons();
       if (this.ended) return;
-      this.tickBeats(delta);
+      this.belt.update(delta);
+      this.tickCollapse(delta);
       if (this.ended) return;
+      this.tickBeats();
+      this.tickGround();
+      this.tickPoiXp();
+      for (const pk of this.poi.takePickups()) {
+        if (pk.id === 'pk_bread' && this.mutRun.noGraveBread === true) continue;
+        this.dropLoot({ kind: 'pickup', id: pk.id }, pk.x, pk.y, null);
+      }
+      this.tickEarlyVacuum();
 
-      // A level-up earned mid-channel waits here until the hold ends, so the
-      // draft never yanks the player out of the rite (see `queueDraft`).
-      this.drainDeferredDrafts();
-      if (this.ended) return;
+      if (player.health.ratio < LOW_HP_RATIO && player.health.hp > 0 && allowEffect('heartbeat', 1 / 1.2)) sfx('heartbeat');
+      const levels = this.combat.takeLevelUps();
+      if (levels > 0) this.queueDraft(levels);
+      if (this.combat.takeRevived()) {
+        banner(this, 'LAST RITE', CSS.good, 500);
+        sfx('levelup', { volume: 0.5, rate: 0.8 });
+      }
+      this.drainDrafts();
 
-      // §14b: the shard checkpoint refreshes at most once a second. Relic and
-      // casket mutations refresh immediately, from where they happen.
       this.journalAccMs += delta;
       if (this.journalAccMs >= 1000) {
         this.journalAccMs = 0;
         this.refreshJournal();
       }
+      const pressure = this.bossActive || this.extraction.collapse?.active === true ? 1 : 0.25 + 0.75 * Math.min(1, this.director.difficulty / 2.6);
+      setMusicIntensity(pressure);
+      this.tickCoach(player.x, player.y);
     }
 
-    // Sim time backs the damage clock's i-frames: it must not advance while
-    // paused, drafting or reading a coach beat, or any of those would silently
-    // expire i-frames.
-    if (running && !this.director.isPaused) {
-      this.simTimeMs += delta;
+    if (this.freezeImage === null) this.cullAccMs += rawDelta;
+    if (this.cullAccMs >= CULL_EVERY_MS) {
+      this.cullAccMs = 0;
+      this.arena.updateCulling(this.cameras.main);
     }
+    if (this.freezeImage === null) this.tickPerf(rawDelta);
+    if (this.calloutQueue.length > 0) this.pumpCallouts();
+    this.tickLocketArrow();
+    this.redrawWorld();
+    this.feedUi();
+  }
 
-    // Cheap enough to run unconditionally and correct from anywhere: this is a
-    // boolean compare that only touches the Button on a transition, so no
-    // caller has to remember to re-sync when a draft or a beat opens or closes.
-    this.syncPauseAffordance();
+  private get runDifficulty(): number {
+    return this.director.difficulty * this.zone.threatBase * this.loadout.threatMul * (this.mutRun.enemyHpMul ?? 1) + this.collapseBonus;
+  }
 
-    // The §13 floater cap moved into `juice.allowEffect('float')`, which is
-    // shared with `combat.ts`'s damage floaters: §13 caps floatText "12/s
-    // scene-wide", and two independent per-second budgets in two files is not
-    // one scene-wide cap.
+  private get collapseAtS(): number {
+    return this.loadout.mode === 'ftue' ? TUNING.ftue.runS : this.loadout.hazardExtras.collapseAtS;
+  }
 
-    this.model.hp = Math.ceil(player.health.hp);
-    this.model.hpMax = player.health.max;
-    this.model.level = player.level;
-    this.model.xp = player.xp;
-    this.model.xpNeeded = player.xpNeeded();
-    this.model.timeMs = this.director.elapsedSeconds * 1000;
-    // §14.1: the clock escalates to `warn` and reads COLLAPSE once the ring is
-    // live. Shards and kills are NOT HUD rows — the shard counter is
-    // `ui/bagPips.ts` (§14.1 row 5) and kills are a results `ResultStat`.
-    this.model.collapsing = this.extraction.collapse?.active === true;
-    this.hud.set(this.model);
+  private get elapsedS(): number {
+    return this.extraction.elapsedS;
+  }
+
+  private tickPerf(deltaMs: number): void {
+    if (this.lowTier) return;
+    if (this.game.loop.actualFps < TUNING.perf.lowTierFps) this.lowFpsMs += deltaMs;
+    else this.lowFpsMs = 0;
+    if (this.lowFpsMs < TUNING.perf.lowTierWindowMs) return;
+    this.lowTier = true;
+    this.arena.setLowTier(true);
+    this.combat.setLowTier(true);
+  }
+
+  /**
+   * Gate-side Sanctum boons folded into the loadout: Homeward (`speedNearGateMul`
+   * within `SPEED_GATE_PX` of an open gate) and Gloamwalk (`gloamwalkMs` of
+   * i-frames when a gate channel starts, once per gate).
+   */
+  private tickGateBoons(): void {
+    const player = this.combat.player;
+    if (this.loadout.speedNearGateMul !== 1) {
+      const near = !this.extraction.extracted && this.extraction.nearOpenGate(player.x, player.y, SPEED_GATE_PX);
+      if (near !== this.speedGateOn) {
+        this.speedGateOn = near;
+        if (near) player.applyModifier({ stat: 'moveSpeed', mul: this.loadout.speedNearGateMul - 1, source: SPEED_GATE_SOURCE });
+        else player.stats.removeBySource(SPEED_GATE_SOURCE);
+      }
+    }
+    const gate = this.extraction.channelingGate;
+    if (this.loadout.gloamwalkMs > 0 && gate !== null && this.extraction.channelProgress > 0 && !this.gloamwalked.has(gate)) {
+      this.gloamwalked.add(gate);
+      player.health.grantIframes(this.loadout.gloamwalkMs);
+      floatText(this, player.x, player.y - 100, 'GLOAMWALK', GATE_OPEN_CSS, 34);
+    }
+  }
+
+  private tickCoach(x: number, y: number): void {
+    this.movedPx += Math.hypot(x - this.lastX, y - this.lastY);
+    this.lastX = x;
+    this.lastY = y;
+    if (this.movedPx >= 200) endCoach(this, 'move');
+    const t = this.elapsedS;
+    if (!this.locketCoached && this.locketAt !== null && t >= WICKET_LOCKET_COACH_S) {
+      this.locketCoached = true;
+      coachToast(this, 'locket');
+    }
+    if (!this.attackCoached && t >= 3) {
+      this.attackCoached = true;
+      coachToast(this, 'attack');
+    }
+    const a = this.gates.find((g) => g.id === 'a');
+    if (!this.gateCoached && a !== undefined && t >= a.opensS - 30) {
+      this.gateCoached = true;
+      coachToast(this, 'gate');
+    }
+    // Channel coach on first APPROACH to an open gate (critic v2b M5), not at open time.
+    if (!this.channelCoached) {
+      for (const g of this.gates) {
+        const st = this.extraction.state(g.id);
+        if (st !== 'open' && st !== 'closing') continue;
+        if ((x - g.x) ** 2 + (y - g.y) ** 2 > CHANNEL_COACH_PX * CHANNEL_COACH_PX) continue;
+        this.channelCoached = true;
+        coachToast(this, 'channel');
+        break;
+      }
+    }
+    if (!this.mapCoached && this.poi.minimap().length > 0) {
+      this.mapCoached = true;
+      coachToast(this, 'map');
+    }
+  }
+
+  private refreshJournal(): void {
+    if (this.ended) return;
+    const view = this.bag.view();
+    writeRunJournal({
+      version: 2,
+      zone: this.loadout.zone,
+      hazard: this.loadout.hazard,
+      mode: this.loadout.mode,
+      seed: this.loadout.seed,
+      classId: this.loadout.classId,
+      items: view.casket.map((c) => c.item),
+      shards: this.bag.shards,
+      elapsedS: this.elapsedS,
+    });
   }
 
   // === spawning =============================================================
 
-  /** Phase difficulty x zone threat base, plus the uncapped Collapse ramp. */
-  private get runDifficulty(): number {
-    return this.director.difficulty * this.zone.threatBase + this.collapseBonus;
-  }
-
-  /**
-   * §14b abandon rule: writes the in-flight marker. Called at run start, from
-   * every relic/casket mutation, and from `update`'s 1Hz shard tick — the
-   * marker is small and idempotent, so there is one writer and no diffing. The
-   * casket is journalled by ID because those are exactly the relics a death
-   * settlement banks.
-   */
-  private refreshJournal(): void {
-    if (this.ended) return;
-    writeRunJournal({
-      zone: this.zoneId,
-      seed: this.seed,
-      casket: this.bag.casket.map((relic) => relic.id),
-      shards: this.bag.shards,
-    });
-  }
-
-  /**
-   * Every scheduled spawn passes through here, which is where the run's three
-   * spatial rules live: the Warden is placed AT Gate C, the Gate B guard pack
-   * has already been placed at Gate B (so its scheduled bodies are absorbed
-   * here rather than spawned twice), and the zone gets to substitute one of its
-   * own exclusives for ordinary trash (§5.7).
-   *
-   * During the Collapse the trash drip stops entirely (`collapse.stopTrashDrip`)
-   * — the finale escalates by COMPOSITION, not by a count the 220-enemy cap has
-   * already saturated.
-   */
   private onDirectorSpawn(id: string, pattern: WaveSpec['pattern']): void {
-    // The row id, not the gate letter: `TUNING.warden.gate` is 'c', and
-    // comparing a spawn id against a GATE id means any zone whose gate letters
-    // ever change starts summoning the Warden off a husk row.
-    if (id === 'warden') {
-      this.spawnWarden();
-      return;
-    }
-    const collapsing = this.extraction.collapse?.active === true;
-    if (collapsing && TUNING.collapse.stopTrashDrip) return;
-
-    // The guard pack landed as ONE burst at the gate (`tickGateGuard`); the
-    // wave table's own bodies for it are consumed here so the §15 entity budget
-    // is unchanged and the pack is not doubled.
-    if (this.gateGuardAbsorb > 0) {
-      this.gateGuardAbsorb -= 1;
-      return;
-    }
-
-    const resolved = this.maybeUpgradeToElite(this.zoneSystem.pickSpawnId(id));
+    if (this.extraction.collapse?.active === true && TUNING.collapse.stopTrashDrip) return;
+    const resolved = this.zoneSystem.pickSpawnId(id);
+    if (this.maybeSwapToElite()) return;
     this.combat.spawn(resolved, this.runDifficulty, pattern);
+    // Gilt Shrine ×1.5, Rally banner and Crowded Graves ride the same drip.
+    const extra = (this.elapsedS < this.giltUntilS ? TUNING.poi.shrines.gilt.spawnMul : 1) * this.combat.rallyMul() * (this.mutRun.maxAliveMul ?? 1) - 1;
+    if (extra > 0 && this.rng.chance(Math.min(1, extra))) this.combat.spawn(resolved, this.runDifficulty, pattern);
+  }
+
+  /** Composition ramp (§5.5): from `wave.compositionFromS`, one trash spawn every `eliteSwapEveryS` becomes an elite. */
+  private maybeSwapToElite(): boolean {
+    const t = this.elapsedS;
+    if (t < this.nextEliteSwapS) return false;
+    // Elite share cap (§5.5 `wave.eliteShareMax`): while affixed bodies already
+    // make up that share of the live pool, the slot stays ordinary trash.
+    const elites = this.combat.threats(this.threatBuf);
+    if (elites >= TUNING.wave.eliteShareMax * this.combat.liveCount()) return false;
+    this.nextEliteSwapS = t + TUNING.wave.eliteSwapEveryS / (this.mutRun.eliteFreqMul ?? 1);
+    return this.spawnRolledElite(null) !== null;
+  }
+
+  /** Rolls an elite for this second/zone/hazard and seats it on the spawn ring (or at `at`). */
+  private spawnRolledElite(at: { x: number; y: number } | null): boolean | null {
+    return this.spawnRolledEliteBody(at) === null ? null : true;
+  }
+
+  private spawnRolledEliteBody(at: { x: number; y: number } | null): Enemy | null {
+    const extras = this.loadout.hazardExtras;
+    const roll = rollElite(this.rng, this.elapsedS, this.zone.id, extras.forcedAffix, extras.eliteExtraAffix);
+    const affix = roll.affixes[0];
+    if (affix === undefined) return null;
+    const p = at ?? this.ringPoint();
+    if (p === null) return null;
+    return this.combat.spawnElite(roll.defId, affix, p.x, p.y);
+  }
+
+  private ringPoint(): { x: number; y: number } | null {
+    const player = this.combat.player;
+    const dist = VIEW.height / 2 + TUNING.enemy.spawnMargin;
+    for (let i = 0; i < 8; i += 1) {
+      const a = this.rng.float(0, Math.PI * 2);
+      const x = player.x + Math.cos(a) * dist;
+      const y = player.y + Math.sin(a) * dist;
+      if (this.combat.spawnable(x, y)) return { x, y };
+    }
+    return null;
+  }
+
+  private onScriptedEvent(event: EventSpec): void {
+    switch (event.kind) {
+      case 'elite': {
+        const beats = 1 + hazardDef(this.loadout.hazard).extraElitesPerBeat;
+        const count = Math.max(1, Math.round(beats * (this.mutRun.eliteFreqMul ?? 1)));
+        for (let i = 0; i < count; i += 1) this.spawnRolledElite(null);
+        sfx('die', { volume: 0.3 });
+        showToast(this, { text: 'AN ELITE HUNTS YOU', tone: PALETTE.bad, key: 'elite' });
+        break;
+      }
+      case 'boss':
+        this.spawnZoneBoss();
+        break;
+      case 'breather':
+        this.beginBreather();
+        break;
+      // 'poi-event' / 'den-open' / 'fence-window' are scheduled inside
+      // `PoiSystem` on its own clock (same seconds); the timeline rows exist
+      // for the sim and the HUD ticks.
+      default:
+        break;
+    }
+  }
+
+  private spawnZoneBoss(): void {
+    if (this.bossActive) return;
+    const c = this.gates.find((g) => g.id === TUNING.warden.gate) ?? this.gates[0];
+    if (c === undefined) return;
+    // Near Gate C the boss guards the arch; far from it, the boss comes to the
+    // hero on the line toward C, so the climax is a fight and not a rumour
+    // 2 km away (critic v2b B3).
+    const player = this.combat.player;
+    const dist = Math.hypot(c.x - player.x, c.y - player.y);
+    let at = { x: c.x + TUNING.warden.spawnOffsetPx, y: c.y };
+    if (dist > BOSS_AT_GATE_PX) {
+      const a = Math.atan2(c.y - player.y, c.x - player.x);
+      for (let i = 0; i < 12; i += 1) {
+        const ang = a + (i % 2 === 0 ? 1 : -1) * Math.ceil(i / 2) * 0.35;
+        const x = player.x + Math.cos(ang) * BOSS_NEAR_PX;
+        const y = player.y + Math.sin(ang) * BOSS_NEAR_PX;
+        if (!this.combat.spawnable(x, y)) continue;
+        at = { x, y };
+        break;
+      }
+    }
+    this.combat.spawnBoss(this.zone.id, at.x, at.y);
+    this.bossActive = true;
+    setMusicLayer('boss', true);
+    sfx('collapse', { volume: 0.5 });
+    shake(this, 0.012, 300);
+    banner(this, this.zone.bossName.toUpperCase(), CSS.bad, 800);
+  }
+
+  private beginBreather(): void {
+    this.combat.silenceSpawns(TUNING.events.breatherSilenceMs);
+    const player = this.combat.player;
+    const before = player.health.hp;
+    player.health.heal(player.health.max * TUNING.events.breatherHealRatio);
+    const healed = Math.round(player.health.hp - before);
+    sfx('whoosh', { volume: 0.35, rate: 1.25 });
+    floatText(this, player.x, player.y - 100, healed > 0 ? `+${healed} HP` : 'HP FULL', healed > 0 ? CSS.good : CSS.inkSoft, 42);
+    // Only claim relief when the hero is actually clear (critic v2b B3).
+    if (this.combat.liveNear(BREATHER_CLEAR_PX) < BREATHER_TOAST_MAX_NEAR) {
+      showToast(this, { text: 'THE DUSK DRAWS BACK', tone: PALETTE.good, ms: TUNING.events.breatherSilenceMs, key: 'breather' });
+    }
+  }
+
+  /** Gate B guard pack, Collapse elite injection, Tolling Bells waves. */
+  private tickBeats(): void {
+    const t = this.elapsedS;
+    if (!this.gateGuardPlaced && t >= TUNING.elite.gateGuardAtS) {
+      this.gateGuardPlaced = true;
+      const b = this.gates.find((g) => g.id === TUNING.elite.gateGuardGate);
+      if (b !== undefined) this.placeGateGuard(b);
+    }
+    if (t >= this.nextBellWaveS && this.mutRun.bellWaveEveryS !== undefined) {
+      this.nextBellWaveS = t + this.mutRun.bellWaveEveryS;
+      const p = this.combat.player;
+      this.combat.spawnPopulation({ source: 'mu_bells', x: p.x, y: p.y, radius: 420, entries: [{ defId: 'husk', count: TUNING.poi.events.vigil.waveSize }] });
+    }
+    const collapse = this.extraction.collapse;
+    if (collapse?.active === true) {
+      const centre = this.extraction.collapseRingCenter;
+      while (this.collapseElitesSpawned < this.extraction.collapseEliteQuota) {
+        this.collapseElitesSpawned += 1;
+        const a = this.rng.float(0, Math.PI * 2);
+        const r = Math.max(TUNING.gate.radius + 60, collapse.ringRadius - 80);
+        const x = centre.x + Math.cos(a) * r;
+        const y = centre.y + Math.sin(a) * r;
+        if (this.combat.spawnable(x, y)) this.spawnRolledElite({ x, y });
+      }
+    }
   }
 
   /**
-   * Composition ramp (PRD §7 `wave.*`). From `compositionFromS` the live pool
-   * is pinned at the entity cap, so the only honest escalation left is what the
-   * pool is MADE OF: every `eliteSwapEveryS` the next scheduled trash spawn is
-   * upgraded to an elite, consuming that spawn's budget rather than adding to
-   * it. Capped at `eliteShareMax` of the live pool so it stays a horde.
+   * Gate B guard (critic C1): at gate open the pack is parked OUTSIDE the
+   * apron, on the side facing the hero, under a red ground telegraph, so the
+   * fight comes before the channel instead of landing on it. Nothing spawns
+   * inside `extract.suppressRadius` of the gate; every guard hit is capped.
    */
-  private maybeUpgradeToElite(id: string): string {
-    const nowS = this.director.elapsedSeconds;
-    if (nowS < this.nextEliteSwapS) return id;
-    const alive = this.combat.aliveEnemies();
-    const elites = COLLAPSE_ELITE_IDS.length;
-    if (elites === 0 || alive <= 0) return id;
-    this.contest.enemies = 0;
-    this.contest.elites = 0;
-    this.combat.countNear(this.combat.player.x, this.combat.player.y, VIEW.height, this.contest);
-    if (this.contest.elites / Math.max(1, this.contest.enemies) >= TUNING.wave.eliteShareMax) return id;
-
-    this.nextEliteSwapS = nowS + TUNING.wave.eliteSwapEveryS;
-    const pick = COLLAPSE_ELITE_IDS[this.eliteSwapIndex % elites] ?? id;
-    this.eliteSwapIndex += 1;
-    return pick;
-  }
-
-  /**
-   * The Gate B guard (PRD §2A/§5.4: "reaper + 8 husks at Gate B"): at
-   * `elite.gateGuardAtS` the pack lands ON the gate as ONE burst, on the ring
-   * between `gate.radius` and `elite.gateGuardRadiusPx` — so the mid gate is a
-   * fight you walk into instead of a door you stroll through, and the pack
-   * exists as a pack rather than as a trickle whose bodies happen to be nearby.
-   *
-   * Latched, so it can never fire twice, and the wave table's own bodies for
-   * this beat are absorbed in `onDirectorSpawn`: the pack SPENDS the schedule's
-   * budget instead of adding to it.
-   */
-  private tickGateGuard(nowS: number): void {
-    if (this.gateGuardPlaced || nowS < TUNING.elite.gateGuardAtS) return;
-    this.gateGuardPlaced = true;
-    const gate = this.zoneGates.find((g) => g.id === TUNING.elite.gateGuardGate);
-    if (gate === undefined) return;
-
-    this.spawnOnGateRing(gate, GATE_GUARD_ELITE_ID);
+  private placeGateGuard(gate: GateCandidate): void {
+    const player = this.combat.player;
+    const [minPark, maxPark] = TUNING.elite.gateGuardParkPx;
+    const minDist = Math.max(TUNING.extract.suppressRadius, TUNING.mapgen.gateClear) + 1;
+    const d = Math.max(minDist, TUNING.mapgen.gateClear + this.rng.float(minPark, maxPark));
+    // Of the bearings around the gate, take the walkable one FARTHEST from the
+    // hero (QA v2c NEW-1: a hero approaching from the park side was spawned on).
+    let park: { x: number; y: number } | null = null;
+    let best = -1;
+    for (let i = 0; i < GUARD_BEARINGS; i += 1) {
+      const angle = (i / GUARD_BEARINGS) * Math.PI * 2;
+      const x = gate.x + Math.cos(angle) * d;
+      const y = gate.y + Math.sin(angle) * d;
+      if (!this.combat.spawnable(x, y)) continue;
+      const fromHero = Math.hypot(x - player.x, y - player.y);
+      if (fromHero > best) {
+        best = fromHero;
+        park = { x, y };
+      }
+    }
+    if (park === null || best < TUNING.elite.gateGuardHeroClearPx) return;
+    const cap = TUNING.elite.gateGuardDmgCap * hazardDef(this.loadout.hazard).threatMul;
+    const spread = TUNING.elite.gateGuardRadiusPx;
+    const guards: Enemy[] = [];
+    const elite = this.spawnRolledEliteBody(park);
+    if (elite !== null) guards.push(elite);
     for (let i = 0; i < TUNING.elite.gateGuardAdds; i += 1) {
-      this.spawnOnGateRing(gate, this.zoneSystem.pickSpawnId(GATE_GUARD_ADD_ID));
+      const a = (i / TUNING.elite.gateGuardAdds) * Math.PI * 2;
+      const x = park.x + Math.cos(a) * spread;
+      const y = park.y + Math.sin(a) * spread;
+      if (Math.hypot(x - gate.x, y - gate.y) <= TUNING.extract.suppressRadius) continue;
+      const add = this.combat.spawnAtPosition(GATE_GUARD_ADD_ID, x, y, this.runDifficulty);
+      if (add !== null) guards.push(add);
     }
-    this.gateGuardAbsorb = 1 + TUNING.elite.gateGuardAdds;
-
-    sfx('die', { volume: 0.4 });
-    floatText(
-      this,
-      this.combat.player.x,
-      this.combat.player.y - 160,
-      `GATE ${gate.id.toUpperCase()} IS GUARDED`,
-      CSS.bad,
-      42,
-    );
+    // Dormant (no move, no attack) for the whole telegraph, then all wake at once.
+    for (const g of guards) {
+      g.damageCap = cap;
+      g.dormant = true;
+    }
+    this.time.delayedCall(TUNING.elite.gateGuardTelegraphMs, () => {
+      for (const g of guards) if (g.active && g.damageCap === cap) g.dormant = false;
+    });
+    this.guardTelegraph(park.x, park.y, spread + 60);
+    this.gateCallout(`GATE ${gate.id.toUpperCase()} GUARDED`, CSS.warn);
   }
 
-  private spawnOnGateRing(gate: GateSpec, id: string): void {
-    const angle = this.rng.float(0, Math.PI * 2);
-    const dist = this.rng.float(TUNING.gate.radius, TUNING.elite.gateGuardRadiusPx);
-    this.combat.spawnAtPosition(
-      id,
-      gate.x + Math.cos(angle) * dist,
-      gate.y + Math.sin(angle) * dist,
-      this.runDifficulty,
-    );
+  /** Amber ground ring (telegraph colour, §13.2) under the parked guard pack for `elite.gateGuardTelegraphMs`. */
+  private guardTelegraph(x: number, y: number, r: number): void {
+    const g = this.add.graphics().setDepth(4);
+    g.fillStyle(IDENTITY.hazardAmber, 0.18);
+    g.fillCircle(x, y, r);
+    g.lineStyle(6, IDENTITY.hazardAmber, 0.9);
+    g.strokeCircle(x, y, r);
+    this.tweens.add({ targets: g, alpha: 0, delay: TUNING.elite.gateGuardTelegraphMs - 500, duration: 500, onComplete: () => g.destroy() });
   }
 
-  /**
-   * The Warden takes station on Gate C — the Bleak Arch is what it guards.
-   *
-   * The ENTRANCE is not announced here: `spawnAtPosition` fires
-   * `onBossSpawned` synchronously for the first `boss` body, so the banner, the
-   * toll, the camera cue and the marker all live there — one announcement site,
-   * reached whichever way the row is spawned.
-   */
-  private spawnWarden(): void {
-    const gate = this.zoneGates.find((g) => g.id === TUNING.warden.gate) ?? this.zoneGates[2];
-    if (gate === undefined) return;
-    const angle = this.rng.float(0, Math.PI * 2);
-    this.combat.spawnAtPosition(
-      'warden',
-      gate.x + Math.cos(angle) * TUNING.warden.spawnOffsetPx,
-      gate.y + Math.sin(angle) * TUNING.warden.spawnOffsetPx,
-      this.runDifficulty,
-    );
+  private tickCollapse(deltaMs: number): void {
+    const collapse = this.extraction.collapse;
+    if (collapse === null || !collapse.active) return;
+    this.collapseBonus = this.extraction.collapseThreatBonus;
+    const centre = this.extraction.collapseRingCenter;
+    const player = this.combat.player;
+    const dx = player.x - centre.x;
+    const dy = player.y - centre.y;
+    if (dx * dx + dy * dy <= collapse.ringRadius * collapse.ringRadius) return;
+    this.onHazardDrain((this.extraction.collapseFireDps * deltaMs) / 1000, 'the Collapse');
   }
 
-  // === rewards and feedback =================================================
+  // === combat callbacks =====================================================
 
-  /** Rewards, feedback and the effect caps that keep 200+ entities at 60fps. */
-  private onEnemyKilled(def: EnemyDef, x: number, y: number, shards: number): void {
+  private onEnemyKilled(k: KillReport): void {
     this.kills += 1;
-
-    // Shards are the one currency: everything routes through the bag and is
-    // only banked by the settlement in `finish` (extract keeps, death loses).
-    // Elites and the Warden pay out as pooled coins instead (`eliteDrop`), so
-    // only the flat per-kill value is granted here — through `shardsMul`, which
-    // is where Gilt Sense and the Gilt Skull actually land (and the same place
-    // `sim/families/arena.ts` applies them).
-    if (def.eliteDrop !== true) this.bag.addShards(this.scaleShards(shards));
-
-    // The greed dial: elites and the Warden drop relics, and any row carrying
-    // `relicRolls` (the Gilded Ghoul) drops its own.
-    if (def.behaviour === 'boss') this.dropRelics(x, y, TUNING.loot.eliteRelics, TUNING.loot.bossTierBias);
-    else if (def.behaviour === 'elite') this.dropRelics(x, y, TUNING.loot.eliteRelics, TUNING.loot.eliteTierBias);
-    else {
-      const rolls = def.params?.relicRolls;
-      if (rolls !== undefined && rolls > 0) this.dropRelics(x, y, rolls, def.params?.relicTierBias ?? 0);
+    this.killsByEnemy[k.defId] = (this.killsByEnemy[k.defId] ?? 0) + 1;
+    this.killsByWeapon[k.source] = (this.killsByWeapon[k.source] ?? 0) + 1;
+    if (k.elite !== null) {
+      this.eliteKills += 1;
+      this.affixKills[k.elite] = (this.affixKills[k.elite] ?? 0) + 1;
     }
-
-    const big = def.behaviour === 'boss' || def.behaviour === 'elite';
-    // §13 "enemy death": burst + shard fling, 6 particles, `die` at 4/s, and
-    // NO burst above `caps.burstEntityLimit` live bodies. The count is 6 for a
-    // husk exactly as authored (it was 8); an elite or the Warden is a
-    // once-a-run beat and keeps its bigger 26.
-    const live = this.combat.aliveEnemies();
-    if (big || live <= TUNING.caps.burstEntityLimit) {
-      burst(this, x, y, def.tint, big ? 26 : 6, big ? 460 : 260);
-    }
-    if (big) {
-      this.punch(0.014, 220);
-      sfx('levelup', { volume: 0.7 });
-      floatText(this, x, y, def.name.toUpperCase(), '#ffd166', 52);
-    } else {
-      // A normal kill was previously SILENT — the most repeated payoff in the
-      // run had no audio channel at all, which is the ≥2-channel rule failing
-      // on the beat it matters most on.
-      if (allowEffect('enemy-die-sfx', TUNING.caps.dieSfxPerSecond)) {
-        sfx('die', { volume: 0.4, rate: 1.15 });
-      }
-      if (allowEffect('float', TUNING.caps.floatTextPerSecond)) {
-        floatText(this, x, y, `+${shards}`, '#8fa1c7', 34);
-      }
+    if (k.shards > 0) this.combat.dropShards(k.x, k.y, k.shards);
+    this.poi.onKill(k);
+    if (k.boss === 'zone') {
+      this.bossKilled = true;
+      this.bossActive = false;
+      setMusicLayer('boss', false);
+      banner(this, `${k.name.toUpperCase()} FALLS`, CSS.good, 800);
+      sfx('levelup', { volume: 0.6 });
+    } else if (k.boss === 'mid') {
+      banner(this, `${k.name.toUpperCase()} FALLS`, CSS.good, 600);
     }
   }
 
-  /**
-   * Every shard payout in the run passes through the frozen §16.1 `shardsMul`
-   * stat — kills, elite coins and caches alike. One application point, matching
-   * `sim/families/arena.ts`, so the sim's income curve is the game's.
-   */
-  private scaleShards(value: number): number {
-    return Math.round(value * this.combat.player.stats.get('shardsMul'));
+  private onPickup(kind: 'xp' | 'coin', value: number): void {
+    if (allowEffect(kind === 'xp' ? 'pickup-sfx' : 'coin-sfx', kind === 'xp' ? 14 : 10)) sfx(kind, { volume: 0.8 });
+    if (kind !== 'coin') return;
+    this.bankShards(value, null, null);
   }
 
-  private onCoinCollected(value: number): void {
-    this.bag.addShards(this.scaleShards(value));
-    sfx('pickup', { volume: 0.35 });
+  /** Every shard source goes through `shardsMul` (+ Gilt Shrine) once, here. */
+  private bankShards(value: number, x: number | null, y: number | null): void {
+    const gilt = this.elapsedS < this.giltUntilS ? TUNING.poi.shrines.gilt.shardsMul : 1;
+    const amount = Math.max(1, Math.round(value * this.combat.player.stats.get('shardsMul') * gilt));
+    this.bag.addShards(amount);
+    if (x !== null && y !== null && amount >= 10) floatText(this, x, y - 60, `+${amount} ◆`, '#ffd166', 34);
   }
 
   private onPlayerHit(ratio: number): void {
+    this.tookHit = true;
+    this.minHpRatio = Math.min(this.minHpRatio, ratio);
     this.hud.flashDamage();
-    // Any hit sets the extraction channel back (consumed by `tickExtraction`).
-    this.tookHitSinceTick = true;
-    // §13 "player hurt": shake 0.012/180ms + red flash 120ms + hitstop 60ms.
-    // The flash stretches to 200ms below 30% hp — the one place this row
-    // deviates from §13, deliberately: at that point the flash IS the low-hp
-    // warning and the §14.1 hierarchy puts that read above tempo.
-    this.bloom(PALETTE.bad, ratio < 0.3 ? 200 : 120);
-    // §13 caps player-hurt shake at 1/s. Without this a three-body pile-up
-    // fires three overlapping camera shakes and the arena becomes unreadable
-    // at exactly the moment the player is trying to escape it.
-    if (allowEffect('shake', TUNING.caps.hurtShakePerSecond)) this.punch(0.012, 180);
-    hitstop(this, 60);
-    // §12: the hurt voice is the hit voice pitched down 30% at 0.7, so being
-    // hit never sounds like hitting. Capped at 2/s.
-    if (allowEffect('hurt-sfx', 2)) sfx('hit', { rate: 0.7, volume: 0.7 });
+    if (allowEffect('shake', TUNING.caps.hurtShakePerSecond)) shake(this, 0.006, 120);
   }
 
-  /** Shake is suppressed at high entity counts — it reads as noise, not impact. */
-  private punch(intensity: number, durationMs: number): void {
-    if (this.combat.aliveEnemies() > TUNING.caps.shakeEntityLimit) return;
-    shake(this, intensity, durationMs);
-  }
-
-  /**
-   * `punch`'s twin for the full-screen wash: above `caps.shakeEntityLimit` live
-   * bodies a wash over the whole playfield costs more legibility than the beat
-   * is worth, so the news moves to the screen BORDERS instead and the arena
-   * stays clear. `flash` itself caps opacity and rate scene-wide (see
-   * `FLASH_MAX_ALPHA`); this is the entity-count half, and the two are
-   * independent — the alpha cap is what makes ordinary contact readable, this is
-   * what makes a Collapse frame readable.
-   */
-  private bloom(color: number, durationMs: number): void {
-    if (this.combat.aliveEnemies() > TUNING.caps.shakeEntityLimit) {
-      edgeFlash(this, color, durationMs);
-      return;
-    }
-    flash(this, color, durationMs);
-  }
-
-  private onLevelUp(gained: number): void {
-    sfx('levelup', { volume: 0.7 });
-    // §13 "level up": accent flash at 160ms, then the card sweep — `ui/cards.ts`
-    // brings the three cards in from the bottom, which is the sweep half.
-    this.bloom(PALETTE.accent, 160);
-    // §13 authors `flash` + the card sweep for a level; the shockwave is a
-    // procedural particle burst (§11 permits primitives for particles), not an
-    // art slot — the hero's art set carries no burst sheet.
-    burst(this, this.combat.player.x, this.combat.player.y, PALETTE.accent, 18, 320);
-    this.queueDraft(gained);
-  }
-
-  /**
-   * `last-gasp` refused the grave. This has to read as the biggest beat in the
-   * run — the player just spent an epic card and did not notice the moment it
-   * paid out would be the moment the card was pointless.
-   */
-  private onPlayerRevived(): void {
-    sfx('levelup', { volume: 1 });
-    // `force`: this fires at most once a run, immediately after the hit that
-    // would have killed the player — i.e. always inside the hurt flash's rate
-    // window, which would otherwise swallow the whole beat.
-    flash(this, PALETTE.good, 320, { force: true });
-    shake(this, 0.02, 320);
-    burst(this, this.combat.player.x, this.combat.player.y, PALETTE.good, 26, 420);
-    floatText(this, this.combat.player.x, this.combat.player.y - 120, 'LAST GASP', CSS.good, 56);
-  }
-
-  /**
-   * §13 "Warden spawn". The row asks for shake + banner + a boss bar, and the
-   * shipped build's version of the bar was the Warden's OWN world-space one
-   * (`objects/enemy.ts` gives `boss` bodies a following `Bar`) — drawn on a
-   * body that spawns `warden.spawnOffsetPx` off Gate C, i.e. off camera. So the
-   * whole beat was a 520ms banner over an empty arena, and with the Climax
-   * lanes now stopping at `warden.beatFromS` the measured read of 405-480s was
-   * "the spawn lanes switched off", not "a boss took the arch".
-   *
-   * Four channels, one of them PERSISTENT:
-   *  - audio: a descending three-note toll under the pitched-down `whoosh`.
-   *    Descending is the point — `sfxArp` only rises, and every rising voice in
-   *    this game is a reward (level, evolution, extraction).
-   *  - text: the banner naming it, held 620ms, plus a toast in the run's own
-   *    diction ("the Bleak Arch" is what §11/`data/enemies.ts` call Gate C).
-   *  - camera: ONE cue, the §13 shake. No flash and no edge band on top of it:
-   *    three camera cues on one frame is a frame nobody can read.
-   *  - the marker (`ui/wardenMark.ts`), which outlives all of the above and is
-   *    the actual answer to "where is it" for the next sixty seconds.
-   */
-  private onBossSpawned(): void {
-    this.bossActive = true;
-    setMusicLayer('boss', true);
-    this.punch(0.015, 300);
-    // `warn` amber, not `bad`: `duskChrome.textToneIsLegal` bars `bad` as a
-    // text tone over art, and this banner lands over the arena.
-    banner(this, 'THE WARDEN', CSS.warn, 620);
-    sfx('whoosh', { volume: 0.8, rate: 0.7 });
-    // The toll: `die` is the game's darkest voice, and three of it walking DOWN
-    // in pitch is a jailer arriving rather than a husk dying.
-    sfx('die', { volume: 0.7, rate: 0.85 });
-    sfx('die', { volume: 0.6, rate: 0.68, delay: 0.1 });
-    sfx('die', { volume: 0.5, rate: 0.54, delay: 0.2 });
-    // BELOW §14.3's channel-bar band (412-468), not inside it: Gate C opens on
-    // the same second the Warden lands (`gate.c.openS` = `warden.atS`), so a
-    // toast in that band would land on a live extraction bar during the one
-    // beat where both are up at once.
-    //
-    // And DELAYED, because that same second also fires the gate's own
-    // `GATE C OPEN` float, which is PLAYER-anchored and therefore lands
-    // wherever the player happens to stand — measured in a driven 420s run, it
-    // came down straight on top of this line. Space cannot separate two
-    // messages when one of them follows the player, so time does: `floatText`
-    // runs a 620ms tween, so the second line of the announcement starts as the
-    // gate line finishes and the beat reads as one sentence instead of two
-    // overlapping ones.
-    this.time.delayedCall(620, () => {
-      if (this.tearingDown || this.ended) return;
-      toast(this, 'IT HOLDS THE BLEAK ARCH', CSS.accent, 520, 260);
-    });
-    this.showWardenMark();
-  }
-
-  /**
-   * Builds the marker and binds it to the body that just spawned.
-   *
-   * `CombatSystem.spawnEnemyAt` pushes the body BEFORE it fires this callback,
-   * and `Enemy`'s constructor puts every pooled body on the display list, so
-   * the boss is findable here — which is what lets this slice track the Warden
-   * without reaching into `systems/combat.ts`, whose API it does not own. The
-   * scan runs once per run.
-   */
-  private showWardenMark(): void {
-    for (const child of this.children.list) {
-      const enemy = child as Partial<Enemy>;
-      if (enemy.def?.behaviour !== 'boss' || child.active !== true) continue;
-      this.wardenBody = child as Enemy;
-      break;
-    }
-    if (this.wardenBody === null) return;
-    this.wardenMark?.destroy();
-    this.wardenMark = new WardenMark(this);
-  }
-
-  /**
-   * Drops the marker. Called from the boss KILL path (`onWardenDown`, wired to
-   * `onBossKilled`) and from the per-frame guard below, so a Warden that dies
-   * — or a pooled body recycled as trash — can never leave chrome on screen.
-   */
-  private hideWardenMark(): void {
-    this.wardenMark?.destroy();
-    this.wardenMark = null;
-    this.wardenBody = null;
-  }
-
-  /**
-   * Feeds the marker its one frame of data. Runs inside `feedHudComponents`,
-   * i.e. on ticking frames only, and no-ops entirely when no Warden is up —
-   * this is a null check for 420 of the run's 480 seconds.
-   */
-  private tickWardenMark(): void {
-    const mark = this.wardenMark;
-    const body = this.wardenBody;
-    if (mark === null || body === null) return;
-    // The body is POOLED: after the kill this same sprite comes back as a husk,
-    // so identity is re-established from the archetype every frame rather than
-    // trusted from spawn time.
-    if (!body.active || body.def?.behaviour !== 'boss' || body.health.hp <= 0) {
-      this.hideWardenMark();
-      return;
-    }
-    this.wardenModel.playerX = this.combat.player.x;
-    this.wardenModel.playerY = this.combat.player.y;
-    this.wardenModel.wardenX = body.x;
-    this.wardenModel.wardenY = body.y;
-    this.wardenModel.hpRatio = body.health.ratio;
-    mark.update(this.wardenModel);
-  }
-
-  private onWeaponEvolved(name: string): void {
-    sfx('levelup', { volume: 0.8 });
-    floatText(this, this.combat.player.x, this.combat.player.y - 80, `${name.toUpperCase()}!`, '#ffd166', 46);
-  }
-
-  // === zone hazard ==========================================================
-
-  /** A hazard strike connected: a real hit, so i-frames and the channel react. */
   private onHazardHit(amount: number, x: number, y: number): void {
     const health = this.combat.player.health;
     const before = health.hp;
@@ -1278,1492 +1229,791 @@ export class GameScene extends Phaser.Scene {
     if (health.hp === before && !died) return;
     this.onPlayerHit(health.ratio);
     burst(this, x, y, IDENTITY.threat, 12, 180);
-    if (died) this.die();
+    // `onHazardHit` is only raised by cursed-brazier strikes (zone.ts); name the hazard, not the zone.
+    if (died && !this.combat.consumeLastGasp()) this.die('a cursed brazier');
   }
 
-  /**
-   * Environmental drain (ash dots, the desert scorch). Deliberately BYPASSES
-   * `Health.apply` and its i-frames: a field you can stand in for free is not
-   * a field. It cannot be dodged by being hit — only by leaving.
-   */
-  private onHazardDrain(amount: number): void {
+  /** Drains bypass i-frames (hazards, dusk-fire), but Last Gasp still refuses the death. */
+  private onHazardDrain(amount: number, source: string): void {
     const health = this.combat.player.health;
     health.hp = Math.max(0, health.hp - amount);
-    this.fireFlashAccMs += amount;
-    if (this.fireFlashAccMs >= 2) {
-      this.fireFlashAccMs = 0;
+    this.minHpRatio = Math.min(this.minHpRatio, health.ratio);
+    this.fireFlashAcc += amount;
+    if (this.fireFlashAcc >= 2) {
+      this.fireFlashAcc = 0;
       this.hud.flashDamage();
     }
-    // A drain death is still a death `last-gasp` may refuse: the revive lives
-    // in one place so the card cannot be silently bypassed by the fire ring.
-    if (health.hp > 0) return;
-    if (this.combat.consumeLastGasp()) return;
-    this.die();
+    if (health.hp > 0 || this.combat.consumeLastGasp()) return;
+    this.die(source);
   }
 
-  /**
-   * The one death path. Plays the §11 death cycle (6f collapse, pack spills)
-   * before settling the run, so the hero's last beat is drawn rather than a cut
-   * to the results screen. `finish` owns everything else and is not touched.
-   */
-  private die(): void {
-    if (this.ended) return;
+  private dying = false;
+
+  private die(killer: string): void {
+    if (this.ended || this.dying) return;
+    this.dying = true;
     this.combat.player.setChannelling(false);
-    this.combat.player.playAction(ANIM.heroDeath);
-    // §13 "Death": desaturate + hitstop 120ms + the LOST list (the results
-    // screen owns the list). The colour drains out of the arena over the same
-    // window the death cycle plays in, so the run visibly ENDS here instead of
-    // cutting to a screen that then tells you it ended. Both fire before
-    // `finish`, whose 340ms camera fade lands on an already-grey world.
-    desaturate(this, 380);
-    hitstop(this, 120);
-    this.finish(false);
+    this.combat.setPaused(true);
+    this.director.pause();
+    this.joystick.setEnabled(false);
+    deathBeat(this, killer, () => this.finish('died', killer));
   }
 
-  private onHazardTelegraph(kind: ZoneHazardKind, x: number, y: number): void {
-    if (!this.onScreen(x, y)) return;
-    sfx('whoosh', { volume: 0.3 });
-    void kind;
-  }
-
-  private onHazardStrike(kind: ZoneHazardKind, x: number, y: number): void {
-    if (!this.onScreen(x, y)) return;
-    burst(this, x, y, IDENTITY.hazardAmber, 10, 200);
-    void kind;
-  }
-
-  /** Cheap off-camera cull so an off-screen hazard costs no particles or sfx. */
   private onScreen(x: number, y: number): boolean {
-    const view = this.cameras.main.worldView;
-    return Phaser.Geom.Rectangle.Contains(view, x, y);
+    return Phaser.Geom.Rectangle.Contains(this.cameras.main.worldView, x, y);
   }
 
-  // === scripted beats =======================================================
+  // === POI callbacks ========================================================
 
-  /** Chest/breather/elite-rush timeline events, wired into `RunDirector.onEvent`. */
-  private onScriptedEvent(event: EventSpec): void {
-    switch (event.kind) {
-      case 'chest': {
-        sfx('pickup', { volume: 0.6 });
-        floatText(this, this.combat.player.x, this.combat.player.y - 100, 'CHEST!', '#ffd166', 48);
-        this.playChestOpen(this.combat.player.x, this.combat.player.y + 40);
-        // A chest is a GUARANTEED relic at a tier bias, plus the draft — its
-        // whole job is to fill the bag ahead of a gate window (§5.4).
-        this.dropRelics(this.combat.player.x, this.combat.player.y, TUNING.chest.relics, TUNING.chest.tierBias);
-        this.queueDraft(1);
-        break;
-      }
-      case 'breather':
-        this.beginBreather();
-        break;
-      case 'elite-rush': {
-        sfx('die', { volume: 0.3 });
-        floatText(this, this.combat.player.x, this.combat.player.y - 100, 'ELITE RUSH', '#ff6b6b', 44);
-        const baseAngle = this.rng.float(0, Math.PI * 2);
-        const count = TUNING.events.eliteRushCount;
-        for (let i = 0; i < count; i += 1) {
-          const angle = baseAngle + (i - (count - 1) / 2) * 0.5;
-          const dist = VIEW.width / 2 + TUNING.enemy.spawnMargin + 60;
-          this.combat.spawnAtPosition(
-            COLLAPSE_ELITE_IDS[i % COLLAPSE_ELITE_IDS.length] ?? 'elite_reaper',
-            this.combat.player.x + Math.cos(angle) * dist,
-            this.combat.player.y + Math.sin(angle) * dist,
-            this.runDifficulty,
-          );
-        }
-        break;
-      }
+  private onEliteChest(x: number, y: number, boss: boolean): void {
+    const evo = this.combat.weapons.evolveNext();
+    if (evo !== null) {
+      this.noteEvolution(evo);
+      this.playEvolutionFx(evo);
+      return;
+    }
+    sfx('chest', { volume: 0.9 });
+    floatText(this, x, y - 80, boss ? 'BOSS CHEST' : 'ELITE CHEST', '#ffd166', 40);
+    if (!boss) this.queueDraft(1);
+  }
+
+  /** POI completion XP (critic v2b M4): PoiSystem sizes each burst; it lands as orbs at the POI. */
+  private tickPoiXp(): void {
+    for (const b of this.poi.takeXpBursts()) {
+      const per = Math.max(1, Math.round(b.xp / XP_BURST_ORBS));
+      this.combat.dropXp(b.x, b.y, Math.max(1, Math.round(b.xp / per)), per);
     }
   }
 
-  /**
-   * The coffin-chest opening on the spot, held on its last frame and then fading
-   * out. The chest beat is an instant in the timeline, but §11 authors art for
-   * it and a reward the player never sees open reads as a toast, not a chest.
-   * One sprite per beat (~4 a run), destroyed with its tween.
-   */
-  private playChestOpen(x: number, y: number): void {
-    if (!this.anims.exists(TEXTURE.chest)) return;
-    const chest = this.add.sprite(x, y, TEXTURE.chest).setDisplaySize(96, 96).setDepth(7);
-    chest.play(TEXTURE.chest);
-    this.tweens.add({
-      targets: chest,
-      alpha: 0,
-      delay: 1100,
-      duration: 420,
-      onComplete: () => chest.destroy(),
-    });
+  /** Low-level orb vacuum: extra pickup radius until `TUNING.xp.earlyVacuum.untilLevel`. */
+  private tickEarlyVacuum(): void {
+    const player = this.combat.player;
+    const want = player.level < TUNING.xp.earlyVacuum.untilLevel;
+    if (want === this.earlyVacuum) return;
+    this.earlyVacuum = want;
+    if (want) player.applyModifier({ stat: 'pickupRadius', add: TUNING.xp.earlyVacuum.radiusAdd, source: EARLY_VACUUM_SOURCE });
+    else player.stats.removeBySource(EARLY_VACUUM_SOURCE);
   }
 
-  /**
-   * The `breather` beat (PRD §2's ONE recovery beat, authored at
-   * `TUNING.events.breatherAtS`): `breatherHealRatio` of max HP back, and
-   * `breatherSilenceMs` with no ordinary spawns.
-   *
-   * The mechanic shipped correct and the feedback did not: one whoosh and one
-   * 40px floater, both gone inside a second, for an EIGHT-SECOND lull. Measured
-   * on the shipping build, a frame one second in was indistinguishable from a
-   * spawner that had broken — which is the worst possible read for the beat
-   * whose whole job is to say "you are allowed to stop running now".
-   *
-   * So the beat is told for as long as it lasts: the calm edge band and the
-   * countdown chip live exactly `breatherSilenceMs`, the heal is spelled out as
-   * a number, and the last quarter of the window is a hand-back that names the
-   * dusk coming again instead of just going quiet.
-   *
-   * EVERY duration below is derived from `breatherSilenceMs`, and the clock is
-   * `time.now` — the same clock `CombatSystem.silenceSpawns` counts on. A
-   * retune of that key therefore moves the mechanic and its whole feedback
-   * together; nothing here restates the number.
-   */
-  private beginBreather(): void {
-    const windowMs = TUNING.events.breatherSilenceMs;
-    this.combat.silenceSpawns(windowMs);
-    this.breatherWindowMs = windowMs;
-    this.breatherEndsAtMs = this.time.now + windowMs;
-    this.breatherShownS = -1;
-    this.breatherStirred = false;
-
+  private onShrine(kind: PoiKind): void {
     const player = this.combat.player;
-    const before = player.health.hp;
-    player.health.heal(player.health.max * TUNING.events.breatherHealRatio);
-    const healed = Math.round(player.health.hp - before);
+    sfx('levelup', { volume: 0.5, rate: 0.9 });
+    showToast(this, { text: SHRINE_COPY[kind] ?? 'SHRINE', tone: PALETTE.accent, key: 'shrine' });
+    switch (kind) {
+      case 'shrine_blood':
+        player.applyModifier({ stat: 'maxHp', mul: -TUNING.poi.shrines.blood.maxHpPenalty, source: 'shrine:blood' });
+        this.queueDraft(TUNING.poi.shrines.blood.drafts);
+        break;
+      case 'shrine_gilt':
+        this.giltUntilS = this.elapsedS + TUNING.poi.shrines.gilt.durationS;
+        break;
+      case 'shrine_grave':
+        player.health.heal(player.health.max);
+        break;
+      default:
+        break;
+    }
+  }
 
-    // A LIGHT exhale (rate up), not the pitched-down growl the Warden and the
-    // closing gates use: this is the only beat in the run that is good news
-    // about nothing happening, so it must not share a voice with a threat.
-    sfx('whoosh', { volume: 0.35, rate: 1.25 });
-    if (healed > 0) {
-      sfx('pickup', { volume: 0.4, rate: 0.85 });
-      floatText(this, player.x, player.y - 100, `+${healed} HP`, CSS.good, 46);
+  private onPoiEvent(kind: EventKind, phase: 'start' | 'success' | 'fail'): void {
+    const name = EVENT_COPY[kind];
+    if (phase === 'start') {
+      sfx('whoosh', { volume: 0.5 });
+      showToast(this, { text: `${name} — follow the ! arrow`, tone: IDENTITY.gateOpen, key: 'event' });
+    } else if (phase === 'success') {
+      sfx('levelup', { volume: 0.5 });
+      showToast(this, { text: `${name} COMPLETE`, tone: PALETTE.good, key: 'event' });
     } else {
-      // Healing a full bar is a real outcome and it gets the honest label —
-      // "+0 HP" over a full bar reads as a bug in the recovery beat.
-      floatText(this, player.x, player.y - 100, 'HP FULL', CSS.inkSoft, 40);
-    }
-    toast(this, 'THE DUSK DRAWS BACK', CSS.good, 560, 300);
-
-    this.breatherChipText.setText('BREATHER').setColor(CSS.good);
-    this.breatherChip.setAlpha(1).setVisible(true);
-    this.breatherVignette.setAlpha(BREATHER_CALM_ALPHA).setVisible(true);
-  }
-
-  /**
-   * Holds the lull's indicator for its whole window. Alpha is WRITTEN per frame
-   * from the remaining time plus a slow breath rather than tweened — one field
-   * write against a looping tween that would need killing on the end of the
-   * window, on death, on extraction and on shutdown (the same call the channel
-   * vignette makes, for the same reason).
-   */
-  private tickBreather(): void {
-    if (this.breatherEndsAtMs === -Infinity) return;
-    const remainingMs = this.breatherEndsAtMs - this.time.now;
-    if (remainingMs <= 0) {
-      this.endBreather();
-      return;
-    }
-
-    // The hand-back: the last quarter of the window says the lull is ending, so
-    // the player chooses when to stop resting instead of being told by a spawn.
-    const stirMs = this.breatherWindowMs * BREATHER_STIR_RATIO;
-    if (remainingMs <= stirMs) {
-      if (!this.breatherStirred) {
-        this.breatherStirred = true;
-        this.breatherChipText.setText('THE DUSK STIRS').setColor(CSS.warn);
-      }
-      // Calm drains out across exactly that stretch — a landing, not a cut.
-      const t = remainingMs / stirMs;
-      this.breatherVignette.setAlpha(BREATHER_CALM_ALPHA * t);
-      this.breatherChip.setAlpha(0.45 + 0.55 * t);
-      return;
-    }
-
-    // Counted to the END of the silence rather than to the hand-back: the
-    // number the player plans against is when bodies come back, and a "6s" over
-    // an eight-second lull is the feedback lying about the mechanic again.
-    const seconds = Math.ceil(remainingMs / 1000);
-    if (seconds !== this.breatherShownS) {
-      this.breatherShownS = seconds;
-      this.breatherChipText.setText(`BREATHER  ${seconds}s`);
-    }
-    const breath = Math.sin((this.time.now / 1600) * Math.PI * 2) * 0.04;
-    this.breatherVignette.setAlpha(BREATHER_CALM_ALPHA + breath);
-  }
-
-  /**
-   * The window closed and spawns resume. That is news, so it is announced —
-   * EXCEPT when the Warden owns the frame: `breatherAtS`'s second entry (412s)
-   * plus `breatherSilenceMs` lands on `warden.atS` exactly, by design (the lull
-   * covers the entrance), and a "the husks return" toast under the Warden's own
-   * banner would be two announcements competing to explain the same second.
-   */
-  private endBreather(): void {
-    this.breatherEndsAtMs = -Infinity;
-    this.breatherChip.setVisible(false);
-    this.breatherVignette.setVisible(false);
-    if (this.bossActive) return;
-    sfx('whoosh', { volume: 0.5, rate: 0.95 });
-    toast(this, 'THE HUSKS RETURN', CSS.warn, 560, 240);
-  }
-
-  /**
-   * The set pieces the wave table cannot express: the Dread Shrine, the shard
-   * caches, the relic drip, the Collapse's elite injection and the `breather`
-   * lull's indicator.
-   */
-  private tickBeats(deltaMs: number): void {
-    const nowS = this.director.elapsedSeconds;
-    this.tickGateGuard(nowS);
-    this.tickShrine(deltaMs, nowS);
-    this.tickCaches(deltaMs);
-    this.tickRelicDrip(deltaMs, nowS);
-    this.tickCollapseElites();
-    this.tickBreather();
-  }
-
-  /**
-   * The Dread Shrine (PRD §5.4/§7): from `shrine.atS` a marked pocket holds a
-   * guaranteed high-tier relic inside a `densityMul` density bubble. It is the
-   * vault analogue — the greedy detour that is worth exactly what it costs.
-   */
-  private tickShrine(deltaMs: number, nowS: number): void {
-    if (!this.shrineArmed) {
-      if (nowS < TUNING.shrine.atS) return;
-      this.armShrine();
-      return;
-    }
-    const player = this.combat.player;
-    const dx = player.x - this.shrineX;
-    const dy = player.y - this.shrineY;
-    if (dx * dx + dy * dy > TUNING.shrine.radiusPx * TUNING.shrine.radiusPx) return;
-
-    // Inside the pocket the spawn rate is multiplied — that is the price of
-    // the relic, paid in bodies rather than in a warning.
-    this.shrineSpawnAccMs += deltaMs * (TUNING.shrine.densityMul - 1);
-    // The pocket drips at the game's authored MINIMUM spawn interval — it is
-    // explicitly the densest square of ground in the run (§7 `shrine.densityMul`).
-    const step = TUNING.collapse.spawnFloorMs;
-    while (this.shrineSpawnAccMs >= step) {
-      this.shrineSpawnAccMs -= step;
-      this.onDirectorSpawn(this.zoneSystem.pickSpawnId('husk'), 'cluster');
+      showToast(this, { text: `${name} LOST`, tone: PALETTE.bad, key: 'event' });
     }
   }
 
-  /** Places the shrine and its guaranteed relic somewhere worth walking to. */
-  private armShrine(): void {
-    this.shrineArmed = true;
-    const angle = this.rng.float(0, Math.PI * 2);
-    const dist = this.rng.float(TUNING.shrine.radiusPx * 2, TUNING.shrine.radiusPx * 3.5);
-    const point = { x: 0, y: 0 };
-    this.arena.clamp(
-      this.combat.player.x + Math.cos(angle) * dist,
-      this.combat.player.y + Math.sin(angle) * dist,
-      TUNING.arena.wallThickness + TUNING.shrine.radiusPx * 0.25,
-      point,
-    );
-    this.shrineX = point.x;
-    this.shrineY = point.y;
-
-    const key = `props-${this.zone.id}-b`;
-    const hasArt = this.textures.exists(key);
-    this.shrineMarker = this.add
-      .image(point.x, point.y, hasArt ? key : 'tex-ring', hasArt ? 6 : undefined)
-      .setDisplaySize(140, 140)
-      .setDepth(6);
-    if (!hasArt) this.shrineMarker.setTint(IDENTITY.gateOpen);
-    this.add
-      .image(point.x, point.y, 'tex-ring')
-      .setTint(IDENTITY.gateOpen)
-      .setDisplaySize(TUNING.shrine.radiusPx * 2, TUNING.shrine.radiusPx * 2)
-      .setAlpha(0.18)
-      .setDepth(4);
-
-    // The reward is placed, not promised: the relic is already on the ground.
-    this.dropRelics(point.x, point.y, 1, TUNING.shrine.tierBias, TUNING.shrine.minTier);
-    sfx('levelup', { volume: 0.5 });
-    floatText(this, this.combat.player.x, this.combat.player.y - 140, 'DREAD SHRINE', CSS.secondary, 46);
-  }
-
-  /**
-   * Shard caches (PRD §6/§7 `loot.cache*`): the income floor for a player who
-   * evades instead of clearing. Measured income was a fork, not a curve — this
-   * is the branch that does not require killing anything.
-   */
-  private tickCaches(deltaMs: number): void {
-    for (let i = this.caches.length - 1; i >= 0; i -= 1) {
-      const cache = this.caches[i];
-      if (cache === undefined) continue;
-      const dx = this.combat.player.x - cache.img.x;
-      const dy = this.combat.player.y - cache.img.y;
-      const radius = this.combat.player.stats.get('pickupRadius');
-      if (dx * dx + dy * dy <= radius * radius) {
-        const value = this.scaleShards(cache.value);
-        this.bag.addShards(value);
-        floatText(this, cache.img.x, cache.img.y, `+${value}`, CSS.accent, 40);
-        sfx('pickup', { volume: 0.5 });
-        cache.img.destroy();
-        this.caches.splice(i, 1);
-        continue;
-      }
-      if (this.simTimeMs < cache.expiresAtMs) continue;
-      cache.img.destroy();
-      this.caches.splice(i, 1);
-    }
-
-    this.cacheAccMs += deltaMs;
-    if (this.cacheAccMs < TUNING.loot.cacheEveryS * 1000) return;
-    this.cacheAccMs = 0;
-    if (this.caches.length >= MAX_CACHES) return;
-
-    const angle = this.rng.float(0, Math.PI * 2);
-    const dist = this.rng.float(TUNING.loot.cacheMinDist, TUNING.loot.cacheMaxDist);
-    const point = { x: 0, y: 0 };
-    this.arena.clamp(
-      this.combat.player.x + Math.cos(angle) * dist,
-      this.combat.player.y + Math.sin(angle) * dist,
-      TUNING.arena.wallThickness + 40,
-      point,
-    );
-    const hasArt = this.textures.exists('shard-glint');
-    const img = this.add
-      .image(point.x, point.y, hasArt ? 'shard-glint' : 'tex-disc')
-      .setDisplaySize(52, 52)
-      .setDepth(8);
-    if (!hasArt) img.setTint(IDENTITY.gilt);
-    this.caches.push({
-      img,
-      value: TUNING.loot.cacheValue,
-      expiresAtMs: this.simTimeMs + TUNING.loot.cacheLingerS * 1000,
-    });
-  }
-
-  /**
-   * Ambient relic drip. The first one lands at `loot.firstRelicS` — the
-   * measured cold open was two full minutes with no loot, no bag event and no
-   * gate event, which is the same as the extraction layer not existing.
-   */
-  private tickRelicDrip(deltaMs: number, nowS: number): void {
-    if (!this.firstRelicDone) {
-      if (nowS < TUNING.loot.firstRelicS) return;
-      this.firstRelicDone = true;
-      this.dropRelicNearPlayer();
-      return;
-    }
-    this.relicDripAccMs += deltaMs;
-    const periodMs = TUNING.loot.relicDripS * 1000;
-    if (this.relicDripAccMs < periodMs) return;
-    this.relicDripAccMs -= periodMs;
-    this.dropRelicNearPlayer();
-  }
-
-  private dropRelicNearPlayer(): void {
-    const angle = this.rng.float(0, Math.PI * 2);
-    const dist = this.rng.float(160, 320);
-    this.dropRelics(
-      this.combat.player.x + Math.cos(angle) * dist,
-      this.combat.player.y + Math.sin(angle) * dist,
-      1,
-      0,
-    );
-  }
-
-  /**
-   * Collapse escalation 3 of 3 (PRD §7): one elite injected at the ring edge
-   * every `eliteEveryS`, against a STOPPED trash drip. Live count therefore
-   * FALLS as the player clears while elite share rises — the opposite of the
-   * flat, saturated line the greybox measured.
-   */
-  private tickCollapseElites(): void {
-    const quota = this.extraction.collapseEliteQuota;
-    if (quota <= this.collapseElitesSpawned) return;
-    this.collapseElitesSpawned = quota;
-    if (COLLAPSE_ELITE_IDS.length === 0) return;
-
-    const centre = this.extraction.collapseRingCenter;
-    const radius = this.extraction.collapse?.ringRadius ?? 0;
-    const angle = this.rng.float(0, Math.PI * 2);
-    const point = { x: 0, y: 0 };
-    this.arena.clamp(
-      centre.x + Math.cos(angle) * radius,
-      centre.y + Math.sin(angle) * radius,
-      TUNING.arena.wallThickness + 60,
-      point,
-    );
-    if (this.extraction.spawnSuppressed(point.x, point.y)) return;
-    const id = COLLAPSE_ELITE_IDS[this.collapseElitesSpawned % COLLAPSE_ELITE_IDS.length];
-    if (id === undefined) return;
-    this.combat.spawnAtPosition(id, point.x, point.y, this.runDifficulty);
-  }
-
-  // === draft, pause, teardown ==============================================
-
-  /**
-   * ONE draft at a time, and none lost (§14b: overlays never stack).
-   *
-   * Two callers can ask for a draft — a level-up and the scripted `chest`
-   * event — and the Step 5.5 audit caught both halves of the bug: the chest
-   * path called `openDraft` with no guard at all, so a chest landing on an
-   * open draft built a SECOND full-screen overlay whose dim multiplied with
-   * the first (the field went black) and whose predecessor leaked, container
-   * and entry tweens included; while the level-up path guarded with
-   * `if (this.drafting) return`, which silently THREW AWAY the card the player
-   * had just earned.
-   *
-   * The counter fixes both: a request arriving mid-draft is deferred, and the
-   * pick handler drains it.
-   *
-   * The SECOND deferral reason is the extraction channel. The channel is the
-   * run's most sustained tension beat and it is held with the thumb; a draft
-   * opening over it (observed at t=126.0s with the channel at 63.7%) tears the
-   * player out of a decision they are physically in the middle of, roughly
-   * every other channel. Nothing ticks under the overlay so nothing is lost
-   * mechanically — what is lost is the beat. So a level-up earned inside the
-   * ring QUEUES, and `drainDeferredDrafts` opens it the frame the hold ends,
-   * whether it ended by completing, by a step out of the ring, or by the gate
-   * shutting. Queued, never dropped: the card was earned.
-   */
-  private queueDraft(levels: number): void {
-    if (this.drafting || this.channelIsLive) {
-      this.pendingDrafts += levels;
-      return;
-    }
-    this.openDraft(levels);
-  }
-
-  /**
-   * True while the extraction hold is ACTUALLY accruing — bound to a gate AND
-   * standing in its ring.
-   *
-   * `channelingGate` alone is not that test: it stays bound after the player
-   * walks out (progress is kept so re-entry resumes), and is only cleared when
-   * the gate goes spent. Deferring on the bare gate id would therefore starve
-   * a queued draft for as long as the player wandered the arena. `channelRate`
-   * is the system's own answer to "did the last ticking frame accrue": it is
-   * set to 0 on any frame the player is outside every open ring, and to a
-   * positive accrual multiplier on any frame inside one.
-   */
-  private get channelIsLive(): boolean {
-    return (
-      !this.extraction.extracted &&
-      this.extraction.channelingGate !== null &&
-      this.extraction.channelRate > 0
-    );
-  }
-
-  /**
-   * Opens a draft that `queueDraft` held back. Called from `update`'s running
-   * branch only, so it cannot fire under a pause overlay or a coach beat, and
-   * runs AFTER `tickExtraction` so the channel state it reads is this frame's.
-   */
-  private drainDeferredDrafts(): void {
-    if (this.pendingDrafts === 0 || this.drafting || this.channelIsLive) return;
-    const queued = this.pendingDrafts;
-    this.pendingDrafts = 0;
-    this.openDraft(queued);
-  }
-
-  /** Pauses the run (not the scene) and shows the pick-1-of-N overlay. */
-  private openDraft(pendingLevels: number): void {
-    const context: UpgradeRollContext = {
-      ownedWeapons: this.combat.equippedWeapons().map((w) => w.id),
-      hasFreeWeaponSlot: this.combat.hasFreeWeaponSlot(),
-    };
-    const choices = rollUpgradeChoices(this.rng, this.taken, TUNING.draft.choices, context);
-    if (choices.length === 0) return;
-
-    this.drafting = true;
-    this.rerollsUsedThisDraft = 0;
+  /** The Wandering Fence (§5.12.7): pick up to `loadout.fenceTrades` offers; the run holds while the sheet is up. */
+  private openFence(offers: FenceOffer[]): void {
+    if (this.ended || this.fenceOpen) return;
+    this.fenceOpen = true;
+    this.joystick.setEnabled(false);
     this.combat.setPaused(true);
     this.director.pause();
-    this.joystick.setEnabled(false);
-
-    this.cards = showUpgradeCards(
-      this,
-      choices,
-      (choice: UpgradeDef) => {
-        this.applyUpgrade(choice);
-        this.cards?.destroy();
-        this.cards = null;
-        // Own pending levels first, then anything a chest or a second level-up
-        // deferred while this overlay was up.
-        if (pendingLevels > 1) {
-          this.openDraft(pendingLevels - 1);
-          return;
-        }
-        if (this.pendingDrafts > 0) {
-          const queued = this.pendingDrafts;
-          this.pendingDrafts = 0;
-          this.openDraft(queued);
-          return;
-        }
-        this.drafting = false;
-        // A coach beat that started under the cards still owns the run: closing
-        // the draft must not hand movement back while a tutorial card is up.
-        // A pause cannot be stacked here at all any more (`togglePause`).
-        if (this.coachHold) return;
-        this.combat.setPaused(false);
-        this.director.resume();
+    let tradesLeft = this.loadout.fenceTrades;
+    const sheet = openSheet(this, {
+      height: 200 + offers.length * 110,
+      title: 'THE WANDERING FENCE',
+      onClose: () => {
+        this.fenceOpen = false;
+        if (this.ended) return;
         this.joystick.setEnabled(true);
+        if (!this.drafting && !this.paused) {
+          this.combat.setPaused(false);
+          this.director.resume();
+        }
       },
-      {
-        rerollCost: TUNING.draft.rerollCost,
-        // §10 `m_reroll` "Second Dirge": one free reroll by default, +1 per
-        // purchased level. This is the row's only consumer.
-        canReroll: () =>
-          this.rerollsUsedThisDraft < this.loadout.rerollsPerDraft &&
-          this.bag.shards >= TUNING.draft.rerollCost,
-        onReroll: () => {
-          this.rerollsUsedThisDraft += 1;
-          // Reroll is free (`TUNING.draft.rerollCost` = 0) — no shard spend.
-          const excluded = [...this.taken, ...choices.map((c) => c.id)];
-          return rollUpgradeChoices(this.rng, excluded, TUNING.draft.choices, context);
-        },
-      },
-      // The run's pick history, so each card can print "RANK n/m". Read-only
-      // downstream. The array IDENTITY is reused for the whole run and
-      // `applyUpgrade` pushes to it, so `ui/cards.ts` must read it while
-      // BUILDING a card — a stashed reference re-read later would show a
-      // chained draft the pick that was just made.
-      this.taken,
-    );
-  }
-
-  private applyUpgrade(choice: UpgradeDef): void {
-    this.taken.push(choice.id);
-    if (choice.kind === 'weapon-unlock' && choice.weapon !== undefined) {
-      this.combat.unlockWeapon(choice.weapon);
-    } else if (choice.kind === 'weapon-boost' && choice.weapon !== undefined) {
-      this.combat.boostWeapon(choice.weapon);
-    }
-    for (const mod of choice.modifiers) {
-      this.combat.player.applyModifier({ ...mod, source: `card:${choice.id}:${this.taken.length}` });
-    }
-    if (choice.effect !== undefined) {
-      applyEffect(choice.effect, { player: this.combat.player }, this.combat.effects);
-    }
-    // §13's biggest beat in the draft — "Evolution pick: full-screen flash +
-    // burst 24 + hitstop 90ms, `sfxArp`, 1/draft". A `weapon-evolution` card
-    // is a once-a-build decision and it previously landed with the exact same
-    // 18-particle puff as a +10% damage stat card. Every other kind keeps the
-    // ordinary card puff.
-    if (choice.kind === 'weapon-evolution') {
-      // `force`: a once-a-build beat landing a second or two after the level-up
-      // wash that opened this very draft, so the rate gate would eat it. Safe
-      // to force — nothing is moving under a draft overlay.
-      flash(this, PALETTE.secondary, 220, { force: true });
-      burst(this, VIEW.centerX, VIEW.centerY, PALETTE.secondary, 24, 420);
-      hitstop(this, 90);
-      sfxArp('combo', 5, { volume: 0.8 });
-      // The BEAT is violet (flash + burst); the TEXT is accent, because
-      // `duskChrome.textToneIsLegal` bars `secondary` as a text tone over art.
-      banner(this, `${choice.name.toUpperCase()} EVOLVED`, CSS.accent, 420);
-      return;
-    }
-    burst(this, VIEW.centerX, VIEW.centerY, PALETTE.accent, 18, 340);
-  }
-
-  /**
-   * EXACTLY ONE overlay owns the screen at a time. §14b's original PauseDraft
-   * flow allowed a pause ON TOP of a live draft, and shipping it proved that
-   * unreadable: PAUSED / RESUME / RESTART / MENU draw at depth 2100 straight
-   * through the cards at 2000, so "CHOOSE AN UPGRADE" and its card text bleed
-   * out between the pause buttons and neither overlay can be read. The player
-   * enters a draft ~13 times a run and the icon sits at 2050 (above the draft
-   * dim, so reachable), which put that collision one tap away all run.
-   *
-   * So a draft REFUSES the pause, exactly as a coach beat already did — both
-   * already hold the run's clock, so nothing is lost by waiting: the draft is
-   * itself a stopped-clock screen, and the fight resumes only when a card is
-   * picked. `syncPauseAffordance` dims and deafens the icon for the duration,
-   * so the tap is not merely ignored — it cannot be aimed.
-   */
-  private togglePause(): void {
-    if (this.ended) return;
-    if (this.coachHold || this.drafting) return;
-    if (this.paused) {
-      this.resumeFromPause();
-      return;
-    }
-    this.paused = true;
-    this.director.pause();
-    this.combat.setPaused(true);
-    this.joystick.setEnabled(false);
-    this.pauseOverlay = showPauseOverlay(this, {
-      onResume: () => this.resumeFromPause(),
-      onRestart: () => {
-        this.pauseOverlay?.destroy();
-        this.pauseOverlay = null;
-        this.cards?.destroy();
-        this.cards = null;
-        // Restart ABANDONS the haul, so it settles as a death right here (§14b
-        // abandon rule) rather than leaving the marker for boot: `create()`
-        // journals the new run immediately, and a marker that survived into it
-        // would later settle that run's zone with this run's loot.
-        settleAbandonedRun();
-        this.scene.start(SCENES.game, { zone: this.zoneId });
-      },
-      onMenu: () => this.quitToMenu(),
-      bag: {
-        casketSlots: this.bag.casketSlots,
-        read: () => this.readBagRow(),
-        pin: (id) => this.pinRelic(id),
-        unpin: (id) => this.unpinRelic(id),
-      },
-      // §14b: a bag holding loot makes RESTART and MENU destructive.
-      armDestructive: () => this.bag.relics.length + this.bag.casket.length > 0,
+    });
+    offers.forEach((offer, i) => {
+      const button = new Button(this, VIEW.width / 2, 120 + i * 110, offer.label, () => {
+        if (tradesLeft <= 0) return;
+        const result = this.poi.fenceTrade(offer.id, this.bag);
+        if (!result.ok) {
+          sfx('hit', { volume: 0.4 });
+          return;
+        }
+        tradesLeft -= 1;
+        const player = this.combat.player;
+        if (result.effect === 'heal') player.health.heal(player.health.max * 0.5);
+        if (result.effect === 'rerolls') this.rerolls += 2;
+        if (result.item !== null) this.addToBag(result.item);
+        sfx('pickup', { volume: 0.6 });
+        if (tradesLeft <= 0) sheet.close();
+      }, { width: 600, height: 92, fill: BUTTON_STYLE.idle.fill, stroke: BUTTON_STYLE.idle.stroke, textColor: BUTTON_STYLE.idle.textColor, fontSize: '26px' });
+      sheet.content.add(button);
     });
   }
 
-  /**
-   * The pause overlay's bag row, fed from the SAME model the HUD pips read:
-   * casket first, then the bag, both in acquisition order. Rebuilt into one
-   * reused array — the row reads it on open and after every pin, never per
-   * frame.
-   */
-  private readBagRow(): readonly PauseBagRelic[] {
-    this.bagRowRelics.length = 0;
-    for (const relic of this.bag.casket) {
-      this.bagRowRelics.push({ id: relic.id, name: relic.name, tier: relic.tier, pinned: true });
-    }
-    for (const relic of this.bag.relics) {
-      this.bagRowRelics.push({ id: relic.id, name: relic.name, tier: relic.tier, pinned: false });
-    }
-    return this.bagRowRelics;
+  // === extraction ===========================================================
+
+  /** Gate open/close callout: ink text on a gate-violet / warn stroke (§11 text-tone rule), readable over any floor. */
+  private gateCallout(label: string, strokeColor: string): void {
+    this.calloutQueue.push({ label, strokeColor });
+    this.pumpCallouts();
   }
 
   /**
-   * The ONE route into the Gravekeeper's Casket (§5.6: `autoPinHighest` is
-   * false by law). A full casket gives up its oldest pin, which returns to the
-   * bag — or falls to the ground with the usual regret window when the bag has
-   * no room, since the player chose the swap.
+   * One callout at a time: callouts fired on the same frame (GATE A OPEN and
+   * TOLL GATE OPEN both open at 90 s) are shown `CALLOUT_GAP_MS` apart
+   * instead of printing over each other (critic v2d).
    */
-  private pinRelic(relicId: string): void {
-    const result = this.bag.pinCasket(relicId);
-    if (!result.pinned) return;
-    sfx('pickup', { volume: 0.6 });
+  private pumpCallouts(): void {
+    const now = this.time.now;
+    if (now < this.calloutBusyUntil) return;
+    const next = this.calloutQueue.shift();
+    if (next === undefined) return;
+    this.calloutBusyUntil = now + CALLOUT_GAP_MS;
     const player = this.combat.player;
-    floatText(this, player.x, player.y - 90, 'PINNED TO CASKET', CSS.accent, 38);
-    if (result.unpinned !== null) {
-      floatText(this, player.x, player.y - 130, `UNPINNED: ${result.unpinned.name}`, CSS.warn, 32);
+    const text = this.add
+      .text(player.x, player.y - 150, next.label, { ...TEXT.heading, fontSize: '46px', color: CSS.ink, stroke: next.strokeColor, strokeThickness: 10 })
+      .setOrigin(0.5)
+      .setDepth(900);
+    holdToasts(this, GATE_CALLOUT_MS);
+    this.tweens.add({ targets: text, y: text.y - 90, alpha: 0, delay: 500, duration: GATE_CALLOUT_MS - 500, ease: 'Cubic.easeIn', onComplete: () => text.destroy() });
+  }
+
+  /** True while the hero stands inside the ring of the gate the channel belongs to. */
+  private inChannelRing(): boolean {
+    const id = this.extraction.channelingGate;
+    const gate = id === null ? undefined : this.gates.find((g) => g.id === id);
+    if (gate === undefined) return false;
+    const player = this.combat.player;
+    return (player.x - gate.x) ** 2 + (player.y - gate.y) ** 2 <= TUNING.gate.radius * TUNING.gate.radius;
+  }
+
+  private onExtractionEvent(e: ExtractionEvent, gate: GateCandidate | null): void {
+    const player = this.combat.player;
+    const label = gate === null ? '' : gate.id === 'x' ? `${gate.kind.toUpperCase()} GATE` : `GATE ${gate.id.toUpperCase()}`;
+    switch (e) {
+      case 'gate-open':
+        sfx('gate', { volume: 0.5 });
+        edgeFlash(this, IDENTITY.gateOpen, 200);
+        this.gateCallout(`${label} OPEN`, GATE_OPEN_CSS);
+        break;
+      case 'gate-close':
+        sfx('whoosh', { volume: 0.6, rate: 0.8 });
+        this.gateCallout(`${label} CLOSED`, CSS.warn);
+        break;
+      case 'collapse':
+        sfx('collapse');
+        edgeFlash(this, IDENTITY.threat, 520, 150);
+        setMusicLayer('boss', true);
+        shake(this, 0.02, 400);
+        banner(this, 'THE COLLAPSE', CSS.warn, 700);
+        break;
+      case 'extracted':
+        sfx('extract');
+        player.setChannelling(false);
+        player.playAction(ANIM.heroExtract);
+        this.finish('extracted', null);
+        break;
     }
-    if (result.dropped !== null) {
-      const angle = this.rng.float(0, Math.PI * 2);
-      this.spawnRelicPickup(
-        relicDef(result.dropped.id),
-        player.x + Math.cos(angle) * 140,
-        player.y + Math.sin(angle) * 140,
-        result.dropLingerMs,
-      );
+  }
+
+  // === ground loot ==========================================================
+
+  private dropLoot(payload: LootPayload, x: number, y: number, lingerMs: number | null): void {
+    const pickup = this.lootPool.obtain();
+    pickup.drop(payload, x, y, this.simTimeMs, LOOT_ARM_MS, lingerMs);
+    this.ground.push({ pickup, payload });
+  }
+
+  private tickGround(): void {
+    const player = this.combat.player;
+    const radius = player.stats.get('pickupRadius');
+    for (let i = this.ground.length - 1; i >= 0; i -= 1) {
+      const g = this.ground[i];
+      if (g === undefined) continue;
+      const own = g.payload.kind === 'item' && g.payload.item.item.uid === WICKET_LOCKET_UID;
+      const state = g.pickup.tick(this.simTimeMs, player.x, player.y, own ? LOCKET_COLLECT_PX : radius);
+      if (state === 'idle') continue;
+      this.lootPool.release(g.pickup);
+      const last = this.ground.pop();
+      if (last !== undefined && i < this.ground.length) this.ground[i] = last;
+      if (state === 'collected') this.collect(g.payload, g.pickup.x, g.pickup.y);
     }
-    // A casket mutation is journalled immediately (§14b): the casket is the
-    // only thing a death settlement banks, so it must never be a second stale.
+  }
+
+  private collect(payload: LootPayload, x: number, y: number): void {
+    switch (payload.kind) {
+      case 'item':
+        this.addToBag(payload.item, x, y);
+        return;
+      case 'key':
+        sfx('pickup', { volume: 0.6 });
+        floatText(this, x, y - 60, 'DREAD KEY', '#ad6eef', 34);
+        return;
+      case 'pickup': {
+        sfx('pickup', { volume: 0.6 });
+        const player = this.combat.player;
+        const pk = TUNING.pickups;
+        if (payload.id === 'pk_bread') player.health.heal(pk.bread.heal);
+        else if (payload.id === 'pk_bell') this.combat.vacuumOrbs(pk.bell.vacuumMs);
+        else if (payload.id === 'pk_flask') this.combat.damageArea(player.x, player.y, pk.flask.radius, pk.flask.damage, 'pk_flask');
+        else this.combat.freezeArea(player.x, player.y, pk.salt.radius, this.loadout.uniques.includes('u_rimeheart') ? RIMEHEART_FREEZE_MS : pk.salt.freezeMs);
+        return;
+      }
+    }
+  }
+
+  private addToBag(item: LootItem, x = this.combat.player.x, y = this.combat.player.y): void {
+    if (item.item.uid === WICKET_LOCKET_UID) {
+      this.locketBeacon?.destroy();
+      this.locketBeacon = null;
+      this.locketAt = null;
+      this.locketArrow?.destroy();
+      this.locketArrow = null;
+      endCoach(this, 'locket');
+      // §5.28 / critic v2c M2: the Wicket's Gate A opens 10 s after the locket
+      // is picked up if that is sooner than `ftue.gateAOpenS`, never before 20 s.
+      this.extraction.openEarly('a', Math.max(TUNING.ftue.gateAEarliestS, this.elapsedS + TUNING.ftue.gateAAfterLocketS));
+    }
+    const result = this.bag.add(item);
+    this.bagStrip.announce(result, item);
+    this.itemsSeen.add(itemCodexKey(item));
+    sfx(item.kind === 'gear' && item.item.rarity >= 4 ? 'chest' : 'pickup', { volume: 0.7, rate: 0.85 + 0.06 * (item.kind === 'gear' ? item.item.rarity : 2) });
+    for (const dropped of result.dropped) this.dropLoot({ kind: 'item', item: dropped }, x + 50, y, this.bag.dropLingerMs);
+    if (result.refused !== null) this.dropLoot({ kind: 'item', item: result.refused }, x, y + 50, this.bag.dropLingerMs);
+    if (result.accepted && !this.itemCoached) {
+      this.itemCoached = true;
+      coachToast(this, 'item');
+    }
+    if (this.bag.casketNudgeDue()) {
+      this.bagStrip.pulse();
+      showToast(this, { text: 'Pin your Gilded item — tap the bag', onTap: () => this.toggleBagSheet(), key: 'casket' });
+    }
     this.refreshJournal();
   }
 
-  /**
-   * Releases a pin back into the bag — the other half of the same decision.
-   * Without it a pinned pip was a one-way door: the player could commit a slot
-   * and never reconsider, which is the opposite of the choice §5.6 is about.
-   * The relic returns to the bag (the casket does not occupy bag slots, so a
-   * release can push the bag over its count; the next pickup resolves that
-   * through the ordinary drop-lowest rule).
-   */
-  private unpinRelic(relicId: string): void {
-    if (!this.bag.unpinCasket(relicId)) return;
-    sfx('ui', { volume: 0.5 });
-    const player = this.combat.player;
-    floatText(this, player.x, player.y - 90, 'RELEASED FROM CASKET', CSS.warn, 34);
-    this.refreshJournal();
+  private rollItem(tierBias: number, uniqueChance: number) {
+    return rollGear(this.rng, {
+      tierBias,
+      luck: this.combat.player.stats.get('luck'),
+      lootBias: this.zone.lootBias + this.loadout.lootBias,
+      itemLevel: this.loadout.itemLevel,
+      uniqueChance,
+      zone: this.zone.id,
+    });
   }
 
-  private resumeFromPause(): void {
-    this.paused = false;
-    this.pauseOverlay?.destroy();
-    this.pauseOverlay = null;
-    // A coach beat can still start while PAUSED is up (`tickOpeningCoach` runs
-    // outside the running gate), and it owns the run when it does. A DRAFT
-    // cannot: `togglePause` refuses to open over one, and nothing can level the
-    // player up while combat is paused, so there is no draft to return into.
-    if (this.coachHold) return;
+  // === belt =================================================================
+
+  private useBelt(slot: number): void {
+    const player = this.combat.player;
+    const fx = this.belt.use(slot, { maxHp: player.health.max, itemsPickedUp: this.bag.itemsPickedUp });
+    if (fx === null) return;
+    endCoach(this, 'belt');
+    sfx('pickup', { volume: 0.6, rate: 1.1 });
+    switch (fx.kind) {
+      case 'heal':
+        player.health.heal(fx.hp);
+        break;
+      case 'damage':
+        this.combat.damageArea(player.x, player.y, fx.radius, fx.amount, 'belt');
+        break;
+      case 'freeze':
+        this.combat.freezeArea(player.x, player.y, fx.radius, fx.ms);
+        break;
+      case 'casket':
+        this.bag.addCasketSlots(fx.slots);
+        break;
+      case 'reveal':
+        this.poi.reveal(fx.ms);
+        break;
+    }
+  }
+
+  // === drafts ===============================================================
+
+  private queueDraft(levels: number): void {
+    this.pendingDrafts += levels;
+  }
+
+  /** A level-up earned mid-channel waits until the hold ends. */
+  private drainDrafts(): void {
+    // A draft never opens over the evolution cinematic; it follows once the icon lands.
+    if (this.pendingDrafts <= 0 || this.drafting || this.paused || this.ended || this.fenceOpen || evolutionPlaying(this)) return;
+    if (this.extraction.channelingGate !== null || this.poi.channelling() !== null) return;
+    this.pendingDrafts -= 1;
+    this.openDraft();
+  }
+
+  private rollHand(): UpgradeDef[] {
+    const ctx = this.combat.weapons.draftContext(this.taken, this.banished);
+    return rollUpgradeChoices(this.rng, ctx, TUNING.draft.choices + (this.mutRun.draftChoicesBonus ?? 0));
+  }
+
+  private describe(hand: readonly UpgradeDef[]) {
+    const view = this.combat.weapons.state();
+    const level = this.combat.player.level;
+    return hand.map((c) => describeCard(c, view, level));
+  }
+
+  private openDraft(): void {
+    let hand = this.rollHand();
+    if (hand.length === 0) return;
+    this.drafting = true;
+    this.director.pause();
+    this.combat.setPaused(true);
+    this.joystick.setEnabled(false);
+    this.freezeWorld();
+    sfx('levelup', { volume: 0.6 });
+    const handle = showUpgradeCards(this, this.describe(hand), {
+      rerolls: this.rerolls,
+      banishes: this.banishes,
+      onPick: (i) => {
+        const card = hand[i];
+        this.closeDraft();
+        if (card !== undefined) this.applyCard(card);
+      },
+      onReroll: () => {
+        if (this.rerolls <= 0) return;
+        this.rerolls -= 1;
+        hand = this.rollHand();
+        handle.refresh(this.describe(hand), this.rerolls, this.banishes);
+      },
+      onBanish: (i) => {
+        const card = hand[i];
+        if (this.banishes <= 0 || card === undefined) return;
+        this.banishes -= 1;
+        this.banished.push(card.id);
+        hand = this.rollHand();
+        handle.refresh(this.describe(hand), this.rerolls, this.banishes);
+      },
+    });
+    this.cards = handle;
+  }
+
+  private closeDraft(): void {
+    this.cards?.destroy();
+    this.cards = null;
+    this.drafting = false;
+    this.thawWorld();
+    if (this.ended || this.paused) return;
     this.director.resume();
     this.combat.setPaused(false);
     this.joystick.setEnabled(true);
   }
 
   /**
-   * Keeps the pause icon's TAPPABILITY equal to whether pausing is legal.
-   *
-   * `togglePause` refuses the illegal tap on its own, but a lit, full-opacity
-   * icon sitting above the draft dim is a promise the game will not keep: the
-   * player aims at it, taps, and nothing happens. Dimming it and dropping its
-   * hit area makes "not now" readable before the tap.
-   *
-   * Driven from `update` off a mirrored boolean, so the Button is touched only
-   * on a transition — roughly 26 times a run rather than 60 times a second.
+   * Draft perf (cert: first-draft fps under 6× CPU throttle): the run is frozen
+   * under a 0.85 dim, so the ~400 world objects are drawn ONCE into a
+   * screen-sized DynamicTexture through the main camera, shown as one static
+   * image, and hidden until the draft closes. HUD (scroll factor 0) stays live.
    */
-  private syncPauseAffordance(): void {
-    const legal = !this.drafting && !this.coachHold && !this.ended;
-    if (legal === this.pauseAffordanceLive) return;
-    this.pauseAffordanceLive = legal;
-    this.pauseButton.setAlpha(legal ? 1 : 0.28);
-    if (legal) this.pauseButton.setInteractive({ useHandCursor: true });
-    else this.pauseButton.disableInteractive();
+  private freezeWorld(): void {
+    if (this.frozenWorld.length > 0) return;
+    const cam = this.cameras.main;
+    const existing = this.textures.exists(FREEZE_KEY) ? this.textures.get(FREEZE_KEY) : null;
+    const dt = existing instanceof Phaser.Textures.DynamicTexture ? existing : this.textures.addDynamicTexture(FREEZE_KEY, cam.width, cam.height);
+    if (dt === null) return;
+    dt.clear();
+    this.children.depthSort();
+    for (const obj of this.children.list) {
+      const o = obj as Phaser.GameObjects.GameObject & Phaser.GameObjects.Components.Visible & Partial<Phaser.GameObjects.Components.ScrollFactor>;
+      if (!o.visible || (o.scrollFactorX === 0 && o.scrollFactorY === 0)) continue;
+      if (!o.willRender(cam)) continue;
+      dt.capture(o, { camera: cam });
+      o.setVisible(false);
+      this.frozenWorld.push(o);
+    }
+    dt.render();
+    this.freezeImage = this.add.image(0, 0, FREEZE_KEY).setOrigin(0, 0).setScrollFactor(0).setDepth(FREEZE_DEPTH);
   }
 
-  /**
-   * Abandons the run for the menu — the exit the pause overlay's MENU row is.
-   *
-   * Everything still running has to be killed HERE rather than on the way out:
-   * a looping tween or a queued timer that fires after `scene.start` touches a
-   * scene that no longer exists, which is exactly the black-screen trap in
-   * AGENTS.md.
-   */
-  private quitToMenu(): void {
-    this.pauseOverlay?.destroy();
-    this.pauseOverlay = null;
-    this.cards?.destroy();
-    this.cards = null;
-    this.ended = true;
-    this.paused = false;
+  /** Restores every object `freezeWorld` hid (skipping any destroyed meanwhile) and drops the still. */
+  private thawWorld(): void {
+    for (const o of this.frozenWorld) if (o.scene !== undefined && o.active) o.setVisible(true);
+    this.frozenWorld.length = 0;
+    this.freezeImage?.destroy();
+    this.freezeImage = null;
+  }
+
+  private applyCard(card: UpgradeDef): void {
+    this.taken.push(card.id);
+    const weapons = this.combat.weapons;
+    const player = this.combat.player;
+    switch (card.kind) {
+      case 'weapon-unlock':
+        if (card.weapon !== undefined && weapons.equip(card.weapon)) {
+          this.itemsSeen.add(`wpn:${card.weapon}`);
+          playNewWeapon(this, { weaponId: card.weapon, name: weaponDef(card.weapon).name, hero: player });
+        }
+        break;
+      case 'weapon-boost':
+        if (card.weapon !== undefined) {
+          const id = card.weapon;
+          const rankOf = (): number => weapons.state().weapons.find((w) => w.id === id)?.rank ?? 0;
+          const before = rankOf();
+          weapons.boost(id);
+          const rank = rankOf();
+          if (rank > before) playRankUp(this, { weaponId: id, rank, maxRank: weapons.state().maxRank, hero: player });
+        }
+        break;
+      case 'weapon-evolution':
+        if (card.weapon !== undefined) {
+          const before = weapons.state().weapons.find((w) => w.id === card.weapon)?.evolved === true;
+          weapons.evolve(card.weapon);
+          const after = weapons.state().weapons.find((w) => w.id === card.weapon)?.evolved === true;
+          if (!before && after) {
+            this.noteEvolution(card.weapon);
+            this.playEvolutionFx(card.weapon);
+          }
+        }
+        break;
+      case 'charm-unlock':
+        if (card.charm !== undefined && weapons.equipCharm(card.charm)) {
+          this.itemsSeen.add(`charm:${card.charm}`);
+          playNewCharm(this, { charmId: card.charm, name: charmName(card.charm), hero: player });
+        }
+        break;
+      case 'charm-rank':
+        if (card.charm !== undefined) weapons.rankCharm(card.charm);
+        break;
+      default:
+        for (const mod of cardModifiers(card)) player.applyModifier(mod);
+        if (card.effect !== undefined) {
+          applyEffect(card.effect, { player, grantShards: (n) => this.bag.addShards(n) }, this.combat.effects);
+        }
+        break;
+    }
+  }
+
+  /** Evolution cinematic (EvolveFx): slows the fight at its peak via the 'evolve' dilation source. */
+  private playEvolutionFx(id: WeaponId): void {
+    playEvolution(this, { ...evolutionInfo(id), hero: this.combat.player, enemies: this.combat, weapons: this.combat.weapons });
+  }
+
+  private noteEvolution(id: WeaponId): void {
+    if (this.evolutions.includes(id)) return;
+    this.evolutions.push(id);
+    this.itemsSeen.add(`evo:${id}`);
+  }
+
+  // === pause & bag sheet ====================================================
+
+  private pauseModel(): PauseModel {
+    const view = this.bag.view();
+    return {
+      zone: this.zone.name,
+      hazard: this.loadout.hazard,
+      elapsedS: this.elapsedS,
+      level: this.combat.player.level,
+      weapons: this.combat.weapons.state(),
+      gates: this.extraction.view().map((g) => (g.id === 'x' ? g.label : `${g.id.toUpperCase()} · ${g.label}`)),
+      bag: view,
+      carrying: { items: view.items.length + view.casket.length, shards: this.bag.shards },
+    };
+  }
+
+  private togglePause(): void {
+    if (this.ended || this.dying) return;
+    if (this.bagSheet !== null) {
+      this.bagSheet.close();
+      return;
+    }
+    if (this.pauseOverlay !== null) {
+      // One layer per press: an open ABANDON confirm closes first (QA #14).
+      if (!this.pauseOverlay.back()) this.resume();
+      return;
+    }
+    if (this.drafting || this.fenceOpen) return;
+    this.minimap.closePeek();
+    this.paused = true;
     this.director.pause();
     this.combat.setPaused(true);
-    this.tweens.killAll();
-    this.time.removeAllEvents();
-    setMusicIntensity(0.2);
-    sfx('ui', { volume: 0.4 });
-    // Walking out is an abandon, and an abandon settles as a death (§14b) —
-    // otherwise the menu this starts would render a stash that is one run stale
-    // and the marker would be resolved on some later boot instead.
-    settleAbandonedRun();
-    this.scene.start(SCENES.menu);
+    this.joystick.setEnabled(false);
+    this.pauseOverlay = showPauseOverlay(this, this.pauseModel(), {
+      resume: () => this.resume(),
+      abandon: () => this.finish('abandoned', null),
+      pin: (uid) => {
+        this.togglePin(uid);
+        this.refreshJournal();
+        this.pauseOverlay?.refresh(this.pauseModel());
+      },
+      drop: (uid) => {
+        const item = this.bag.drop(uid);
+        if (item !== null) this.dropLoot({ kind: 'item', item }, this.combat.player.x, this.combat.player.y + 60, this.bag.dropLingerMs);
+        this.pauseOverlay?.refresh(this.pauseModel());
+      },
+    });
   }
 
-  private finish(won: boolean): void {
+  /** PIN on a casket tile takes it back out (E22 `unpin`); on a bag tile it pins. */
+  private togglePin(uid: string): void {
+    if (this.bag.view().casket.some((c) => c.uid === uid)) this.bag.unpin(uid);
+    else this.bag.pin(uid);
+  }
+
+  private resume(): void {
+    this.pauseOverlay?.destroy();
+    this.pauseOverlay = null;
+    this.paused = false;
+    if (this.ended || this.drafting) return;
+    this.director.resume();
+    this.combat.setPaused(false);
+    this.joystick.setEnabled(true);
+  }
+
+  private toggleBagSheet(): void {
+    endCoach(this, 'item');
+    if (this.bagSheet !== null) {
+      this.bagSheet.close();
+      return;
+    }
+    if (this.ended || this.paused || this.drafting) return;
+    const sheet = openBagSheet(this, this.bag.view(), {
+      pin: (uid) => {
+        this.togglePin(uid);
+        this.refreshJournal();
+        sheet.refresh(this.bag.view());
+      },
+      drop: (uid) => {
+        const item = this.bag.drop(uid);
+        if (item !== null) this.dropLoot({ kind: 'item', item }, this.combat.player.x, this.combat.player.y + 60, this.bag.dropLingerMs);
+        sheet.refresh(this.bag.view());
+      },
+      close: () => {
+        this.bagSheet = null;
+        setTimeDilation(this, 'bag', 1);
+      },
+    });
+    this.bagSheet = sheet;
+    setTimeDilation(this, 'bag', BAG_SHEET_TIMESCALE);
+  }
+
+  // === finish ===============================================================
+
+  private finish(outcome: BagSettlement['outcome'], killer: string | null): void {
     if (this.ended) return;
     this.ended = true;
     this.cards?.destroy();
+    this.cards = null;
+    this.thawWorld();
     this.pauseOverlay?.destroy();
-    this.openingCoach?.destroy();
-    this.openingCoach = null;
-    this.gateCoach?.destroy();
-    this.gateCoach = null;
+    this.pauseOverlay = null;
+    this.bagSheet?.close();
+    this.joystick.setEnabled(false);
     this.combat.setPaused(true);
     this.director.pause();
-    this.joystick.setEnabled(false);
 
-    // §12/§13: extraction gets `sfxArp` at 0.8 — the game's biggest positive
-    // voice for its biggest positive moment. It used to share `levelup` with
-    // every card draft, which flattened the one beat the whole loop is built
-    // toward. Death keeps `die` and the shake; the desaturate is `die()`'s.
-    if (won) sfxArp('combo', 6, { volume: 0.8 });
-    else sfx('die');
-    // `force`: the run's last frame. A hurt flash from the very hit that ended
-    // the run is always inside the rate window, and the outcome sting is not
-    // something the strobe cap gets to eat.
-    flash(this, won ? PALETTE.good : PALETTE.bad, 260, { force: true });
-    if (won) shake(this, 0.02, 300);
-
-    if (this.bossActive) setMusicLayer('boss', false);
-    setMusicIntensity(0.2);
-
-    const timeMs = this.director.elapsedSeconds * 1000;
-    // Settlement is THE banking moment: extraction keeps everything, death
-    // keeps the casket plus the resolved death-keep % (`TUNING.meta.deathKeepPct`
-    // plus §10's Rot Tithe, resolved once at run start in `runLoadout`).
-    const carriedShards = this.bag.shards;
-    const settlement = this.bag.settle(won ? 'extracted' : 'died', this.loadout.deathKeepPct);
-    // Haul premium for walking out THROUGH the Collapse. The sim proved that
-    // Gate C opening at 420s with an immediately-startable channel meant an
-    // optimal deep run always ended before 480, so the Collapse was content no
-    // player ever saw. Paying for the risk — rather than barring the door
-    // until ignition, which was measured and rejected — keeps the decision the
-    // player's. Applied here and not in `Bag.settle`, whose §16.1 signature is
-    // frozen and must stay pure.
-    const inCollapse = won && this.director.elapsedSeconds >= TUNING.collapse.atS;
-    const collapseBonus = inCollapse
-      ? Math.round(settlement.shards * TUNING.extract.collapseHaulBonus)
-      : 0;
-    const bankedShards = settlement.shards + collapseBonus;
-
-    // THE PAYLOAD IS TYPED AT THE CALL SITE. `scene.start` takes `object` and
-    // `GameOverScene.init` takes a `Partial`, so a field this scene forgets to
-    // send silently defaults there — which is exactly how a perfect Gate C
-    // extraction banked zero. Annotating the object is what makes `tsc` the
-    // guard on this seam instead of a playtest.
-    const data: GameOverData = {
-      won,
-      timeMs,
+    const elapsedS = this.elapsedS;
+    const settlement = this.bag.settle(outcome, {
+      deathKeepPct: this.loadout.deathKeepPct,
+      greedMul: outcome === 'extracted' ? greedMul(elapsedS, this.loadout.greedMaxMul) : 1,
+      gravePact: this.loadout.gravePact,
+      rng: this.rng,
+    });
+    const stats = this.poi.stats();
+    const view = this.combat.weapons.state();
+    const gateId: GateId | null = this.extraction.extractedGate;
+    const gateKind = this.extraction.extractedGateKind;
+    const report: RunReport = {
+      outcome,
+      killer: outcome === 'died' ? killer : null,
+      zone: this.loadout.zone,
+      hazard: this.loadout.hazard,
+      mode: this.loadout.mode,
+      seed: this.loadout.seed,
+      classId: this.loadout.classId,
+      elapsedS,
+      gate: gateId !== null && gateKind !== null ? { id: gateId, kind: gateKind } : null,
+      settlement,
       kills: this.kills,
-      level: this.combat.player.level,
-      seed: this.seed,
-      zone: this.zoneId,
-      bankedShards,
-      carriedShards,
-      banked: settlement.relics.map(haulRelic),
-      lost: settlement.lost.map(haulRelic),
-      // A subset of `banked` on both outcomes: the casket is what survives a
-      // death, and on an extraction it is simply part of the haul.
-      casketSaved: this.bag.casket.map(haulRelic),
-      gateUsed: this.extraction.extractedGate,
-      // The loop-fit line on the results screen already reads "SURVIVED 4:12
-      // KILLS 318 LEVEL 9", and the hero number plus "SHARDS BANKED / n LOST"
-      // plus the relic list already say the rest in English. BANKED and LOST
-      // restated all of it in jargon ("408sh 0rl"), so they are gone. DUSK
-      // TITHE stays: it is the only number on this screen that nothing else
-      // says, and it only exists on a Collapse extraction.
-      stats: collapseBonus > 0 ? [{ label: 'DUSK TITHE', value: `+${collapseBonus}sh` }] : [],
-      // Decided BEFORE the meta write below, which is the only moment the
-      // previous best still exists.
-      bestHaul: bankedShards > loadMeta().stats.bestScore,
+      killsByEnemy: this.killsByEnemy,
+      killsByWeapon: this.killsByWeapon,
+      eliteKills: this.eliteKills,
+      affixKills: this.affixKills,
+      bossKilled: this.bossKilled,
+      midBossKilled: stats.midBossKilled,
+      chestsOpened: stats.chestsOpened,
+      vaultOpened: stats.vaultOpened,
+      shrinesUsed: stats.shrinesUsed,
+      lairsCleared: stats.lairsCleared,
+      eventsCompleted: stats.eventsCompleted,
+      veinsMined: stats.veinsMined,
+      breakablesBroken: this.field.broken,
+      loreRead: stats.loreRead,
+      fenceTrades: stats.fenceTrades,
+      poisVisited: stats.poisVisited,
+      evolutions: this.evolutions,
+      maxLevel: this.combat.player.level,
+      charmsOwned: view.charms.length,
+      weaponsAtMaxRank: view.weapons.filter((w) => w.rank >= view.maxRank).length,
+      minHpRatio: this.minHpRatio,
+      beltUsed: this.belt.used() as ConsumableId[],
+      itemsSeen: [...this.itemsSeen],
     };
+    const data: GameOverData = { report, settlement: settleRun(report) };
 
-    // SETTLE FIRST, CLEAR LAST.
-    //
-    // The meta write used to live in `GameOverScene.create`, on the far side of
-    // a 360ms fade and a `scene.start` — and `clearRunJournal` ran BEFORE that
-    // fade. So for 360ms plus a scene boot the §14b in-flight marker was gone
-    // and the haul was not yet banked, and any throw in that window deleted the
-    // player's run with nothing left to recover it from. Not theoretical: a
-    // throw in a shutdown path is precisely the freeze this build shipped with.
-    //
-    // So the banking happens here, synchronously, while the marker is still on
-    // disk; the marker is torn down only once the save has taken. A throw
-    // BETWEEN them now costs a double-settle on the next boot (the abandon rule
-    // pays the death share a second time), which is a bounded over-payment
-    // instead of an unbounded loss — that is the right way for this to fail.
-    recordRunResult({ won, score: bankedShards, timeMs }, { bestTimeMode: 'max' });
-    if (bankedShards > 0) grantCurrency(bankedShards);
-    if (settlement.relics.length > 0) bankRelics(settlement.relics.map((relic) => relic.id));
-    track(won ? 'win' : 'loss');
-    if (isDailyMode()) saveDailyBest(bankedShards);
-
-    // The run has settled, so the §14b in-flight marker is spent: leaving it
-    // would make the NEXT boot bank this haul a second time.
-    clearRunJournal();
-
-    this.cameras.main.fadeOut(340, 0, 0, 0);
-    this.time.delayedCall(360, () => this.scene.start(SCENES.gameOver, data));
-  }
-
-  // === extraction ===========================================================
-
-  /**
-   * The finale boss dying is a reward beat, NOT a win — the run still resolves
-   * only through a gate or a death. Its relic drop lands via `onEnemyKilled`.
-   */
-  private onWardenDown(): void {
-    this.bossActive = false;
+    setTimeDilation(this, 'bag', 1);
+    setTimeDilation(this, 'evolve', 1);
     setMusicLayer('boss', false);
-    this.punch(0.02, 300);
-    sfx('levelup', { volume: 0.9 });
-    // The marker dies with the body it describes: this is the boss KILL path
-    // (`onBossKilled`), so a Warden that goes down can never leave its plate or
-    // its off-screen arrow on the HUD for the rest of the run.
-    this.hideWardenMark();
-    // §10 lifetime counter. Banked HERE and not in `finish()`: the Warden dying
-    // is not a win, and a run that kills it and then dies in the Collapse still
-    // killed it. The counter never resets, so it must be written on the event.
-    recordWardenKill();
+    this.cameras.main.fadeOut(340, 0, 0, 0);
+    this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => this.scene.start(SCENES.gameOver, data));
   }
 
-  private onExtractionEvent(e: ExtractionEvent, id?: string): void {
-    const px = this.combat.player.x;
-    const py = this.combat.player.y;
-    switch (e) {
-      case 'gate-open':
-        // §13 "Gate opens": violet EDGE flash at 200ms + the compass arrow
-        // appearing, and §12's authored `gate` voice — a rising square fifth
-        // that belongs to nothing else in the game. It used to borrow
-        // `levelup`, so the door opening and a card draft sounded identical.
-        sfx('gate', { volume: 0.5 });
-        edgeFlash(this, IDENTITY.gateOpen, 200);
-        floatText(this, px, py - 120, `GATE ${(id ?? '').toUpperCase()} OPEN`, CSS.good, 44);
-        this.showFirstGateCoach(id);
-        break;
-      case 'gate-close':
-        sfx('whoosh', { volume: 0.6, rate: 0.8 });
-        // `warn`, not `bad`: `bad` is not a legal text tone over art (§11).
-        floatText(this, px, py - 120, `GATE ${(id ?? '').toUpperCase()} CLOSED`, CSS.warn, 44);
-        break;
-      case 'collapse':
-        // §13 "Collapse starts", ONCE: screen-wide shake 0.02/400ms + the ring
-        // igniting (the curtain, drawn in `redrawExtractionVisuals`) + §12's
-        // authored `collapse` voice, a 1.6s noise-led sub falling 60→30Hz. It
-        // used to borrow `die`, so the world ending sounded like a husk dying.
-        sfx('collapse');
-        edgeFlash(this, IDENTITY.threat, 520, 150);
-        setMusicLayer('boss', true);
-        // Unconditional, NOT `punch`: §13 authors this shake as screen-wide and
-        // once-per-run, so the entity-count suppression that protects the
-        // per-kill shakes must not silence the one beat that announces the
-        // finale — and the Collapse is exactly when the count is highest.
-        shake(this, 0.02, 400);
-        // BODIES FIRST. The shipped ignition read as "UI first, bodies second":
-        // the banner owned frame 1 while the ring's first physical evidence was
-        // an elite that arrived seconds later. So the WORLD lights first — the
-        // arc of the ring the player is standing on, staggered — and the banner
-        // lands behind it, still inside the 700ms ceremony ceiling.
-        this.igniteCollapseArc();
-        this.time.delayedCall(COLLAPSE_BANNER_DELAY_MS, () => {
-          if (this.ended || this.tearingDown) return;
-          banner(this, 'THE COLLAPSE', CSS.warn, 700);
-        });
-        break;
-      case 'extracted':
-        // §11's 6f dissolve into violet light. `finish` fades the camera over
-        // 340ms, which covers the tail of the 660ms cycle.
-        this.combat.player.setChannelling(false);
-        this.combat.player.playAction(ANIM.heroExtract);
-        this.finish(true);
-        break;
-    }
-  }
+  // === world visuals ========================================================
 
-  /**
-   * The Collapse's PHYSICAL ignition: the arc of the dusk-fire ring the player
-   * is standing on lights before any chrome does.
-   *
-   * `COLLAPSE_IGNITE_POINTS` bursts, `COLLAPSE_IGNITE_STEP_MS` apart (§13
-   * staggers a group effect rather than firing it all on one frame), on the
-   * ring itself rather than on the player — the news is where the wall is. The
-   * same pooled particle effect every other beat uses, so it buys nothing from
-   * the frame budget the ignition frame is already spending.
-   */
-  private igniteCollapseArc(): void {
-    const collapse = this.extraction.collapse;
-    if (collapse === null) return;
-    const centre = this.extraction.collapseRingCenter;
-    const player = this.combat.player;
-    const facing = Math.atan2(player.y - centre.y, player.x - centre.x);
-    for (let i = 0; i < COLLAPSE_IGNITE_POINTS; i += 1) {
-      const angle = facing + (i - (COLLAPSE_IGNITE_POINTS - 1) / 2) * 0.42;
-      const x = centre.x + Math.cos(angle) * collapse.ringRadius;
-      const y = centre.y + Math.sin(angle) * collapse.ringRadius;
-      this.time.delayedCall(i * COLLAPSE_IGNITE_STEP_MS, () => {
-        if (this.ended || this.tearingDown) return;
-        burst(this, x, y, IDENTITY.threat, 12, 300);
-      });
-    }
-  }
-
-  /**
-   * §14b `tut:gate` — the first gate decision, taught once ever. The spotlight
-   * is that gate's compass arrow: the arrow is clamped to §14.2's authored
-   * screen ring, so the rect is derived from the SAME projection the compass
-   * does rather than read back out of it (`ui/gateCompass.ts` owns its own
-   * geometry and exposes no positions, which is the right boundary — this needs
-   * a region, not a widget).
-   */
-  private showFirstGateCoach(gateId?: string): void {
-    if (this.gateCoach !== null || gateId === undefined) return;
-    const gate = this.zoneGates.find((g) => g.id === gateId);
-    if (gate === undefined) return;
-
-    const view = this.cameras.main.worldView;
-    const projecting = view.width > 0 && view.height > 0;
-    const screenX = projecting ? gate.x - view.x : VIEW.centerX;
-    const screenY = projecting ? gate.y - view.y : VIEW.centerY;
-    const spotlight: CoachRect = {
-      x: Phaser.Math.Clamp(screenX - COACH_GATE_SPOT / 2, SAFE.side, VIEW.width - SAFE.side - COACH_GATE_SPOT),
-      y: Phaser.Math.Clamp(screenY - COACH_GATE_SPOT / 2, COACH_GATE_RING.top, COACH_GATE_RING.bottom - COACH_GATE_SPOT),
-      w: COACH_GATE_SPOT,
-      h: COACH_GATE_SPOT,
-    };
-    this.gateCoach = showGateCoach(
-      this,
-      { pause: () => this.holdForCoach(true), resume: () => this.holdForCoach(false) },
-      spotlight,
-    );
-  }
-
-  /**
-   * World-space gate art + ring fallback + labels, and the channel/collapse
-   * layers.
-   *
-   * §11 makes the gate ART, not a primitive: the three states are told apart by
-   * hue AND by grille position on the generated sheets, which is a far stronger
-   * read at a 48px glance than a stroked circle. The Arc survives only as the
-   * crash-safe fallback for a build whose `gates-collapse` group did not load —
-   * when the art is present the Arc is hidden, because a visible procedural
-   * gameplay surface is a release defect.
-   */
-  private buildGateVisuals(): void {
-    const rings = {} as Record<GateSpec['id'], Phaser.GameObjects.Arc>;
-    const hasGateArt = this.textures.exists(TEXTURE.gateClosed);
-    const sprites = hasGateArt ? ({} as Record<GateSpec['id'], Phaser.GameObjects.Sprite>) : null;
+  private buildWorldVisuals(): void {
     const artSize = TUNING.gate.radius * GATE_ART_SCALE;
-
-    for (const gate of this.zoneGates) {
-      rings[gate.id] = this.add
+    for (const gate of this.gates) {
+      const closedKey = gate.kind === 'timed' ? TEXTURE.gateClosed : `gate-${gate.kind}-closed`;
+      const ring = this.add
         .circle(gate.x, gate.y, TUNING.gate.radius)
         .setStrokeStyle(6, GATE_RING_STYLE.closed.color, GATE_RING_STYLE.closed.alpha)
         .setFillStyle(GATE_RING_STYLE.closed.color, 0.03)
-        .setDepth(5)
-        .setVisible(!hasGateArt);
-      if (sprites !== null) {
-        // Untinted: the sheet already carries the state's colour code, and a
-        // tint would fight the palette the art review gated.
-        sprites[gate.id] = this.add
-          .sprite(gate.x, gate.y, TEXTURE.gateClosed)
-          .setDisplaySize(artSize, artSize)
-          .setDepth(5);
-      }
+        .setDepth(5);
+      const sprite = this.textures.exists(closedKey) ? this.add.sprite(gate.x, gate.y, closedKey).setDisplaySize(artSize, artSize).setDepth(5) : null;
       this.add
-        .text(gate.x, gate.y, gate.id.toUpperCase(), { ...TEXT.heading, color: CSS.inkSoft })
+        .text(gate.x, gate.y + artSize * 0.45, gate.id === 'x' ? gate.kind.toUpperCase() : gate.id.toUpperCase(), { ...TEXT.heading, color: CSS.inkSoft })
         .setOrigin(0.5)
-        .setAlpha(0.6)
+        .setAlpha(0.7)
         .setDepth(6);
+      this.gateVisuals.push({ gate, ring, sprite, state: null });
     }
-    this.gateRings = rings;
-    this.gateSprites = sprites;
-    this.buildCollapseCurtain();
+    if (this.playable(ANIM.collapseRing)) {
+      for (let i = 0; i < COLLAPSE_SEGMENT_POOL; i += 1) {
+        const segment = this.add.sprite(0, 0, ANIM.collapseRing).setDisplaySize(COLLAPSE_SEGMENT_W, COLLAPSE_SEGMENT_H).setDepth(45).setVisible(false);
+        segment.play(ANIM.collapseRing);
+        this.collapseSegments.push(segment);
+      }
+    }
     this.channelGfx = this.add.graphics().setDepth(40);
     this.collapseGfx = this.add.graphics().setDepth(45);
-
-    // Channel vignette (§14): drawn ONCE, then toggled. A per-frame Graphics
-    // redraw at this size is exactly what the performance plan forbids.
-    //
-    // The fill goes down at alpha 1 and the OBJECT's alpha carries the whole
-    // value, so `tickChannelFeedback` can drive it from channel progress with
-    // one field write. Baking 0.3 into the fill would multiply against that and
-    // silently cap the escalation at a third of its intended brightness.
-    this.channelVignette = this.add
-      .graphics()
-      .setScrollFactor(0)
-      .setDepth(1100)
-      .setAlpha(0.3)
-      .setVisible(false);
-    const band = 90;
-    this.channelVignette.fillStyle(IDENTITY.gateOpen, 1);
-    this.channelVignette.fillRect(0, SAFE.top, band, VIEW.height - SAFE.top);
-    this.channelVignette.fillRect(VIEW.width - band, SAFE.top, band, VIEW.height - SAFE.top);
-    this.channelVignette.fillRect(0, VIEW.height - band, VIEW.width, band);
-    this.channelVignette.fillRect(0, SAFE.top, VIEW.width, band * 0.5);
-
-    this.buildBreatherChrome();
   }
 
-  /**
-   * The `breather` lull's two persistent widgets, built once per run and parked
-   * invisible — the beat fires twice (`TUNING.events.breatherAtS`) and building
-   * a scrim, a label and a full-screen Graphics mid-fight is the hitch §15
-   * pools to avoid.
-   *
-   * The band is drawn at alpha 1 and the OBJECT's alpha carries the value, the
-   * same contract `channelVignette` documents above, so `tickBreather` drives
-   * the whole beat with one field write. It is THINNER (55 vs 90) and green
-   * rather than violet: relief has to be told apart from the extraction rite
-   * and from the Collapse at a glance.
-   */
-  private buildBreatherChrome(): void {
-    this.breatherVignette = this.add
-      .graphics()
-      .setScrollFactor(0)
-      // Under the channel vignette (1100): a rite started during the lull is
-      // the more urgent state and must win the screen edge.
-      .setDepth(1090)
-      .setAlpha(BREATHER_CALM_ALPHA)
-      .setVisible(false);
-    const calmBand = 55;
-    this.breatherVignette.fillStyle(PALETTE.good, 1);
-    this.breatherVignette.fillRect(0, SAFE.top, calmBand, VIEW.height - SAFE.top);
-    this.breatherVignette.fillRect(VIEW.width - calmBand, SAFE.top, calmBand, VIEW.height - SAFE.top);
-    this.breatherVignette.fillRect(0, VIEW.height - calmBand, VIEW.width, calmBand);
-    this.breatherVignette.fillRect(0, SAFE.top, VIEW.width, calmBand * 0.5);
-
-    // Scrimmed, because this label sits over the generated arena art for eight
-    // seconds (§14.4): the veil is what keeps it legible over a bone-white
-    // desert crest as well as over the castle floor.
-    const scrim = paintScrim(this, 0, 0, BREATHER_CHIP_BLOCK.width, BREATHER_CHIP_BLOCK.height);
-    this.breatherChipText = this.add
-      .text(0, 0, '', { ...TEXT.label, fontSize: '28px', color: CSS.good, ...bareText() })
-      .setOrigin(0.5);
-    this.breatherChip = this.add
-      .container(VIEW.centerX, BREATHER_CHIP_Y, [scrim, this.breatherChipText])
-      .setScrollFactor(0)
-      .setDepth(1090)
-      .setVisible(false);
-  }
-
-  /**
-   * Pool for the generated Collapse curtain. Built once per run and parked
-   * invisible: the ring only exists after `collapse.atS`, but allocating 32
-   * sprites mid-fight during the loudest beat of the run is exactly the hitch
-   * §15 pools to avoid.
-   */
-  private buildCollapseCurtain(): void {
-    this.collapseSegments = [];
-    if (!this.anims.exists(ANIM.collapseRing)) return;
-    for (let i = 0; i < COLLAPSE_SEGMENT_POOL; i += 1) {
-      const segment = this.add
-        .sprite(0, 0, ANIM.collapseRing)
-        .setDisplaySize(COLLAPSE_SEGMENT_W, COLLAPSE_SEGMENT_H)
-        .setDepth(45)
-        .setVisible(false);
-      segment.play(ANIM.collapseRing);
-      this.collapseSegments.push(segment);
+  private redrawWorld(): void {
+    for (const v of this.gateVisuals) {
+      const state = this.extraction.gateState(v.gate.id);
+      if (state === v.state) continue;
+      const previous = v.state;
+      v.state = state;
+      const style = GATE_RING_STYLE[state];
+      v.ring.setStrokeStyle(6, style.color, style.alpha).setFillStyle(style.color, state === 'open' || state === 'closing' ? 0.08 : 0.03);
+      if (v.sprite !== null) this.paintGate(v.sprite, v.gate, state, previous);
     }
-  }
 
-  /**
-   * The three HUD components UiMeta owns. This scene positions them at their
-   * contracted anchors and feeds them plain data — it never draws them, and
-   * they never read game state.
-   */
-  private buildHudComponents(): void {
-    this.compass = new GateCompass(this, 360, 600);
-    this.bagPips = new BagPips(this, 360, 88);
-    // Self-placing at its §14.3 contract coordinate (UiMeta owns the band).
-    this.channelBar = new ChannelBar(this);
-  }
-
-  /** One ticking-frame step of the whole extraction loop. */
-  private tickExtraction(deltaMs: number): void {
     const player = this.combat.player;
-
-    // Contest census: the channel accrues slower while the ring is held, and
-    // an elite in the ring costs more than a husk (PRD §7 `extract.*`).
-    const gateId = this.extraction.channelingGate;
-    this.contest.enemies = 0;
-    this.contest.elites = 0;
-    if (gateId !== null) {
-      const gate = this.zoneGates.find((g) => g.id === gateId);
-      if (gate !== undefined) this.combat.countNear(gate.x, gate.y, TUNING.gate.radius, this.contest);
-    }
-
-    this.extraction.update(deltaMs, player.x, player.y, this.tookHitSinceTick, this.contest);
-    this.tookHitSinceTick = false;
-    // 'extracted' may have ended the run synchronously inside update().
-    if (this.ended) return;
-
-    this.tickCollapse(deltaMs);
-    if (this.ended) return;
-
-    this.collectRelicPickups();
-    this.redrawExtractionVisuals();
-    this.feedHudComponents();
-  }
-
-  /** Threat ramp and dusk-fire drain while the Collapse runs. */
-  private tickCollapse(deltaMs: number): void {
-    const collapse = this.extraction.collapse;
-    if (collapse === null || !collapse.active) return;
-
-    this.collapseBonus = this.extraction.collapseThreatBonus;
-
-    // Dusk-fire: outside the shrinking ring, hp drains DIRECTLY — this
-    // deliberately bypasses `Health.apply` so i-frames cannot shield idling.
-    const centre = this.extraction.collapseRingCenter;
-    const player = this.combat.player;
-    const dx = player.x - centre.x;
-    const dy = player.y - centre.y;
-    if (dx * dx + dy * dy <= collapse.ringRadius * collapse.ringRadius) return;
-    this.onHazardDrain((this.extraction.collapseFireDps * deltaMs) / 1000);
-  }
-
-  /**
-   * Rolls `count` relics and lands them as ground pickups. `minTier` floors the
-   * roll for the sources that promise a tier (the Shrine, the Warden).
-   */
-  private dropRelics(x: number, y: number, count: number, tierBias: number, minTier = 0): void {
-    for (let i = 0; i < count; i += 1) {
-      let def = rollRelic(this.rng, this.zone.id, tierBias);
-      // A guaranteed tier is guaranteed: re-roll rather than hand over a
-      // Tarnished trinket from the vault the player fought through a pocket for.
-      for (let attempt = 0; attempt < 8 && def.tier < minTier; attempt += 1) {
-        def = rollRelic(this.rng, this.zone.id, tierBias + 1);
-      }
-      const angle = this.rng.float(0, Math.PI * 2);
-      const spread = count > 1 ? this.rng.float(30, 90) : 0;
-      this.spawnRelicPickup(def, x + Math.cos(angle) * spread, y + Math.sin(angle) * spread, null);
-    }
-  }
-
-  private spawnRelicPickup(def: RelicDef, x: number, y: number, lingerMs: number | null): void {
-    const point = { x: 0, y: 0 };
-    this.arena.clamp(x, y, TUNING.arena.wallThickness + 24, point);
-    const pickup = this.relicPool.obtain();
-    pickup.drop(def, point.x, point.y, this.simTimeMs, RELIC_PICKUP_ARM_MS, lingerMs);
-    this.relics.push(pickup);
-  }
-
-  /** Arming, magnetism, expiry and overflow handling for ground relics. */
-  private collectRelicPickups(): void {
-    const player = this.combat.player;
-    const radius = player.stats.get('pickupRadius');
-    for (let i = this.relics.length - 1; i >= 0; i -= 1) {
-      const pickup = this.relics[i];
-      if (pickup === undefined) continue;
-      const state = pickup.tick(this.simTimeMs, player.x, player.y, radius);
-      if (state === 'idle') continue;
-
-      const def = pickup.def;
-      const x = pickup.x;
-      const y = pickup.y;
-      this.relicPool.release(pickup);
-      this.relics.splice(i, 1);
-      if (state === 'expired') continue;
-
-      const result = this.bag.addRelic(def);
-      if (!result.accepted) {
-        // §13 "Bag overflow drop": grey pop + toast at 300ms + a low `tap`,
-        // capped 1/s. A world floater over the player was the whole feedback
-        // for the single most consequential refusal in the run — the bag
-        // saying no to loot you walked into a gate window for.
-        if (allowEffect('overflow', 1)) {
-          toast(this, `BAG FULL · ${def.name.toUpperCase()} DROPPED`, CSS.warn, 560, 300);
-          burst(this, x, y, IDENTITY.cooled, 8, 160);
-          sfx('tap', { volume: 0.25, rate: 0.6 });
-        }
-        this.spawnRelicPickup(def, x, y, TUNING.bag.dropLingerS * 1000);
-        continue;
-      }
-      // §13 "Relic pickup": tier-coloured pop at 200ms + the name floater +
-      // `combo` at 0.6, capped 1/s. The pop lands on the HERO, which is the
-      // object that just absorbed the relic — the pickup sprite is already
-      // back in the pool by this line, so it has nothing left to squash.
-      const tint = tierColor(def.tier);
-      pop(this, player, 0.22, 200);
-      burst(this, player.x, player.y, tint, 10, 200);
-      if (allowEffect('relic-sfx', 1)) sfx('combo', { volume: 0.6 });
-      else sfx('pickup', { volume: 0.4 });
-      // Over the arena, so over lit ART: tier 4 Dread is `secondary`, which is
-      // not a legal text tone there and degrades to ink by contract.
-      floatText(this, player.x, player.y - 90, def.name, tierColorCss(def.tier, 'art'), 38);
-      if (result.dropped !== null) {
-        floatText(this, player.x, player.y - 130, `DROPPED: ${result.dropped.name}`, CSS.bad, 32);
-        const angle = this.rng.float(0, Math.PI * 2);
-        this.spawnRelicPickup(
-          relicDef(result.dropped.id),
-          player.x + Math.cos(angle) * 140,
-          player.y + Math.sin(angle) * 140,
-          TUNING.bag.dropLingerS * 1000,
-        );
-      }
-    }
-  }
-
-  /** Gate art + ring fallback (state-diffed), channel arc, Collapse curtain, vignette. */
-  private redrawExtractionVisuals(): void {
-    if (this.gateRings !== null) {
-      for (const gate of this.zoneGates) {
-        const state = this.extraction.gateState(gate.id);
-        const previous = this.gateRingState[gate.id];
-        if (previous === state) continue;
-        this.gateRingState[gate.id] = state;
-        const style = GATE_RING_STYLE[state];
-        this.gateRings[gate.id]
-          .setStrokeStyle(6, style.color, style.alpha)
-          .setFillStyle(style.color, state === 'open' || state === 'closing' ? 0.08 : 0.03);
-        const sprite = this.gateSprites?.[gate.id];
-        if (sprite !== undefined) this.paintGate(sprite, state, previous);
-      }
-    }
-
-    // The hero holds the rite while the channel runs (§11 hero cycle). Driven
-    // off `channelingGate` rather than progress, so entering the ring commits
-    // the pose on the same frame the accrual starts.
-    this.combat.player.setChannelling(
-      !this.extraction.extracted && this.extraction.channelingGate !== null,
-    );
-
-    // Channel progress ring around the player — spatial truth. The MAGNITUDE
-    // lives in the screen-space ChannelBar, because in a crowded ring the
-    // world arc is completely covered by the bodies contesting it.
-    //
-    // THE CHANNEL IS THE MOST IMPORTANT THING ON SCREEN WHILE IT RUNS. The
-    // playtest critic's finding was that "the thing telling you whether you
-    // live is the thinnest mark on screen": a flat 10px stroke and a flat 0.3
-    // vignette read as ambience next to a 40-body fight. Three fixes, all
-    // driven off progress so the beat ESCALATES instead of sitting there:
-    // the arc thickens 10→18px, the vignette brightens with the fill on top of
-    // an 0.8s breath (§11 motion identity: "gate light breathes at 0.8s"), and
-    // a leading-edge pip marks where the fill actually is.
+    const gateId = this.extraction.extracted ? null : this.extraction.channelingGate;
+    const gate = gateId === null ? undefined : this.gates.find((g) => g.id === gateId);
+    const inRing = gate !== undefined && this.inChannelRing();
+    player.setChannelling(inRing);
     this.channelGfx.clear();
     const progress = this.extraction.channelProgress;
-    const channelling = !this.extraction.extracted && this.extraction.channelingGate !== null && progress > 0;
-    if (channelling) {
-      const player = this.combat.player;
-      const sweep = progress * Math.PI * 2;
+    // The hold's progress lives ON THE GATE (spatial truth); away from the ring
+    // it is drawn grey — kept, but not advancing.
+    if (gate !== undefined && progress > 0) {
       const from = -Math.PI / 2;
-      this.channelGfx.lineStyle(10 + 8 * progress, IDENTITY.gateOpen, 0.95);
+      const sweep = progress * Math.PI * 2;
+      this.channelGfx.lineStyle(10 + 8 * progress, inRing ? IDENTITY.gateOpen : CHANNEL_PAUSED_TINT, inRing ? 0.95 : 0.7);
       this.channelGfx.beginPath();
-      this.channelGfx.arc(player.x, player.y, 74, from, from + sweep);
+      this.channelGfx.arc(gate.x, gate.y, TUNING.gate.radius + 14, from, from + sweep);
       this.channelGfx.strokePath();
-      // The pip: the eye tracks a moving point far better than it reads the
-      // end of an arc, and this one accelerates visibly as the contest clears.
-      this.channelGfx.fillStyle(0xffffff, 0.9);
-      this.channelGfx.fillCircle(
-        player.x + Math.cos(from + sweep) * 74,
-        player.y + Math.sin(from + sweep) * 74,
-        7 + 3 * progress,
-      );
     }
-    this.tickChannelFeedback(channelling, progress);
+    this.tickChannelFeedback(inRing && progress > 0, progress);
 
     const collapse = this.extraction.collapse;
     const centre = this.extraction.collapseRingCenter;
-    const radius = collapse !== null && collapse.active ? collapse.ringRadius : 0;
-    this.paintCollapseCurtain(centre.x, centre.y, radius);
+    this.paintCollapseCurtain(centre.x, centre.y, collapse !== null && collapse.active ? collapse.ringRadius : 0);
   }
 
-  /**
-   * The audio and screen-edge half of the channel: §13's "Channel progress"
-   * and "Channel interrupted" rows.
-   *
-   * The vignette's alpha is written per frame from progress plus an 0.8s
-   * breath. That is one field write, NOT a looping tween: a repeat:-1 tween on
-   * a Graphics owned by the scene is the exact leak class AGENTS.md calls out,
-   * and it would have to be killed on interrupt, on leaving the ring, on
-   * extraction, on death and on shutdown — five kill sites for an effect a
-   * cosine computes for free.
-   */
   private tickChannelFeedback(channelling: boolean, progress: number): void {
     if (!channelling) {
-      if (this.channelWasActive) {
-        this.channelWasActive = false;
-        this.channelVignette.setVisible(false);
-      }
-      // Re-armed rather than kept: walking out of the ring and back in should
-      // sound like starting again, because mechanically it is.
+      this.channelWasActive = false;
       this.channelQuarter = 0;
       return;
     }
-
     if (!this.channelWasActive) {
       this.channelWasActive = true;
-      this.channelVignette.setVisible(true);
-      // The start beat: the rite is the one action in the game that cannot be
-      // taken by accident, so it announces itself.
+      endCoach(this, 'channel');
       sfx('tap', { volume: 0.5, rate: 0.9 });
       edgeFlash(this, IDENTITY.gateOpen, 180, 70);
     }
-
-    // 0.3 floor rising to 0.62 at a full fill, breathing ±0.08 on the §11
-    // 0.8s gate-light cycle. At 100% this is twice the alpha the flat 0.3
-    // vignette had, so the screen edge is unmistakably violet by the end.
-    const breath = Math.sin((this.time.now / 800) * Math.PI * 2) * 0.08;
-    this.channelVignette.setAlpha(Phaser.Math.Clamp(0.3 + 0.32 * progress + breath, 0.2, 0.75));
-
-    // §13: one `tap` per 25%, pitching up — the run's clearest "you are three
-    // quarters of the way out" cue, and audible with your eyes on the horde.
     const quarter = Math.min(4, Math.floor(progress * 4) + (progress >= 1 ? 0 : 1));
     if (quarter > this.channelQuarter) {
       this.channelQuarter = quarter;
       sfx('tap', { volume: 0.5, rate: 0.9 + 0.22 * quarter });
-      edgeFlash(this, IDENTITY.gateOpen, 160, 80);
     } else if (quarter < this.channelQuarter) {
-      // A setback dropped the fill below a line already crossed: re-arm it, so
-      // re-earning that quarter sounds like progress rather than like silence.
       this.channelQuarter = quarter;
     }
-
-    // §13 "Channel interrupted": the ring shatters (burst 10) + shake 0.008 +
-    // `hit`. `channelInterrupted` is a single-frame flag on the system, so this
-    // is edge-triggered already. Capped through the shared shake gate: a hit
-    // that interrupts also fires the player-hurt shake, and two camera shakes
-    // on one frame is one unreadable frame.
     if (this.extraction.channelInterrupted) {
       const player = this.combat.player;
       burst(this, player.x, player.y, IDENTITY.threat, 10, 260);
-      if (allowEffect('shake', TUNING.caps.hurtShakePerSecond)) shake(this, 0.008, 140);
       sfx('hit', { volume: 0.45, rate: 1.4 });
     }
   }
 
   /**
-   * One gate arch, driven by state. `gate-opening` is a one-shot grind that
-   * hands off to the `gate-open` breathe loop; every other state is a direct
-   * swap. Untinted throughout — the sheets carry their own colour code.
+   * An anim that exists AND has frames. A registered key whose sheet failed to
+   * load has zero frames, and playing it throws inside Phaser's startAnimation.
    */
-  private paintGate(
-    sprite: Phaser.GameObjects.Sprite,
-    state: GateState,
-    previous: GateState | null,
-  ): void {
+  private playable(key: string): boolean {
+    const anim = this.anims.get(key);
+    return anim !== undefined && anim.frames.length > 0;
+  }
+
+  private paintGate(sprite: Phaser.GameObjects.Sprite, gate: GateCandidate, state: GateState, previous: GateState | null): void {
     sprite.setAlpha(state === 'spent' ? GATE_SPENT_ALPHA : 1);
-    switch (state) {
-      case 'open':
-        // Only the closed -> open transition earns the grind; coming back from
-        // 'closing' (a gate that got its window extended) just resumes.
-        if (previous === 'closed' || previous === null) {
-          this.openGateWithGrind(sprite);
-          return;
-        }
-        sprite.play(ANIM.gateOpen, true);
-        return;
-      case 'closing':
+    const timed = gate.kind === 'timed';
+    const openKey = timed ? ANIM.gateOpen : `gate-${gate.kind}-open`;
+    const closedKey = timed ? TEXTURE.gateClosed : `gate-${gate.kind}-closed`;
+    if (state === 'open' || state === 'closing') {
+      if (timed && state === 'closing' && this.playable(ANIM.gateClosing)) {
         sprite.play(ANIM.gateClosing, true);
         return;
-      case 'closed':
-      case 'spent':
-        sprite.stop();
-        sprite.setTexture(TEXTURE.gateClosed);
+      }
+      if (timed && (previous === 'closed' || previous === null) && this.playable(ANIM.gateOpening) && this.playable(ANIM.gateOpen)) {
+        sprite.play(ANIM.gateOpening, true);
+        sprite.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
+          if (sprite.active) sprite.play(ANIM.gateOpen, true);
+        });
         return;
+      }
+      if (this.playable(openKey)) sprite.play(openKey, true);
+      return;
     }
+    sprite.stop();
+    if (this.textures.exists(closedKey)) sprite.setTexture(closedKey);
   }
 
-  /**
-   * Plays the 6f grind and cross-fades into the open loop. The fade exists
-   * because the two sheets are geometrically identical but `gate-opening` ends
-   * measurably brighter than the whole `gate-open` cycle — see
-   * `GATE_HANDOFF_MS`. The temporary sprite dies with the tween, or with the
-   * scene if the run ends mid-fade.
-   */
-  private openGateWithGrind(sprite: Phaser.GameObjects.Sprite): void {
-    sprite.play(ANIM.gateOpening, true);
-    sprite.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
-      if (!sprite.active) return;
-      const incoming = this.add
-        .sprite(sprite.x, sprite.y, ANIM.gateOpen)
-        .setDisplaySize(sprite.displayWidth, sprite.displayHeight)
-        .setDepth(sprite.depth)
-        .setAlpha(0);
-      incoming.play(ANIM.gateOpen);
-      this.tweens.add({ targets: incoming, alpha: 1, duration: GATE_HANDOFF_MS });
-      this.tweens.add({
-        targets: sprite,
-        alpha: 0,
-        duration: GATE_HANDOFF_MS,
-        onComplete: () => {
-          sprite.play(ANIM.gateOpen, true);
-          // Inherit the loop phase so the hand-back is invisible too.
-          sprite.anims.setProgress(incoming.anims.getProgress());
-          sprite.setAlpha(1);
-          incoming.destroy();
-        },
-      });
-    });
-  }
-
-  /**
-   * Lays the generated dusk-fire curtain around the Collapse ring, or strokes
-   * the fallback circle when the art is absent.
-   *
-   * Only segments inside the camera view get a sprite, so the cost tracks the
-   * screen rather than the ring: a 1200px-radius ring needs ~58 segments to
-   * close, but at most ~24 are ever visible at once (§15).
-   *
-   * Rotation is `angle + PI/2`, which points the sheet's local +y — measured as
-   * the hot base carrying all of the dried-blood heat line — INWARD at the
-   * player. The far edge is the dark fade, so the closing wall reads hot on the
-   * side the player is actually looking at (§11 threat coding).
-   */
   private paintCollapseCurtain(cx: number, cy: number, radius: number): void {
     this.collapseGfx.clear();
     const segments = this.collapseSegments;
-
     if (segments.length === 0) {
       if (radius <= 0) return;
       this.collapseGfx.lineStyle(16, IDENTITY.threat, 0.9);
       this.collapseGfx.strokeCircle(cx, cy, radius);
       return;
     }
-
     let used = 0;
     if (radius > 0) {
       const view = this.cameras.main.worldView;
-      const marginX = COLLAPSE_SEGMENT_H;
       const count = Math.max(12, Math.ceil((Math.PI * 2 * radius) / COLLAPSE_SEGMENT_W));
       const step = (Math.PI * 2) / count;
       const width = radius * step * COLLAPSE_SEGMENT_OVERLAP;
@@ -2771,126 +2021,120 @@ export class GameScene extends Phaser.Scene {
         const angle = i * step;
         const x = cx + Math.cos(angle) * radius;
         const y = cy + Math.sin(angle) * radius;
-        if (x < view.x - marginX || x > view.right + marginX) continue;
-        if (y < view.y - marginX || y > view.bottom + marginX) continue;
+        if (x < view.x - COLLAPSE_SEGMENT_H || x > view.right + COLLAPSE_SEGMENT_H) continue;
+        if (y < view.y - COLLAPSE_SEGMENT_H || y > view.bottom + COLLAPSE_SEGMENT_H) continue;
         const segment = segments[used];
         if (segment === undefined) break;
         used += 1;
-        segment
-          .setVisible(true)
-          .setPosition(x, y)
-          .setRotation(angle + Math.PI / 2)
-          .setDisplaySize(width, COLLAPSE_SEGMENT_H);
+        segment.setVisible(true).setPosition(x, y).setRotation(angle + Math.PI / 2).setDisplaySize(width, COLLAPSE_SEGMENT_H);
       }
     }
     for (let i = used; i < segments.length; i += 1) segments[i]?.setVisible(false);
   }
 
-  /**
-   * Feeds UiMeta's three components. Every model object and array here is
-   * reused: the HUD is diffed downstream, so this must not allocate.
-   */
-  private feedHudComponents(): void {
-    const player = this.combat.player;
-    const nowS = this.extraction.elapsedS;
+  // === UI feed ==============================================================
 
-    // A dead gate is news exactly once — at the moment it dies. Past that its
-    // SPENT arrow burns the same screen corner the LIVE gate needs: at 7:03 two
-    // spent arrows were still lit while the one open gate competed with them for
-    // the ring, which is the compass telling the player about the two exits that
-    // no longer exist as loudly as about the one that does.
-    //
-    // So a spent gate is RETIRED from the feed as soon as any gate is live, and
-    // OMISSION is the retirement signal — `ui/gateCompass.ts` hides an arrow
-    // whose id it was not fed this frame (contract agreed with UiMeta). While
-    // nothing is live a spent gate is still fed: "your exit is gone" is the
-    // whole answer to why the player cannot leave.
-    let anyGateLive = false;
-    for (const gate of this.zoneGates) {
-      const state = this.extraction.gateState(gate.id);
-      if (state === 'open' || state === 'closing') {
-        anyGateLive = true;
-        break;
+  private nextGate(): HudModelV2['nextGate'] {
+    let best: HudModelV2['nextGate'] = null;
+    for (const g of this.gates) {
+      const state = this.extraction.state(g.id);
+      // A closed Bell Gate opens on its condition, not a clock: never the headline.
+      if (state === 'spent' || (g.kind === 'bell' && state === 'closed')) continue;
+      // A gate that never closes (C) counts down to the Collapse instead of reading 0:00.
+      const secondsTo = this.extraction.secondsTo(g.id) ?? Math.max(0, this.collapseAtS - this.elapsedS);
+      const live = state === 'open' || state === 'closing';
+      const cand = { id: g.id, kind: g.kind, state, secondsTo };
+      if (best === null) {
+        best = cand;
+        continue;
       }
+      const bestLive = best.state === 'open' || best.state === 'closing';
+      if ((live && !bestLive) || (live === bestLive && secondsTo < best.secondsTo)) best = cand;
     }
-
-    this.compassGates.length = 0;
-    for (const gate of this.zoneGates) {
-      const state = this.extraction.gateState(gate.id);
-      if (state !== 'spent' || !anyGateLive) {
-        this.compassGates.push({
-          id: gate.id,
-          x: gate.x,
-          y: gate.y,
-          state,
-          opensS: gate.opensS,
-          closesS: gate.closesS,
-        });
-      }
-      // The early tell: a gate entering its preview window announces itself
-      // once, so the extraction clock is legible well before it matters.
-      if (
-        !this.gatePreviewed[gate.id] &&
-        state === 'closed' &&
-        gate.opensS - nowS <= TUNING.gate.previewS
-      ) {
-        this.gatePreviewed[gate.id] = true;
-        sfx('ui', { volume: 0.4 });
-        floatText(
-          this,
-          player.x,
-          player.y - 160,
-          `GATE ${gate.id.toUpperCase()} OPENS ${Math.max(0, Math.ceil(gate.opensS - nowS))}s`,
-          CSS.accent,
-          38,
-        );
-      }
-      // §13 "Gate closing ≤30s": the compass chip already pulses amber on an
-      // 0.8s cycle (`ui/gateCompass.ts` owns that half). This is the row's
-      // AUDIO half, which was missing entirely — a door shutting on your only
-      // exit was a silent visual on a widget at the edge of the frame. Capped
-      // at 1/5s per §13, and shared across all three gates so two closing at
-      // once is still one tick.
-      if (state === 'closing' && allowEffect('gate-closing-tick', 0.2)) {
-        sfx('tap', { volume: 0.4, rate: 1.5 });
-      }
-    }
-    this.compassModel.playerX = player.x;
-    this.compassModel.playerY = player.y;
-    this.compassModel.elapsedS = nowS;
-    this.compass.update(this.compassModel);
-
-    this.bagRelicTiers.length = 0;
-    for (const relic of this.bag.relics) this.bagRelicTiers.push(relic.tier);
-    this.bagCasketTiers.length = 0;
-    for (const relic of this.bag.casket) this.bagCasketTiers.push(relic.tier);
-    // The bag's OWN capacity, not the tuned base: a Marrow Sack run has 10 or
-    // 12 slots and the pips have to show all of them.
-    this.bagModel.slots = this.bag.slots;
-    this.bagModel.used = this.bag.relics.length;
-    this.bagModel.casketSlots = this.bag.casketSlots;
-    this.bagModel.shards = this.bag.shards;
-    this.bagPips.update(this.bagModel);
-
-    this.channelModel.active =
-      !this.extraction.extracted && this.extraction.channelingGate !== null;
-    this.channelModel.gateId = this.extraction.channelingGate;
-    this.channelModel.progress = this.extraction.channelProgress;
-    this.channelModel.interrupted = this.extraction.channelInterrupted;
-    this.channelBar.update(this.channelModel);
-
-    // The fourth screen-space widget, alive only for the Warden beat.
-    this.tickWardenMark();
+    return best;
   }
-}
 
-/**
- * One carried relic as the results screen's `HaulRelic` — id, name, tier and
- * nothing else, so `scenes/gameover.ts` never depends on the content table.
- * Typed on the fields it reads rather than on a `RelicDef`, because the bag
- * carries the narrow `systems/bag.ts` shape and the ground pickups carry the
- * full `data/relics.ts` one.
- */
-function haulRelic(def: { id: string; name: string; tier: number }): HaulRelic {
-  return { id: def.id, name: def.name, tier: def.tier };
+  private feedUi(): void {
+    const player = this.combat.player;
+    const t = this.elapsedS;
+    const collapse = this.extraction.collapse;
+    const collapsing = collapse?.active === true;
+    this.hud.set({
+      hp: Math.ceil(player.health.hp),
+      hpMax: player.health.max,
+      level: player.level,
+      xp: player.xp,
+      xpNeeded: player.xpNeeded(),
+      nextGate: this.nextGate(),
+      darkMeter: this.extraction.darkMeter,
+      collapse: collapsing,
+      bag: this.bag.hud(),
+      shards: this.bag.shards,
+      greedMul: greedMul(t, this.loadout.greedMaxMul),
+      belt: this.belt.view(),
+      boss: this.combat.bossView(),
+    });
+    const bagView = this.bag.view();
+    this.bagStrip.set(bagView);
+
+    const gates = this.extraction.view();
+    this.combat.threats(this.threatBuf);
+    this.compassThreats.length = 0;
+    let boss: { x: number; y: number } | null = null;
+    for (const th of this.threatBuf) {
+      this.compassThreats.push({ x: th.x, y: th.y, boss: th.kind === 'boss' });
+      if (th.kind === 'boss' && boss === null) boss = { x: th.x, y: th.y };
+    }
+    const pois = this.poi.minimap();
+    const near = this.poi.nearestUndiscovered(player.x, player.y);
+    const event = pois.find((p) => p.kind.startsWith('ev_') && !p.done) ?? null;
+    const compass: CompassModel = {
+      hero: { x: player.x, y: player.y },
+      elapsedS: this.elapsedS,
+      heroSpeed: player.stats.get('moveSpeed'),
+      gates,
+      chest: near !== null && near.kind.startsWith('chest') ? { x: near.x, y: near.y } : null,
+      event: event === null ? null : { x: event.x, y: event.y },
+      threats: this.compassThreats,
+    };
+    this.compass.update(compass);
+    const body = player.body;
+    const angle = body !== null && (body.velocity.x !== 0 || body.velocity.y !== 0) ? Math.atan2(body.velocity.y, body.velocity.x) : 0;
+    const centre = this.extraction.collapseRingCenter;
+    const mm: MinimapModel = {
+      hero: { x: player.x, y: player.y, angle },
+      gates,
+      pois,
+      boss,
+      collapse: collapsing && collapse !== null ? { x: centre.x, y: centre.y, r: collapse.ringRadius } : null,
+    };
+    this.minimap.set(mm);
+
+    const poiChannel = this.poi.channelling();
+    const gateChannel = this.extraction.channelingGate;
+    const m = this.channelModel;
+    const gateHeld = gateChannel !== null && !this.extraction.extracted && this.extraction.channelProgress > 0;
+    const inRing = gateHeld && this.inChannelRing();
+    if (inRing || (gateHeld && poiChannel === null)) {
+      m.active = true;
+      m.kind = 'gate';
+      m.gateId = gateChannel;
+      m.poiKind = null;
+      m.progress = this.extraction.channelProgress;
+      m.interrupted = this.extraction.channelInterrupted;
+      m.paused = !inRing;
+    } else if (poiChannel !== null) {
+      m.active = true;
+      m.kind = 'poi';
+      m.gateId = null;
+      m.poiKind = this.map.pois.find((p) => p.id === poiChannel.poiId)?.kind ?? null;
+      m.progress = poiChannel.progress;
+      m.interrupted = false;
+      m.paused = false;
+    } else {
+      m.active = false;
+      m.interrupted = false;
+    }
+    this.channelBar.update(m);
+  }
 }

@@ -1,0 +1,173 @@
+{
+  "source": {
+    "file": "derived: crop of base prop frames (see art/briefs/v3-props-b/build.py)",
+    "provider": "derived",
+    "width": 768,
+    "height": 768
+  },
+  "grid": {
+    "rows": 3,
+    "cols": 3
+  },
+  "output": {
+    "cellSize": 256,
+    "durationMs": 0,
+    "derivation": "upper half of each tall base frame (rows above alignedBox.top + height//2), identical cell geometry"
+  },
+  "qc": {
+    "strict": true,
+    "passed": true,
+    "failures": [],
+    "notes": [
+      "derived-crop: registers pixel-for-pixel with its base cell",
+      "frames 1-8 unused (transparent); only 1 tall props on props-desert-e"
+    ]
+  },
+  "frames": [
+    {
+      "index": 0,
+      "file": "frames/frame-000.png",
+      "name": "deadacacia",
+      "base": {
+        "asset": "props-desert-e",
+        "group": "props-v3b",
+        "frame": 3,
+        "alignedBox": {
+          "left": 31,
+          "top": 39,
+          "width": 193,
+          "height": 185
+        }
+      },
+      "cutY": 131,
+      "alignedBox": {
+        "left": 31,
+        "top": 39,
+        "width": 193,
+        "height": 92
+      },
+      "empty": false,
+      "unused": false
+    },
+    {
+      "index": 1,
+      "file": "frames/frame-001.png",
+      "name": null,
+      "base": null,
+      "cutY": null,
+      "alignedBox": {
+        "left": 0,
+        "top": 0,
+        "width": 0,
+        "height": 0
+      },
+      "empty": true,
+      "unused": true
+    },
+    {
+      "index": 2,
+      "file": "frames/frame-002.png",
+      "name": null,
+      "base": null,
+      "cutY": null,
+      "alignedBox": {
+        "left": 0,
+        "top": 0,
+        "width": 0,
+        "height": 0
+      },
+      "empty": true,
+      "unused": true
+    },
+    {
+      "index": 3,
+      "file": "frames/frame-003.png",
+      "name": null,
+      "base": null,
+      "cutY": null,
+      "alignedBox": {
+        "left": 0,
+        "top": 0,
+        "width": 0,
+        "height": 0
+      },
+      "empty": true,
+      "unused": true
+    },
+    {
+      "index": 4,
+      "file": "frames/frame-004.png",
+      "name": null,
+      "base": null,
+      "cutY": null,
+      "alignedBox": {
+        "left": 0,
+        "top": 0,
+        "width": 0,
+        "height": 0
+      },
+      "empty": true,
+      "unused": true
+    },
+    {
+      "index": 5,
+      "file": "frames/frame-005.png",
+      "name": null,
+      "base": null,
+      "cutY": null,
+      "alignedBox": {
+        "left": 0,
+        "top": 0,
+        "width": 0,
+        "height": 0
+      },
+      "empty": true,
+      "unused": true
+    },
+    {
+      "index": 6,
+      "file": "frames/frame-006.png",
+      "name": null,
+      "base": null,
+      "cutY": null,
+      "alignedBox": {
+        "left": 0,
+        "top": 0,
+        "width": 0,
+        "height": 0
+      },
+      "empty": true,
+      "unused": true
+    },
+    {
+      "index": 7,
+      "file": "frames/frame-007.png",
+      "name": null,
+      "base": null,
+      "cutY": null,
+      "alignedBox": {
+        "left": 0,
+        "top": 0,
+        "width": 0,
+        "height": 0
+      },
+      "empty": true,
+      "unused": true
+    },
+    {
+      "index": 8,
+      "file": "frames/frame-008.png",
+      "name": null,
+      "base": null,
+      "cutY": null,
+      "alignedBox": {
+        "left": 0,
+        "top": 0,
+        "width": 0,
+        "height": 0
+      },
+      "empty": true,
+      "unused": true
+    }
+  ]
+}

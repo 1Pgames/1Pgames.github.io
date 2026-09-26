@@ -1,42 +1,67 @@
 import Phaser from 'phaser';
-import { PALETTE } from '../config';
 import { TEX } from '../core/keys';
 
 /**
- * Pooled orbit-weapon blade: a small disc that circles the player at a fixed
- * radius, dealing contact damage to anything it touches on a per-target
- * cooldown (owned by `systems/combat.ts`, not this class — the blade is pure
- * visual + position, combat resolves hits through the spatial hash exactly
- * like every other attack).
+ * Hero weapon visuals (PRD-V2 §5.8). Hit resolution never lives here: every
+ * weapon resolves damage through `WeaponHost` in `systems/weapons.ts`; these
+ * objects are pure position + look, pooled and recycled by that system.
  *
- * Use for: `WeaponPattern: 'orbit'` blades only. One instance per active
- * blade slot (1-2 depending on evolution), repositioned every frame instead
- * of pooled per-shot like `Projectile`.
+ * Hero palette is cool only (§5.8): cyan, violet, bone, gloam green.
  */
-export class Blade extends Phaser.Physics.Arcade.Sprite {
+export const HERO_FX = {
+  cyan: 0x6fd6ff,
+  violet: 0xad6eef,
+  bone: 0xeae1bf,
+  gloam: 0x9bdf9f,
+} as const;
+
+/** Ceiling for procedural hero fx and bone tints (bone #eae1bf at ≤ 0.8 never reads as white). */
+const FX_PEAK_ALPHA = 0.8;
+
+/**
+ * One pooled weapon-fx sprite. `show` uses the §11 art id when its texture is
+ * loaded (and plays its animation when the registry made one), else the
+ * procedural fallback texture tinted with a hero colour — a pruned art group
+ * degrades, never crashes or draws a missing-texture box.
+ */
+export class FxSprite extends Phaser.GameObjects.Sprite {
+  /** True when the art texture (not the fallback) is showing. */
+  usingArt = false;
+  /** Full-strength alpha for the current look; fades and the near-hero dim scale from it. */
+  peakAlpha = FX_PEAK_ALPHA;
+
   constructor(scene: Phaser.Scene) {
     super(scene, 0, 0, TEX.disc);
     scene.add.existing(this);
-    scene.physics.add.existing(this);
-    this.setTint(PALETTE.primary).setDepth(16);
     this.setActive(false).setVisible(false);
-    this.disableBody();
   }
 
-  activate(radius: number): void {
-    const size = Math.max(20, radius * 0.22);
-    this.setDisplaySize(size, size);
+  show(artKey: string | null, fallback: string, tint: number, x: number, y: number, w: number, h: number, depth: number): this {
+    const scene = this.scene;
+    this.usingArt = artKey !== null && scene.textures.exists(artKey);
+    if (this.usingArt && artKey !== null) {
+      this.setTexture(artKey, 0);
+      this.clearTint();
+      if (scene.anims.exists(artKey)) this.play(artKey, true);
+      else this.stop();
+    } else {
+      this.stop();
+      this.setTexture(fallback);
+      this.setTint(tint);
+    }
+    // NORMAL blend always: additive hero fx stacked over hit flashes read as a
+    // white blob on the hero at high level (critic v2d M2). Procedural fallbacks
+    // are capped at FX_PEAK_ALPHA so bone never approaches white.
+    this.peakAlpha = this.usingArt ? 0.9 : FX_PEAK_ALPHA;
+    this.setOrigin(0.5, 0.5).setPosition(x, y).setDisplaySize(w, h).setDepth(depth).setRotation(0).setAlpha(this.peakAlpha).setFlipX(false);
+    this.setBlendMode(Phaser.BlendModes.NORMAL);
     this.setActive(true).setVisible(true);
-    this.enableBody(false, this.x, this.y, true, true);
-    this.body?.setCircle(64, 0, 0);
-  }
-
-  moveTo(x: number, y: number): void {
-    this.setPosition(x, y);
+    return this;
   }
 
   despawn(): void {
+    this.stop();
+    this.scene.tweens.killTweensOf(this);
     this.setActive(false).setVisible(false);
-    this.disableBody();
   }
 }

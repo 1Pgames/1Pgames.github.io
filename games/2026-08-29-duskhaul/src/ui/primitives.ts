@@ -61,13 +61,18 @@ export function paintPanel(
   if (style.gloss === true) {
     // One highlight band along the top third: the cheapest way to read "glossy"
     // without a gradient texture.
+    // The band is a flatter-cornered rect than the body, so on a capsule it
+    // must be pulled in horizontally by ~¾ of the body radius or its corners
+    // poke OUTSIDE the curved ends — a pale "plate" behind every pill button
+    // (QA 8). At a 4 px drop a circle of radius r is ≈ 0.62 r in from its edge.
     const inset = strokeWidth + 2;
+    const hInset = Math.max(inset, radius * 0.75);
     const glossHeight = Math.max(6, height * 0.34);
     g.fillStyle(0xffffff, 0.12);
     g.fillRoundedRect(
-      x + inset,
+      x + hInset,
       y + inset,
-      width - inset * 2,
+      width - hInset * 2,
       glossHeight,
       Math.min(radius, glossHeight / 2),
     );

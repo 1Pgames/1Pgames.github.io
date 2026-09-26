@@ -1,0 +1,100 @@
+{
+  "source": {
+    "file": "derived: crop of base prop frames (art/briefs/v3-props-a/build.py)",
+    "provider": "derived",
+    "width": 768,
+    "height": 768
+  },
+  "grid": {
+    "rows": 3,
+    "cols": 3
+  },
+  "output": {
+    "cellSize": 256,
+    "durationMs": 0,
+    "frameCount": 3,
+    "derivation": "upper half of each tall base frame (rows above alignedBox.top + height//2), identical cell geometry; cells after frameCount are empty"
+  },
+  "qc": {
+    "strict": true,
+    "passed": true,
+    "failures": [],
+    "notes": [
+      "derived-crop: registers pixel-for-pixel with its base cell"
+    ]
+  },
+  "frames": [
+    {
+      "index": 0,
+      "file": "frames/frame-000.png",
+      "name": "castle-banner-pole-top",
+      "base": {
+        "asset": "props-castle-e",
+        "group": "props-v3a",
+        "frame": 2,
+        "alignedBox": {
+          "left": 80,
+          "top": 31,
+          "width": 95,
+          "height": 194
+        }
+      },
+      "cutY": 128,
+      "alignedBox": {
+        "left": 80,
+        "top": 31,
+        "width": 95,
+        "height": 97
+      },
+      "empty": false
+    },
+    {
+      "index": 1,
+      "file": "frames/frame-001.png",
+      "name": "castle-iron-maiden-top",
+      "base": {
+        "asset": "props-castle-e",
+        "group": "props-v3a",
+        "frame": 4,
+        "alignedBox": {
+          "left": 68,
+          "top": 29,
+          "width": 121,
+          "height": 199
+        }
+      },
+      "cutY": 128,
+      "alignedBox": {
+        "left": 68,
+        "top": 29,
+        "width": 121,
+        "height": 99
+      },
+      "empty": false
+    },
+    {
+      "index": 2,
+      "file": "frames/frame-002.png",
+      "name": "castle-grave-cross-top",
+      "base": {
+        "asset": "props-castle-e",
+        "group": "props-v3a",
+        "frame": 5,
+        "alignedBox": {
+          "left": 86,
+          "top": 50,
+          "width": 84,
+          "height": 155
+        }
+      },
+      "cutY": 127,
+      "alignedBox": {
+        "left": 86,
+        "top": 50,
+        "width": 84,
+        "height": 77
+      },
+      "empty": false
+    }
+  ]
+}

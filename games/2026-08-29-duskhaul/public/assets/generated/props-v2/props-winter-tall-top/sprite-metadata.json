@@ -1,0 +1,243 @@
+{
+  "source": {
+    "file": "derived: crop of base prop frames (see art/briefs/v2-world/talltop.py)",
+    "provider": "derived",
+    "width": 768,
+    "height": 768
+  },
+  "grid": {
+    "rows": 3,
+    "cols": 3
+  },
+  "output": {
+    "cellSize": 256,
+    "durationMs": 0,
+    "derivation": "upper half of each base frame (rows above alignedBox.top + height/2), identical cell geometry"
+  },
+  "qc": {
+    "strict": true,
+    "passed": true,
+    "failures": [],
+    "notes": [
+      "derived-crop: registers pixel-for-pixel with its base cell"
+    ]
+  },
+  "frames": [
+    {
+      "index": 0,
+      "file": "frames/frame-000.png",
+      "name": "wall-straight",
+      "base": {
+        "asset": "props-winter-c",
+        "group": "props-v2",
+        "frame": 0,
+        "alignedBox": {
+          "left": 19,
+          "top": 67,
+          "width": 215,
+          "height": 121
+        }
+      },
+      "cutY": 127,
+      "alignedBox": {
+        "left": 29,
+        "top": 67,
+        "width": 195,
+        "height": 60
+      },
+      "empty": false
+    },
+    {
+      "index": 1,
+      "file": "frames/frame-001.png",
+      "name": "wall-corner",
+      "base": {
+        "asset": "props-winter-c",
+        "group": "props-v2",
+        "frame": 1,
+        "alignedBox": {
+          "left": 19,
+          "top": 60,
+          "width": 217,
+          "height": 135
+        }
+      },
+      "cutY": 127,
+      "alignedBox": {
+        "left": 29,
+        "top": 60,
+        "width": 197,
+        "height": 67
+      },
+      "empty": false
+    },
+    {
+      "index": 2,
+      "file": "frames/frame-002.png",
+      "name": "pine-c",
+      "base": {
+        "asset": "props-winter-c",
+        "group": "props-v2",
+        "frame": 3,
+        "alignedBox": {
+          "left": 57,
+          "top": 25,
+          "width": 142,
+          "height": 206
+        }
+      },
+      "cutY": 128,
+      "alignedBox": {
+        "left": 84,
+        "top": 25,
+        "width": 90,
+        "height": 103
+      },
+      "empty": false
+    },
+    {
+      "index": 3,
+      "file": "frames/frame-003.png",
+      "name": "icemonolith",
+      "base": {
+        "asset": "props-winter-c",
+        "group": "props-v2",
+        "frame": 6,
+        "alignedBox": {
+          "left": 56,
+          "top": 39,
+          "width": 145,
+          "height": 177
+        }
+      },
+      "cutY": 127,
+      "alignedBox": {
+        "left": 93,
+        "top": 39,
+        "width": 74,
+        "height": 88
+      },
+      "empty": false
+    },
+    {
+      "index": 4,
+      "file": "frames/frame-004.png",
+      "name": "lanternpost",
+      "base": {
+        "asset": "props-winter-c",
+        "group": "props-v2",
+        "frame": 7,
+        "alignedBox": {
+          "left": 72,
+          "top": 39,
+          "width": 113,
+          "height": 177
+        }
+      },
+      "cutY": 127,
+      "alignedBox": {
+        "left": 79,
+        "top": 39,
+        "width": 101,
+        "height": 88
+      },
+      "empty": false
+    },
+    {
+      "index": 5,
+      "file": "frames/frame-005.png",
+      "name": "pine",
+      "base": {
+        "asset": "props-winter-a",
+        "group": "zone-winter",
+        "frame": 6,
+        "alignedBox": {
+          "left": 32,
+          "top": 36,
+          "width": 192,
+          "height": 184
+        }
+      },
+      "cutY": 128,
+      "alignedBox": {
+        "left": 62,
+        "top": 36,
+        "width": 130,
+        "height": 92
+      },
+      "empty": false
+    },
+    {
+      "index": 6,
+      "file": "frames/frame-006.png",
+      "name": "bellshrine",
+      "base": {
+        "asset": "props-winter-b",
+        "group": "zone-winter",
+        "frame": 0,
+        "alignedBox": {
+          "left": 19,
+          "top": 40,
+          "width": 219,
+          "height": 176
+        }
+      },
+      "cutY": 128,
+      "alignedBox": {
+        "left": 47,
+        "top": 40,
+        "width": 162,
+        "height": 88
+      },
+      "empty": false
+    },
+    {
+      "index": 7,
+      "file": "frames/frame-007.png",
+      "name": "lantern",
+      "base": {
+        "asset": "props-winter-b",
+        "group": "zone-winter",
+        "frame": 4,
+        "alignedBox": {
+          "left": 55,
+          "top": 40,
+          "width": 144,
+          "height": 176
+        }
+      },
+      "cutY": 128,
+      "alignedBox": {
+        "left": 75,
+        "top": 40,
+        "width": 106,
+        "height": 88
+      },
+      "empty": false
+    },
+    {
+      "index": 8,
+      "file": "frames/frame-008.png",
+      "name": "bonetree",
+      "base": {
+        "asset": "props-winter-b",
+        "group": "zone-winter",
+        "frame": 6,
+        "alignedBox": {
+          "left": 49,
+          "top": 41,
+          "width": 159,
+          "height": 174
+        }
+      },
+      "cutY": 128,
+      "alignedBox": {
+        "left": 62,
+        "top": 41,
+        "width": 138,
+        "height": 87
+      },
+      "empty": false
+    }
+  ]
+}

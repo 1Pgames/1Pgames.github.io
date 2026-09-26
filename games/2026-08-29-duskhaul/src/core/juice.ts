@@ -1,6 +1,9 @@
 import Phaser from 'phaser';
 import { CSS, FONT, PALETTE, VIEW } from '../config';
-import { TEX } from './keys';
+import { STORE, TEX } from './keys';
+import { load } from './storage';
+import { baseKeyOf } from './outline';
+import { BANNER_EVENT } from '../ui/toast';
 
 /**
  * Game feel toolkit. A generated game lives or dies on these 6 effects, so they
@@ -18,10 +21,19 @@ import { TEX } from './keys';
 const HAPTIC_GAP_MS = 120;
 let lastHaptic = 0;
 
+/** Player feel settings written by the Settings sheet (§14.15). Read per beat: cheap, and never stale. */
+interface FeelSettings { vibration: boolean; reduceMotion: boolean }
+const FEEL_DEFAULTS: FeelSettings = { vibration: true, reduceMotion: false };
+
+function feel(): FeelSettings {
+  return { ...FEEL_DEFAULTS, ...load<Partial<FeelSettings>>(STORE.settings, FEEL_DEFAULTS) };
+}
+
 function buzz(durationMs: number): void {
   const now = Date.now();
   if (now - lastHaptic < HAPTIC_GAP_MS) return;
   lastHaptic = now;
+  if (!feel().vibration) return;
   try {
     navigator.vibrate?.(durationMs);
   } catch {
@@ -57,7 +69,10 @@ export type EffectCap =
   | 'pickup-sfx'
   | 'relic-sfx'
   | 'overflow'
-  | 'gate-closing-tick';
+  | 'gate-closing-tick'
+  | 'coin-sfx'
+  | 'smash-sfx'
+  | 'heartbeat';
 
 const lastFiredMs: Record<EffectCap, number> = {
   'enemy-die-sfx': -Infinity,
@@ -70,6 +85,9 @@ const lastFiredMs: Record<EffectCap, number> = {
   'relic-sfx': -Infinity,
   overflow: -Infinity,
   'gate-closing-tick': -Infinity,
+  'coin-sfx': -Infinity,
+  'smash-sfx': -Infinity,
+  heartbeat: -Infinity,
 };
 
 export function allowEffect(key: EffectCap, perSecond: number): boolean {
@@ -80,8 +98,9 @@ export function allowEffect(key: EffectCap, perSecond: number): boolean {
 }
 
 export function shake(scene: Phaser.Scene, intensity = 0.008, durationMs = 160): void {
-  scene.cameras.main.shake(durationMs, intensity);
   buzz(12);
+  if (feel().reduceMotion) return;
+  scene.cameras.main.shake(durationMs, intensity);
 }
 
 /**
@@ -147,42 +166,146 @@ export function flash(
 }
 
 /**
- * The 80ms white hit flash §13 authors for "enemy hit" ("white `flash` on
- * sprite"). A FILL-mode tint paints the sprite's silhouette solid white
- * regardless of its art, so one call reads on every body in the roster without
- * a per-enemy hit-spark sheet.
+ * §13.2 enemy hit flash: 60 ms of WHITE over the body. Drawn as a pooled
+ * OVERLAY sprite showing the PLAIN (un-outlined) frame in `TintModes.FILL`
+ * white on top of the outlined body — tinting the body itself would wash the
+ * baked red/green outline (§13.1) white too, and the outline is the one read
+ * that must never drop. The overlay follows its target every frame until it
+ * expires, so a moving body never leaves a white ghost behind.
  *
- * Phaser 4: `setTintFill()` is gone (AGENTS.md §Phaser 4 traps) — the mode is
- * set explicitly, and explicitly put BACK to `MULTIPLY` on clear, because
- * `clearTint()` resets the colour and not the mode.
- *
- * On the AGENTS.md §Generated art rule "do not `setTint` a character sprite":
- * that rule is about art SUBSTITUTION — using a tint to express a state the
- * art should carry, which is why `objects/enemy.ts` draws the enrage rim as its
- * own object and `flashBoss` draws a bloom ring rather than washing the
- * Warden's crown out. Both of those are PERSISTENT reads held for seconds. An
- * 80ms impact flash is not a state, it is the acknowledgment of a frame, and
- * §13 authors it on the sprite in as many words.
- *
- * This deliberately replaces a particle burst on the hit path. A burst builds a
- * ParticleEmitter and tears it down 700ms later on EVERY connected hit, which
- * at the Warden beat is dozens of emitters a second — and §13 does not even ask
- * for particles there. The tint is one field write and one timer.
- *
- * Safe on a pooled body: `Enemy.reset` clears the tint when the sprite is
- * recycled, and a late clear on an already-recycled sprite clears a tint that
- * is already clear.
+ * Per-scene pool: created lazily, followed on POST_UPDATE, torn down on
+ * SHUTDOWN (scene instances survive `scene.start()`).
  */
+interface FlashSlot { img: Phaser.GameObjects.Image; target: Phaser.GameObjects.Sprite | null; untilMs: number }
+const flashPools = new WeakMap<Phaser.Scene, FlashSlot[]>();
+/**
+ * Max concurrent overlays. Critic v2d M2: at LV 20+ dozens of white silhouettes
+ * around the hero merged into white blobs, so a full pool SKIPS the flash
+ * (the damage number still reads) instead of stealing a slot.
+ */
+const FLASH_POOL = 14;
+/** A body re-flashes at most this often, so DoTs/blades cannot hold it white. */
+const FLASH_REARM_MS = 220;
+const FLASH_ALPHA = 0.35;
+const lastFlashAt = new WeakMap<Phaser.GameObjects.Sprite, number>();
+
+function flashPool(scene: Phaser.Scene): FlashSlot[] {
+  const existing = flashPools.get(scene);
+  if (existing !== undefined) return existing;
+  const pool: FlashSlot[] = [];
+  flashPools.set(scene, pool);
+  const follow = (): void => {
+    const now = scene.time.now;
+    for (const slot of pool) {
+      const target = slot.target;
+      if (target === null) continue;
+      if (now >= slot.untilMs || !target.active || !target.visible) {
+        slot.target = null;
+        slot.img.setVisible(false);
+        continue;
+      }
+      syncOverlay(slot.img, target);
+    }
+  };
+  scene.events.on(Phaser.Scenes.Events.POST_UPDATE, follow);
+  scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+    scene.events.off(Phaser.Scenes.Events.POST_UPDATE, follow);
+    flashPools.delete(scene);
+  });
+  return pool;
+}
+
+function syncOverlay(img: Phaser.GameObjects.Image, target: Phaser.GameObjects.Sprite): void {
+  const frameName = target.frame.name;
+  const base = baseKeyOf(target.texture.key);
+  const key = base !== target.texture.key && img.scene.textures.exists(base) ? base : target.texture.key;
+  if (img.texture.key !== key || img.frame.name !== frameName) img.setTexture(key, frameName);
+  img
+    .setOrigin(target.originX, target.originY)
+    .setPosition(target.x, target.y)
+    .setDisplaySize(target.displayWidth, target.displayHeight)
+    .setFlipX(target.flipX)
+    .setAngle(target.angle)
+    .setDepth(target.depth + 0.5);
+}
+
 export function hitFlash(
   scene: Phaser.Scene,
   sprite: Phaser.GameObjects.Sprite,
-  durationMs = 80,
+  durationMs = 50,
 ): void {
-  sprite.setTint(0xffffff).setTintMode(Phaser.TintModes.FILL);
-  scene.time.delayedCall(durationMs, () => {
-    sprite.clearTint();
-    sprite.setTintMode(Phaser.TintModes.MULTIPLY);
-  });
+  const pool = flashPool(scene);
+  const now = scene.time.now;
+  if (now - (lastFlashAt.get(sprite) ?? -Infinity) < FLASH_REARM_MS) return;
+  let slot = pool.find((s) => s.target === null);
+  if (slot === undefined) {
+    if (pool.length >= FLASH_POOL) return;
+    const img = scene.add.image(0, 0, TEX.disc).setTint(0xffffff).setTintMode(Phaser.TintModes.FILL).setAlpha(FLASH_ALPHA);
+    slot = { img, target: null, untilMs: 0 };
+    pool.push(slot);
+  }
+  lastFlashAt.set(sprite, now);
+  slot.target = sprite;
+  slot.untilMs = now + durationMs;
+  syncOverlay(slot.img, sprite);
+  slot.img.setVisible(true);
+}
+
+/** Max width of the `Slain by …` label (screen px; 720 wide design). */
+const DEATH_LABEL_W = 600;
+
+/**
+ * §13.2 hero death beat (800 ms): time-scale eases 0.25 → 0 over 500 ms,
+ * red vignette 0.35, `Slain by <Name>` label; `onDone` fires after 800 ms of
+ * REAL time with every time scale restored, so the caller can go to Results.
+ * Runs off the game loop's unscaled delta because the scene clock is the thing
+ * being frozen.
+ */
+export function deathBeat(scene: Phaser.Scene, killer: string, onDone: () => void): void {
+  const TOTAL_MS = 800;
+  const EASE_MS = 500;
+  const vignette = scene.add.graphics().setScrollFactor(0).setDepth(1400).setAlpha(0);
+  for (let i = 0; i < 12; i += 1) {
+    const inset = i * 14;
+    vignette.lineStyle(28, PALETTE.bad, 0.09 + i * 0.004);
+    vignette.strokeRect(inset, inset, VIEW.width - inset * 2, VIEW.height - inset * 2);
+  }
+  // QA N1: long swarm credits wrap inside a 600 px column and shrink to fit two lines.
+  const label = scene.add
+    .text(VIEW.centerX, VIEW.height * 0.42, `Slain by ${killer}`, {
+      fontFamily: FONT.display,
+      fontSize: '44px',
+      color: CSS.bad,
+      stroke: '#000000',
+      strokeThickness: 8,
+      align: 'center',
+      wordWrap: { width: DEATH_LABEL_W },
+    })
+    .setOrigin(0.5)
+    .setScrollFactor(0)
+    .setDepth(1401)
+    .setAlpha(0);
+  if (label.width > DEATH_LABEL_W || label.height > 120) label.setScale(Math.min(DEATH_LABEL_W / label.width, 120 / label.height));
+  let elapsed = 0;
+  const setScale = (s: number): void => {
+    setTimeDilation(scene, 'death', s);
+    scene.tweens.timeScale = Math.max(s, 0.0001);
+  };
+  const tick = (): void => {
+    elapsed += scene.game.loop.delta;
+    const t = Math.min(1, elapsed / EASE_MS);
+    setScale(0.25 * (1 - t));
+    vignette.setAlpha(Math.min(1, elapsed / 200));
+    label.setAlpha(Math.min(1, elapsed / 250));
+    if (elapsed < TOTAL_MS) return;
+    scene.events.off(Phaser.Scenes.Events.POST_UPDATE, tick);
+    setScale(1);
+    onDone();
+  };
+  buzz(40);
+  setScale(0.25);
+  scene.events.on(Phaser.Scenes.Events.POST_UPDATE, tick);
+  scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => scene.events.off(Phaser.Scenes.Events.POST_UPDATE, tick));
 }
 
 /**
@@ -207,6 +330,8 @@ export function banner(
   color: string = CSS.bad,
   holdMs = 340,
 ): void {
+  // Critic M1: the run's toast lane holds its queue while a banner owns the band.
+  scene.events.emit(BANNER_EVENT, 200 + holdMs + 240);
   const text = scene.add
     .text(VIEW.centerX, 350, label, { fontFamily: FONT.display, fontSize: '58px', color })
     .setOrigin(0.5)
@@ -253,13 +378,17 @@ export function banner(
  * One Graphics built, tweened and destroyed per call — a gate opens three times
  * a run, so this is not a hot path.
  */
+/** Peak alpha of an edge flash (was 0.55; critic v2d M2). */
+const EDGE_FLASH_ALPHA = 0.3;
+
 export function edgeFlash(
   scene: Phaser.Scene,
   color: number = PALETTE.secondary,
   durationMs = 200,
   band = 110,
 ): void {
-  const gfx = scene.add.graphics().setScrollFactor(0).setDepth(1150).setAlpha(0);
+  // Critic v2d M2: under the banner (1120) and softer, so a gate-open edge never washes out a boss/gate banner.
+  const gfx = scene.add.graphics().setScrollFactor(0).setDepth(1110).setAlpha(0);
   gfx.fillStyle(color, 1);
   gfx.fillRect(0, 0, VIEW.width, band);
   gfx.fillRect(0, VIEW.height - band, VIEW.width, band);
@@ -267,7 +396,7 @@ export function edgeFlash(
   gfx.fillRect(VIEW.width - band, 0, band, VIEW.height);
   scene.tweens.add({
     targets: gfx,
-    alpha: { from: 0, to: 0.55 },
+    alpha: { from: 0, to: EDGE_FLASH_ALPHA },
     // In on a launch curve, out on a landing curve: the news snaps on and
     // decays, which is what an opening door sounds like.
     duration: durationMs * 0.3,
@@ -275,71 +404,6 @@ export function edgeFlash(
     yoyo: true,
     hold: 0,
     onComplete: () => gfx.destroy(),
-  });
-}
-
-/**
- * Screen-space toast — §13's "bag overflow drop" needs a message the player
- * reads while looking at the HUD, not a world-space floater over a body that
- * is about to walk off camera.
- */
-export function toast(
-  scene: Phaser.Scene,
-  label: string,
-  color: string = CSS.warn,
-  y = 560,
-  durationMs = 300,
-): void {
-  const text = scene.add
-    .text(VIEW.centerX, y, label, { fontFamily: FONT.display, fontSize: '34px', color })
-    .setOrigin(0.5)
-    .setScrollFactor(0)
-    .setDepth(1140)
-    .setAlpha(0);
-  scene.tweens.add({
-    targets: text,
-    alpha: 1,
-    y: y - 26,
-    duration: durationMs,
-    ease: 'Back.easeOut',
-    onComplete: () => {
-      scene.tweens.add({
-        targets: text,
-        alpha: 0,
-        duration: 260,
-        delay: 620,
-        ease: 'Quad.easeIn',
-        onComplete: () => text.destroy(),
-      });
-    },
-  });
-}
-
-/**
- * Drains the colour out of the camera — §13's death visual. Ramped rather than
- * snapped, so the moment reads as the world going out rather than as a shader
- * bug, and left in place: the caller is about to leave the scene.
- *
- * Phaser 4 removed `postFX` (AGENTS.md §Phaser 4 traps): this is the Filters
- * API, and `filters.internal` is the right half — an INTERNAL filter runs on
- * what the camera drew, so the HUD drawn by the same camera desaturates with
- * the arena instead of staying colour-correct over a grey world.
- *
- * `hitstop` scales `scene.tweens.timeScale`, and death does both at once, so
- * the ramp is driven from a tween deliberately: it slows down with the freeze
- * rather than racing ahead of it.
- */
-export function desaturate(scene: Phaser.Scene, durationMs = 420): void {
-  const filter = scene.cameras.main.filters.internal.addColorMatrix();
-  const matrix = filter.colorMatrix;
-  const holder = { value: 0 };
-  scene.tweens.add({
-    targets: holder,
-    value: 1,
-    duration: durationMs,
-    ease: 'Quad.easeOut',
-    onUpdate: () => matrix.grayscale(holder.value, false),
-    onComplete: () => matrix.grayscale(1, false),
   });
 }
 
@@ -426,15 +490,54 @@ export function playFx(
   y: number,
   size = 96,
   depth = 890,
+  additive = true,
 ): void {
   if (!scene.anims.exists(key)) return;
   const fx = scene.add
     .sprite(x, y, key)
     .setDisplaySize(size, size)
     .setDepth(depth)
-    .setBlendMode(Phaser.BlendModes.ADD);
+    .setBlendMode(additive ? Phaser.BlendModes.ADD : Phaser.BlendModes.NORMAL);
   fx.play(key);
   fx.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => fx.destroy());
+}
+
+/**
+ * Scene-wide gameplay time dilation, composed from named sources (hitstop,
+ * the death beat, the evolution cinematic, the bag sheet) so one source ending
+ * never cancels another: the effective scale is the PRODUCT of every live
+ * source. Writes `scene.time` (timers) and Arcade physics (inverse scale);
+ * the arena's own sim delta must be multiplied by `timeDilation(scene)`.
+ * Tweens are deliberately NOT scaled here — screen-space ceremony (banners,
+ * the evolution composition) must keep real-time pacing while the fight slows.
+ * `scale >= 1` removes the source.
+ */
+export type DilationSource = 'hitstop' | 'death' | 'evolve' | 'bag';
+const dilations = new WeakMap<Phaser.Scene, Map<DilationSource, number>>();
+
+export function setTimeDilation(scene: Phaser.Scene, source: DilationSource, scale: number): void {
+  let map = dilations.get(scene);
+  if (map === undefined) {
+    map = new Map();
+    dilations.set(scene, map);
+    scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => dilations.delete(scene));
+  }
+  if (scale >= 1) map.delete(source);
+  else map.set(source, Math.max(0, scale));
+  const s = timeDilation(scene);
+  if (scene.time) scene.time.timeScale = s;
+  // Scene teardown: the physics world is gone before late SHUTDOWN listeners run.
+  const world = scene.physics?.world as Phaser.Physics.Arcade.World | null | undefined;
+  if (world) world.timeScale = 1 / Math.max(s, 0.0001);
+}
+
+/** Product of every live dilation source (1 = normal speed). */
+export function timeDilation(scene: Phaser.Scene): number {
+  const map = dilations.get(scene);
+  if (map === undefined) return 1;
+  let s = 1;
+  for (const v of map.values()) s *= v;
+  return s;
 }
 
 /**
@@ -443,13 +546,11 @@ export function playFx(
  */
 export function hitstop(scene: Phaser.Scene, durationMs = 70, slow = 0.05): void {
   buzz(18);
-  scene.time.timeScale = slow;
+  setTimeDilation(scene, 'hitstop', slow);
   scene.tweens.timeScale = slow;
-  scene.physics.world.timeScale = 1 / Math.max(slow, 0.0001);
-  scene.time.delayedCall(durationMs * slow, () => {
-    scene.time.timeScale = 1;
+  scene.time.delayedCall(durationMs * timeDilation(scene), () => {
+    setTimeDilation(scene, 'hitstop', 1);
     scene.tweens.timeScale = 1;
-    scene.physics.world.timeScale = 1;
   });
 }
 

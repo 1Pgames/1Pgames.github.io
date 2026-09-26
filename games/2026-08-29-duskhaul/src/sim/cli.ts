@@ -57,6 +57,8 @@ interface CliOptions {
   family: string;
   /** `--trace <path>`: per-family sims dump their raw session records there. */
   trace?: string;
+  /** `--weapon-slots N` (arena only): measurement override of `weapons.maxSlots` (§18a fallback-3). */
+  weaponSlots?: number;
 }
 
 function parseArgs(argv: readonly string[]): CliOptions {
@@ -97,12 +99,18 @@ function parseArgs(argv: readonly string[]): CliOptions {
       case '--trace':
         options.trace = argv[(i += 1)] ?? options.trace;
         break;
+      case '--weapon-slots': {
+        const value = Number(argv[(i += 1)]);
+        if (!Number.isInteger(value) || value < 1) throw new Error(`--weapon-slots needs a positive integer`);
+        options.weaponSlots = value;
+        break;
+      }
       default:
         throw new Error(`Unknown flag "${arg}"`);
     }
   }
-  if (options.lane !== 'all' && options.family !== ARENA_FAMILY) {
-    throw new Error(`--lane is an ${ARENA_FAMILY}-family flag; --family "${options.family}" has no lanes.`);
+  if ((options.lane !== 'all' || options.weaponSlots !== undefined) && options.family !== ARENA_FAMILY) {
+    throw new Error(`--lane/--weapon-slots are ${ARENA_FAMILY}-family flags; --family "${options.family}" has none.`);
   }
   return options;
 }
@@ -126,7 +134,9 @@ async function runFamily(options: CliOptions): Promise<number> {
     json: options.json,
     trace: options.trace,
   };
-  if (options.family === ARENA_FAMILY) return runArenaSim({ ...shared, lane: options.lane });
+  if (options.family === ARENA_FAMILY) {
+    return runArenaSim({ ...shared, lane: options.lane, weaponSlots: options.weaponSlots });
+  }
 
   const unavailable = (reason: string): number => {
     console.error(

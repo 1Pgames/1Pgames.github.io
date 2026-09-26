@@ -1,0 +1,63 @@
+{
+  "schema": "sprite-forge.style.v1",
+  "name": "duskhaul-grit-fullbleed",
+  "artStyle": "Grimdark gritty pixel art ground texture seen straight from above: chunky low-resolution pixels rendered crisp, dithered two-step shading only, no anti-aliasing, no smooth gradients, no painterly edges. Surfaces are dirty and wet: cracked stone, packed mud, grit, each stone carrying at most one small damp highlight. Flat even coverage edge to edge with no focal object, no vignette and no perspective. Forbidden: clean saturated cartoon colour, glossy plastic finish, lettering, characters, creatures, props.",
+  "palette": [
+    "#0d0b10",
+    "#1a1520",
+    "#2b2431",
+    "#4a4452",
+    "#6e6875",
+    "#8a9a5b",
+    "#57663a",
+    "#5b4bff",
+    "#37307d",
+    "#c084fc",
+    "#f0ccfc",
+    "#d9a24b",
+    "#8a6428",
+    "#c0392b",
+    "#7b2418",
+    "#e8c547",
+    "#e8e0d0",
+    "#a89f8c"
+  ],
+  "camera": "Orthographic straight top-down view of flat ground filling the whole canvas edge to edge, constant scale, no horizon, no perspective.",
+  "lighting": "Even dim dusk ambient over the whole ground, no light pool, no vignette, no cast shadows; one faint damp highlight on some stone tops.",
+  "outline": "Stones are separated by dark grout lines in #2b2431; no outline around the canvas.",
+  "maxPaletteDistance": 48,
+  "plan": {
+    "valuePlan": {
+      "dark": 0.6,
+      "mid": 0.32,
+      "light": 0.08
+    },
+    "temperature": "Gameplay colour code, non-negotiable per asset: threat is dried-blood red #c0392b glows and telegraphs; reward is gilt #d9a24b shimmer on shards, relics and chests; extraction and arcane are dusk-violet #5b4bff light; the player and allies carry a gloam-green #8a9a5b rim; hazard telegraphs are torch-amber #e8c547. The world itself stays cold desaturated plum-grey so every coded hue reads at thumbnail size.",
+    "saturationHierarchy": [
+      "gilt reward shimmer",
+      "dusk-violet gate and arcane light",
+      "dried-blood threat glow",
+      "torch-amber hazard telegraphs",
+      "gloam-green player rim",
+      "bone-parchment neutrals",
+      "plum-grey stone and background"
+    ],
+    "focal": {
+      "primary": "nothing: a floor is rest space for the actors drawn on it",
+      "secondary": "stone joints and cracks at an even rhythm",
+      "rest": "the whole field"
+    },
+    "materials": {
+      "bone": "dry porous bone in parchment tones, chipped edges, two value steps, mud in the joints",
+      "metal": "rusted pitted iron, one thin wet specular along the struck edge, dark red-brown rust bloom",
+      "cloth": "rotten sodden cloth hanging heavy, ragged hems, two value steps, never a clean fold",
+      "stone": "wet cracked stone with moss seams, one damp highlight band where torchlight lands",
+      "flesh": "grey-green cadaver flesh, sunken, matte, darkest at the joints",
+      "energy": "hard-edged pixel glow in dusk violet or torch amber, a bright core and one dithered fringe step, never a soft bloom",
+      "wood": "split rain-black timber, straight sparse grain, iron nails"
+    },
+    "renderScale": 48
+  },
+  "references": [],
+  "note": "Full-bleed variant of art/style.json for floors/roads/splats only (game-art rule 1 scope exception): same palette/plan, anchors removed because xai redraws the vision anchor into tiles; lighting/camera prose rewritten because the actor profile forbids a ground plane."
+}

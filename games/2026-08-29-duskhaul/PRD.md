@@ -1,5 +1,7 @@
 # Duskhaul
 
+> V2 overhaul: PRD-V2.md supersedes every section it names.
+
 One-sentence pitch: you carve through an escalating horde of grimdark horrors
 with auto-firing cursed weapons, stuffing your bag with relics and shards, and
 must choose one of three timed extraction gates to escape with the haul — die,

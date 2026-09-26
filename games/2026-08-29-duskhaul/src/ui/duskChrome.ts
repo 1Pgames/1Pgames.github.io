@@ -1,5 +1,4 @@
 import Phaser from 'phaser';
-import { CSS, PALETTE } from '../config';
 import type { ZoneId } from '../data/zones';
 import { drawPanel, type ChromeStyle } from './primitives';
 
@@ -51,14 +50,16 @@ export const HUD_DEPTH = {
   /** `ui/hud.ts`'s own container — the floor of the band. */
   hud: 1000,
   compass: 1010,
+  /** `ui/minimap.ts` (§14.10) — under the boss plate, over the compass. */
+  minimap: 1012,
   /**
-   * `ui/wardenMark.ts` — the boss plate and its off-screen arrow. ABOVE the
-   * compass because the two share the screen edge for the last minute of a run
-   * and the boss is the beat that window is about; below the bag cluster,
-   * which owns band B.
+   * `ui/bossBar.ts` — the boss plate and its off-screen arrow. ABOVE the
+   * compass because the two share the screen edge late in a run and the boss
+   * is the beat that window is about; below the bag cluster (band B).
    */
-  warden: 1015,
-  bagPips: 1020,
+  boss: 1015,
+  /** `ui/bagStrip.ts`. */
+  bagStrip: 1020,
   channelBar: 1030,
 } as const;
 
@@ -148,96 +149,47 @@ export const IDENTITY = {
 } as const;
 
 /**
- * PER-ZONE GROUND GRADE (game-build Step 5.5, measured).
+ * PER-ZONE GROUND GRADE — a LIGHTING pass: a multiply tint on the ground layer
+ * (floor tiles, flat decals, scenery props) inside `systems/arena.ts`, never a
+ * repaint of the art.
  *
- * The generated floor tiles came out of the art run LIT, not shadowed: the
- * castle floor measures a mean relative luminance of 0.0848 against the
- * hero's 0.0666, and it is 100% of the frame, so the actors sat ON the ground
- * instead of IN it. This is a LIGHTING pass — a multiply tint on the ground
- * layer (floor tile, flat decals, scenery props) inside `systems/arena.ts` —
- * never a repaint of the art.
- *
- * Each value is a multiply factor derived from the tile's OWN measured mean
- * RGB toward an authored target, and every zone is checked against the
- * canonical pair (`hero/hero-idle`, `enemies-light/enemy-husk-move`) on two
- * criteria:
- *
- * - **C1, foreground ownership** — graded floor p99 <= 0.5 x hero p99
- *   (0.694/2 = 0.347), so the hero's rim light is at least twice the
- *   brightest passage of ground anywhere in the frame.
- * - **C2, ground recession** — graded floor p90 <= hero p90 (0.1934), so no
- *   bright passage of ground out-values the hero's mid-lights.
- *
- * | zone | grade | floor mean L before/after | p90 | p99 | target and why |
- * | --- | --- | --- | --- | --- | --- |
- * | castle | `0xd0b3bf` | 0.0848 -> 0.0437 | 0.071 | 0.102 | lands the tile on `#2c3848` exactly — §11's OWN sampled "wet lit flagstone, vision-1 courtyard floor", i.e. `PALETTE.bgBottom`. The warm-leaning multiply is the §11 "blue-grey stone under torch amber" read and drops the tile's saturation 0.463 -> 0.414. |
- * | outlands | `0x969493` | 0.1884 -> 0.0608 | 0.097 | 0.121 | an open plain under haze reads lighter than a torch-lit interior, so ~1.4x castle — but still under the hero's mean (0.0666). Near-neutral multiply keeps the ochre (sat 0.123 -> 0.139). |
- * | winter | `0xe2e2e8` | 0.1053 -> 0.0817 | 0.122 | 0.165 | §11's "bright cold field" stays the brightest of the three dark zones (1.9x castle). The tint was RE-DERIVED when the zone-art pass re-authored this tile: the new snowfield ships at an authored mean L of 0.1053 (was 0.2902), so the old `0x8f8f94` graded it to 0.0327 — C1 and C2 both still passed, but on screen it read as a NIGHT snowfield rather than a bright cold field, i.e. it passed the criteria and missed the intent. `0xe2e2e8` reproduces the original calibration targets almost exactly (0.0817 against 0.0841, p90 0.122 against 0.127) with C1 and C2 both clear. |
- * | desert | `0xa89ea6` | 0.6874 -> 0.2460 | 0.2616 (p50) | 0.313 | §11's DELIBERATELY INVERTED light field, and the one zone C2 does not apply to: the floor p50 (0.2616) stays ABOVE the hero p90 (0.1934) so every actor pixel but its rim reads as a hole in the sand. C1 still holds (0.313 <= 0.347), so the hero's rim is the brightest thing on screen even here. The tile was re-authored brighter (0.4630 -> 0.6874) and the tint is UNCHANGED: it still lands inside both bounds. |
+ * V2 retune (ArtWorld, via Main): the V2 floors `floor-<zone>-a|b|c` are
+ * authored INSIDE PRD-V2 §3.7's value band (L* 18-32, mean 25) already, so the
+ * V1 grades — derived for the lit V1 tiles — pushed them below L* 18. The V2
+ * grade is a near-neutral 0xd9d9d9 (castle/outlands/desert) and 0xf5f5f5 for
+ * winter's "bright cold field", measured by ArtWorld with `xd://art_review`.
  *
  * The zone's own `border-<id>` tile is NOT graded: it is already the art run's
- * authored shadow value for that stone (castle mean L 0.0168, 5x darker than
- * its floor), so grading it twice would crush it to black.
+ * authored shadow value for that stone, so grading it twice would crush it.
  */
 export const FLOOR_GRADE: Record<ZoneId, number> = {
-  castle: 0xd0b3bf,
-  outlands: 0x969493,
-  desert: 0xa89ea6,
-  winter: 0xe2e2e8,
+  castle: 0xd9d9d9,
+  outlands: 0xd9d9d9,
+  desert: 0xd9d9d9,
+  winter: 0xf5f5f5,
 };
 
-/**
- * Relic tier ladder, ART-LOCKED (§11), matching the generated icon glyphs
- * exactly. Index by `tier - 1`.
- *
- * Tier 2 Burnished sits at 2.91 against `bgTop` — BELOW the 3:1 graphical
- * floor — which is why every tier swatch/pip carries `TIER_RING` (3.54:1
- * against the panel fill). The ring meets the swatch's contrast obligation and
- * the fill is identity-only. Tier NAMES always render in `ink`/`inkSoft` on
- * the tier-coloured surface, never as tier-coloured text.
- */
-const TIER_COLOR: readonly [number, number, number, number] = [
-  0xa5a38b, // 1 Tarnished
-  0x835d2f, // 2 Burnished
-  0xf3ca67, // 3 Gilded
-  0xad6eef, // 4 Dread
-];
-
-/** The 2px ring every tier swatch carries — see `TIER_COLOR`. */
+/** The 2px ring every rarity swatch carries (§11 contrast rule). */
 export const TIER_RING = { color: 0x7e7376, width: 2 } as const;
 
 /**
- * Tier colour for a 1-4 tier. Clamped rather than indexed raw so bad data
- * cannot throw or return `undefined` in the middle of a repaint — a HUD that
- * crashes on a malformed tier is worse than one that shows Tarnished.
+ * V2 gear/valuable rarity ladder (PRD-V2 §5.15.1), ART-LOCKED like
+ * `TIER_COLOR`: 1 Tarnished … 6 Hallowed. Every swatch still carries
+ * `TIER_RING` — Worn and Burnished sit near the panel fill.
  */
-export function tierColor(tier: number): number {
-  const clamped = Phaser.Math.Clamp(Math.round(tier), 1, 4);
-  const [t1, t2, t3, t4] = TIER_COLOR;
-  return clamped === 4 ? t4 : clamped === 3 ? t3 : clamped === 2 ? t2 : t1;
+const RARITY_COLOR: readonly number[] = [0xa5a38b, 0x6f8fa6, 0xc07a3a, 0xf3ca67, 0xad6eef, 0xe8f0ff];
+
+/** Rarity words, index `rarity - 1` (§5.15.1). */
+const RARITY_NAME: readonly string[] = ['Tarnished', 'Worn', 'Burnished', 'Gilded', 'Dread', 'Hallowed'];
+
+/** Swatch colour for a 1-6 rarity, clamped so malformed data never throws mid-repaint. */
+export function rarityColor(r: number): number {
+  return RARITY_COLOR[Phaser.Math.Clamp(Math.round(r), 1, 6) - 1] ?? 0xa5a38b;
 }
 
-/**
- * The surface a piece of text is drawn onto, for `textToneIsLegal`.
- * `art` covers the generated arena/backdrop art and `bgBottom`, which is where
- * §11's two measured failures live.
- */
-export type TextSurface = 'bgTop' | 'panel' | 'scrim' | 'art';
-
-/**
- * `TIER_COLOR` as a CSS string, for a surface that legitimately takes the tier
- * tone — which is why the surface is a REQUIRED argument, not an assumption.
- *
- * Tier 4 Dread IS `secondary #ad6eef`, so this is the one path in the codebase
- * where a §11-restricted tone becomes TEXT by computation rather than by an
- * author typing it. Over art it degrades to `ink`, exactly as the `TIER_COLOR`
- * note requires ("tier NAMES always render in ink"), instead of shipping a
- * relic-name floater below the measured floor.
- */
-export function tierColorCss(tier: number, over: TextSurface): string {
-  const tone = tierColor(tier);
-  if (!textToneIsLegal(tone, over)) return CSS.ink;
-  return `#${tone.toString(16).padStart(6, '0')}`;
+/** Rarity word for a 1-6 rarity (clamped). */
+export function rarityName(r: number): string {
+  return RARITY_NAME[Phaser.Math.Clamp(Math.round(r), 1, 6) - 1] ?? 'Tarnished';
 }
 
 /**
@@ -265,29 +217,6 @@ export function drawDuskPanel(
   over: ChromeStyle = {},
 ): Phaser.GameObjects.Graphics {
   return drawPanel(scene, width, height, panelStyle(width, over));
-}
-
-/**
- * The §14.4 scrim band: a `#03040b` veil at alpha 0.80 behind text that draws
- * over generated backdrop art. `width`/`height` are the TEXT BLOCK's size —
- * `SCRIM.pad` is added on all four sides here, so callers never restate it.
- *
- * Returns the veil `Graphics`, centred on (x, y), so the caller can depth-sort
- * it under its text.
- */
-export function paintScrim(
-  scene: Phaser.Scene,
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-): Phaser.GameObjects.Graphics {
-  const g = scene.add.graphics({ x, y });
-  const w = width + SCRIM.pad * 2;
-  const h = height + SCRIM.pad * 2;
-  g.fillStyle(SCRIM.fill, SCRIM.alpha);
-  g.fillRoundedRect(-w / 2, -h / 2, w, h, SCRIM.radius);
-  return g;
 }
 
 /**
@@ -357,18 +286,3 @@ export const BUTTON_STYLE = {
 /** Alpha a disabled control renders at — prices stay legible (§14b state honesty). */
 export const DISABLED_ALPHA = 0.4;
 
-/**
- * §11's two measured text restrictions, executable: `secondary #ad6eef` and
- * `bad #ff4739` FAIL as TEXT against `bgBottom` and against lit backdrop art.
- * True only where the tone is legal as text; anywhere else it must appear as a
- * FILL carrying a deep-ink label instead — which is what `BUTTON_STYLE`
- * (`primary`/`destructive` on `DEEP_INK_CSS`) and `ChannelBar`'s interrupt
- * flash already do by construction.
- *
- * `tierColorCss` is the rule's live caller: tier 4 Dread IS `secondary`, and
- * it is the only tone in the game that reaches a text style by computation.
- */
-function textToneIsLegal(tone: number, over: TextSurface): boolean {
-  if (tone !== PALETTE.secondary && tone !== PALETTE.bad) return true;
-  return over !== 'art';
-}

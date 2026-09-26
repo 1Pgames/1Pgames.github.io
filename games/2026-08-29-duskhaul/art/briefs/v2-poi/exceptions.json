@@ -1,0 +1,30 @@
+[
+ {
+  "id": "poi/poi-vein",
+  "reason": "allowSourceEdgeTouch: 1x3 on a square canvas gives 341px-wide source cells; the wide ossuary heaps sit within ~8px of the implied cell line but are visually complete (reviewed raw), no clipping in the exported frames."
+ },
+ {
+  "id": "weapon-fx/wpn-breath-evo",
+  "reason": "palette meanDistance 58.8 > 48 (same list gap as wpn-breath, PRD-mandated cyan/violet); plus a 1px dark origin stroke in all 4 frames that sits under the hero at runtime \u2014 accepted instead of a third generation."
+ },
+ {
+  "id": "boss-fx/fx-bell-ring",
+  "reason": "attempts=3: gen 1 xai drew divider lines, gen 2 scattered rings across quadrant lines; gen 3 (layout-guide input) passed strict QC and is the shipped sheet."
+ },
+ {
+  "id": "weapon-fx/wpn-breath",
+  "reason": "palette meanDistance 63.7 > 48: PRD-V2 \u00a75.8 mandates cyan #6fd6ff / violet hero flame and sprite_check_palette meanDistance is distance from the style.json LIST, which has no cyan/ice or pure-white entry; visually on-style hard-edged pixel flame, cool-coded as required."
+ },
+ {
+  "id": "boss-fx/fx-icicle",
+  "reason": "palette meanDistance 58.0 > 48: PRD-V2 \u00a711 mandates 'cold cyan with red rim' for ice fx and sprite_check_palette meanDistance is distance from the style.json LIST, which has no cyan/ice or pure-white entry; red rim present, reads hostile."
+ },
+ {
+  "id": "boss-fx/fx-ice-wall",
+  "reason": "palette meanDistance 85.1 > 48: PRD-V2 \u00a711 cold-cyan ice with red rim, a mostly-opaque cyan slab, and sprite_check_palette meanDistance is distance from the style.json LIST, which has no cyan/ice or pure-white entry; canon winter props peak at 46.9 because they are mostly stone."
+ },
+ {
+  "id": "fx-v2/fx-lightpool",
+  "reason": "palette meanDistance 50.4 > 48: PRD-V2 \u00a711 mandates a radial WHITE pool tinted in code; sprite_check_palette meanDistance is distance from the style.json LIST, which has no cyan/ice or pure-white entry. Reviewed through the runtime tint (see report)."
+ }
+]

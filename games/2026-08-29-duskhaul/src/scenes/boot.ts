@@ -1,7 +1,6 @@
 import Phaser from 'phaser';
 import { SCENES } from '../core/keys';
 import { buildTextures } from '../core/textures';
-import { settleAbandonedRun } from '../core/progression';
 
 /**
  * Runs once. Registers procedural textures and anything the loading screen
@@ -21,7 +20,6 @@ export class BootScene extends Phaser.Scene {
 
   create(): void {
     buildTextures(this);
-    settleAbandonedRun();
     this.scene.start(SCENES.preload);
   }
 }

@@ -1,0 +1,582 @@
+{
+  "owner": "ArtPOI",
+  "styleProfile": "games/2026-08-29-duskhaul/art/style.json",
+  "groups": [
+    {
+      "group": "poi",
+      "owner": "ArtPOI",
+      "assets": [
+        {
+          "id": "poi-chest-t1",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 110,
+          "loop": false,
+          "action": "Reliquary chest (rusted iron) 4f open, non-loop, hold last",
+          "attempts": 1
+        },
+        {
+          "id": "poi-chest-t2",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 110,
+          "loop": false,
+          "action": "Reliquary chest (bronze) 4f open, non-loop, hold last",
+          "attempts": 1
+        },
+        {
+          "id": "poi-chest-t3",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 110,
+          "loop": false,
+          "action": "Reliquary chest (gilt) 4f open, non-loop, hold last",
+          "attempts": 1
+        },
+        {
+          "id": "poi-vault",
+          "kind": "fx",
+          "rows": 1,
+          "cols": 2,
+          "duration": 0,
+          "action": "Dread Vault door: frame 0 closed (Dread lock), frame 1 open",
+          "attempts": 1
+        },
+        {
+          "id": "poi-lair-banner",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 140,
+          "action": "Red-rimmed skull banner 4f flutter loop",
+          "attempts": 1
+        },
+        {
+          "id": "poi-shrine-blood",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 160,
+          "action": "Blood shrine 4f idle glow loop",
+          "attempts": 1
+        },
+        {
+          "id": "poi-shrine-gilt",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 160,
+          "action": "Gilt shrine 4f idle glow loop",
+          "attempts": 1
+        },
+        {
+          "id": "poi-shrine-bone",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 160,
+          "action": "Bone shrine 4f idle glow loop",
+          "attempts": 1
+        },
+        {
+          "id": "poi-shrine-grave",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 160,
+          "action": "Grave shrine 4f idle glow loop",
+          "attempts": 1
+        },
+        {
+          "id": "poi-shrine-curse",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 160,
+          "action": "Curse shrine 4f idle glow loop",
+          "attempts": 1
+        },
+        {
+          "id": "poi-vein",
+          "kind": "fx",
+          "rows": 1,
+          "cols": 3,
+          "duration": 0,
+          "action": "Ossuary shard vein: frame 0 full, 1 half, 2 depleted",
+          "attempts": 1
+        },
+        {
+          "id": "poi-lore",
+          "kind": "fx",
+          "rows": 1,
+          "cols": 1,
+          "action": "Lore stone: carved headstone with glowing glyph",
+          "attempts": 1
+        },
+        {
+          "id": "poi-bell",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 150,
+          "action": "Bell on a gibbet frame 4f swing loop",
+          "attempts": 1
+        },
+        {
+          "id": "poi-den-wall",
+          "kind": "fx",
+          "rows": 1,
+          "cols": 2,
+          "duration": 0,
+          "action": "Den bone wall segment: frame 0 rising, frame 1 raised idle",
+          "attempts": 1
+        },
+        {
+          "id": "npc-fence",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 180,
+          "action": "Wandering Fence: hunched trader with lantern cart 4f idle loop",
+          "attempts": 1
+        }
+      ]
+    },
+    {
+      "group": "gates-v2",
+      "owner": "ArtPOI",
+      "assets": [
+        {
+          "id": "gate-toll-closed",
+          "kind": "fx",
+          "rows": 1,
+          "cols": 1,
+          "action": "Toll gate closed (ferry chain), shares gate arch silhouette",
+          "attempts": 1
+        },
+        {
+          "id": "gate-toll-open",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 130,
+          "action": "Toll gate open 4f loop (ferry chain)",
+          "attempts": 1
+        },
+        {
+          "id": "gate-offering-closed",
+          "kind": "fx",
+          "rows": 1,
+          "cols": 1,
+          "action": "Offering gate closed (altar), shares gate arch silhouette",
+          "attempts": 1
+        },
+        {
+          "id": "gate-offering-open",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 130,
+          "action": "Offering gate open 4f loop (altar)",
+          "attempts": 2
+        },
+        {
+          "id": "gate-bell-closed",
+          "kind": "fx",
+          "rows": 1,
+          "cols": 1,
+          "action": "Bell gate closed (bell arch), shares gate arch silhouette",
+          "attempts": 2
+        },
+        {
+          "id": "gate-bell-open",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 130,
+          "action": "Bell gate open 4f loop (bell arch)",
+          "attempts": 2
+        }
+      ]
+    },
+    {
+      "group": "breakables",
+      "owner": "ArtPOI",
+      "assets": [
+        {
+          "id": "brk-castle",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 3,
+          "duration": 0,
+          "action": "castle breakables: row 0 intact urn/coffin/crate, row 1 broken",
+          "icons": [
+            "brk-castle-urn",
+            "brk-castle-coffin",
+            "brk-castle-crate",
+            "brk-castle-urn-broken",
+            "brk-castle-coffin-broken",
+            "brk-castle-crate-broken"
+          ],
+          "attempts": 1
+        },
+        {
+          "id": "brk-outlands",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 3,
+          "duration": 0,
+          "action": "outlands breakables: row 0 intact urn/coffin/crate, row 1 broken",
+          "icons": [
+            "brk-outlands-urn",
+            "brk-outlands-coffin",
+            "brk-outlands-crate",
+            "brk-outlands-urn-broken",
+            "brk-outlands-coffin-broken",
+            "brk-outlands-crate-broken"
+          ],
+          "attempts": 1
+        },
+        {
+          "id": "brk-desert",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 3,
+          "duration": 0,
+          "action": "desert breakables: row 0 intact urn/coffin/crate, row 1 broken",
+          "icons": [
+            "brk-desert-urn",
+            "brk-desert-coffin",
+            "brk-desert-crate",
+            "brk-desert-urn-broken",
+            "brk-desert-coffin-broken",
+            "brk-desert-crate-broken"
+          ],
+          "attempts": 2
+        },
+        {
+          "id": "brk-winter",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 3,
+          "duration": 0,
+          "action": "winter breakables: row 0 intact urn/coffin/crate, row 1 broken",
+          "icons": [
+            "brk-winter-urn",
+            "brk-winter-coffin",
+            "brk-winter-crate",
+            "brk-winter-urn-broken",
+            "brk-winter-coffin-broken",
+            "brk-winter-crate-broken"
+          ],
+          "attempts": 1
+        }
+      ]
+    },
+    {
+      "group": "pickups-v2",
+      "owner": "ArtPOI",
+      "assets": [
+        {
+          "id": "pk-bread",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 120,
+          "action": "Grave Bread pickup 4f glint loop",
+          "attempts": 1
+        },
+        {
+          "id": "pk-bell",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 120,
+          "action": "Dirge Bell pickup 4f glint loop",
+          "attempts": 1
+        },
+        {
+          "id": "pk-flask",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 120,
+          "action": "Pyre Flask pickup 4f glint loop",
+          "attempts": 1
+        },
+        {
+          "id": "pk-salt",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 120,
+          "action": "Frost Salt pickup 4f glint loop",
+          "attempts": 1
+        },
+        {
+          "id": "pk-xpcluster",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 120,
+          "action": "XP cluster (5 soul motes) pickup 4f glint loop",
+          "attempts": 1
+        },
+        {
+          "id": "pk-key",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 120,
+          "action": "Dread Key pickup 4f glint loop",
+          "attempts": 1
+        }
+      ]
+    },
+    {
+      "group": "weapon-fx",
+      "owner": "ArtPOI",
+      "assets": [
+        {
+          "id": "wpn-skull",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 90,
+          "action": "Wailing Skull homing projectile 4f, faces right",
+          "attempts": 1
+        },
+        {
+          "id": "wpn-skull-evo",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 90,
+          "action": "Wailing Skull homing projectile 4f, faces right (evolved)",
+          "attempts": 2
+        },
+        {
+          "id": "wpn-censer-pool",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 140,
+          "action": "Plague Censer ground pool 4f bubbling loop",
+          "attempts": 1
+        },
+        {
+          "id": "wpn-censer-pool-evo",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 140,
+          "action": "Plague Censer ground pool 4f bubbling loop (evolved)",
+          "attempts": 2
+        },
+        {
+          "id": "wpn-sickle",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 60,
+          "action": "Grave Sickle boomerang 4f spin",
+          "attempts": 1
+        },
+        {
+          "id": "wpn-sickle-evo",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 60,
+          "action": "Grave Sickle boomerang 4f spin (evolved)",
+          "attempts": 2
+        },
+        {
+          "id": "wpn-lash",
+          "kind": "fx",
+          "rows": 3,
+          "cols": 1,
+          "duration": 70,
+          "loop": false,
+          "action": "Thorn Lash horizontal whip 3f, extends right",
+          "attempts": 2
+        },
+        {
+          "id": "wpn-lash-evo",
+          "kind": "fx",
+          "rows": 3,
+          "cols": 1,
+          "duration": 70,
+          "loop": false,
+          "action": "Thorn Lash horizontal whip 3f, extends right (evolved)",
+          "attempts": 1
+        },
+        {
+          "id": "wpn-breath",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 90,
+          "action": "Pyre Breath cone 4f, spirit flame pointing right",
+          "attempts": 1
+        },
+        {
+          "id": "wpn-breath-evo",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 90,
+          "action": "Pyre Breath cone 4f, spirit flame pointing right (evolved)",
+          "attempts": 2
+        },
+        {
+          "id": "wpn-spear",
+          "kind": "fx",
+          "rows": 1,
+          "cols": 5,
+          "duration": 70,
+          "loop": false,
+          "action": "Gallows Spear 5f bone-spike eruption",
+          "attempts": 1
+        },
+        {
+          "id": "wpn-spear-evo",
+          "kind": "fx",
+          "rows": 1,
+          "cols": 5,
+          "duration": 70,
+          "loop": false,
+          "action": "Gallows Spear 5f bone-spike eruption (evolved)",
+          "attempts": 2
+        }
+      ]
+    },
+    {
+      "group": "boss-fx",
+      "owner": "ArtPOI",
+      "assets": [
+        {
+          "id": "fx-bell-ring",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 90,
+          "loop": false,
+          "action": "Toll shockwave ring 4f expand",
+          "attempts": 3
+        },
+        {
+          "id": "fx-geyser",
+          "kind": "fx",
+          "rows": 1,
+          "cols": 5,
+          "duration": 80,
+          "loop": false,
+          "action": "Ash geyser 5f eruption",
+          "attempts": 1
+        },
+        {
+          "id": "fx-scorch-beam",
+          "kind": "fx",
+          "rows": 1,
+          "cols": 3,
+          "duration": 70,
+          "action": "Scorch beam 3f loop, vertical",
+          "attempts": 1
+        },
+        {
+          "id": "fx-icicle",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 90,
+          "action": "Falling icicle 4f, point down",
+          "attempts": 1
+        },
+        {
+          "id": "fx-ice-wall",
+          "kind": "fx",
+          "rows": 1,
+          "cols": 2,
+          "duration": 0,
+          "action": "Glacier ice wall: frame 0 forming, 1 standing",
+          "attempts": 1
+        },
+        {
+          "id": "fx-sand-pillar",
+          "kind": "fx",
+          "rows": 1,
+          "cols": 3,
+          "duration": 90,
+          "loop": false,
+          "action": "Sand pillar 3f rise",
+          "attempts": 1
+        }
+      ]
+    },
+    {
+      "group": "fx-v2",
+      "owner": "ArtPOI",
+      "assets": [
+        {
+          "id": "fx-lightpool",
+          "kind": "fx",
+          "rows": 1,
+          "cols": 1,
+          "action": "Radial white light pool, dithered falloff, tinted in code",
+          "attempts": 1
+        },
+        {
+          "id": "fx-shadow",
+          "kind": "fx",
+          "rows": 1,
+          "cols": 1,
+          "action": "Soft dark ground ellipse",
+          "attempts": 1
+        },
+        {
+          "id": "fx-chest-beam",
+          "kind": "fx",
+          "rows": 1,
+          "cols": 4,
+          "duration": 100,
+          "action": "Pale item beam 4f shimmer loop (tier tint in code)",
+          "attempts": 1
+        }
+      ]
+    }
+  ],
+  "qcExceptions": [
+    {
+      "id": "poi/poi-vein",
+      "reason": "allowSourceEdgeTouch: 1x3 on a square canvas gives 341px-wide source cells; the wide ossuary heaps sit within ~8px of the implied cell line but are visually complete (reviewed raw), no clipping in the exported frames."
+    },
+    {
+      "id": "weapon-fx/wpn-breath-evo",
+      "reason": "palette meanDistance 58.8 > 48 (same list gap as wpn-breath, PRD-mandated cyan/violet); plus a 1px dark origin stroke in all 4 frames that sits under the hero at runtime \u2014 accepted instead of a third generation."
+    },
+    {
+      "id": "boss-fx/fx-bell-ring",
+      "reason": "attempts=3: gen 1 xai drew divider lines, gen 2 scattered rings across quadrant lines; gen 3 (layout-guide input) passed strict QC and is the shipped sheet."
+    },
+    {
+      "id": "weapon-fx/wpn-breath",
+      "reason": "palette meanDistance 63.7 > 48: PRD-V2 \u00a75.8 mandates cyan #6fd6ff / violet hero flame and sprite_check_palette meanDistance is distance from the style.json LIST, which has no cyan/ice or pure-white entry; visually on-style hard-edged pixel flame, cool-coded as required."
+    },
+    {
+      "id": "boss-fx/fx-icicle",
+      "reason": "palette meanDistance 58.0 > 48: PRD-V2 \u00a711 mandates 'cold cyan with red rim' for ice fx and sprite_check_palette meanDistance is distance from the style.json LIST, which has no cyan/ice or pure-white entry; red rim present, reads hostile."
+    },
+    {
+      "id": "boss-fx/fx-ice-wall",
+      "reason": "palette meanDistance 85.1 > 48: PRD-V2 \u00a711 cold-cyan ice with red rim, a mostly-opaque cyan slab, and sprite_check_palette meanDistance is distance from the style.json LIST, which has no cyan/ice or pure-white entry; canon winter props peak at 46.9 because they are mostly stone."
+    },
+    {
+      "id": "fx-v2/fx-lightpool",
+      "reason": "palette meanDistance 50.4 > 48: PRD-V2 \u00a711 mandates a radial WHITE pool tinted in code; sprite_check_palette meanDistance is distance from the style.json LIST, which has no cyan/ice or pure-white entry. Reviewed through the runtime tint (see report)."
+    }
+  ]
+}

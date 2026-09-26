@@ -2,40 +2,36 @@
   "kind": "fuzz",
   "passed": true,
   "slug": "2026-08-29-duskhaul",
-  "seconds": 240,
-  "budgetSource": "content clock: RunDirector.durationSeconds",
-  "contentClockS": 480,
+  "seconds": 60,
+  "budgetSource": "floor (60s): the build declares no content clock",
+  "contentClockS": null,
   "seed": 1,
-  "actions": 1514,
+  "actions": 327,
   "wipedKeys": [
-    "2026-08-29-duskhaul:tut:gate",
-    "2026-08-29-duskhaul:zone:last",
     "2026-08-29-duskhaul:meta",
-    "2026-08-29-duskhaul:run",
-    "2026-08-29-duskhaul:tut:stick",
-    "2026-08-29-duskhaul:tut:goal"
+    "2026-08-29-duskhaul:run"
   ],
   "audio": {
     "muted": true,
-    "url": "http://127.0.0.1:4173/play/2026-08-29-duskhaul/?mute=1",
+    "url": "http://localhost:5509/?mute=1",
     "storageTouched": false,
     "pageSide": {
       "mediaMuted": 0,
       "contextsPatched": false,
-      "contexts": 2,
+      "contexts": 1,
       "phaserSound": true
     },
-    "forcedByUrl": null,
-    "played": null,
+    "forcedByUrl": true,
+    "played": 0,
     "probe": {
-      "href": "http://127.0.0.1:4173/play/2026-08-29-duskhaul/?mute=1",
+      "href": "http://localhost:5509/?mute=1",
       "urlMute": "1",
-      "audioSnapshot": null,
+      "audioSnapshot": {
+        "forcedByUrl": true,
+        "requested": 0,
+        "played": 0
+      },
       "contexts": [
-        {
-          "state": "suspended",
-          "destinationGain": 0
-        },
         {
           "state": "suspended",
           "destinationGain": 0
@@ -45,37 +41,21 @@
       "media": 0
     }
   },
-  "transitions": 29,
+  "transitions": 3,
   "offGameNavigations": 0,
   "throttles": [],
   "handovers": [],
   "distinctScenes": [
-    "Menu",
     "Game",
-    "Meta"
+    "GameOver",
+    "Hub"
   ],
   "failures": [],
   "sceneTrail": [
-    "Menu",
     "Game",
-    "Menu",
-    "Game",
-    "Menu",
-    "Game",
-    "Menu",
-    "Game",
-    "Menu",
-    "Game",
-    "Menu",
-    "Game",
-    "Menu",
-    "Game",
-    "Menu",
-    "Game",
-    "Menu",
-    "Game",
-    "Menu",
+    "GameOver",
+    "Hub",
     "Game"
   ],
-  "finishedAt": "2026-09-08T11:16:38.186Z"
+  "finishedAt": "2026-09-26T00:38:17.269Z"
 }

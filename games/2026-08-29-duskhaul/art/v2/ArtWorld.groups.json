@@ -1,0 +1,534 @@
+{
+  "owner": "ArtWorld",
+  "groups": [
+    {
+      "group": "floors-v2",
+      "owner": "ArtWorld",
+      "assets": [
+        {
+          "id": "floor-castle-a",
+          "kind": "bg",
+          "rows": 1,
+          "cols": 1,
+          "duration": 0,
+          "strict": false,
+          "action": "castle floor variant a, 256px seamless full-bleed tile, L* 18-32 band (PRD-V2 \u00a73.7)"
+        },
+        {
+          "id": "floor-castle-b",
+          "kind": "bg",
+          "rows": 1,
+          "cols": 1,
+          "duration": 0,
+          "strict": false,
+          "action": "castle floor variant b, 256px seamless full-bleed tile, L* 18-32 band (PRD-V2 \u00a73.7)"
+        },
+        {
+          "id": "floor-castle-c",
+          "kind": "bg",
+          "rows": 1,
+          "cols": 1,
+          "duration": 0,
+          "strict": false,
+          "action": "castle floor variant c, 256px seamless full-bleed tile, L* 18-32 band (PRD-V2 \u00a73.7)"
+        },
+        {
+          "id": "road-castle",
+          "kind": "bg",
+          "rows": 1,
+          "cols": 1,
+          "duration": 0,
+          "strict": false,
+          "action": "castle road tile (cobble), 256px seamless, L* ~10% under the zone floor"
+        },
+        {
+          "id": "splat-castle-a",
+          "kind": "bg",
+          "rows": 1,
+          "cols": 1,
+          "duration": 0,
+          "action": "castle splat decal a: lichen moss, 512px soft-edged alpha (drawn at alpha 0.55 in code)"
+        },
+        {
+          "id": "splat-castle-b",
+          "kind": "bg",
+          "rows": 1,
+          "cols": 1,
+          "duration": 0,
+          "action": "castle splat decal b: wet seep stain, 512px soft-edged alpha (drawn at alpha 0.55 in code)"
+        },
+        {
+          "id": "splat-castle-c",
+          "kind": "bg",
+          "rows": 1,
+          "cols": 1,
+          "duration": 0,
+          "action": "castle splat decal c: masonry grit, 512px soft-edged alpha (drawn at alpha 0.55 in code)"
+        },
+        {
+          "id": "floor-outlands-a",
+          "kind": "bg",
+          "rows": 1,
+          "cols": 1,
+          "duration": 0,
+          "strict": false,
+          "action": "outlands floor variant a, 256px seamless full-bleed tile, L* 18-32 band (PRD-V2 \u00a73.7)",
+          "attempts": 1
+        },
+        {
+          "id": "floor-outlands-b",
+          "kind": "bg",
+          "rows": 1,
+          "cols": 1,
+          "duration": 0,
+          "strict": false,
+          "action": "outlands floor variant b, 256px seamless full-bleed tile, L* 18-32 band (PRD-V2 \u00a73.7)"
+        },
+        {
+          "id": "floor-outlands-c",
+          "kind": "bg",
+          "rows": 1,
+          "cols": 1,
+          "duration": 0,
+          "strict": false,
+          "action": "outlands floor variant c, 256px seamless full-bleed tile, L* 18-32 band (PRD-V2 \u00a73.7)"
+        },
+        {
+          "id": "road-outlands",
+          "kind": "bg",
+          "rows": 1,
+          "cols": 1,
+          "duration": 0,
+          "strict": false,
+          "action": "outlands road tile (packed dirt ruts), 256px seamless, L* ~10% under the zone floor",
+          "attempts": 1
+        },
+        {
+          "id": "splat-outlands-a",
+          "kind": "bg",
+          "rows": 1,
+          "cols": 1,
+          "duration": 0,
+          "action": "outlands splat decal a: mud puddle, 512px soft-edged alpha (drawn at alpha 0.55 in code)"
+        },
+        {
+          "id": "splat-outlands-b",
+          "kind": "bg",
+          "rows": 1,
+          "cols": 1,
+          "duration": 0,
+          "action": "outlands splat decal b: ash drift, 512px soft-edged alpha (drawn at alpha 0.55 in code)"
+        },
+        {
+          "id": "splat-outlands-c",
+          "kind": "bg",
+          "rows": 1,
+          "cols": 1,
+          "duration": 0,
+          "action": "outlands splat decal c: dead grass, 512px soft-edged alpha (drawn at alpha 0.55 in code)"
+        },
+        {
+          "id": "floor-desert-a",
+          "kind": "bg",
+          "rows": 1,
+          "cols": 1,
+          "duration": 0,
+          "strict": false,
+          "action": "desert floor variant a, 256px seamless full-bleed tile, L* 18-32 band (PRD-V2 \u00a73.7)",
+          "attempts": 1
+        },
+        {
+          "id": "floor-desert-b",
+          "kind": "bg",
+          "rows": 1,
+          "cols": 1,
+          "duration": 0,
+          "strict": false,
+          "action": "desert floor variant b, 256px seamless full-bleed tile, L* 18-32 band (PRD-V2 \u00a73.7)"
+        },
+        {
+          "id": "floor-desert-c",
+          "kind": "bg",
+          "rows": 1,
+          "cols": 1,
+          "duration": 0,
+          "strict": false,
+          "action": "desert floor variant c, 256px seamless full-bleed tile, L* 18-32 band (PRD-V2 \u00a73.7)"
+        },
+        {
+          "id": "road-desert",
+          "kind": "bg",
+          "rows": 1,
+          "cols": 1,
+          "duration": 0,
+          "strict": false,
+          "action": "desert road tile (hard sand), 256px seamless, L* ~10% under the zone floor",
+          "attempts": 1
+        },
+        {
+          "id": "splat-desert-a",
+          "kind": "bg",
+          "rows": 1,
+          "cols": 1,
+          "duration": 0,
+          "action": "desert splat decal a: sand ripple drift, 512px soft-edged alpha (drawn at alpha 0.55 in code)"
+        },
+        {
+          "id": "splat-desert-b",
+          "kind": "bg",
+          "rows": 1,
+          "cols": 1,
+          "duration": 0,
+          "action": "desert splat decal b: salt crust, 512px soft-edged alpha (drawn at alpha 0.55 in code)"
+        },
+        {
+          "id": "splat-desert-c",
+          "kind": "bg",
+          "rows": 1,
+          "cols": 1,
+          "duration": 0,
+          "action": "desert splat decal c: grit + bone chips, 512px soft-edged alpha (drawn at alpha 0.55 in code)"
+        },
+        {
+          "id": "floor-winter-a",
+          "kind": "bg",
+          "rows": 1,
+          "cols": 1,
+          "duration": 0,
+          "strict": false,
+          "action": "winter floor variant a, 256px seamless full-bleed tile, L* 18-32 band (PRD-V2 \u00a73.7)"
+        },
+        {
+          "id": "floor-winter-b",
+          "kind": "bg",
+          "rows": 1,
+          "cols": 1,
+          "duration": 0,
+          "strict": false,
+          "action": "winter floor variant b, 256px seamless full-bleed tile, L* 18-32 band (PRD-V2 \u00a73.7)"
+        },
+        {
+          "id": "floor-winter-c",
+          "kind": "bg",
+          "rows": 1,
+          "cols": 1,
+          "duration": 0,
+          "strict": false,
+          "action": "winter floor variant c, 256px seamless full-bleed tile, L* 18-32 band (PRD-V2 \u00a73.7)"
+        },
+        {
+          "id": "road-winter",
+          "kind": "bg",
+          "rows": 1,
+          "cols": 1,
+          "duration": 0,
+          "strict": false,
+          "action": "winter road tile (packed snow), 256px seamless, L* ~10% under the zone floor",
+          "attempts": 1
+        },
+        {
+          "id": "splat-winter-a",
+          "kind": "bg",
+          "rows": 1,
+          "cols": 1,
+          "duration": 0,
+          "action": "winter splat decal a: snowdrift, 512px soft-edged alpha (drawn at alpha 0.55 in code)"
+        },
+        {
+          "id": "splat-winter-b",
+          "kind": "bg",
+          "rows": 1,
+          "cols": 1,
+          "duration": 0,
+          "action": "winter splat decal b: ice glaze, 512px soft-edged alpha (drawn at alpha 0.55 in code)"
+        },
+        {
+          "id": "splat-winter-c",
+          "kind": "bg",
+          "rows": 1,
+          "cols": 1,
+          "duration": 0,
+          "action": "winter splat decal c: hoarfrost rime, 512px soft-edged alpha (drawn at alpha 0.55 in code)"
+        }
+      ]
+    },
+    {
+      "group": "props-v2",
+      "owner": "ArtWorld",
+      "assets": [
+        {
+          "id": "props-castle-c",
+          "kind": "ui",
+          "rows": 3,
+          "cols": 3,
+          "duration": 0,
+          "icons": [
+            "castle-wall-straight",
+            "castle-wall-corner",
+            "castle-wall-broken",
+            "castle-pillar",
+            "castle-rubble-heap",
+            "castle-gravestone",
+            "castle-monolith",
+            "castle-lamppost",
+            "castle-ironfence"
+          ],
+          "action": "castle props C: walls, pillar/tree, rubble, gravestone, monolith, post, fence",
+          "attempts": 1
+        },
+        {
+          "id": "props-castle-tall-top",
+          "kind": "ui",
+          "rows": 3,
+          "cols": 3,
+          "duration": 0,
+          "icons": [
+            "castle-wall-straight-top",
+            "castle-wall-corner-top",
+            "castle-pillar-top",
+            "castle-monolith-top",
+            "castle-lamppost-top",
+            "castle-torch-top",
+            "castle-statue-top",
+            "castle-column-top",
+            "castle-hook-top"
+          ],
+          "action": "castle tall-prop upper halves for Y-sort occlusion (derived crops, registers 1:1 with base cells)"
+        },
+        {
+          "id": "props-outlands-c",
+          "kind": "ui",
+          "rows": 3,
+          "cols": 3,
+          "duration": 0,
+          "icons": [
+            "outlands-logwall",
+            "outlands-palisade-corner",
+            "outlands-palisade-broken",
+            "outlands-deadtree",
+            "outlands-stonepile",
+            "outlands-gravemarker",
+            "outlands-spiralstone",
+            "outlands-gibbetpost",
+            "outlands-bonefence"
+          ],
+          "action": "outlands props C: walls, pillar/tree, rubble, gravestone, monolith, post, fence",
+          "attempts": 1
+        },
+        {
+          "id": "props-outlands-tall-top",
+          "kind": "ui",
+          "rows": 3,
+          "cols": 3,
+          "duration": 0,
+          "icons": [
+            "outlands-wall-corner-top",
+            "outlands-wall-broken-top",
+            "outlands-deadtree-top",
+            "outlands-monolith-top",
+            "outlands-gibbetpost-top",
+            "outlands-gibbet-top",
+            "outlands-tree-top",
+            "outlands-scarecrow-top",
+            "outlands-perch-top"
+          ],
+          "action": "outlands tall-prop upper halves for Y-sort occlusion (derived crops, registers 1:1 with base cells)"
+        },
+        {
+          "id": "props-desert-c",
+          "kind": "ui",
+          "rows": 3,
+          "cols": 3,
+          "duration": 0,
+          "icons": [
+            "desert-mudwall",
+            "desert-mudwall-corner",
+            "desert-mudwall-broken",
+            "desert-lotuscolumn",
+            "desert-sandrubble",
+            "desert-stele",
+            "desert-sunidol",
+            "desert-cagepost",
+            "desert-ribfence"
+          ],
+          "action": "desert props C: walls, pillar/tree, rubble, gravestone, monolith, post, fence",
+          "attempts": 1
+        },
+        {
+          "id": "props-desert-tall-top",
+          "kind": "ui",
+          "rows": 3,
+          "cols": 3,
+          "duration": 0,
+          "icons": [
+            "desert-wall-straight-top",
+            "desert-wall-corner-top",
+            "desert-column-top",
+            "desert-monolith-top",
+            "desert-cagepost-top",
+            "desert-obelisk-top",
+            "desert-palm-top",
+            "desert-sunbanner-top",
+            "desert-vulture-top"
+          ],
+          "action": "desert tall-prop upper halves for Y-sort occlusion (derived crops, registers 1:1 with base cells)"
+        },
+        {
+          "id": "props-winter-c",
+          "kind": "ui",
+          "rows": 3,
+          "cols": 3,
+          "duration": 0,
+          "icons": [
+            "winter-frostwall",
+            "winter-frostwall-corner",
+            "winter-frostwall-broken",
+            "winter-snowpine",
+            "winter-snowrubble",
+            "winter-frostgrave",
+            "winter-icemonolith",
+            "winter-lanternpost",
+            "winter-icefence"
+          ],
+          "action": "winter props C: walls, pillar/tree, rubble, gravestone, monolith, post, fence",
+          "attempts": 1
+        },
+        {
+          "id": "props-winter-tall-top",
+          "kind": "ui",
+          "rows": 3,
+          "cols": 3,
+          "duration": 0,
+          "icons": [
+            "winter-wall-straight-top",
+            "winter-wall-corner-top",
+            "winter-pine-c-top",
+            "winter-icemonolith-top",
+            "winter-lanternpost-top",
+            "winter-pine-top",
+            "winter-bellshrine-top",
+            "winter-lantern-top",
+            "winter-bonetree-top"
+          ],
+          "action": "winter tall-prop upper halves for Y-sort occlusion (derived crops, registers 1:1 with base cells)"
+        }
+      ]
+    },
+    {
+      "group": "landmarks",
+      "owner": "ArtWorld",
+      "assets": [
+        {
+          "id": "landmarks-castle",
+          "kind": "ui",
+          "rows": 3,
+          "cols": 3,
+          "duration": 0,
+          "icons": [
+            "lm-belltower",
+            "lm-ossuary",
+            "lm-chapelruin",
+            "lm-barracks",
+            "lm-cistern",
+            "lm-gallowsyard",
+            "lm-cryptmouth",
+            "lm-rampartbreach",
+            "lm-thronecourt"
+          ],
+          "action": "castle 9 region landmarks, 512px cells (PRD-V2 \u00a73.5 stamp ids)"
+        },
+        {
+          "id": "landmarks-outlands",
+          "kind": "ui",
+          "rows": 3,
+          "cols": 3,
+          "duration": 0,
+          "icons": [
+            "lm-gibbetrow",
+            "lm-ribcage",
+            "lm-mudcamp",
+            "lm-windmill",
+            "lm-carrionfield",
+            "lm-bonebridge",
+            "lm-burnedfarm",
+            "lm-standingstones",
+            "lm-ashpit"
+          ],
+          "action": "outlands 9 region landmarks, 512px cells (PRD-V2 \u00a73.5 stamp ids)"
+        },
+        {
+          "id": "landmarks-desert",
+          "kind": "ui",
+          "rows": 3,
+          "cols": 3,
+          "duration": 0,
+          "icons": [
+            "lm-sunkenhead",
+            "lm-drywell",
+            "lm-shadecanopy",
+            "lm-obelisk",
+            "lm-caravanwreck",
+            "lm-tombgate",
+            "lm-dunespine",
+            "lm-saltflat",
+            "lm-scarabmound"
+          ],
+          "action": "desert 9 region landmarks, 512px cells (PRD-V2 \u00a73.5 stamp ids)"
+        },
+        {
+          "id": "landmarks-winter",
+          "kind": "ui",
+          "rows": 3,
+          "cols": 3,
+          "duration": 0,
+          "icons": [
+            "lm-frozenshrine",
+            "lm-torchcircle",
+            "lm-icecavern",
+            "lm-widowspire",
+            "lm-corpselake",
+            "lm-brokenwall",
+            "lm-pineclutch",
+            "lm-yetiden",
+            "lm-crownsteps"
+          ],
+          "action": "winter 9 region landmarks, 512px cells (PRD-V2 \u00a73.5 stamp ids)"
+        }
+      ]
+    }
+  ],
+  "qcExceptions": [
+    {
+      "id": "floors-v2/floor-*",
+      "reason": "Full-bleed seamless tiles touch every canvas edge by design; exported fullBleed without --strict (background-contamination waived by structure, same class as zone-*/floor-*). Value band set by the documented tonefit grade (art/briefs/v2-world/process-fullbleed.sh)."
+    },
+    {
+      "id": "floors-v2/road-*",
+      "reason": "Full-bleed seamless road tiles, same class as floors-v2/floor-*."
+    },
+    {
+      "id": "floors-v2/floor-outlands-*",
+      "reason": "Irregular fieldstones measure ~45-50px at 256 (PRD asks 32-40); a full 984-1000px crop to shrink them doubled the V-seam (16.5 vs noise 6.5), so the seamless 856px crop was kept."
+    },
+    {
+      "id": "floors-v2/floor-winter-*",
+      "reason": "Rectangular slabs: autocorrelation pitch 34-35px x 48-49px; the long axis sits 8px over the 32-40 band. Authored mean L* 19-22 (bright frost joints hold p99 at the L*36 ceiling); in band, lower third."
+    },
+    {
+      "id": "floors-v2/splat-*",
+      "reason": "Provider returned a smoother, semi-photographic finish on most splats instead of chunky pixels; accepted because splats render at alpha 0.55 as soft ground variation under actors, graded into the floor value band by tonefit. Regenerate if they read as off-style in the run screenshot."
+    },
+    {
+      "id": "props-v2/props-*-tall-top",
+      "reason": "Derived, not generated: upper-half crops of the accepted base frames (art/briefs/v2-world/talltop.py) so the occluding top registers pixel-for-pixel with its base; a generated upper half cannot align."
+    },
+    {
+      "id": "props-v2/props-desert-c",
+      "reason": "Cells 0-1 (mudwall straight/corner) carry a small warm torch-glow blob at the top-left corner, the style's key-light specular; kept, reads as torchlit brick at 48-170px."
+    },
+    {
+      "id": "landmarks/landmarks-*",
+      "reason": "3x3 on a 1024 canvas gives 341px source cells, upscaled to the PRD's 512px cell with smooth sampling (nearest at 1.5x produced uneven pixel rows). Outlands/desert added unrequested wall torches (amber) beside several landmarks; kept as scenic light, they are not hazard telegraphs."
+    }
+  ]
+}

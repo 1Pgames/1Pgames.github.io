@@ -1,0 +1,138 @@
+{
+  "owner": "ArtWeaponFx",
+  "styleProfile": "games/2026-08-29-duskhaul/art/style.json",
+  "groups": [
+    {
+      "group": "weapon-fx-v1",
+      "owner": "ArtWeaponFx",
+      "assets": [
+        {
+          "id": "wpn-bolt",
+          "kind": "fx",
+          "rows": 1,
+          "cols": 2,
+          "duration": 110,
+          "action": "Rustspike thrown rusted nail projectile 2f shimmer loop, points right",
+          "attempts": 2
+        },
+        {
+          "id": "wpn-bolt-evo",
+          "kind": "fx",
+          "rows": 1,
+          "cols": 2,
+          "duration": 110,
+          "action": "Nail Legion violet-edged nail projectile 2f shimmer loop, points right (evolved)",
+          "attempts": 1
+        },
+        {
+          "id": "wpn-orbit",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 120,
+          "action": "Bone Halo single curved bone blade 4f tumble loop (flip frames)",
+          "attempts": 2
+        },
+        {
+          "id": "wpn-orbit-evo",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 120,
+          "action": "Marrow Wheel bone blade with violet marrow glow 4f tumble loop (flip frames, evolved)",
+          "attempts": 1
+        },
+        {
+          "id": "wpn-nova",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 90,
+          "loop": false,
+          "action": "Ash Ring expanding cold ash ring burst 4f one-shot",
+          "attempts": 2
+        },
+        {
+          "id": "wpn-nova-evo",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 90,
+          "loop": false,
+          "action": "Pyre Shroud violet-cyan spirit fire ring burst 4f one-shot (evolved)",
+          "attempts": 2
+        },
+        {
+          "id": "wpn-scythe",
+          "kind": "fx",
+          "rows": 1,
+          "cols": 3,
+          "duration": 70,
+          "loop": false,
+          "action": "Gloam Scythe crescent slash arc 3f one-shot, convex toward +x, origin (0.36,0.5)",
+          "attempts": 2
+        },
+        {
+          "id": "wpn-scythe-evo",
+          "kind": "fx",
+          "rows": 1,
+          "cols": 3,
+          "duration": 70,
+          "loop": false,
+          "action": "Dirge Reaper full 360-degree ring slash 3f one-shot (evolved)",
+          "attempts": 2
+        },
+        {
+          "id": "wpn-rail",
+          "kind": "fx",
+          "rows": 3,
+          "cols": 1,
+          "duration": 70,
+          "action": "Widow's Lance thin piercing beam segment 3f flicker loop, horizontal, points right",
+          "attempts": 2
+        },
+        {
+          "id": "wpn-rail-evo",
+          "kind": "fx",
+          "rows": 3,
+          "cols": 1,
+          "duration": 70,
+          "action": "Sorrow Piercer wide violet beam segment 3f flicker loop, horizontal, points right (evolved)",
+          "attempts": 2
+        },
+        {
+          "id": "wpn-hex",
+          "kind": "fx",
+          "rows": 3,
+          "cols": 1,
+          "duration": 80,
+          "action": "Thorn Hex thorned chain-lightning link segment 3f crackle loop, horizontal",
+          "attempts": 1
+        },
+        {
+          "id": "wpn-hex-evo",
+          "kind": "fx",
+          "rows": 3,
+          "cols": 1,
+          "duration": 80,
+          "action": "Rot Chorus gloam-tinted thorned chain-lightning link segment 3f crackle loop, horizontal (evolved)",
+          "attempts": 1
+        }
+      ]
+    }
+  ],
+  "qcExceptions": [
+    {
+      "id": "weapon-fx-v1/wpn-rail",
+      "reason": "palette meanDistance 83.0 > 48: the beam is PRD-mandated hero cyan #6fd6ff with a pale-cyan core and violet fringe, and sprite_check_palette meanDistance is distance from the style.json LIST, which has no cyan entry (same list gap as canon weapon-fx/wpn-breath 63.7); visually a hard-edged dithered pixel beam, cool-coded, no white."
+    },
+    {
+      "id": "weapon-fx-v1/wpn-rail-evo",
+      "reason": "palette meanDistance 49.8 > 48: lilac core + cyan seam of a violet beam, list has no cyan/lilac-light entry; 1.8 over the ceiling on a correct cool hero beam."
+    },
+    {
+      "id": "weapon-fx-v1/wpn-nova-evo",
+      "reason": "palette meanDistance 52.6 > 48: PRD mandates Pyre Shroud as cold violet-cyan spirit fire (not orange); the list carries #5b4bff/#c084fc but no cyan or mid-lilac, so correct cool flame reads as distance; visually on-style hard-edged pixel flame, 0% warm share (art_review)."
+    }
+  ]
+}

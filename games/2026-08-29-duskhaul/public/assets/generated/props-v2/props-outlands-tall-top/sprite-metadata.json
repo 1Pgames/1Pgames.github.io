@@ -1,0 +1,243 @@
+{
+  "source": {
+    "file": "derived: crop of base prop frames (see art/briefs/v2-world/talltop.py)",
+    "provider": "derived",
+    "width": 768,
+    "height": 768
+  },
+  "grid": {
+    "rows": 3,
+    "cols": 3
+  },
+  "output": {
+    "cellSize": 256,
+    "durationMs": 0,
+    "derivation": "upper half of each base frame (rows above alignedBox.top + height/2), identical cell geometry"
+  },
+  "qc": {
+    "strict": true,
+    "passed": true,
+    "failures": [],
+    "notes": [
+      "derived-crop: registers pixel-for-pixel with its base cell"
+    ]
+  },
+  "frames": [
+    {
+      "index": 0,
+      "file": "frames/frame-000.png",
+      "name": "wall-corner",
+      "base": {
+        "asset": "props-outlands-c",
+        "group": "props-v2",
+        "frame": 1,
+        "alignedBox": {
+          "left": 18,
+          "top": 61,
+          "width": 220,
+          "height": 135
+        }
+      },
+      "cutY": 128,
+      "alignedBox": {
+        "left": 36,
+        "top": 61,
+        "width": 187,
+        "height": 67
+      },
+      "empty": false
+    },
+    {
+      "index": 1,
+      "file": "frames/frame-001.png",
+      "name": "wall-broken",
+      "base": {
+        "asset": "props-outlands-c",
+        "group": "props-v2",
+        "frame": 2,
+        "alignedBox": {
+          "left": 27,
+          "top": 67,
+          "width": 201,
+          "height": 123
+        }
+      },
+      "cutY": 128,
+      "alignedBox": {
+        "left": 46,
+        "top": 67,
+        "width": 170,
+        "height": 61
+      },
+      "empty": false
+    },
+    {
+      "index": 2,
+      "file": "frames/frame-002.png",
+      "name": "deadtree",
+      "base": {
+        "asset": "props-outlands-c",
+        "group": "props-v2",
+        "frame": 3,
+        "alignedBox": {
+          "left": 42,
+          "top": 23,
+          "width": 173,
+          "height": 209
+        }
+      },
+      "cutY": 127,
+      "alignedBox": {
+        "left": 42,
+        "top": 23,
+        "width": 173,
+        "height": 104
+      },
+      "empty": false
+    },
+    {
+      "index": 3,
+      "file": "frames/frame-003.png",
+      "name": "monolith",
+      "base": {
+        "asset": "props-outlands-c",
+        "group": "props-v2",
+        "frame": 6,
+        "alignedBox": {
+          "left": 51,
+          "top": 56,
+          "width": 154,
+          "height": 144
+        }
+      },
+      "cutY": 128,
+      "alignedBox": {
+        "left": 89,
+        "top": 56,
+        "width": 83,
+        "height": 72
+      },
+      "empty": false
+    },
+    {
+      "index": 4,
+      "file": "frames/frame-004.png",
+      "name": "gibbetpost",
+      "base": {
+        "asset": "props-outlands-c",
+        "group": "props-v2",
+        "frame": 7,
+        "alignedBox": {
+          "left": 63,
+          "top": 37,
+          "width": 130,
+          "height": 182
+        }
+      },
+      "cutY": 128,
+      "alignedBox": {
+        "left": 63,
+        "top": 37,
+        "width": 130,
+        "height": 91
+      },
+      "empty": false
+    },
+    {
+      "index": 5,
+      "file": "frames/frame-005.png",
+      "name": "gibbet",
+      "base": {
+        "asset": "props-outlands-a",
+        "group": "zone-outlands",
+        "frame": 1,
+        "alignedBox": {
+          "left": 57,
+          "top": 32,
+          "width": 142,
+          "height": 192
+        }
+      },
+      "cutY": 128,
+      "alignedBox": {
+        "left": 77,
+        "top": 32,
+        "width": 112,
+        "height": 96
+      },
+      "empty": false
+    },
+    {
+      "index": 6,
+      "file": "frames/frame-006.png",
+      "name": "tree",
+      "base": {
+        "asset": "props-outlands-a",
+        "group": "zone-outlands",
+        "frame": 6,
+        "alignedBox": {
+          "left": 43,
+          "top": 39,
+          "width": 174,
+          "height": 177
+        }
+      },
+      "cutY": 127,
+      "alignedBox": {
+        "left": 86,
+        "top": 39,
+        "width": 86,
+        "height": 88
+      },
+      "empty": false
+    },
+    {
+      "index": 7,
+      "file": "frames/frame-007.png",
+      "name": "scarecrow",
+      "base": {
+        "asset": "props-outlands-b",
+        "group": "zone-outlands",
+        "frame": 1,
+        "alignedBox": {
+          "left": 53,
+          "top": 49,
+          "width": 150,
+          "height": 158
+        }
+      },
+      "cutY": 128,
+      "alignedBox": {
+        "left": 53,
+        "top": 49,
+        "width": 150,
+        "height": 79
+      },
+      "empty": false
+    },
+    {
+      "index": 8,
+      "file": "frames/frame-008.png",
+      "name": "perch",
+      "base": {
+        "asset": "props-outlands-b",
+        "group": "zone-outlands",
+        "frame": 5,
+        "alignedBox": {
+          "left": 67,
+          "top": 52,
+          "width": 122,
+          "height": 152
+        }
+      },
+      "cutY": 128,
+      "alignedBox": {
+        "left": 67,
+        "top": 52,
+        "width": 122,
+        "height": 76
+      },
+      "empty": false
+    }
+  ]
+}

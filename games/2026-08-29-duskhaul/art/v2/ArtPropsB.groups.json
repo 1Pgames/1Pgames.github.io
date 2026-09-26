@@ -1,0 +1,147 @@
+{
+  "owner": "ArtPropsB",
+  "groups": [
+    {
+      "group": "props-v3b",
+      "owner": "ArtPropsB",
+      "assets": [
+        {
+          "id": "props-desert-d",
+          "kind": "ui",
+          "rows": 3,
+          "cols": 3,
+          "duration": 0,
+          "icons": [
+            "desert-sarcophagus",
+            "desert-ramtotem",
+            "desert-boulder",
+            "desert-amphora",
+            "desert-fallencolumn",
+            "desert-deadcactus",
+            "desert-hoodoo",
+            "desert-beastskull",
+            "desert-milestone"
+          ],
+          "action": "desert standalone blockers d: sarcophagus, ramtotem, boulder, amphora, fallencolumn, deadcactus, hoodoo, beastskull, milestone",
+          "attempts": 1
+        },
+        {
+          "id": "props-desert-d-tall-top",
+          "kind": "ui",
+          "rows": 3,
+          "cols": 3,
+          "duration": 0,
+          "icons": [
+            "desert-ramtotem-top",
+            "desert-deadcactus-top",
+            "desert-hoodoo-top"
+          ],
+          "action": "desert tall-prop upper halves of props-desert-d for Y-sort occlusion (derived crops, registers 1:1 with base cells; frames 3-8 unused)"
+        },
+        {
+          "id": "props-desert-e",
+          "kind": "ui",
+          "rows": 3,
+          "cols": 3,
+          "duration": 0,
+          "icons": [
+            "desert-trough",
+            "desert-sundial",
+            "desert-handcart",
+            "desert-deadacacia",
+            "desert-crate",
+            "desert-tusk",
+            "desert-ziggurat",
+            "desert-barrel",
+            "desert-petrifiedstump"
+          ],
+          "action": "desert standalone blockers e: trough, sundial, handcart, deadacacia, crate, tusk, ziggurat, barrel, petrifiedstump"
+        },
+        {
+          "id": "props-desert-e-tall-top",
+          "kind": "ui",
+          "rows": 3,
+          "cols": 3,
+          "duration": 0,
+          "icons": [
+            "desert-deadacacia-top"
+          ],
+          "action": "desert tall-prop upper halves of props-desert-e for Y-sort occlusion (derived crops, registers 1:1 with base cells; frames 1-8 unused)"
+        },
+        {
+          "id": "props-winter-d",
+          "kind": "ui",
+          "rows": 3,
+          "cols": 3,
+          "duration": 0,
+          "icons": [
+            "winter-frozenlog",
+            "winter-signpost",
+            "winter-boulder",
+            "winter-barrel",
+            "winter-sarcophagus",
+            "winter-stump",
+            "winter-outcrop",
+            "winter-crate",
+            "winter-sapling"
+          ],
+          "action": "winter standalone blockers d: frozenlog, signpost, boulder, barrel, sarcophagus, stump, outcrop, crate, sapling"
+        },
+        {
+          "id": "props-winter-d-tall-top",
+          "kind": "ui",
+          "rows": 3,
+          "cols": 3,
+          "duration": 0,
+          "icons": [
+            "winter-signpost-top",
+            "winter-sapling-top"
+          ],
+          "action": "winter tall-prop upper halves of props-winter-d for Y-sort occlusion (derived crops, registers 1:1 with base cells; frames 2-8 unused)"
+        },
+        {
+          "id": "props-winter-e",
+          "kind": "ui",
+          "rows": 3,
+          "cols": 3,
+          "duration": 0,
+          "icons": [
+            "winter-woodpile",
+            "winter-obelisk",
+            "winter-cauldron",
+            "winter-mammothskull",
+            "winter-anvil",
+            "winter-fallencolumn",
+            "winter-weaponrack",
+            "winter-gravecross",
+            "winter-helm"
+          ],
+          "action": "winter standalone blockers e: woodpile, obelisk, cauldron, mammothskull, anvil, fallencolumn, weaponrack, gravecross, helm"
+        },
+        {
+          "id": "props-winter-e-tall-top",
+          "kind": "ui",
+          "rows": 3,
+          "cols": 3,
+          "duration": 0,
+          "icons": [
+            "winter-obelisk-top",
+            "winter-weaponrack-top",
+            "winter-gravecross-top"
+          ],
+          "action": "winter tall-prop upper halves of props-winter-e for Y-sort occlusion (derived crops, registers 1:1 with base cells; frames 3-8 unused)"
+        }
+      ]
+    }
+  ],
+  "qcExceptions": [
+    {
+      "id": "props-v3b/props-*-tall-top",
+      "reason": "Derived, not generated: upper-half crops of the accepted base frames (art/briefs/v3-props-b/build.py) so the occluding top registers pixel-for-pixel with its base; unused trailing cells are transparent by design."
+    },
+    {
+      "id": "props-v3b/props-*",
+      "reason": "Keyed with a post-key defringe (art/briefs/v3-props-b/defringe.py): background-connected purple contact-shadow blobs and pink boundary pixels removed, nothing painted; boundary pink share falls from 12-54% to <=1.5%."
+    }
+  ]
+}

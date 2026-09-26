@@ -1,4 +1,4 @@
-import { getAudioContext, isMuted, onMuteChange, unlockAudio } from './audio';
+import { audioSettings, getAudioContext, isMuted, musicInput, noteAudioRequest, onMuteChange, unlockAudio } from './audio';
 import { AUDIO, type MusicTrack } from '../data/audio';
 
 /**
@@ -88,8 +88,11 @@ const BOSS_PEAK = 0.7;
 /**
  * File-stem bus level. Generated loops arrive near full scale, so they need a
  * far lower bus than the synth's summed peaks to sit under sfx the same way.
+ * 0.4 (was 0.5): measured offline (audio audit), a 10 s combat SFX stream
+ * renders at -20.5 LUFS and the run stem at mid intensity at -26.1 LUFS, so
+ * the score sits at ~0.5× the SFX loudness; big beats duck it −6 dB more.
  */
-const STEM_MASTER_GAIN = 0.5;
+const STEM_MASTER_GAIN = 0.4;
 /** Intensity at which the run mood is half `game-low`, half `game-high`. */
 const STEM_CROSSFADE_CENTER = 0.55;
 /** Intensity span the crossfade takes: full low below 0.35, full high above 0.75. */
@@ -213,23 +216,35 @@ function moodStems(target: MusicMood): MusicTrack[] {
   });
 }
 
+/** Music bus level: mute / no mood → 0, else the engine's master × Settings music (0..1). */
+function musicGain(base: number, silent: boolean): number {
+  return silent ? 0 : base * audioSettings().music;
+}
+
+/**
+ * Re-applies the Settings music volume to whatever is playing, live (the
+ * Settings slider calls this on every move). No-op when nothing plays; under
+ * `?mute=1` `isMuted()` is forced true, so the bus stays at 0.
+ */
+export function applyMusicVolume(): void {
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  const silent = isMuted() || mood === null;
+  if (nodes) nodes.master.gain.setTargetAtTime(musicGain(MASTER_GAIN, silent), ctx.currentTime, 0.02);
+  if (stems) stems.master.gain.setTargetAtTime(musicGain(STEM_MASTER_GAIN, silent), ctx.currentTime, 0.02);
+}
+
 function ensureMuteSubscription(): void {
   if (muteSubscribed) return;
   muteSubscribed = true;
-  onMuteChange((mutedNow) => {
-    const ctx = getAudioContext();
-    if (!ctx) return;
-    const silent = mutedNow || mood === null;
-    if (nodes) nodes.master.gain.setTargetAtTime(silent ? 0 : MASTER_GAIN, ctx.currentTime, 0.02);
-    if (stems) stems.master.gain.setTargetAtTime(silent ? 0 : STEM_MASTER_GAIN, ctx.currentTime, 0.02);
-  });
+  onMuteChange(() => applyMusicVolume());
 }
 
 function ensureGraph(ctx: AudioContext): MusicNodes {
   if (nodes) return nodes;
   const master = ctx.createGain();
   master.gain.value = 0;
-  master.connect(ctx.destination);
+  master.connect(musicInput() ?? ctx.destination);
 
   const bassGain = ctx.createGain();
   const padGain = ctx.createGain();
@@ -510,7 +525,7 @@ function startStems(ctx: AudioContext, tracks: readonly MusicTrack[]): void {
   if (!stems) {
     const master = ctx.createGain();
     master.gain.value = 0;
-    master.connect(ctx.destination);
+    master.connect(musicInput() ?? ctx.destination);
     stems = { master, gains: new Map(), sources: new Map() };
   }
   const graph = stems;
@@ -531,7 +546,7 @@ function startStems(ctx: AudioContext, tracks: readonly MusicTrack[]): void {
     graph.gains.set(track, gain);
     graph.sources.set(track, source);
   }
-  graph.master.gain.setTargetAtTime(isMuted() ? 0 : STEM_MASTER_GAIN, ctx.currentTime, MIX_RAMP_TC);
+  graph.master.gain.setTargetAtTime(musicGain(STEM_MASTER_GAIN, isMuted()), ctx.currentTime, MIX_RAMP_TC);
   updateStemMix();
 }
 
@@ -569,6 +584,8 @@ function stopStems(ctx: AudioContext): void {
 export function startMusic(newMood: MusicMood): void {
   unlockAudio();
   const ctx = getAudioContext();
+  // §12 T1: every music start is a request; it only "played" if a graph exists and sound is on.
+  noteAudioRequest(ctx !== null && !isMuted());
   if (!ctx) return;
   ensureMuteSubscription();
   mood = newMood;
@@ -584,7 +601,7 @@ export function startMusic(newMood: MusicMood): void {
   stopStems(ctx);
   const graph = ensureGraph(ctx);
   ensureScheduler(ctx);
-  graph.master.gain.setTargetAtTime(isMuted() ? 0 : MASTER_GAIN, ctx.currentTime, MIX_RAMP_TC);
+  graph.master.gain.setTargetAtTime(musicGain(MASTER_GAIN, isMuted()), ctx.currentTime, MIX_RAMP_TC);
   updateMix();
 }
 

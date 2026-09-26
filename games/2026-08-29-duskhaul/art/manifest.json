@@ -544,7 +544,7 @@
           "rows": 2,
           "cols": 2,
           "duration": 100,
-          "action": "Soul mote 4f pulse — the XP pickup (objects/xporb.ts)",
+          "action": "Soul mote 4f pulse \u2014 the XP pickup (objects/xporb.ts)",
           "animAlias": "xpOrb"
         },
         {
@@ -552,7 +552,7 @@
           "kind": "fx",
           "rows": 1,
           "cols": 1,
-          "action": "Arcane bolt, static, pointing right — the projectile (objects/projectile.ts)",
+          "action": "Arcane bolt, static, pointing right \u2014 the projectile (objects/projectile.ts)",
           "textureAlias": "bullet"
         },
         {
@@ -1148,6 +1148,2378 @@
           "textureAlias": "bgMenu"
         }
       ]
+    },
+    {
+      "group": "floors-v2",
+      "owner": "ArtWorld",
+      "assets": [
+        {
+          "id": "floor-castle-a",
+          "kind": "bg",
+          "rows": 1,
+          "cols": 1,
+          "duration": 0,
+          "strict": false,
+          "action": "castle floor variant a, 256px seamless full-bleed tile, L* 18-32 band (PRD-V2 \u00a73.7)"
+        },
+        {
+          "id": "floor-castle-b",
+          "kind": "bg",
+          "rows": 1,
+          "cols": 1,
+          "duration": 0,
+          "strict": false,
+          "action": "castle floor variant b, 256px seamless full-bleed tile, L* 18-32 band (PRD-V2 \u00a73.7)"
+        },
+        {
+          "id": "floor-castle-c",
+          "kind": "bg",
+          "rows": 1,
+          "cols": 1,
+          "duration": 0,
+          "strict": false,
+          "action": "castle floor variant c, 256px seamless full-bleed tile, L* 18-32 band (PRD-V2 \u00a73.7)"
+        },
+        {
+          "id": "road-castle",
+          "kind": "bg",
+          "rows": 1,
+          "cols": 1,
+          "duration": 0,
+          "strict": false,
+          "action": "castle road tile (cobble), 256px seamless, L* ~10% under the zone floor"
+        },
+        {
+          "id": "splat-castle-a",
+          "kind": "bg",
+          "rows": 1,
+          "cols": 1,
+          "duration": 0,
+          "action": "castle splat decal a: lichen moss, 512px soft-edged alpha (drawn at alpha 0.55 in code)"
+        },
+        {
+          "id": "splat-castle-b",
+          "kind": "bg",
+          "rows": 1,
+          "cols": 1,
+          "duration": 0,
+          "action": "castle splat decal b: wet seep stain, 512px soft-edged alpha (drawn at alpha 0.55 in code)"
+        },
+        {
+          "id": "splat-castle-c",
+          "kind": "bg",
+          "rows": 1,
+          "cols": 1,
+          "duration": 0,
+          "action": "castle splat decal c: masonry grit, 512px soft-edged alpha (drawn at alpha 0.55 in code)"
+        },
+        {
+          "id": "floor-outlands-a",
+          "kind": "bg",
+          "rows": 1,
+          "cols": 1,
+          "duration": 0,
+          "strict": false,
+          "action": "outlands floor variant a, 256px seamless full-bleed tile, L* 18-32 band (PRD-V2 \u00a73.7)",
+          "attempts": 1
+        },
+        {
+          "id": "floor-outlands-b",
+          "kind": "bg",
+          "rows": 1,
+          "cols": 1,
+          "duration": 0,
+          "strict": false,
+          "action": "outlands floor variant b, 256px seamless full-bleed tile, L* 18-32 band (PRD-V2 \u00a73.7)"
+        },
+        {
+          "id": "floor-outlands-c",
+          "kind": "bg",
+          "rows": 1,
+          "cols": 1,
+          "duration": 0,
+          "strict": false,
+          "action": "outlands floor variant c, 256px seamless full-bleed tile, L* 18-32 band (PRD-V2 \u00a73.7)"
+        },
+        {
+          "id": "road-outlands",
+          "kind": "bg",
+          "rows": 1,
+          "cols": 1,
+          "duration": 0,
+          "strict": false,
+          "action": "outlands road tile (packed dirt ruts), 256px seamless, L* ~10% under the zone floor",
+          "attempts": 1
+        },
+        {
+          "id": "splat-outlands-a",
+          "kind": "bg",
+          "rows": 1,
+          "cols": 1,
+          "duration": 0,
+          "action": "outlands splat decal a: mud puddle, 512px soft-edged alpha (drawn at alpha 0.55 in code)"
+        },
+        {
+          "id": "splat-outlands-b",
+          "kind": "bg",
+          "rows": 1,
+          "cols": 1,
+          "duration": 0,
+          "action": "outlands splat decal b: ash drift, 512px soft-edged alpha (drawn at alpha 0.55 in code)"
+        },
+        {
+          "id": "splat-outlands-c",
+          "kind": "bg",
+          "rows": 1,
+          "cols": 1,
+          "duration": 0,
+          "action": "outlands splat decal c: dead grass, 512px soft-edged alpha (drawn at alpha 0.55 in code)"
+        },
+        {
+          "id": "floor-desert-a",
+          "kind": "bg",
+          "rows": 1,
+          "cols": 1,
+          "duration": 0,
+          "strict": false,
+          "action": "desert floor variant a, 256px seamless full-bleed tile, L* 18-32 band (PRD-V2 \u00a73.7)",
+          "attempts": 1
+        },
+        {
+          "id": "floor-desert-b",
+          "kind": "bg",
+          "rows": 1,
+          "cols": 1,
+          "duration": 0,
+          "strict": false,
+          "action": "desert floor variant b, 256px seamless full-bleed tile, L* 18-32 band (PRD-V2 \u00a73.7)"
+        },
+        {
+          "id": "floor-desert-c",
+          "kind": "bg",
+          "rows": 1,
+          "cols": 1,
+          "duration": 0,
+          "strict": false,
+          "action": "desert floor variant c, 256px seamless full-bleed tile, L* 18-32 band (PRD-V2 \u00a73.7)"
+        },
+        {
+          "id": "road-desert",
+          "kind": "bg",
+          "rows": 1,
+          "cols": 1,
+          "duration": 0,
+          "strict": false,
+          "action": "desert road tile (hard sand), 256px seamless, L* ~10% under the zone floor",
+          "attempts": 1
+        },
+        {
+          "id": "splat-desert-a",
+          "kind": "bg",
+          "rows": 1,
+          "cols": 1,
+          "duration": 0,
+          "action": "desert splat decal a: sand ripple drift, 512px soft-edged alpha (drawn at alpha 0.55 in code)"
+        },
+        {
+          "id": "splat-desert-b",
+          "kind": "bg",
+          "rows": 1,
+          "cols": 1,
+          "duration": 0,
+          "action": "desert splat decal b: salt crust, 512px soft-edged alpha (drawn at alpha 0.55 in code)"
+        },
+        {
+          "id": "splat-desert-c",
+          "kind": "bg",
+          "rows": 1,
+          "cols": 1,
+          "duration": 0,
+          "action": "desert splat decal c: grit + bone chips, 512px soft-edged alpha (drawn at alpha 0.55 in code)"
+        },
+        {
+          "id": "floor-winter-a",
+          "kind": "bg",
+          "rows": 1,
+          "cols": 1,
+          "duration": 0,
+          "strict": false,
+          "action": "winter floor variant a, 256px seamless full-bleed tile, L* 18-32 band (PRD-V2 \u00a73.7)"
+        },
+        {
+          "id": "floor-winter-b",
+          "kind": "bg",
+          "rows": 1,
+          "cols": 1,
+          "duration": 0,
+          "strict": false,
+          "action": "winter floor variant b, 256px seamless full-bleed tile, L* 18-32 band (PRD-V2 \u00a73.7)"
+        },
+        {
+          "id": "floor-winter-c",
+          "kind": "bg",
+          "rows": 1,
+          "cols": 1,
+          "duration": 0,
+          "strict": false,
+          "action": "winter floor variant c, 256px seamless full-bleed tile, L* 18-32 band (PRD-V2 \u00a73.7)"
+        },
+        {
+          "id": "road-winter",
+          "kind": "bg",
+          "rows": 1,
+          "cols": 1,
+          "duration": 0,
+          "strict": false,
+          "action": "winter road tile (packed snow), 256px seamless, L* ~10% under the zone floor",
+          "attempts": 1
+        },
+        {
+          "id": "splat-winter-a",
+          "kind": "bg",
+          "rows": 1,
+          "cols": 1,
+          "duration": 0,
+          "action": "winter splat decal a: snowdrift, 512px soft-edged alpha (drawn at alpha 0.55 in code)"
+        },
+        {
+          "id": "splat-winter-b",
+          "kind": "bg",
+          "rows": 1,
+          "cols": 1,
+          "duration": 0,
+          "action": "winter splat decal b: ice glaze, 512px soft-edged alpha (drawn at alpha 0.55 in code)"
+        },
+        {
+          "id": "splat-winter-c",
+          "kind": "bg",
+          "rows": 1,
+          "cols": 1,
+          "duration": 0,
+          "action": "winter splat decal c: hoarfrost rime, 512px soft-edged alpha (drawn at alpha 0.55 in code)"
+        }
+      ]
+    },
+    {
+      "group": "props-v2",
+      "owner": "ArtWorld",
+      "assets": [
+        {
+          "id": "props-castle-c",
+          "kind": "ui",
+          "rows": 3,
+          "cols": 3,
+          "duration": 0,
+          "icons": [
+            "castle-wall-straight",
+            "castle-wall-corner",
+            "castle-wall-broken",
+            "castle-pillar",
+            "castle-rubble-heap",
+            "castle-gravestone",
+            "castle-monolith",
+            "castle-lamppost",
+            "castle-ironfence"
+          ],
+          "action": "castle props C: walls, pillar/tree, rubble, gravestone, monolith, post, fence",
+          "attempts": 1
+        },
+        {
+          "id": "props-castle-tall-top",
+          "kind": "ui",
+          "rows": 3,
+          "cols": 3,
+          "duration": 0,
+          "icons": [
+            "castle-wall-straight-top",
+            "castle-wall-corner-top",
+            "castle-pillar-top",
+            "castle-monolith-top",
+            "castle-lamppost-top",
+            "castle-torch-top",
+            "castle-statue-top",
+            "castle-column-top",
+            "castle-hook-top"
+          ],
+          "action": "castle tall-prop upper halves for Y-sort occlusion (derived crops, registers 1:1 with base cells)"
+        },
+        {
+          "id": "props-outlands-c",
+          "kind": "ui",
+          "rows": 3,
+          "cols": 3,
+          "duration": 0,
+          "icons": [
+            "outlands-logwall",
+            "outlands-palisade-corner",
+            "outlands-palisade-broken",
+            "outlands-deadtree",
+            "outlands-stonepile",
+            "outlands-gravemarker",
+            "outlands-spiralstone",
+            "outlands-gibbetpost",
+            "outlands-bonefence"
+          ],
+          "action": "outlands props C: walls, pillar/tree, rubble, gravestone, monolith, post, fence",
+          "attempts": 1
+        },
+        {
+          "id": "props-outlands-tall-top",
+          "kind": "ui",
+          "rows": 3,
+          "cols": 3,
+          "duration": 0,
+          "icons": [
+            "outlands-wall-corner-top",
+            "outlands-wall-broken-top",
+            "outlands-deadtree-top",
+            "outlands-monolith-top",
+            "outlands-gibbetpost-top",
+            "outlands-gibbet-top",
+            "outlands-tree-top",
+            "outlands-scarecrow-top",
+            "outlands-perch-top"
+          ],
+          "action": "outlands tall-prop upper halves for Y-sort occlusion (derived crops, registers 1:1 with base cells)"
+        },
+        {
+          "id": "props-desert-c",
+          "kind": "ui",
+          "rows": 3,
+          "cols": 3,
+          "duration": 0,
+          "icons": [
+            "desert-mudwall",
+            "desert-mudwall-corner",
+            "desert-mudwall-broken",
+            "desert-lotuscolumn",
+            "desert-sandrubble",
+            "desert-stele",
+            "desert-sunidol",
+            "desert-cagepost",
+            "desert-ribfence"
+          ],
+          "action": "desert props C: walls, pillar/tree, rubble, gravestone, monolith, post, fence",
+          "attempts": 1
+        },
+        {
+          "id": "props-desert-tall-top",
+          "kind": "ui",
+          "rows": 3,
+          "cols": 3,
+          "duration": 0,
+          "icons": [
+            "desert-wall-straight-top",
+            "desert-wall-corner-top",
+            "desert-column-top",
+            "desert-monolith-top",
+            "desert-cagepost-top",
+            "desert-obelisk-top",
+            "desert-palm-top",
+            "desert-sunbanner-top",
+            "desert-vulture-top"
+          ],
+          "action": "desert tall-prop upper halves for Y-sort occlusion (derived crops, registers 1:1 with base cells)"
+        },
+        {
+          "id": "props-winter-c",
+          "kind": "ui",
+          "rows": 3,
+          "cols": 3,
+          "duration": 0,
+          "icons": [
+            "winter-frostwall",
+            "winter-frostwall-corner",
+            "winter-frostwall-broken",
+            "winter-snowpine",
+            "winter-snowrubble",
+            "winter-frostgrave",
+            "winter-icemonolith",
+            "winter-lanternpost",
+            "winter-icefence"
+          ],
+          "action": "winter props C: walls, pillar/tree, rubble, gravestone, monolith, post, fence",
+          "attempts": 1
+        },
+        {
+          "id": "props-winter-tall-top",
+          "kind": "ui",
+          "rows": 3,
+          "cols": 3,
+          "duration": 0,
+          "icons": [
+            "winter-wall-straight-top",
+            "winter-wall-corner-top",
+            "winter-pine-c-top",
+            "winter-icemonolith-top",
+            "winter-lanternpost-top",
+            "winter-pine-top",
+            "winter-bellshrine-top",
+            "winter-lantern-top",
+            "winter-bonetree-top"
+          ],
+          "action": "winter tall-prop upper halves for Y-sort occlusion (derived crops, registers 1:1 with base cells)"
+        }
+      ]
+    },
+    {
+      "group": "landmarks",
+      "owner": "ArtWorld",
+      "assets": [
+        {
+          "id": "landmarks-castle",
+          "kind": "ui",
+          "rows": 3,
+          "cols": 3,
+          "duration": 0,
+          "icons": [
+            "lm-belltower",
+            "lm-ossuary",
+            "lm-chapelruin",
+            "lm-barracks",
+            "lm-cistern",
+            "lm-gallowsyard",
+            "lm-cryptmouth",
+            "lm-rampartbreach",
+            "lm-thronecourt"
+          ],
+          "action": "castle 9 region landmarks, 512px cells (PRD-V2 \u00a73.5 stamp ids)"
+        },
+        {
+          "id": "landmarks-outlands",
+          "kind": "ui",
+          "rows": 3,
+          "cols": 3,
+          "duration": 0,
+          "icons": [
+            "lm-gibbetrow",
+            "lm-ribcage",
+            "lm-mudcamp",
+            "lm-windmill",
+            "lm-carrionfield",
+            "lm-bonebridge",
+            "lm-burnedfarm",
+            "lm-standingstones",
+            "lm-ashpit"
+          ],
+          "action": "outlands 9 region landmarks, 512px cells (PRD-V2 \u00a73.5 stamp ids)"
+        },
+        {
+          "id": "landmarks-desert",
+          "kind": "ui",
+          "rows": 3,
+          "cols": 3,
+          "duration": 0,
+          "icons": [
+            "lm-sunkenhead",
+            "lm-drywell",
+            "lm-shadecanopy",
+            "lm-obelisk",
+            "lm-caravanwreck",
+            "lm-tombgate",
+            "lm-dunespine",
+            "lm-saltflat",
+            "lm-scarabmound"
+          ],
+          "action": "desert 9 region landmarks, 512px cells (PRD-V2 \u00a73.5 stamp ids)"
+        },
+        {
+          "id": "landmarks-winter",
+          "kind": "ui",
+          "rows": 3,
+          "cols": 3,
+          "duration": 0,
+          "icons": [
+            "lm-frozenshrine",
+            "lm-torchcircle",
+            "lm-icecavern",
+            "lm-widowspire",
+            "lm-corpselake",
+            "lm-brokenwall",
+            "lm-pineclutch",
+            "lm-yetiden",
+            "lm-crownsteps"
+          ],
+          "action": "winter 9 region landmarks, 512px cells (PRD-V2 \u00a73.5 stamp ids)"
+        }
+      ]
+    },
+    {
+      "group": "enemies-v2",
+      "owner": "ArtEnemies",
+      "assets": [
+        {
+          "id": "enemy-cryptcrawler-move",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 90,
+          "action": "Crypt Crawler skitter: (1) base stride (2) front-left/back-right legs reach (3) legs gathered, body raised (4) opposite pair reaches, tail curled",
+          "writeScaleProfile": "games/2026-08-29-duskhaul/public/assets/generated/enemies-v2/cryptcrawler-scale.json",
+          "profileName": "cryptcrawler",
+          "attempts": 4
+        },
+        {
+          "id": "enemy-cryptcrawler-death",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 90,
+          "action": "Crypt Crawler death: (1) jolts and twists (2) flips onto its back, legs curled (3) legs snap off, skull splits (4) fur-and-bone heap",
+          "attempts": 0,
+          "loop": false
+        },
+        {
+          "id": "enemy-lanternmonk-move",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 150,
+          "action": "Lantern Monk processional walk: (1) base, lantern out front (2) left foot, lantern swung forward (3) feet together, lantern hangs (4) right foot, lantern swung back",
+          "writeScaleProfile": "games/2026-08-29-duskhaul/public/assets/generated/enemies-v2/lanternmonk-scale.json",
+          "profileName": "lanternmonk",
+          "attempts": 1
+        },
+        {
+          "id": "enemy-lanternmonk-attack",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 110,
+          "action": "Lantern Monk lob: (1) wind-up, lantern behind shoulder (2) crook overhead, amber flame swollen (3) swing forward, amber fire-glob leaves the lantern (4) follow-through, lantern dimmed",
+          "attempts": 0,
+          "scaleProfile": "games/2026-08-29-duskhaul/public/assets/generated/enemies-v2/lanternmonk-scale.json",
+          "loop": false
+        },
+        {
+          "id": "enemy-lanternmonk-death",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 100,
+          "action": "Lantern Monk death: (1) staggers, crook slipping (2) sinks to knees, lantern dropped (3) pitches face-down (4) empty habit heap with crook and cold lantern",
+          "attempts": 0,
+          "loop": false
+        },
+        {
+          "id": "enemy-bulwark-move",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 150,
+          "action": "Bone Bulwark grinding advance behind door-sized bone shield (shield faces right): (1) base stride (2) feet together, shield lifted (3) right leg forward, shield tipped (4) sunk low, shield braced",
+          "writeScaleProfile": "games/2026-08-29-duskhaul/public/assets/generated/enemies-v2/bulwark-scale.json",
+          "profileName": "bulwark",
+          "attempts": 1
+        },
+        {
+          "id": "enemy-bulwark-death",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 100,
+          "action": "Bone Bulwark death: (1) reels back, shield cracking (2) kneels, split shield leaning (3) shield bursts into femurs, skeleton cascades (4) bone-and-iron heap",
+          "attempts": 2,
+          "loop": false
+        },
+        {
+          "id": "enemy-gibbet-move",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 140,
+          "action": "Gibbet Wight pendulum hover: (1) hangs straight (2) sways forward, feet trailing (3) hangs straight (hold, same drawing as 1) (4) sways back, hook swinging forward",
+          "writeScaleProfile": "games/2026-08-29-duskhaul/public/assets/generated/enemies-v2/gibbet-scale.json",
+          "profileName": "gibbet",
+          "attempts": 1
+        },
+        {
+          "id": "enemy-gibbet-attack",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 100,
+          "action": "Gibbet Wight hook: (1) hook arm drawn back, red glint (2) whirls hook overhead (3) hurls hook, chain straight out right (4) yanks chain back",
+          "attempts": 0,
+          "scaleProfile": "games/2026-08-29-duskhaul/public/assets/generated/enemies-v2/gibbet-scale.json",
+          "loop": false
+        },
+        {
+          "id": "enemy-gibbet-death",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 100,
+          "action": "Gibbet Wight death: (1) rope snaps, body jerks (2) lies curled on its side (3) comes apart (4) pile of bones, rope and hook",
+          "attempts": 2,
+          "loop": false
+        },
+        {
+          "id": "enemy-choirwraith-move",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 130,
+          "action": "Choir Wraith drift: (1) base, arms flung wide (2) arms at shoulder height, hem trailing (3) arms raised high, body tall (4) arms level, hem billowing",
+          "writeScaleProfile": "games/2026-08-29-duskhaul/public/assets/generated/enemies-v2/choirwraith-scale.json",
+          "profileName": "choirwraith",
+          "attempts": 1
+        },
+        {
+          "id": "enemy-choirwraith-attack",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 110,
+          "action": "Choir Wraith scream: (1) inhale, arms crossed (2) head thrown back, red glow in mouth (3) screams right, red sound-ring arcs at the mouth (4) sags, glow fading",
+          "attempts": 0,
+          "scaleProfile": "games/2026-08-29-duskhaul/public/assets/generated/enemies-v2/choirwraith-scale.json",
+          "loop": false
+        },
+        {
+          "id": "enemy-choirwraith-death",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 100,
+          "action": "Choir Wraith death: (1) convulses, clutching face (2) robe unravels into shreds (3) skull and collar sinking among scraps (4) crumpled robe heap with skull",
+          "attempts": 0,
+          "loop": false
+        },
+        {
+          "id": "enemy-mirehag-move",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 150,
+          "action": "Mire Hag shuffle: (1) base, cane forward (2) front foot drags, fresh mud drip (3) sags, feet together on cane (4) back foot drags, cane lifted",
+          "writeScaleProfile": "games/2026-08-29-duskhaul/public/assets/generated/enemies-v2/mirehag-scale.json",
+          "profileName": "mirehag",
+          "attempts": 1
+        },
+        {
+          "id": "enemy-mirehag-death",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 100,
+          "action": "Mire Hag death: (1) jerks upright, cane flying (2) slumps, melting into mud (3) mud mound with hair and hand (4) flat mud puddle-mound with cane",
+          "attempts": 0,
+          "loop": false
+        },
+        {
+          "id": "enemy-sandrevenant-move",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 140,
+          "action": "Sand Revenant lurch: (1) base, arms reaching (2) left leg forward (3) feet together, sand spilling (4) right leg forward",
+          "writeScaleProfile": "games/2026-08-29-duskhaul/public/assets/generated/enemies-v2/sandrevenant-scale.json",
+          "profileName": "sandrevenant",
+          "attempts": 1
+        },
+        {
+          "id": "enemy-sandrevenant-death",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 110,
+          "action": "Sand Revenant collapse (the 2 s revive window reads on frame 4): (1) reels, sand bursting (2) kneels, pouring out as sand (3) slumped half-pile, skull showing (4) sand mound with bandages, scarab and skull",
+          "attempts": 0,
+          "loop": false
+        },
+        {
+          "id": "enemy-sandrevenant-revive",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 150,
+          "action": "Sand Revenant revive (plays from death frame 4): (1) mound stirs, skull and hand rise (2) torso formed over a whirling sand column (3) pushes up from one knee, eyes flaring (4) standing, arms spread, last sand swirling",
+          "attempts": 0,
+          "loop": false,
+          "scaleProfile": "games/2026-08-29-duskhaul/public/assets/generated/enemies-v2/sandrevenant-scale.json"
+        },
+        {
+          "id": "enemy-rimestalker-move",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 100,
+          "action": "Rime Stalker stalk: (1) base crouch-walk (2) front-right claw and back-left leg reach (3) gathered, spine arched to pounce (4) stretched long and low",
+          "writeScaleProfile": "games/2026-08-29-duskhaul/public/assets/generated/enemies-v2/rimestalker-scale.json",
+          "profileName": "rimestalker",
+          "attempts": 0
+        },
+        {
+          "id": "enemy-rimestalker-death",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 90,
+          "action": "Rime Stalker death: (1) rears back, frost cracks (2) collapses to elbows and knees, shards snapping (3) flat on belly, shards scattered (4) pile of frost bones and ice shards",
+          "attempts": 0,
+          "loop": false
+        }
+      ]
+    },
+    {
+      "group": "icons-v2",
+      "owner": "ArtIcons",
+      "assets": [
+        {
+          "id": "icons-wpn-a",
+          "kind": "ui",
+          "rows": 4,
+          "cols": 4,
+          "duration": 0,
+          "loop": false,
+          "attempts": 1,
+          "icons": [
+            "icon-wpn-bolt",
+            "icon-wpn-orbit",
+            "icon-wpn-nova",
+            "icon-wpn-scythe",
+            "icon-evo-bolt",
+            "icon-evo-orbit",
+            "icon-evo-nova",
+            "icon-evo-scythe",
+            "icon-wpn-rail",
+            "icon-wpn-hex",
+            "icon-wpn-skull",
+            "icon-wpn-censer",
+            "icon-evo-rail",
+            "icon-evo-hex",
+            "icon-evo-skull",
+            "icon-evo-censer"
+          ],
+          "action": "Weapon + evolution item icons (rows: base, evolved, base, evolved), PRD-V2 \u00a75.8 ids",
+          "cellPx": 96,
+          "strict": true
+        },
+        {
+          "id": "icons-wpn-b",
+          "kind": "ui",
+          "rows": 4,
+          "cols": 4,
+          "duration": 0,
+          "loop": false,
+          "attempts": 0,
+          "icons": [
+            "icon-wpn-sickle",
+            "icon-wpn-lash",
+            "icon-wpn-breath",
+            "icon-wpn-spears",
+            "icon-evo-sickle",
+            "icon-evo-lash",
+            "icon-evo-breath",
+            "icon-evo-spears",
+            "icon-charm-c_oath",
+            "icon-charm-c_bell",
+            "icon-charm-c_drum",
+            "icon-charm-c_heart",
+            "icon-charm-c_eye",
+            "icon-charm-c_tongue",
+            "icon-charm-c_lodestone",
+            "icon-charm-c_candle"
+          ],
+          "action": "Weapons 9-12 + evolutions, charms 1-8 (PRD-V2 \u00a75.8/\u00a75.9)",
+          "cellPx": 96,
+          "strict": true
+        },
+        {
+          "id": "icons-kit",
+          "kind": "ui",
+          "rows": 4,
+          "cols": 4,
+          "duration": 0,
+          "loop": false,
+          "attempts": 1,
+          "icons": [
+            "icon-charm-c_spur",
+            "icon-charm-c_mail",
+            "icon-charm-c_salve",
+            "icon-charm-c_pouch",
+            "icon-charm-c_step",
+            "icon-cb-cb_bread",
+            "icon-cb-cb_flask",
+            "icon-cb-cb_salt",
+            "icon-cb-cb_candle",
+            "icon-cb-cb_oil",
+            "icon-uniq-u_dreadcrown",
+            "icon-uniq-u_sorrowplate",
+            "icon-uniq-u_gravekey",
+            "icon-uniq-u_duskmirror",
+            "icon-uniq-u_suneater",
+            "icon-uniq-u_rimeheart"
+          ],
+          "action": "Charms 9-13, belt consumables (\u00a75.27), uniques (\u00a75.15.4) except bellrope/gibbetboots",
+          "cellPx": 96,
+          "strict": true
+        },
+        {
+          "id": "icons-gear-a",
+          "kind": "ui",
+          "rows": 4,
+          "cols": 4,
+          "duration": 0,
+          "loop": false,
+          "attempts": 0,
+          "icons": [
+            "icon-gear-sackcloth-hood",
+            "icon-gear-gravediggers-cap",
+            "icon-gear-plague-mask",
+            "icon-gear-iron-coif",
+            "icon-gear-mourning-veil",
+            "icon-gear-burial-shroud",
+            "icon-gear-rust-brigandine",
+            "icon-gear-pilgrim-cloak",
+            "icon-gear-bone-lamellar",
+            "icon-gear-ash-mantle",
+            "icon-gear-gut-wrap-gloves",
+            "icon-gear-iron-gauntlets",
+            "icon-gear-thiefs-grips",
+            "icon-gear-hexbinder-wraps",
+            "icon-gear-butchers-mitts",
+            "icon-uniq-u_bellrope"
+          ],
+          "action": "Gear bases hood/shroud/grips (\u00a75.15.2, names kebab-cased) + Bell-Ringer's Rope unique",
+          "cellPx": 96,
+          "strict": true
+        },
+        {
+          "id": "icons-gear-b",
+          "kind": "ui",
+          "rows": 4,
+          "cols": 4,
+          "duration": 0,
+          "loop": false,
+          "attempts": 2,
+          "icons": [
+            "icon-gear-mud-boots",
+            "icon-gear-grave-treads",
+            "icon-gear-ashwalker-soles",
+            "icon-gear-courier-boots",
+            "icon-gear-iron-sabatons",
+            "icon-gear-tin-band",
+            "icon-gear-thornband",
+            "icon-gear-bone-dice-ring",
+            "icon-gear-signet-of-hours",
+            "icon-gear-lodestone-loop",
+            "icon-gear-rat-tooth-charm",
+            "icon-gear-ash-locket",
+            "icon-gear-dirge-pipe",
+            "icon-gear-saints-knuckle",
+            "icon-gear-gloam-talisman",
+            "icon-uniq-u_gibbetboots"
+          ],
+          "action": "Gear bases boots/ring/amulet (\u00a75.15.2) + Gibbet Boots unique",
+          "cellPx": 96,
+          "strict": true
+        },
+        {
+          "id": "icons-val-a",
+          "kind": "ui",
+          "rows": 4,
+          "cols": 4,
+          "duration": 0,
+          "loop": false,
+          "attempts": 1,
+          "icons": [
+            "icon-val-v_tallowstub",
+            "icon-val-v_rustcoin",
+            "icon-val-v_bonecomb",
+            "icon-val-v_ashurn",
+            "icon-val-v_widowring",
+            "icon-val-v_censerchain",
+            "icon-val-v_psalter",
+            "icon-val-v_gargoyletooth",
+            "icon-val-v_carvedskull",
+            "icon-val-v_silvercup",
+            "icon-val-v_reliquarybox",
+            "icon-val-v_gildedicon",
+            "icon-val-v_amberbeetle",
+            "icon-val-v_frostpearl",
+            "icon-val-v_bishopsring",
+            "icon-val-v_giltchalice"
+          ],
+          "action": "Valuables 1-16 (\u00a75.14)",
+          "cellPx": 96,
+          "strict": true
+        },
+        {
+          "id": "icons-val-b",
+          "kind": "ui",
+          "rows": 3,
+          "cols": 3,
+          "duration": 0,
+          "loop": false,
+          "attempts": 0,
+          "icons": [
+            "icon-val-v_crownshard",
+            "icon-val-v_sunmask",
+            "icon-val-v_rimecrown",
+            "icon-val-v_saintsbone",
+            "icon-val-v_duskgem",
+            "icon-val-v_gravecrown",
+            "icon-val-v_blackcandle",
+            "icon-val-v_hollowheart",
+            "icon-item-unknown"
+          ],
+          "action": "Valuables 17-24 (\u00a75.14) + unknown-item fallback glyph",
+          "cellPx": 96,
+          "strict": true
+        },
+        {
+          "id": "icons-affix",
+          "kind": "ui",
+          "rows": 3,
+          "cols": 3,
+          "duration": 0,
+          "loop": false,
+          "attempts": 0,
+          "icons": [
+            "icon-affix-vampiric",
+            "icon-affix-hasted",
+            "icon-affix-shielded",
+            "icon-affix-splitter",
+            "icon-affix-frenzied",
+            "icon-affix-warded",
+            "icon-affix-plagued",
+            "icon-affix-magnetic",
+            "icon-elite"
+          ],
+          "action": "Elite affix badges shown over elites at 28 px (\u00a75.5) + generic elite mark",
+          "cellPx": 32,
+          "strict": true
+        },
+        {
+          "id": "icons-hub",
+          "kind": "ui",
+          "rows": 3,
+          "cols": 3,
+          "duration": 0,
+          "loop": false,
+          "attempts": 0,
+          "icons": [
+            "icon-tab-expedition",
+            "icon-tab-armory",
+            "icon-tab-vault",
+            "icon-tab-sanctum",
+            "icon-tab-codex",
+            "icon-cur-dust",
+            "icon-cur-sigil",
+            "icon-cur-xp",
+            "icon-cur-shard"
+          ],
+          "action": "Hub tab glyphs (\u00a714.2, drawn at 56 px) + currencies (\u00a75.17, drawn at 64 px)",
+          "cellPx": 64,
+          "strict": true
+        },
+        {
+          "id": "icons-minimap",
+          "kind": "ui",
+          "rows": 4,
+          "cols": 4,
+          "duration": 0,
+          "loop": false,
+          "attempts": 0,
+          "icons": [
+            "mm-gate",
+            "mm-gate-cond",
+            "mm-chest",
+            "mm-lair",
+            "mm-den",
+            "mm-shrine",
+            "mm-vault",
+            "mm-event",
+            "mm-fence",
+            "mm-boss",
+            "mm-vein",
+            "mm-lore",
+            "mm-bell",
+            "mm-hero",
+            "mm-drop",
+            "mm-key"
+          ],
+          "action": "Minimap glyphs (\u00a714.10, drawn at 12 px) incl. extra POI kinds vein/lore/bell + hero/drop/key",
+          "cellPx": 24,
+          "strict": true
+        },
+        {
+          "id": "icons-class",
+          "kind": "ui",
+          "rows": 2,
+          "cols": 2,
+          "duration": 0,
+          "loop": false,
+          "attempts": 0,
+          "icons": [
+            "icon-class-duskhauler",
+            "icon-class-gravewarden",
+            "icon-class-ashwitch",
+            "icon-class-widowblade"
+          ],
+          "action": "Class portraits (\u00a75.3), hero identity with class start-weapon",
+          "cellPx": 128,
+          "strict": true
+        },
+        {
+          "id": "zone-key-castle",
+          "kind": "bg",
+          "rows": 1,
+          "cols": 1,
+          "attempts": 0,
+          "strict": false,
+          "action": "Zone key art 640x300 for the EXPEDITION zone card (\u00a711 key art)",
+          "textureAlias": "zoneKeyCastle"
+        },
+        {
+          "id": "zone-key-outlands",
+          "kind": "bg",
+          "rows": 1,
+          "cols": 1,
+          "attempts": 0,
+          "strict": false,
+          "action": "Zone key art 640x300 for the EXPEDITION zone card (\u00a711 key art)",
+          "textureAlias": "zoneKeyOutlands"
+        },
+        {
+          "id": "zone-key-desert",
+          "kind": "bg",
+          "rows": 1,
+          "cols": 1,
+          "attempts": 0,
+          "strict": false,
+          "action": "Zone key art 640x300 for the EXPEDITION zone card (\u00a711 key art)",
+          "textureAlias": "zoneKeyDesert"
+        },
+        {
+          "id": "zone-key-winter",
+          "kind": "bg",
+          "rows": 1,
+          "cols": 1,
+          "attempts": 0,
+          "strict": false,
+          "action": "Zone key art 640x300 for the EXPEDITION zone card (\u00a711 key art)",
+          "textureAlias": "zoneKeyWinter"
+        }
+      ]
+    },
+    {
+      "group": "poi",
+      "owner": "ArtPOI",
+      "assets": [
+        {
+          "id": "poi-chest-t1",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 110,
+          "loop": false,
+          "action": "Reliquary chest (rusted iron) 4f open, non-loop, hold last",
+          "attempts": 1
+        },
+        {
+          "id": "poi-chest-t2",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 110,
+          "loop": false,
+          "action": "Reliquary chest (bronze) 4f open, non-loop, hold last",
+          "attempts": 1
+        },
+        {
+          "id": "poi-chest-t3",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 110,
+          "loop": false,
+          "action": "Reliquary chest (gilt) 4f open, non-loop, hold last",
+          "attempts": 1
+        },
+        {
+          "id": "poi-vault",
+          "kind": "fx",
+          "rows": 1,
+          "cols": 2,
+          "duration": 0,
+          "action": "Dread Vault door: frame 0 closed (Dread lock), frame 1 open",
+          "attempts": 1
+        },
+        {
+          "id": "poi-lair-banner",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 140,
+          "action": "Red-rimmed skull banner 4f flutter loop",
+          "attempts": 1
+        },
+        {
+          "id": "poi-shrine-blood",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 160,
+          "action": "Blood shrine 4f idle glow loop",
+          "attempts": 1
+        },
+        {
+          "id": "poi-shrine-gilt",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 160,
+          "action": "Gilt shrine 4f idle glow loop",
+          "attempts": 1
+        },
+        {
+          "id": "poi-shrine-bone",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 160,
+          "action": "Bone shrine 4f idle glow loop",
+          "attempts": 1
+        },
+        {
+          "id": "poi-shrine-grave",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 160,
+          "action": "Grave shrine 4f idle glow loop",
+          "attempts": 1
+        },
+        {
+          "id": "poi-shrine-curse",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 160,
+          "action": "Curse shrine 4f idle glow loop",
+          "attempts": 1
+        },
+        {
+          "id": "poi-vein",
+          "kind": "fx",
+          "rows": 1,
+          "cols": 3,
+          "duration": 0,
+          "action": "Ossuary shard vein: frame 0 full, 1 half, 2 depleted",
+          "attempts": 1
+        },
+        {
+          "id": "poi-lore",
+          "kind": "fx",
+          "rows": 1,
+          "cols": 1,
+          "action": "Lore stone: carved headstone with glowing glyph",
+          "attempts": 1
+        },
+        {
+          "id": "poi-bell",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 150,
+          "action": "Bell on a gibbet frame 4f swing loop",
+          "attempts": 1
+        },
+        {
+          "id": "poi-den-wall",
+          "kind": "fx",
+          "rows": 1,
+          "cols": 2,
+          "duration": 0,
+          "action": "Den bone wall segment: frame 0 rising, frame 1 raised idle",
+          "attempts": 1
+        },
+        {
+          "id": "npc-fence",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 180,
+          "action": "Wandering Fence: hunched trader with lantern cart 4f idle loop",
+          "attempts": 1
+        }
+      ]
+    },
+    {
+      "group": "gates-v2",
+      "owner": "ArtPOI",
+      "assets": [
+        {
+          "id": "gate-toll-closed",
+          "kind": "fx",
+          "rows": 1,
+          "cols": 1,
+          "action": "Toll gate closed (ferry chain), shares gate arch silhouette",
+          "attempts": 1
+        },
+        {
+          "id": "gate-toll-open",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 130,
+          "action": "Toll gate open 4f loop (ferry chain)",
+          "attempts": 1
+        },
+        {
+          "id": "gate-offering-closed",
+          "kind": "fx",
+          "rows": 1,
+          "cols": 1,
+          "action": "Offering gate closed (altar), shares gate arch silhouette",
+          "attempts": 1
+        },
+        {
+          "id": "gate-offering-open",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 130,
+          "action": "Offering gate open 4f loop (altar)",
+          "attempts": 2
+        },
+        {
+          "id": "gate-bell-closed",
+          "kind": "fx",
+          "rows": 1,
+          "cols": 1,
+          "action": "Bell gate closed (bell arch), shares gate arch silhouette",
+          "attempts": 2
+        },
+        {
+          "id": "gate-bell-open",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 130,
+          "action": "Bell gate open 4f loop (bell arch)",
+          "attempts": 2
+        }
+      ]
+    },
+    {
+      "group": "breakables",
+      "owner": "ArtPOI",
+      "assets": [
+        {
+          "id": "brk-castle",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 3,
+          "duration": 0,
+          "action": "castle breakables: row 0 intact urn/coffin/crate, row 1 broken",
+          "icons": [
+            "brk-castle-urn",
+            "brk-castle-coffin",
+            "brk-castle-crate",
+            "brk-castle-urn-broken",
+            "brk-castle-coffin-broken",
+            "brk-castle-crate-broken"
+          ],
+          "attempts": 1
+        },
+        {
+          "id": "brk-outlands",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 3,
+          "duration": 0,
+          "action": "outlands breakables: row 0 intact urn/coffin/crate, row 1 broken",
+          "icons": [
+            "brk-outlands-urn",
+            "brk-outlands-coffin",
+            "brk-outlands-crate",
+            "brk-outlands-urn-broken",
+            "brk-outlands-coffin-broken",
+            "brk-outlands-crate-broken"
+          ],
+          "attempts": 1
+        },
+        {
+          "id": "brk-desert",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 3,
+          "duration": 0,
+          "action": "desert breakables: row 0 intact urn/coffin/crate, row 1 broken",
+          "icons": [
+            "brk-desert-urn",
+            "brk-desert-coffin",
+            "brk-desert-crate",
+            "brk-desert-urn-broken",
+            "brk-desert-coffin-broken",
+            "brk-desert-crate-broken"
+          ],
+          "attempts": 2
+        },
+        {
+          "id": "brk-winter",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 3,
+          "duration": 0,
+          "action": "winter breakables: row 0 intact urn/coffin/crate, row 1 broken",
+          "icons": [
+            "brk-winter-urn",
+            "brk-winter-coffin",
+            "brk-winter-crate",
+            "brk-winter-urn-broken",
+            "brk-winter-coffin-broken",
+            "brk-winter-crate-broken"
+          ],
+          "attempts": 1
+        }
+      ]
+    },
+    {
+      "group": "pickups-v2",
+      "owner": "ArtPOI",
+      "assets": [
+        {
+          "id": "pk-bread",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 120,
+          "action": "Grave Bread pickup 4f glint loop",
+          "attempts": 1
+        },
+        {
+          "id": "pk-bell",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 120,
+          "action": "Dirge Bell pickup 4f glint loop",
+          "attempts": 1
+        },
+        {
+          "id": "pk-flask",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 120,
+          "action": "Pyre Flask pickup 4f glint loop",
+          "attempts": 1
+        },
+        {
+          "id": "pk-salt",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 120,
+          "action": "Frost Salt pickup 4f glint loop",
+          "attempts": 1
+        },
+        {
+          "id": "pk-xpcluster",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 120,
+          "action": "XP cluster (5 soul motes) pickup 4f glint loop",
+          "attempts": 1
+        },
+        {
+          "id": "pk-key",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 120,
+          "action": "Dread Key pickup 4f glint loop",
+          "attempts": 1
+        }
+      ]
+    },
+    {
+      "group": "weapon-fx",
+      "owner": "ArtPOI",
+      "assets": [
+        {
+          "id": "wpn-skull",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 90,
+          "action": "Wailing Skull homing projectile 4f, faces right",
+          "attempts": 1
+        },
+        {
+          "id": "wpn-skull-evo",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 90,
+          "action": "Wailing Skull homing projectile 4f, faces right (evolved)",
+          "attempts": 2
+        },
+        {
+          "id": "wpn-censer-pool",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 140,
+          "action": "Plague Censer ground pool 4f bubbling loop",
+          "attempts": 1
+        },
+        {
+          "id": "wpn-censer-pool-evo",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 140,
+          "action": "Plague Censer ground pool 4f bubbling loop (evolved)",
+          "attempts": 2
+        },
+        {
+          "id": "wpn-sickle",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 60,
+          "action": "Grave Sickle boomerang 4f spin",
+          "attempts": 1
+        },
+        {
+          "id": "wpn-sickle-evo",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 60,
+          "action": "Grave Sickle boomerang 4f spin (evolved)",
+          "attempts": 2
+        },
+        {
+          "id": "wpn-lash",
+          "kind": "fx",
+          "rows": 3,
+          "cols": 1,
+          "duration": 70,
+          "loop": false,
+          "action": "Thorn Lash horizontal whip 3f, extends right",
+          "attempts": 2
+        },
+        {
+          "id": "wpn-lash-evo",
+          "kind": "fx",
+          "rows": 3,
+          "cols": 1,
+          "duration": 70,
+          "loop": false,
+          "action": "Thorn Lash horizontal whip 3f, extends right (evolved)",
+          "attempts": 1
+        },
+        {
+          "id": "wpn-breath",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 90,
+          "action": "Pyre Breath cone 4f, spirit flame pointing right",
+          "attempts": 1
+        },
+        {
+          "id": "wpn-breath-evo",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 90,
+          "action": "Pyre Breath cone 4f, spirit flame pointing right (evolved)",
+          "attempts": 2
+        },
+        {
+          "id": "wpn-spear",
+          "kind": "fx",
+          "rows": 1,
+          "cols": 5,
+          "duration": 70,
+          "loop": false,
+          "action": "Gallows Spear 5f bone-spike eruption",
+          "attempts": 1
+        },
+        {
+          "id": "wpn-spear-evo",
+          "kind": "fx",
+          "rows": 1,
+          "cols": 5,
+          "duration": 70,
+          "loop": false,
+          "action": "Gallows Spear 5f bone-spike eruption (evolved)",
+          "attempts": 2
+        }
+      ]
+    },
+    {
+      "group": "boss-fx",
+      "owner": "ArtPOI",
+      "assets": [
+        {
+          "id": "fx-bell-ring",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 90,
+          "loop": false,
+          "action": "Toll shockwave ring 4f expand",
+          "attempts": 3
+        },
+        {
+          "id": "fx-geyser",
+          "kind": "fx",
+          "rows": 1,
+          "cols": 5,
+          "duration": 80,
+          "loop": false,
+          "action": "Ash geyser 5f eruption",
+          "attempts": 1
+        },
+        {
+          "id": "fx-scorch-beam",
+          "kind": "fx",
+          "rows": 1,
+          "cols": 3,
+          "duration": 70,
+          "action": "Scorch beam 3f loop, vertical",
+          "attempts": 1
+        },
+        {
+          "id": "fx-icicle",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 90,
+          "action": "Falling icicle 4f, point down",
+          "attempts": 1
+        },
+        {
+          "id": "fx-ice-wall",
+          "kind": "fx",
+          "rows": 1,
+          "cols": 2,
+          "duration": 0,
+          "action": "Glacier ice wall: frame 0 forming, 1 standing",
+          "attempts": 1
+        },
+        {
+          "id": "fx-sand-pillar",
+          "kind": "fx",
+          "rows": 1,
+          "cols": 3,
+          "duration": 90,
+          "loop": false,
+          "action": "Sand pillar 3f rise",
+          "attempts": 1
+        }
+      ]
+    },
+    {
+      "group": "fx-v2",
+      "owner": "ArtPOI",
+      "assets": [
+        {
+          "id": "fx-lightpool",
+          "kind": "fx",
+          "rows": 1,
+          "cols": 1,
+          "action": "Radial white light pool, dithered falloff, tinted in code",
+          "attempts": 1
+        },
+        {
+          "id": "fx-shadow",
+          "kind": "fx",
+          "rows": 1,
+          "cols": 1,
+          "action": "Soft dark ground ellipse",
+          "attempts": 1
+        },
+        {
+          "id": "fx-chest-beam",
+          "kind": "fx",
+          "rows": 1,
+          "cols": 4,
+          "duration": 100,
+          "action": "Pale item beam 4f shimmer loop (tier tint in code)",
+          "attempts": 1
+        }
+      ]
+    },
+    {
+      "group": "icons-v3",
+      "owner": "ArtIcons3",
+      "assets": [
+        {
+          "id": "icons-v3-cards",
+          "kind": "ui",
+          "rows": 4,
+          "cols": 4,
+          "duration": 0,
+          "loop": false,
+          "attempts": 2,
+          "icons": [
+            "icon-card-stat_might",
+            "icon-card-stat_haste",
+            "icon-card-stat_area",
+            "icon-card-stat_crit",
+            "icon-card-stat_vital",
+            "icon-card-stat_swift",
+            "icon-card-stat_greed",
+            "icon-card-fx_lastgasp",
+            "icon-card-fill_bread",
+            "icon-card-fill_purse",
+            "icon-branch-body",
+            "icon-branch-greed",
+            "icon-branch-escape",
+            "icon-branch-ascension",
+            "icon-branch-root",
+            "icon-sanctum-keystone"
+          ],
+          "action": "Draft stat/effect/filler card icons (upgrades.ts STAT_CARDS + FILLER_CARDS) + Sanctum branch crests (sanctum.ts BODY/GREED/ESCAPE, Dread Ascension row, ROOT oath) + row-4 keystone mark",
+          "cellPx": 96,
+          "strict": true
+        }
+      ]
+    },
+    {
+      "group": "weapon-fx-v1",
+      "owner": "ArtWeaponFx",
+      "assets": [
+        {
+          "id": "wpn-bolt",
+          "kind": "fx",
+          "rows": 1,
+          "cols": 2,
+          "duration": 110,
+          "action": "Rustspike thrown rusted nail projectile 2f shimmer loop, points right",
+          "attempts": 2
+        },
+        {
+          "id": "wpn-bolt-evo",
+          "kind": "fx",
+          "rows": 1,
+          "cols": 2,
+          "duration": 110,
+          "action": "Nail Legion violet-edged nail projectile 2f shimmer loop, points right (evolved)",
+          "attempts": 1
+        },
+        {
+          "id": "wpn-orbit",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 120,
+          "action": "Bone Halo single curved bone blade 4f tumble loop (flip frames)",
+          "attempts": 2
+        },
+        {
+          "id": "wpn-orbit-evo",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 120,
+          "action": "Marrow Wheel bone blade with violet marrow glow 4f tumble loop (flip frames, evolved)",
+          "attempts": 1
+        },
+        {
+          "id": "wpn-nova",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 90,
+          "loop": false,
+          "action": "Ash Ring expanding cold ash ring burst 4f one-shot",
+          "attempts": 2
+        },
+        {
+          "id": "wpn-nova-evo",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 90,
+          "loop": false,
+          "action": "Pyre Shroud violet-cyan spirit fire ring burst 4f one-shot (evolved)",
+          "attempts": 2
+        },
+        {
+          "id": "wpn-scythe",
+          "kind": "fx",
+          "rows": 1,
+          "cols": 3,
+          "duration": 70,
+          "loop": false,
+          "action": "Gloam Scythe crescent slash arc 3f one-shot, convex toward +x, origin (0.36,0.5)",
+          "attempts": 2
+        },
+        {
+          "id": "wpn-scythe-evo",
+          "kind": "fx",
+          "rows": 1,
+          "cols": 3,
+          "duration": 70,
+          "loop": false,
+          "action": "Dirge Reaper full 360-degree ring slash 3f one-shot (evolved)",
+          "attempts": 2
+        },
+        {
+          "id": "wpn-rail",
+          "kind": "fx",
+          "rows": 3,
+          "cols": 1,
+          "duration": 70,
+          "action": "Widow's Lance thin piercing beam segment 3f flicker loop, horizontal, points right",
+          "attempts": 2
+        },
+        {
+          "id": "wpn-rail-evo",
+          "kind": "fx",
+          "rows": 3,
+          "cols": 1,
+          "duration": 70,
+          "action": "Sorrow Piercer wide violet beam segment 3f flicker loop, horizontal, points right (evolved)",
+          "attempts": 2
+        },
+        {
+          "id": "wpn-hex",
+          "kind": "fx",
+          "rows": 3,
+          "cols": 1,
+          "duration": 80,
+          "action": "Thorn Hex thorned chain-lightning link segment 3f crackle loop, horizontal",
+          "attempts": 1
+        },
+        {
+          "id": "wpn-hex-evo",
+          "kind": "fx",
+          "rows": 3,
+          "cols": 1,
+          "duration": 80,
+          "action": "Rot Chorus gloam-tinted thorned chain-lightning link segment 3f crackle loop, horizontal (evolved)",
+          "attempts": 1
+        }
+      ]
+    },
+    {
+      "group": "weapon-fx-v2",
+      "owner": "ArtArsenalFx",
+      "assets": [
+        {
+          "id": "wpn-aura",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 140,
+          "loop": true,
+          "action": "Mourning Pall hollow cold-mist damage ring 4f slow swirl loop, radial, drawn under actors (code alpha)",
+          "attempts": 1
+        },
+        {
+          "id": "wpn-aura-evo",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 140,
+          "loop": true,
+          "action": "Pall of the Dead thick violet shroud ring with ghost-skull faces 4f swirl loop, radial (evolved)",
+          "attempts": 1
+        },
+        {
+          "id": "wpn-chakram",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 60,
+          "loop": true,
+          "action": "Ossuary Disc bone ring chakram 4f spin loop, no facing (rotated in code)",
+          "attempts": 2
+        },
+        {
+          "id": "wpn-chakram-evo",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 60,
+          "loop": true,
+          "action": "Wheel of Sorrows spoked rib wheel with violet hub 4f spin loop, no facing (evolved)",
+          "attempts": 1
+        },
+        {
+          "id": "wpn-wake",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 110,
+          "loop": true,
+          "action": "Gloam Wake cold violet ground fire patch 4f flicker loop, ground decal",
+          "attempts": 1
+        },
+        {
+          "id": "wpn-wake-evo",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 110,
+          "loop": true,
+          "action": "River of Dusk swirling indigo fire pool with drifting bones 4f flicker loop, ground decal (evolved)",
+          "attempts": 1
+        },
+        {
+          "id": "wpn-snares",
+          "kind": "fx",
+          "rows": 1,
+          "cols": 2,
+          "duration": 300,
+          "loop": true,
+          "action": "Grave Snare rib-ring skull trap 2f armed idle rune pulse loop",
+          "attempts": 1
+        },
+        {
+          "id": "wpn-snares-evo",
+          "kind": "fx",
+          "rows": 1,
+          "cols": 2,
+          "duration": 300,
+          "loop": true,
+          "action": "Ossuary Mine horned skull in spiked vertebra ring 2f armed idle pulse loop (evolved)",
+          "attempts": 1
+        },
+        {
+          "id": "wpn-snares-blast",
+          "kind": "fx",
+          "rows": 1,
+          "cols": 5,
+          "duration": 70,
+          "loop": false,
+          "action": "Grave Snare bone-shard and cyan rune blast 5f one-shot, radial",
+          "attempts": 2
+        },
+        {
+          "id": "wpn-snares-blast-evo",
+          "kind": "fx",
+          "rows": 1,
+          "cols": 5,
+          "duration": 70,
+          "loop": false,
+          "action": "Ossuary Minefield violet-cyan bone blast 5f one-shot, radial (evolved)",
+          "attempts": 2
+        },
+        {
+          "id": "wpn-siphon",
+          "kind": "fx",
+          "rows": 4,
+          "cols": 1,
+          "duration": 80,
+          "loop": true,
+          "action": "Marrow Siphon violet braided tether with bone core 4f flow loop, horizontal segment pointing right, tiles end-to-end",
+          "attempts": 2
+        },
+        {
+          "id": "wpn-siphon-evo",
+          "kind": "fx",
+          "rows": 4,
+          "cols": 1,
+          "duration": 80,
+          "loop": true,
+          "action": "Heartdrinker thick violet braid beam with bone core and cyan sparks 4f flow loop, horizontal segment pointing right (evolved)",
+          "attempts": 1
+        },
+        {
+          "id": "wpn-bombs",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 90,
+          "loop": true,
+          "action": "Rattle Urn bone-clay urn with cyan runes 4f tumble loop, no facing",
+          "attempts": 2
+        },
+        {
+          "id": "wpn-bombs-evo",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 90,
+          "loop": true,
+          "action": "Ossuary Barrage skull-lidded urn with violet cracks 4f tumble loop (evolved)",
+          "attempts": 1
+        },
+        {
+          "id": "wpn-bombs-blast",
+          "kind": "fx",
+          "rows": 1,
+          "cols": 5,
+          "duration": 70,
+          "loop": false,
+          "action": "Rattle Urn bone-clay shatter blast with cyan rune flash 5f one-shot, radial",
+          "attempts": 2
+        },
+        {
+          "id": "wpn-bombs-blast-evo",
+          "kind": "fx",
+          "rows": 1,
+          "cols": 5,
+          "duration": 70,
+          "loop": false,
+          "action": "Ossuary Barrage violet-cyan urn shatter blast 5f one-shot, radial (evolved)",
+          "attempts": 2
+        },
+        {
+          "id": "wpn-bombs-shard",
+          "kind": "fx",
+          "rows": 1,
+          "cols": 1,
+          "action": "Ossuary Barrage bone shard projectile, static, points right",
+          "attempts": 1
+        },
+        {
+          "id": "wpn-totem",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 140,
+          "loop": true,
+          "action": "Dirge Totem skull stake with cold violet flame 4f idle loop, upright, no flip",
+          "attempts": 1
+        },
+        {
+          "id": "wpn-totem-evo",
+          "kind": "fx",
+          "rows": 2,
+          "cols": 2,
+          "duration": 140,
+          "loop": true,
+          "action": "Cathedral of Bones rib-arched skull spire with twin violet flames 4f idle loop, upright, no flip (evolved)",
+          "attempts": 1
+        },
+        {
+          "id": "wpn-totem-pulse",
+          "kind": "fx",
+          "rows": 1,
+          "cols": 5,
+          "duration": 80,
+          "loop": false,
+          "action": "Dirge Totem expanding violet dirge ring pulse 5f one-shot, radial ring",
+          "attempts": 3
+        },
+        {
+          "id": "wpn-totem-pulse-evo",
+          "kind": "fx",
+          "rows": 1,
+          "cols": 5,
+          "duration": 80,
+          "loop": false,
+          "action": "Cathedral of Bones violet-cyan double dirge ring pulse 5f one-shot, radial ring (evolved)",
+          "attempts": 3
+        },
+        {
+          "id": "wpn-thralls-move",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 120,
+          "loop": true,
+          "action": "Husk Thrall pallid grey crawling ally 4f scuttle loop, faces right",
+          "attempts": 3
+        },
+        {
+          "id": "wpn-thralls-bite",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 90,
+          "loop": false,
+          "action": "Husk Thrall lunge bite 4f one-shot, faces right",
+          "attempts": 1
+        },
+        {
+          "id": "wpn-thralls-death",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 110,
+          "loop": false,
+          "action": "Husk Thrall crumble to bone dust 4f one-shot, faces right",
+          "attempts": 1
+        },
+        {
+          "id": "wpn-thralls-evo-move",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 120,
+          "loop": true,
+          "action": "Legion of the Hollow collared thrall with violet runes 4f scuttle loop, faces right (evolved)",
+          "attempts": 1
+        },
+        {
+          "id": "wpn-thralls-evo-bite",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 90,
+          "loop": false,
+          "action": "Legion of the Hollow thrall lunge bite 4f one-shot, faces right (evolved)",
+          "attempts": 1
+        },
+        {
+          "id": "wpn-thralls-evo-burst",
+          "kind": "fx",
+          "rows": 1,
+          "cols": 5,
+          "duration": 70,
+          "loop": false,
+          "action": "Legion of the Hollow thrall bursts into violet bone shrapnel 5f one-shot, radial (evolved)",
+          "attempts": 1
+        }
+      ]
+    },
+    {
+      "group": "icons-v4",
+      "owner": "ArtArsenalIcons",
+      "assets": [
+        {
+          "id": "icons-arsenal-wpn",
+          "kind": "ui",
+          "rows": 4,
+          "cols": 4,
+          "duration": 0,
+          "loop": false,
+          "attempts": 1,
+          "icons": [
+            "icon-wpn-aura",
+            "icon-wpn-chakram",
+            "icon-wpn-wake",
+            "icon-wpn-snares",
+            "icon-evo-aura",
+            "icon-evo-chakram",
+            "icon-evo-wake",
+            "icon-evo-snares",
+            "icon-wpn-siphon",
+            "icon-wpn-bombs",
+            "icon-wpn-totem",
+            "icon-wpn-thralls",
+            "icon-evo-siphon",
+            "icon-evo-bombs",
+            "icon-evo-totem",
+            "icon-evo-thralls"
+          ],
+          "action": "Arsenal-20 weapon + evolution icons for the 8 new pairs (rows: base, evolved, base, evolved), PRD-V2 \u00a75.8b.5",
+          "cellPx": 96,
+          "strict": true
+        },
+        {
+          "id": "icons-arsenal-charm-a",
+          "kind": "ui",
+          "rows": 2,
+          "cols": 2,
+          "duration": 0,
+          "loop": false,
+          "attempts": 0,
+          "icons": [
+            "icon-charm-c_pin",
+            "icon-charm-c_knuckle",
+            "icon-charm-c_sole",
+            "icon-charm-c_fuse"
+          ],
+          "action": "Arsenal-20 partner charms 1-4 (\u00a75.8b.2): Widow's Pin, Cheater's Knucklebone, Pilgrim's Sole, Sexton's Fuse",
+          "cellPx": 96,
+          "strict": true
+        },
+        {
+          "id": "icons-arsenal-charm-b",
+          "kind": "ui",
+          "rows": 2,
+          "cols": 2,
+          "duration": 0,
+          "loop": false,
+          "attempts": 0,
+          "icons": [
+            "icon-charm-c_vial",
+            "icon-charm-c_powder",
+            "icon-charm-c_hymnal",
+            "icon-charm-c_collar"
+          ],
+          "action": "Arsenal-20 partner charms 5-8 (\u00a75.8b.2): Marrow Vial, Ossuary Powder, Dirge Hymnal, Bone Collar",
+          "cellPx": 96,
+          "strict": true
+        }
+      ]
+    },
+    {
+      "group": "props-v3a",
+      "owner": "ArtPropsA",
+      "assets": [
+        {
+          "id": "props-castle-d",
+          "kind": "ui",
+          "rows": 3,
+          "cols": 3,
+          "duration": 0,
+          "attempts": 2,
+          "icons": [
+            "castle-obelisk",
+            "castle-fallen-column",
+            "castle-cauldron",
+            "castle-stocks",
+            "castle-gargoyle",
+            "castle-trough",
+            "castle-boulder",
+            "castle-bollard",
+            "castle-stair-ruin"
+          ],
+          "action": "castle standalone blockers d: obelisk, fallen-column, cauldron, stocks, gargoyle, trough, boulder, bollard, stair-ruin"
+        },
+        {
+          "id": "props-castle-d-tall-top",
+          "kind": "ui",
+          "rows": 3,
+          "cols": 3,
+          "duration": 0,
+          "icons": [
+            "castle-obelisk-top",
+            "castle-gargoyle-top",
+            "castle-bollard-top"
+          ],
+          "action": "derived upper-half crops of the tall cells of props-castle-d (Y-sort occluder, registers 1:1 with base)"
+        },
+        {
+          "id": "props-castle-e",
+          "kind": "ui",
+          "rows": 3,
+          "cols": 3,
+          "duration": 0,
+          "attempts": 2,
+          "icons": [
+            "castle-barrels",
+            "castle-spear-rack",
+            "castle-banner-pole",
+            "castle-anvil",
+            "castle-iron-maiden",
+            "castle-grave-cross",
+            "castle-ballista",
+            "castle-millstone",
+            "castle-wall-corner-ruin"
+          ],
+          "action": "castle standalone blockers e: barrels, spear-rack, banner-pole, anvil, iron-maiden, grave-cross, ballista, millstone, wall-corner-ruin"
+        },
+        {
+          "id": "props-castle-e-tall-top",
+          "kind": "ui",
+          "rows": 3,
+          "cols": 3,
+          "duration": 0,
+          "icons": [
+            "castle-banner-pole-top",
+            "castle-iron-maiden-top",
+            "castle-grave-cross-top"
+          ],
+          "action": "derived upper-half crops of the tall cells of props-castle-e (Y-sort occluder, registers 1:1 with base)"
+        },
+        {
+          "id": "props-outlands-d",
+          "kind": "ui",
+          "rows": 3,
+          "cols": 3,
+          "duration": 0,
+          "attempts": 3,
+          "icons": [
+            "outlands-split-tree",
+            "outlands-hollow-log",
+            "outlands-stone-idol",
+            "outlands-crag",
+            "outlands-axe-stump",
+            "outlands-signpost",
+            "outlands-beast-skull",
+            "outlands-trough",
+            "outlands-bird-totem"
+          ],
+          "action": "outlands standalone blockers d: split-tree, hollow-log, stone-idol, crag, axe-stump, signpost, beast-skull, trough, bird-totem"
+        },
+        {
+          "id": "props-outlands-d-tall-top",
+          "kind": "ui",
+          "rows": 3,
+          "cols": 3,
+          "duration": 0,
+          "icons": [
+            "outlands-split-tree-top",
+            "outlands-signpost-top",
+            "outlands-bird-totem-top"
+          ],
+          "action": "derived upper-half crops of the tall cells of props-outlands-d (Y-sort occluder, registers 1:1 with base)"
+        },
+        {
+          "id": "props-outlands-e",
+          "kind": "ui",
+          "rows": 3,
+          "cols": 3,
+          "duration": 0,
+          "attempts": 2,
+          "icons": [
+            "outlands-menhir",
+            "outlands-plough",
+            "outlands-cauldron",
+            "outlands-root-tangle",
+            "outlands-toadstool",
+            "outlands-barrel",
+            "outlands-wayshrine",
+            "outlands-antler-totem",
+            "outlands-wattle-corner"
+          ],
+          "action": "outlands standalone blockers e: menhir, plough, cauldron, root-tangle, toadstool, barrel, wayshrine, antler-totem, wattle-corner"
+        },
+        {
+          "id": "props-outlands-e-tall-top",
+          "kind": "ui",
+          "rows": 3,
+          "cols": 3,
+          "duration": 0,
+          "icons": [
+            "outlands-menhir-top",
+            "outlands-wayshrine-top",
+            "outlands-antler-totem-top"
+          ],
+          "action": "derived upper-half crops of the tall cells of props-outlands-e (Y-sort occluder, registers 1:1 with base)"
+        }
+      ]
+    },
+    {
+      "group": "props-v3b",
+      "owner": "ArtPropsB",
+      "assets": [
+        {
+          "id": "props-desert-d",
+          "kind": "ui",
+          "rows": 3,
+          "cols": 3,
+          "duration": 0,
+          "icons": [
+            "desert-sarcophagus",
+            "desert-ramtotem",
+            "desert-boulder",
+            "desert-amphora",
+            "desert-fallencolumn",
+            "desert-deadcactus",
+            "desert-hoodoo",
+            "desert-beastskull",
+            "desert-milestone"
+          ],
+          "action": "desert standalone blockers d: sarcophagus, ramtotem, boulder, amphora, fallencolumn, deadcactus, hoodoo, beastskull, milestone",
+          "attempts": 1
+        },
+        {
+          "id": "props-desert-d-tall-top",
+          "kind": "ui",
+          "rows": 3,
+          "cols": 3,
+          "duration": 0,
+          "icons": [
+            "desert-ramtotem-top",
+            "desert-deadcactus-top",
+            "desert-hoodoo-top"
+          ],
+          "action": "desert tall-prop upper halves of props-desert-d for Y-sort occlusion (derived crops, registers 1:1 with base cells; frames 3-8 unused)"
+        },
+        {
+          "id": "props-desert-e",
+          "kind": "ui",
+          "rows": 3,
+          "cols": 3,
+          "duration": 0,
+          "icons": [
+            "desert-trough",
+            "desert-sundial",
+            "desert-handcart",
+            "desert-deadacacia",
+            "desert-crate",
+            "desert-tusk",
+            "desert-ziggurat",
+            "desert-barrel",
+            "desert-petrifiedstump"
+          ],
+          "action": "desert standalone blockers e: trough, sundial, handcart, deadacacia, crate, tusk, ziggurat, barrel, petrifiedstump"
+        },
+        {
+          "id": "props-desert-e-tall-top",
+          "kind": "ui",
+          "rows": 3,
+          "cols": 3,
+          "duration": 0,
+          "icons": [
+            "desert-deadacacia-top"
+          ],
+          "action": "desert tall-prop upper halves of props-desert-e for Y-sort occlusion (derived crops, registers 1:1 with base cells; frames 1-8 unused)"
+        },
+        {
+          "id": "props-winter-d",
+          "kind": "ui",
+          "rows": 3,
+          "cols": 3,
+          "duration": 0,
+          "icons": [
+            "winter-frozenlog",
+            "winter-signpost",
+            "winter-boulder",
+            "winter-barrel",
+            "winter-sarcophagus",
+            "winter-stump",
+            "winter-outcrop",
+            "winter-crate",
+            "winter-sapling"
+          ],
+          "action": "winter standalone blockers d: frozenlog, signpost, boulder, barrel, sarcophagus, stump, outcrop, crate, sapling"
+        },
+        {
+          "id": "props-winter-d-tall-top",
+          "kind": "ui",
+          "rows": 3,
+          "cols": 3,
+          "duration": 0,
+          "icons": [
+            "winter-signpost-top",
+            "winter-sapling-top"
+          ],
+          "action": "winter tall-prop upper halves of props-winter-d for Y-sort occlusion (derived crops, registers 1:1 with base cells; frames 2-8 unused)"
+        },
+        {
+          "id": "props-winter-e",
+          "kind": "ui",
+          "rows": 3,
+          "cols": 3,
+          "duration": 0,
+          "icons": [
+            "winter-woodpile",
+            "winter-obelisk",
+            "winter-cauldron",
+            "winter-mammothskull",
+            "winter-anvil",
+            "winter-fallencolumn",
+            "winter-weaponrack",
+            "winter-gravecross",
+            "winter-helm"
+          ],
+          "action": "winter standalone blockers e: woodpile, obelisk, cauldron, mammothskull, anvil, fallencolumn, weaponrack, gravecross, helm"
+        },
+        {
+          "id": "props-winter-e-tall-top",
+          "kind": "ui",
+          "rows": 3,
+          "cols": 3,
+          "duration": 0,
+          "icons": [
+            "winter-obelisk-top",
+            "winter-weaponrack-top",
+            "winter-gravecross-top"
+          ],
+          "action": "winter tall-prop upper halves of props-winter-e for Y-sort occlusion (derived crops, registers 1:1 with base cells; frames 3-8 unused)"
+        }
+      ]
     }
   ],
   "qcExceptions": [
@@ -1165,15 +3537,270 @@
     },
     {
       "id": "elites-warden/boss-warden-idle-*",
-      "reason": "Zone skins ship as fully generated idle sheets (shoulder/crown silhouette swap per PRD §11); sweep/summon/enrage/death sheets are shared from the castle base — at boss render size skin identity reads from idle/crown, and 4x5 fully-skinned action sets would spend ~17 extra generations on frames visible <10s per run."
+      "reason": "Zone skins ship as fully generated idle sheets (shoulder/crown silhouette swap per PRD \u00a711); sweep/summon/enrage/death sheets are shared from the castle base \u2014 at boss render size skin identity reads from idle/crown, and 4x5 fully-skinned action sets would spend ~17 extra generations on frames visible <10s per run."
     },
     {
       "id": "zone-winter/floor-winter",
-      "reason": "Palette meanDistance 44.48 (inside the profile's 48 cap, but over the zone brief's stricter 36): style.json's 18-colour list contains NO cold blue, so a correct Widow's Crown snowfield cannot score near 36. This REPLACES the previous tile, which scored 48.46 — actually over the cap — because it had been compromised toward the plum-grey palette until it read as grey slate rock rather than snow, which is the defect the pre-handoff critic flagged. Regenerated to hold the zone's cold-blue snow identity; the gate, not the tile, is what cannot be satisfied here."
+      "reason": "Palette meanDistance 44.48 (inside the profile's 48 cap, but over the zone brief's stricter 36): style.json's 18-colour list contains NO cold blue, so a correct Widow's Crown snowfield cannot score near 36. This REPLACES the previous tile, which scored 48.46 \u2014 actually over the cap \u2014 because it had been compromised toward the plum-grey palette until it read as grey slate rock rather than snow, which is the defect the pre-handoff critic flagged. Regenerated to hold the zone's cold-blue snow identity; the gate, not the tile, is what cannot be satisfied here."
     },
     {
       "id": "zone-desert/floor-desert",
-      "reason": "art_review value-tier-absent:dark (0.4% dark against a planned 60%). This is the DESERT MIRROR RISK the zone brief names explicitly: the zone inverts figure/ground on purpose — a light bone field so the dark actors read as holes in the sand — so style.json's actor-authored 60/32/8 valuePlan cannot apply to this tile. Verified non-discriminating for floors: the same art_review call fails value-tier-absent:light on the castle and outlands floors, the two tiles the critic judged excellent, and reports silhouette distance 0.000 between all four because a full-bleed tile's occupancy is identically 1.0. Hard gates all pass: minAlpha 255, no black mass (0.01% under luma 60, all of it the style's own 1px bone-chip outlines), palette meanDistance 29.55, and actor figure/ground clash 0.63% against the old tile's 27.45%. Residual weakness kept knowingly: the violet trough mid tier reads thinner than the briefed one third (mid 5.6%)."
+      "reason": "art_review value-tier-absent:dark (0.4% dark against a planned 60%). This is the DESERT MIRROR RISK the zone brief names explicitly: the zone inverts figure/ground on purpose \u2014 a light bone field so the dark actors read as holes in the sand \u2014 so style.json's actor-authored 60/32/8 valuePlan cannot apply to this tile. Verified non-discriminating for floors: the same art_review call fails value-tier-absent:light on the castle and outlands floors, the two tiles the critic judged excellent, and reports silhouette distance 0.000 between all four because a full-bleed tile's occupancy is identically 1.0. Hard gates all pass: minAlpha 255, no black mass (0.01% under luma 60, all of it the style's own 1px bone-chip outlines), palette meanDistance 29.55, and actor figure/ground clash 0.63% against the old tile's 27.45%. Residual weakness kept knowingly: the violet trough mid tier reads thinner than the briefed one third (mid 5.6%)."
+    },
+    {
+      "id": "floors-v2/floor-*",
+      "reason": "Full-bleed seamless tiles touch every canvas edge by design; exported fullBleed without --strict (background-contamination waived by structure, same class as zone-*/floor-*). Value band set by the documented tonefit grade (art/briefs/v2-world/process-fullbleed.sh).",
+      "fragment": "ArtWorld"
+    },
+    {
+      "id": "floors-v2/road-*",
+      "reason": "Full-bleed seamless road tiles, same class as floors-v2/floor-*.",
+      "fragment": "ArtWorld"
+    },
+    {
+      "id": "floors-v2/floor-outlands-*",
+      "reason": "Irregular fieldstones measure ~45-50px at 256 (PRD asks 32-40); a full 984-1000px crop to shrink them doubled the V-seam (16.5 vs noise 6.5), so the seamless 856px crop was kept.",
+      "fragment": "ArtWorld"
+    },
+    {
+      "id": "floors-v2/floor-winter-*",
+      "reason": "Rectangular slabs: autocorrelation pitch 34-35px x 48-49px; the long axis sits 8px over the 32-40 band. Authored mean L* 19-22 (bright frost joints hold p99 at the L*36 ceiling); in band, lower third.",
+      "fragment": "ArtWorld"
+    },
+    {
+      "id": "floors-v2/splat-*",
+      "reason": "Provider returned a smoother, semi-photographic finish on most splats instead of chunky pixels; accepted because splats render at alpha 0.55 as soft ground variation under actors, graded into the floor value band by tonefit. Regenerate if they read as off-style in the run screenshot.",
+      "fragment": "ArtWorld"
+    },
+    {
+      "id": "props-v2/props-*-tall-top",
+      "reason": "Derived, not generated: upper-half crops of the accepted base frames (art/briefs/v2-world/talltop.py) so the occluding top registers pixel-for-pixel with its base; a generated upper half cannot align.",
+      "fragment": "ArtWorld"
+    },
+    {
+      "id": "props-v2/props-desert-c",
+      "reason": "Cells 0-1 (mudwall straight/corner) carry a small warm torch-glow blob at the top-left corner, the style's key-light specular; kept, reads as torchlit brick at 48-170px.",
+      "fragment": "ArtWorld"
+    },
+    {
+      "id": "landmarks/landmarks-*",
+      "reason": "3x3 on a 1024 canvas gives 341px source cells, upscaled to the PRD's 512px cell with smooth sampling (nearest at 1.5x produced uneven pixel rows). Outlands/desert added unrequested wall torches (amber) beside several landmarks; kept as scenic light, they are not hazard telegraphs.",
+      "fragment": "ArtWorld"
+    },
+    {
+      "id": "enemies-v2/enemy-cryptcrawler-move",
+      "reason": "art_review silhouette-collision vs enemy-lanternmonk-move at 0.041 is a low-occupancy artefact of two small-in-cell subjects: measured bbox w/h 2.50 (flat leg-star, 73 px tall) vs 1.18 (upright hooded pear with hanging lantern, 98 px tall); visually unmistakable at 48-120 px.",
+      "fragment": "ArtEnemies"
+    },
+    {
+      "id": "enemies-v2/enemy-sandrevenant-move",
+      "reason": "art_review silhouette-collision vs canon enemy-paleknight-move at 0.041: both are upright bipeds, but the revenant is pale parchment (L* p75 71.3, trailing bandage strips) against the knight's cold dark steel (L* p75 40.8) - value, hue and trailing strips separate them; desert-only vs shared roster.",
+      "fragment": "ArtEnemies"
+    },
+    {
+      "id": "enemies-v2/enemy-gibbet-move",
+      "reason": "4-frame pendulum loop reuses the straight-hang drawing for frames 1 and 3 (generation of a distinct second straight pose failed provider-side); the original cadaver base frame was dropped because every edit re-rendered the wight as a skeletal hanged corpse, which is the identity all 3 gibbet sheets now share.",
+      "fragment": "ArtEnemies"
+    },
+    {
+      "id": "enemies-v2/enemy-lanternmonk-attack",
+      "reason": "postureChange: lob raises crook and lantern overhead, body-scale cv 0.283 / profile drift 0.194 are the raised arm+lantern bbox, feet anchor std 0.003; scale profile bound and applied.",
+      "fragment": "ArtEnemies"
+    },
+    {
+      "id": "enemies-v2/enemy-sandrevenant-revive",
+      "reason": "postureChange: revive rises from a sand mound to standing, so body-scale cv 0.107 is the pose; profile bound and applied, anchor std 0.008.",
+      "fragment": "ArtEnemies"
+    },
+    {
+      "id": "enemies-v2/enemy-*-death",
+      "reason": "Death sheets are unbound from scaleProfile (collapse/heap poses; same build-wide rule as enemies-light/heavy deaths) and processed componentMode all + postureChange; bulwark/mirehag/gibbet deaths use a 1024 source cell because their heaps sprawl wider than the move cell.",
+      "fragment": "ArtEnemies"
+    },
+    {
+      "id": "icons-v2/zone-key-*",
+      "reason": "Full-bleed 640x300 key-art crops of text-only 16:9 zone vistas; exported non-strict with fullBleed (threshold/edge 1, nothing to key) \u2014 background-contamination is waived by structure, same class as ui-icons/bg-menu. Text-over-art surface: zone-card name/stars need the \u00a711 armour or a bottom scrim (desert and winter are light fields).",
+      "fragment": "ArtIcons"
+    },
+    {
+      "id": "icons-v2/icons-*",
+      "reason": "Export provenance: every sheet was generated by native generate_image (provider xai-oauth, anchors vision-1 + an accepted sibling sheet as explicit input) and exported by sprite-forge process-sprite.ts CLI --strict from the preserved raw, not by the OMP_SPRITE_EXPORT middleware. Reason: xai returns the key as hot pink (~rgb(251,51,184)) + JPEG fringe; the marker's pure-magenta key at 180 either deletes the violet glows or, with the chroma guard, keeps a pink halo (measured 60,300 protected px on icons-wpn-a). art/briefs/v2-icons/normalize-key.py maps the sampled bg to #FF00FF first (pixels only ever become key); rebuild.sh reproduces every export byte-for-byte from art/briefs/v2-icons/raw/.",
+      "fragment": "ArtIcons"
+    },
+    {
+      "id": "icons-v2/icons-wpn-a",
+      "reason": "allowSourceEdgeTouch reviewed: frames 6/11/15 touch the raw cell edge only with flame/smoke wisp tips (hood fire top, thurible smoke crossing into the censer cell by <4 px); both subjects read complete. icon-wpn-nova (Ash Ring) keeps an orange cinder ring \u2014 the one warm hero glyph; it lives only in UI (draft card, pause build panel), not in the arena where warm=enemy is the gameplay code. The only regeneration of this sheet came back as a 5-row grid and was rejected.",
+      "fragment": "ArtIcons"
+    },
+    {
+      "id": "icons-v2/icons-minimap",
+      "reason": "allowSourceEdgeTouch reviewed: mm-gate-cond's chain link ends 1-2 px from the raw cell bottom; glyph is complete. Faint dark divider traces on the cell boundaries were keyed by normalize-key.py's shadowed-magenta rule.",
+      "fragment": "ArtIcons"
+    },
+    {
+      "id": "icons-v2/icons-hub",
+      "reason": "allowSourceEdgeTouch reviewed: icon-tab-armory's ragged cloak hem reaches the raw cell bottom by 1 px; silhouette complete. Sheet cells are 64 px (currency size, PRD \u00a711); tab glyphs share the sheet and are displayed at 56 px (setDisplaySize), not exported at 56.",
+      "fragment": "ArtIcons"
+    },
+    {
+      "id": "icons-v2/icons-class",
+      "reason": "xai drew a thick black divider cross between the 4 portraits; removed deterministically by normalize-key.py --grid 2 (only full-length >=80%-dark lines on the cell boundaries qualify; no portrait pixel lies in those bands). Portraits are generated busts with hero-idle frame-000 as identity input rather than crops, because 4 crops of one hero sprite would give 4 identical class icons.",
+      "fragment": "ArtIcons"
+    },
+    {
+      "id": "poi/poi-vein",
+      "reason": "allowSourceEdgeTouch: 1x3 on a square canvas gives 341px-wide source cells; the wide ossuary heaps sit within ~8px of the implied cell line but are visually complete (reviewed raw), no clipping in the exported frames.",
+      "fragment": "ArtPOI"
+    },
+    {
+      "id": "weapon-fx/wpn-breath-evo",
+      "reason": "palette meanDistance 58.8 > 48 (same list gap as wpn-breath, PRD-mandated cyan/violet); plus a 1px dark origin stroke in all 4 frames that sits under the hero at runtime \u2014 accepted instead of a third generation.",
+      "fragment": "ArtPOI"
+    },
+    {
+      "id": "boss-fx/fx-bell-ring",
+      "reason": "attempts=3: gen 1 xai drew divider lines, gen 2 scattered rings across quadrant lines; gen 3 (layout-guide input) passed strict QC and is the shipped sheet.",
+      "fragment": "ArtPOI"
+    },
+    {
+      "id": "weapon-fx/wpn-breath",
+      "reason": "palette meanDistance 63.7 > 48: PRD-V2 \u00a75.8 mandates cyan #6fd6ff / violet hero flame and sprite_check_palette meanDistance is distance from the style.json LIST, which has no cyan/ice or pure-white entry; visually on-style hard-edged pixel flame, cool-coded as required.",
+      "fragment": "ArtPOI"
+    },
+    {
+      "id": "boss-fx/fx-icicle",
+      "reason": "palette meanDistance 58.0 > 48: PRD-V2 \u00a711 mandates 'cold cyan with red rim' for ice fx and sprite_check_palette meanDistance is distance from the style.json LIST, which has no cyan/ice or pure-white entry; red rim present, reads hostile.",
+      "fragment": "ArtPOI"
+    },
+    {
+      "id": "boss-fx/fx-ice-wall",
+      "reason": "palette meanDistance 85.1 > 48: PRD-V2 \u00a711 cold-cyan ice with red rim, a mostly-opaque cyan slab, and sprite_check_palette meanDistance is distance from the style.json LIST, which has no cyan/ice or pure-white entry; canon winter props peak at 46.9 because they are mostly stone.",
+      "fragment": "ArtPOI"
+    },
+    {
+      "id": "fx-v2/fx-lightpool",
+      "reason": "palette meanDistance 50.4 > 48: PRD-V2 \u00a711 mandates a radial WHITE pool tinted in code; sprite_check_palette meanDistance is distance from the style.json LIST, which has no cyan/ice or pure-white entry. Reviewed through the runtime tint (see report).",
+      "fragment": "ArtPOI"
+    },
+    {
+      "id": "icons-v3/icons-v3-cards",
+      "reason": "Export provenance, same class as icons-v2/icons-*: native generate_image (xai-oauth, inputs vision-1 + accepted icons-v2 icons-kit raw) exported by process-sprite.ts CLI --strict from the kept raw after normalize-key.py (xai paints the key hot pink ~rgb(248,11,202)); not through the OMP_SPRITE_EXPORT marker. Frame 13 is a cell composite: attempt 2 (accepted sheet) drew a plain iron crown at r4c2 that duplicated icon-uniq-u_dreadcrown; edit attempt 3 drew the requested winged crowned skull but in r3c2 (over the purse), so compose-cells.py pixel-copies that generated cell into r4c2 of attempt 2; nothing drawn. Both raws kept in art/briefs/v3-icons/raw/icons-v3-cards/, rebuild.sh reproduces the export.",
+      "fragment": "ArtIcons3"
+    },
+    {
+      "id": "weapon-fx-v1/wpn-rail",
+      "reason": "palette meanDistance 83.0 > 48: the beam is PRD-mandated hero cyan #6fd6ff with a pale-cyan core and violet fringe, and sprite_check_palette meanDistance is distance from the style.json LIST, which has no cyan entry (same list gap as canon weapon-fx/wpn-breath 63.7); visually a hard-edged dithered pixel beam, cool-coded, no white.",
+      "fragment": "ArtWeaponFx"
+    },
+    {
+      "id": "weapon-fx-v1/wpn-rail-evo",
+      "reason": "palette meanDistance 49.8 > 48: lilac core + cyan seam of a violet beam, list has no cyan/lilac-light entry; 1.8 over the ceiling on a correct cool hero beam.",
+      "fragment": "ArtWeaponFx"
+    },
+    {
+      "id": "weapon-fx-v1/wpn-nova-evo",
+      "reason": "palette meanDistance 52.6 > 48: PRD mandates Pyre Shroud as cold violet-cyan spirit fire (not orange); the list carries #5b4bff/#c084fc but no cyan or mid-lilac, so correct cool flame reads as distance; visually on-style hard-edged pixel flame, 0% warm share (art_review).",
+      "fragment": "ArtWeaponFx"
+    },
+    {
+      "id": "weapon-fx-v2/wpn-thralls-move",
+      "reason": "attempt 3 shipped: xai returned a 3x2 sheet (a1) then 4 near-identical frames (a2); a3 has 4 distinct but subtle crawl poses (arch, reach) \u2014 reads as a scuttle at the 70 px target height with the code's move bob; identity, cyan eyes and feet line consistent.",
+      "fragment": "ArtArsenalFx"
+    },
+    {
+      "id": "weapon-fx-v2/wpn-totem-pulse-evo",
+      "reason": "attempt 3 written before generation: a1 (1x5 strip) rings crossed cell boundaries, a2 came back an irregular non-uniform 3x3 panel layout with a ring clipped at the canvas edge; a3 is requested on the 3x3 layout xai actually honours and 5 of its cells are selected (clean.py RETILE).",
+      "fragment": "ArtArsenalFx"
+    },
+    {
+      "id": "weapon-fx-v2/wpn-totem-pulse",
+      "reason": "attempt 3 written before generation: a1 (1x5 strip) rings crossed cells and carried a white letterbox; a2 returned 3x3 but 5 of its 9 cells were so faint the ring keys away with the magenta (cell coverage <0.5%), leaving only 4 usable frames of the 5 the PRD asks for.",
+      "fragment": "ArtArsenalFx"
+    },
+    {
+      "id": "weapon-fx-v2/wpn-aura",
+      "reason": "palette meanDistance 61.84 > 48: PRD \u00a75.8b.1 mandates cyan #6fd6ff / violet #ad6eef hero fx and style.json's list has no cyan or mid-lilac entry (same list gap as canon weapon-fx-v1/wpn-rail 83.0, wpn-nova-evo 52.6); visually hard-edged cool pixel fx, no red/amber/white.",
+      "fragment": "ArtArsenalFx"
+    },
+    {
+      "id": "weapon-fx-v2/wpn-aura-evo",
+      "reason": "palette meanDistance 56.72 > 48: PRD \u00a75.8b.1 mandates cyan #6fd6ff / violet #ad6eef hero fx and style.json's list has no cyan or mid-lilac entry (same list gap as canon weapon-fx-v1/wpn-rail 83.0, wpn-nova-evo 52.6); visually hard-edged cool pixel fx, no red/amber/white.",
+      "fragment": "ArtArsenalFx"
+    },
+    {
+      "id": "weapon-fx-v2/wpn-wake",
+      "reason": "palette meanDistance 65.41 > 48: PRD \u00a75.8b.1 mandates cyan #6fd6ff / violet #ad6eef hero fx and style.json's list has no cyan or mid-lilac entry (same list gap as canon weapon-fx-v1/wpn-rail 83.0, wpn-nova-evo 52.6); visually hard-edged cool pixel fx, no red/amber/white.",
+      "fragment": "ArtArsenalFx"
+    },
+    {
+      "id": "weapon-fx-v2/wpn-wake-evo",
+      "reason": "palette meanDistance 51.87 > 48: PRD \u00a75.8b.1 mandates cyan #6fd6ff / violet #ad6eef hero fx and style.json's list has no cyan or mid-lilac entry (same list gap as canon weapon-fx-v1/wpn-rail 83.0, wpn-nova-evo 52.6); visually hard-edged cool pixel fx, no red/amber/white.",
+      "fragment": "ArtArsenalFx"
+    },
+    {
+      "id": "weapon-fx-v2/wpn-snares-blast",
+      "reason": "palette meanDistance 62.71 > 48: PRD \u00a75.8b.1 mandates cyan #6fd6ff / violet #ad6eef hero fx and style.json's list has no cyan or mid-lilac entry (same list gap as canon weapon-fx-v1/wpn-rail 83.0, wpn-nova-evo 52.6); visually hard-edged cool pixel fx, no red/amber/white.",
+      "fragment": "ArtArsenalFx"
+    },
+    {
+      "id": "weapon-fx-v2/wpn-snares-blast-evo",
+      "reason": "palette meanDistance 59.39 > 48: PRD \u00a75.8b.1 mandates cyan #6fd6ff / violet #ad6eef hero fx and style.json's list has no cyan or mid-lilac entry (same list gap as canon weapon-fx-v1/wpn-rail 83.0, wpn-nova-evo 52.6); visually hard-edged cool pixel fx, no red/amber/white.",
+      "fragment": "ArtArsenalFx"
+    },
+    {
+      "id": "weapon-fx-v2/wpn-bombs-blast",
+      "reason": "palette meanDistance 52.42 > 48: PRD \u00a75.8b.1 mandates cyan #6fd6ff / violet #ad6eef hero fx and style.json's list has no cyan or mid-lilac entry (same list gap as canon weapon-fx-v1/wpn-rail 83.0, wpn-nova-evo 52.6); visually hard-edged cool pixel fx, no red/amber/white.",
+      "fragment": "ArtArsenalFx"
+    },
+    {
+      "id": "weapon-fx-v2/wpn-bombs-blast-evo",
+      "reason": "palette meanDistance 53.55 > 48: PRD \u00a75.8b.1 mandates cyan #6fd6ff / violet #ad6eef hero fx and style.json's list has no cyan or mid-lilac entry (same list gap as canon weapon-fx-v1/wpn-rail 83.0, wpn-nova-evo 52.6); visually hard-edged cool pixel fx, no red/amber/white.",
+      "fragment": "ArtArsenalFx"
+    },
+    {
+      "id": "weapon-fx-v2/wpn-totem-pulse-evo",
+      "reason": "palette meanDistance 67.22 > 48: PRD \u00a75.8b.1 mandates cyan #6fd6ff / violet #ad6eef hero fx and style.json's list has no cyan or mid-lilac entry (same list gap as canon weapon-fx-v1/wpn-rail 83.0, wpn-nova-evo 52.6); visually hard-edged cool pixel fx, no red/amber/white.",
+      "fragment": "ArtArsenalFx"
+    },
+    {
+      "id": "weapon-fx-v2/wpn-thralls-evo-burst",
+      "reason": "palette meanDistance 58.52 > 48: PRD \u00a75.8b.1 mandates cyan #6fd6ff / violet #ad6eef hero fx and style.json's list has no cyan or mid-lilac entry (same list gap as canon weapon-fx-v1/wpn-rail 83.0, wpn-nova-evo 52.6); visually hard-edged cool pixel fx, no red/amber/white.",
+      "fragment": "ArtArsenalFx"
+    },
+    {
+      "id": "weapon-fx-v2/wpn-siphon*",
+      "reason": "exported fullBleed + allow-source-edge-touch on purpose: a beam SEGMENT whose braid must run to its own left/right edges so code can repeat/stretch it end-to-end (canon wpn-rail pattern); contamination verdict waived by fullBleed, measurement kept in qc.background.",
+      "fragment": "ArtArsenalFx"
+    },
+    {
+      "id": "icons-v4/icons-arsenal-*",
+      "reason": "Export provenance, same class as icons-v2/icons-*: native generate_image (xai-oauth; inputs vision-1 + an accepted icons-v2 raw) exported by sprite-forge process-sprite.ts CLI --strict with --style-profile from the preserved raw, not by the OMP_SPRITE_EXPORT middleware, because xai returns the key as hot pink (~rgb(252,48,186)); art/briefs/v4-icons/normalize-key.py maps the sampled bg to #FF00FF first (pixels only ever become key). rebuild.sh reproduces every export from art/briefs/v4-icons/raw/.",
+      "fragment": "ArtArsenalIcons"
+    },
+    {
+      "id": "icons-v4/icons-arsenal-wpn",
+      "reason": "allowSourceEdgeTouch reviewed: only frame 14 (icon-evo-totem, Cathedral of Bones) touches the raw cell top with the tip of a violet flame wisp (<4 px); the reliquary reads complete. Raw is a same-position cell composite (compose-cells.py) of attempt 1 + the xai edit attempt 2 cells r1c2/r2c2/r3c3, which removed the totem flame crossing into the wake cell and recoloured the Legion's orange collar straps to bone/steel; attempt 2 deleted the reliquary, so r3c2 stays attempt 1.",
+      "fragment": "ArtArsenalIcons"
+    },
+    {
+      "id": "props-v3a/props-*-tall-top",
+      "reason": "Derived, not generated: upper-half crops of the accepted base frames (art/briefs/v3-props-a/build.py) so the occluding top registers pixel-for-pixel with its base; a generated upper half cannot align.",
+      "fragment": "ArtPropsA"
+    },
+    {
+      "id": "props-v3a/props-outlands-d",
+      "reason": "Third regeneration (single-cell edit of the accepted raw) to break an art_review silhouette collision (0.033 at 48px) between the round boulder and outlands-e's round cauldron; the rest of the sheet was already accepted. If the edit fails, the prior raw ships and both round cells stay, visibly different materials (stone dome vs rusted pot on ash ring).",
+      "fragment": "ArtPropsA"
+    },
+    {
+      "id": "props-v3b/props-*-tall-top",
+      "reason": "Derived, not generated: upper-half crops of the accepted base frames (art/briefs/v3-props-b/build.py) so the occluding top registers pixel-for-pixel with its base; unused trailing cells are transparent by design.",
+      "fragment": "ArtPropsB"
+    },
+    {
+      "id": "props-v3b/props-*",
+      "reason": "Keyed with a post-key defringe (art/briefs/v3-props-b/defringe.py): background-connected purple contact-shadow blobs and pink boundary pixels removed, nothing painted; boundary pink share falls from 12-54% to <=1.5%.",
+      "fragment": "ArtPropsB"
     }
   ],
   "integration": {

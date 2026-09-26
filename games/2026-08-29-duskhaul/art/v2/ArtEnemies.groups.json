@@ -1,0 +1,249 @@
+{
+  "owner": "ArtEnemies",
+  "groups": [
+    {
+      "group": "enemies-v2",
+      "owner": "ArtEnemies",
+      "assets": [
+        {
+          "id": "enemy-cryptcrawler-move",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 90,
+          "action": "Crypt Crawler skitter: (1) base stride (2) front-left/back-right legs reach (3) legs gathered, body raised (4) opposite pair reaches, tail curled",
+          "writeScaleProfile": "games/2026-08-29-duskhaul/public/assets/generated/enemies-v2/cryptcrawler-scale.json",
+          "profileName": "cryptcrawler",
+          "attempts": 4
+        },
+        {
+          "id": "enemy-cryptcrawler-death",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 90,
+          "action": "Crypt Crawler death: (1) jolts and twists (2) flips onto its back, legs curled (3) legs snap off, skull splits (4) fur-and-bone heap",
+          "attempts": 0,
+          "loop": false
+        },
+        {
+          "id": "enemy-lanternmonk-move",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 150,
+          "action": "Lantern Monk processional walk: (1) base, lantern out front (2) left foot, lantern swung forward (3) feet together, lantern hangs (4) right foot, lantern swung back",
+          "writeScaleProfile": "games/2026-08-29-duskhaul/public/assets/generated/enemies-v2/lanternmonk-scale.json",
+          "profileName": "lanternmonk",
+          "attempts": 1
+        },
+        {
+          "id": "enemy-lanternmonk-attack",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 110,
+          "action": "Lantern Monk lob: (1) wind-up, lantern behind shoulder (2) crook overhead, amber flame swollen (3) swing forward, amber fire-glob leaves the lantern (4) follow-through, lantern dimmed",
+          "attempts": 0,
+          "scaleProfile": "games/2026-08-29-duskhaul/public/assets/generated/enemies-v2/lanternmonk-scale.json",
+          "loop": false
+        },
+        {
+          "id": "enemy-lanternmonk-death",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 100,
+          "action": "Lantern Monk death: (1) staggers, crook slipping (2) sinks to knees, lantern dropped (3) pitches face-down (4) empty habit heap with crook and cold lantern",
+          "attempts": 0,
+          "loop": false
+        },
+        {
+          "id": "enemy-bulwark-move",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 150,
+          "action": "Bone Bulwark grinding advance behind door-sized bone shield (shield faces right): (1) base stride (2) feet together, shield lifted (3) right leg forward, shield tipped (4) sunk low, shield braced",
+          "writeScaleProfile": "games/2026-08-29-duskhaul/public/assets/generated/enemies-v2/bulwark-scale.json",
+          "profileName": "bulwark",
+          "attempts": 1
+        },
+        {
+          "id": "enemy-bulwark-death",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 100,
+          "action": "Bone Bulwark death: (1) reels back, shield cracking (2) kneels, split shield leaning (3) shield bursts into femurs, skeleton cascades (4) bone-and-iron heap",
+          "attempts": 2,
+          "loop": false
+        },
+        {
+          "id": "enemy-gibbet-move",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 140,
+          "action": "Gibbet Wight pendulum hover: (1) hangs straight (2) sways forward, feet trailing (3) hangs straight (hold, same drawing as 1) (4) sways back, hook swinging forward",
+          "writeScaleProfile": "games/2026-08-29-duskhaul/public/assets/generated/enemies-v2/gibbet-scale.json",
+          "profileName": "gibbet",
+          "attempts": 1
+        },
+        {
+          "id": "enemy-gibbet-attack",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 100,
+          "action": "Gibbet Wight hook: (1) hook arm drawn back, red glint (2) whirls hook overhead (3) hurls hook, chain straight out right (4) yanks chain back",
+          "attempts": 0,
+          "scaleProfile": "games/2026-08-29-duskhaul/public/assets/generated/enemies-v2/gibbet-scale.json",
+          "loop": false
+        },
+        {
+          "id": "enemy-gibbet-death",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 100,
+          "action": "Gibbet Wight death: (1) rope snaps, body jerks (2) lies curled on its side (3) comes apart (4) pile of bones, rope and hook",
+          "attempts": 2,
+          "loop": false
+        },
+        {
+          "id": "enemy-choirwraith-move",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 130,
+          "action": "Choir Wraith drift: (1) base, arms flung wide (2) arms at shoulder height, hem trailing (3) arms raised high, body tall (4) arms level, hem billowing",
+          "writeScaleProfile": "games/2026-08-29-duskhaul/public/assets/generated/enemies-v2/choirwraith-scale.json",
+          "profileName": "choirwraith",
+          "attempts": 1
+        },
+        {
+          "id": "enemy-choirwraith-attack",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 110,
+          "action": "Choir Wraith scream: (1) inhale, arms crossed (2) head thrown back, red glow in mouth (3) screams right, red sound-ring arcs at the mouth (4) sags, glow fading",
+          "attempts": 0,
+          "scaleProfile": "games/2026-08-29-duskhaul/public/assets/generated/enemies-v2/choirwraith-scale.json",
+          "loop": false
+        },
+        {
+          "id": "enemy-choirwraith-death",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 100,
+          "action": "Choir Wraith death: (1) convulses, clutching face (2) robe unravels into shreds (3) skull and collar sinking among scraps (4) crumpled robe heap with skull",
+          "attempts": 0,
+          "loop": false
+        },
+        {
+          "id": "enemy-mirehag-move",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 150,
+          "action": "Mire Hag shuffle: (1) base, cane forward (2) front foot drags, fresh mud drip (3) sags, feet together on cane (4) back foot drags, cane lifted",
+          "writeScaleProfile": "games/2026-08-29-duskhaul/public/assets/generated/enemies-v2/mirehag-scale.json",
+          "profileName": "mirehag",
+          "attempts": 1
+        },
+        {
+          "id": "enemy-mirehag-death",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 100,
+          "action": "Mire Hag death: (1) jerks upright, cane flying (2) slumps, melting into mud (3) mud mound with hair and hand (4) flat mud puddle-mound with cane",
+          "attempts": 0,
+          "loop": false
+        },
+        {
+          "id": "enemy-sandrevenant-move",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 140,
+          "action": "Sand Revenant lurch: (1) base, arms reaching (2) left leg forward (3) feet together, sand spilling (4) right leg forward",
+          "writeScaleProfile": "games/2026-08-29-duskhaul/public/assets/generated/enemies-v2/sandrevenant-scale.json",
+          "profileName": "sandrevenant",
+          "attempts": 1
+        },
+        {
+          "id": "enemy-sandrevenant-death",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 110,
+          "action": "Sand Revenant collapse (the 2 s revive window reads on frame 4): (1) reels, sand bursting (2) kneels, pouring out as sand (3) slumped half-pile, skull showing (4) sand mound with bandages, scarab and skull",
+          "attempts": 0,
+          "loop": false
+        },
+        {
+          "id": "enemy-sandrevenant-revive",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 150,
+          "action": "Sand Revenant revive (plays from death frame 4): (1) mound stirs, skull and hand rise (2) torso formed over a whirling sand column (3) pushes up from one knee, eyes flaring (4) standing, arms spread, last sand swirling",
+          "attempts": 0,
+          "loop": false,
+          "scaleProfile": "games/2026-08-29-duskhaul/public/assets/generated/enemies-v2/sandrevenant-scale.json"
+        },
+        {
+          "id": "enemy-rimestalker-move",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 100,
+          "action": "Rime Stalker stalk: (1) base crouch-walk (2) front-right claw and back-left leg reach (3) gathered, spine arched to pounce (4) stretched long and low",
+          "writeScaleProfile": "games/2026-08-29-duskhaul/public/assets/generated/enemies-v2/rimestalker-scale.json",
+          "profileName": "rimestalker",
+          "attempts": 0
+        },
+        {
+          "id": "enemy-rimestalker-death",
+          "kind": "body",
+          "rows": 2,
+          "cols": 2,
+          "duration": 90,
+          "action": "Rime Stalker death: (1) rears back, frost cracks (2) collapses to elbows and knees, shards snapping (3) flat on belly, shards scattered (4) pile of frost bones and ice shards",
+          "attempts": 0,
+          "loop": false
+        }
+      ]
+    }
+  ],
+  "qcExceptions": [
+    {
+      "id": "enemies-v2/enemy-cryptcrawler-move",
+      "reason": "art_review silhouette-collision vs enemy-lanternmonk-move at 0.041 is a low-occupancy artefact of two small-in-cell subjects: measured bbox w/h 2.50 (flat leg-star, 73 px tall) vs 1.18 (upright hooded pear with hanging lantern, 98 px tall); visually unmistakable at 48-120 px."
+    },
+    {
+      "id": "enemies-v2/enemy-sandrevenant-move",
+      "reason": "art_review silhouette-collision vs canon enemy-paleknight-move at 0.041: both are upright bipeds, but the revenant is pale parchment (L* p75 71.3, trailing bandage strips) against the knight's cold dark steel (L* p75 40.8) - value, hue and trailing strips separate them; desert-only vs shared roster."
+    },
+    {
+      "id": "enemies-v2/enemy-gibbet-move",
+      "reason": "4-frame pendulum loop reuses the straight-hang drawing for frames 1 and 3 (generation of a distinct second straight pose failed provider-side); the original cadaver base frame was dropped because every edit re-rendered the wight as a skeletal hanged corpse, which is the identity all 3 gibbet sheets now share."
+    },
+    {
+      "id": "enemies-v2/enemy-lanternmonk-attack",
+      "reason": "postureChange: lob raises crook and lantern overhead, body-scale cv 0.283 / profile drift 0.194 are the raised arm+lantern bbox, feet anchor std 0.003; scale profile bound and applied."
+    },
+    {
+      "id": "enemies-v2/enemy-sandrevenant-revive",
+      "reason": "postureChange: revive rises from a sand mound to standing, so body-scale cv 0.107 is the pose; profile bound and applied, anchor std 0.008."
+    },
+    {
+      "id": "enemies-v2/enemy-*-death",
+      "reason": "Death sheets are unbound from scaleProfile (collapse/heap poses; same build-wide rule as enemies-light/heavy deaths) and processed componentMode all + postureChange; bulwark/mirehag/gibbet deaths use a 1024 source cell because their heaps sprawl wider than the move cell."
+    }
+  ]
+}

@@ -1,0 +1,243 @@
+{
+  "source": {
+    "file": "derived: crop of base prop frames (see art/briefs/v2-world/talltop.py)",
+    "provider": "derived",
+    "width": 768,
+    "height": 768
+  },
+  "grid": {
+    "rows": 3,
+    "cols": 3
+  },
+  "output": {
+    "cellSize": 256,
+    "durationMs": 0,
+    "derivation": "upper half of each base frame (rows above alignedBox.top + height/2), identical cell geometry"
+  },
+  "qc": {
+    "strict": true,
+    "passed": true,
+    "failures": [],
+    "notes": [
+      "derived-crop: registers pixel-for-pixel with its base cell"
+    ]
+  },
+  "frames": [
+    {
+      "index": 0,
+      "file": "frames/frame-000.png",
+      "name": "wall-straight",
+      "base": {
+        "asset": "props-desert-c",
+        "group": "props-v2",
+        "frame": 0,
+        "alignedBox": {
+          "left": 21,
+          "top": 75,
+          "width": 215,
+          "height": 105
+        }
+      },
+      "cutY": 127,
+      "alignedBox": {
+        "left": 42,
+        "top": 75,
+        "width": 173,
+        "height": 52
+      },
+      "empty": false
+    },
+    {
+      "index": 1,
+      "file": "frames/frame-001.png",
+      "name": "wall-corner",
+      "base": {
+        "asset": "props-desert-c",
+        "group": "props-v2",
+        "frame": 1,
+        "alignedBox": {
+          "left": 23,
+          "top": 57,
+          "width": 210,
+          "height": 142
+        }
+      },
+      "cutY": 128,
+      "alignedBox": {
+        "left": 46,
+        "top": 57,
+        "width": 168,
+        "height": 71
+      },
+      "empty": false
+    },
+    {
+      "index": 2,
+      "file": "frames/frame-002.png",
+      "name": "column",
+      "base": {
+        "asset": "props-desert-c",
+        "group": "props-v2",
+        "frame": 3,
+        "alignedBox": {
+          "left": 61,
+          "top": 38,
+          "width": 135,
+          "height": 181
+        }
+      },
+      "cutY": 128,
+      "alignedBox": {
+        "left": 85,
+        "top": 38,
+        "width": 87,
+        "height": 90
+      },
+      "empty": false
+    },
+    {
+      "index": 3,
+      "file": "frames/frame-003.png",
+      "name": "monolith",
+      "base": {
+        "asset": "props-desert-c",
+        "group": "props-v2",
+        "frame": 6,
+        "alignedBox": {
+          "left": 37,
+          "top": 55,
+          "width": 182,
+          "height": 146
+        }
+      },
+      "cutY": 128,
+      "alignedBox": {
+        "left": 81,
+        "top": 55,
+        "width": 99,
+        "height": 73
+      },
+      "empty": false
+    },
+    {
+      "index": 4,
+      "file": "frames/frame-004.png",
+      "name": "cagepost",
+      "base": {
+        "asset": "props-desert-c",
+        "group": "props-v2",
+        "frame": 7,
+        "alignedBox": {
+          "left": 66,
+          "top": 43,
+          "width": 125,
+          "height": 171
+        }
+      },
+      "cutY": 128,
+      "alignedBox": {
+        "left": 77,
+        "top": 43,
+        "width": 107,
+        "height": 85
+      },
+      "empty": false
+    },
+    {
+      "index": 5,
+      "file": "frames/frame-005.png",
+      "name": "obelisk",
+      "base": {
+        "asset": "props-desert-a",
+        "group": "zone-desert",
+        "frame": 5,
+        "alignedBox": {
+          "left": 48,
+          "top": 100,
+          "width": 161,
+          "height": 141
+        }
+      },
+      "cutY": 170,
+      "alignedBox": {
+        "left": 95,
+        "top": 100,
+        "width": 84,
+        "height": 70
+      },
+      "empty": false
+    },
+    {
+      "index": 6,
+      "file": "frames/frame-006.png",
+      "name": "palm",
+      "base": {
+        "asset": "props-desert-a",
+        "group": "zone-desert",
+        "frame": 7,
+        "alignedBox": {
+          "left": 46,
+          "top": 100,
+          "width": 168,
+          "height": 142
+        }
+      },
+      "cutY": 171,
+      "alignedBox": {
+        "left": 46,
+        "top": 100,
+        "width": 168,
+        "height": 71
+      },
+      "empty": false
+    },
+    {
+      "index": 7,
+      "file": "frames/frame-007.png",
+      "name": "sunbanner",
+      "base": {
+        "asset": "props-desert-b",
+        "group": "zone-desert",
+        "frame": 1,
+        "alignedBox": {
+          "left": 44,
+          "top": 52,
+          "width": 167,
+          "height": 151
+        }
+      },
+      "cutY": 127,
+      "alignedBox": {
+        "left": 104,
+        "top": 52,
+        "width": 107,
+        "height": 75
+      },
+      "empty": false
+    },
+    {
+      "index": 8,
+      "file": "frames/frame-008.png",
+      "name": "vulture",
+      "base": {
+        "asset": "props-desert-b",
+        "group": "zone-desert",
+        "frame": 6,
+        "alignedBox": {
+          "left": 37,
+          "top": 59,
+          "width": 181,
+          "height": 138
+        }
+      },
+      "cutY": 128,
+      "alignedBox": {
+        "left": 79,
+        "top": 59,
+        "width": 106,
+        "height": 69
+      },
+      "empty": false
+    }
+  ]
+}

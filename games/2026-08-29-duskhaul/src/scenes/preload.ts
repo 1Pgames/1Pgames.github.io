@@ -2,8 +2,10 @@ import Phaser from 'phaser';
 import { PALETTE, PLAYER_BASE_STATS, TEXT, VIEW } from '../config';
 import { initGeneratedAudio } from '../core/audio';
 import { SCENES } from '../core/keys';
+import { loadMeta, settleAbandonedRun } from '../core/progression';
 import { IMAGES, SPRITES } from '../data/art';
 import { validateUpgradeStats } from '../data/upgrades';
+import { actorOutlineSet, bakeOutlines, ensureActorFxTextures, outlineStats } from '../core/outline';
 import { ART_GROUPS } from './game';
 
 /**
@@ -79,10 +81,27 @@ export class PreloadScene extends Phaser.Scene {
       });
     }
 
+    // §13.1: bake every actor outline once, before any scene can spawn one.
+    ensureActorFxTextures(this);
+    const entries = actorOutlineSet((key) => this.textures.exists(key));
+    bakeOutlines(this, entries);
+    const bake = outlineStats();
+    console.info(`[outline] baked ${bake.sheets} sheets / ${bake.frames} frames in ${Math.round(bake.ms)} ms (budget 900)`);
     // Registered audio samples (none in the template) start downloading here and
     // decode into the shared context; every unregistered voice stays synthesised.
     initGeneratedAudio();
 
-    this.scene.start(SCENES.menu);
+    // §14b routing: an abandoned run settles straight to Results (E45);
+    // a fresh save goes into the Wicket FTUE run; everyone else lands in the Hub.
+    const abandoned = settleAbandonedRun();
+    if (abandoned !== null) {
+      this.scene.start(SCENES.gameOver, { report: abandoned.run, settlement: abandoned.report });
+      return;
+    }
+    if (!loadMeta().flags.ftueDone) {
+      this.scene.start(SCENES.game, { zone: 'castle', hazard: 1, mode: 'ftue', seed: 'wicket' });
+      return;
+    }
+    this.scene.start(SCENES.hub);
   }
 }

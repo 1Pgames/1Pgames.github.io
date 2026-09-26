@@ -1,0 +1,44 @@
+{
+  "group": "icons-v3",
+  "owner": "ArtIcons3",
+  "note": "V3 icons: draft stat/effect/filler cards + Sanctum branch crests. Static sheet addressed by frame via ICON.<id>; rarity is drawn by UI frames in code, never in the icon.",
+  "assets": [
+    {
+      "id": "icons-v3-cards",
+      "kind": "ui",
+      "rows": 4,
+      "cols": 4,
+      "duration": 0,
+      "loop": false,
+      "attempts": 2,
+      "icons": [
+        "icon-card-stat_might",
+        "icon-card-stat_haste",
+        "icon-card-stat_area",
+        "icon-card-stat_crit",
+        "icon-card-stat_vital",
+        "icon-card-stat_swift",
+        "icon-card-stat_greed",
+        "icon-card-fx_lastgasp",
+        "icon-card-fill_bread",
+        "icon-card-fill_purse",
+        "icon-branch-body",
+        "icon-branch-greed",
+        "icon-branch-escape",
+        "icon-branch-ascension",
+        "icon-branch-root",
+        "icon-sanctum-keystone"
+      ],
+      "action": "Draft stat/effect/filler card icons (upgrades.ts STAT_CARDS + FILLER_CARDS) + Sanctum branch crests (sanctum.ts BODY/GREED/ESCAPE, Dread Ascension row, ROOT oath) + row-4 keystone mark",
+      "cellPx": 96,
+      "strict": true
+    }
+  ],
+  "qcExceptions": [
+    {
+      "id": "icons-v3/icons-v3-cards",
+      "reason": "Export provenance, same class as icons-v2/icons-*: native generate_image (xai-oauth, inputs vision-1 + accepted icons-v2 icons-kit raw) exported by process-sprite.ts CLI --strict from the kept raw after normalize-key.py (xai paints the key hot pink ~rgb(248,11,202)); not through the OMP_SPRITE_EXPORT marker. Frame 13 is a cell composite: attempt 2 (accepted sheet) drew a plain iron crown at r4c2 that duplicated icon-uniq-u_dreadcrown; edit attempt 3 drew the requested winged crowned skull but in r3c2 (over the purse), so compose-cells.py pixel-copies that generated cell into r4c2 of attempt 2; nothing drawn. Both raws kept in art/briefs/v3-icons/raw/icons-v3-cards/, rebuild.sh reproduces the export."
+    }
+  ],
+  "missing": []
+}

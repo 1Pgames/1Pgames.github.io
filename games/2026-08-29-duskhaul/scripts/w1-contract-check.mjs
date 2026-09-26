@@ -147,15 +147,20 @@ for (const collection of collections) {
   const supplied = new Set(entries.flatMap((e) => Object.keys(e.bag)));
 
   // (a) demanded-but-never-supplied, scoped to the collection the demanding
-  // module actually consumes: only report when the collection supplies SOME of
-  // the demanding module's keys, which is what proves it is that consumer's data.
+  // module actually consumes: a collection is a site's data only when it
+  // supplies MOST of the keys that site demands. Sharing a word or two
+  // (`radiusPx`, `telegraphMs` on zone hazards vs enemy behaviours) is a
+  // naming coincidence, not proof of consumption.
+  const consumerOf = (site) => {
+    const siteKeys = [...demanded].filter(([, s]) => s.includes(site)).map(([k]) => k);
+    return siteKeys.filter((k) => supplied.has(k)).length * 2 > siteKeys.length;
+  };
   for (const [key, sites] of demanded) {
     if (supplied.has(key)) continue;
-    const siblingKeys = [...demanded.keys()].filter((k) => supplied.has(k));
-    if (siblingKeys.length === 0) continue; // not this collection's consumer
-    if (!sites.some((site) => demanded.get(siblingKeys[0]).includes(site))) continue;
+    const consumers = sites.filter(consumerOf);
+    if (consumers.length === 0) continue; // not this collection's consumer
     failures.push(
-      `${collection.name}: no row supplies "${key}", which ${sites.join(', ')} calls requireParam for `
+      `${collection.name}: no row supplies "${key}", which ${consumers.join(', ')} calls requireParam for `
       + '— that branch throws the first time it runs',
     );
   }

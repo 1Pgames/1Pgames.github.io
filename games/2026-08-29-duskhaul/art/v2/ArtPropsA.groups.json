@@ -1,0 +1,153 @@
+{
+  "owner": "ArtPropsA",
+  "groups": [
+    {
+      "group": "props-v3a",
+      "owner": "ArtPropsA",
+      "assets": [
+        {
+          "id": "props-castle-d",
+          "kind": "ui",
+          "rows": 3,
+          "cols": 3,
+          "duration": 0,
+          "attempts": 2,
+          "icons": [
+            "castle-obelisk",
+            "castle-fallen-column",
+            "castle-cauldron",
+            "castle-stocks",
+            "castle-gargoyle",
+            "castle-trough",
+            "castle-boulder",
+            "castle-bollard",
+            "castle-stair-ruin"
+          ],
+          "action": "castle standalone blockers d: obelisk, fallen-column, cauldron, stocks, gargoyle, trough, boulder, bollard, stair-ruin"
+        },
+        {
+          "id": "props-castle-d-tall-top",
+          "kind": "ui",
+          "rows": 3,
+          "cols": 3,
+          "duration": 0,
+          "icons": [
+            "castle-obelisk-top",
+            "castle-gargoyle-top",
+            "castle-bollard-top"
+          ],
+          "action": "derived upper-half crops of the tall cells of props-castle-d (Y-sort occluder, registers 1:1 with base)"
+        },
+        {
+          "id": "props-castle-e",
+          "kind": "ui",
+          "rows": 3,
+          "cols": 3,
+          "duration": 0,
+          "attempts": 2,
+          "icons": [
+            "castle-barrels",
+            "castle-spear-rack",
+            "castle-banner-pole",
+            "castle-anvil",
+            "castle-iron-maiden",
+            "castle-grave-cross",
+            "castle-ballista",
+            "castle-millstone",
+            "castle-wall-corner-ruin"
+          ],
+          "action": "castle standalone blockers e: barrels, spear-rack, banner-pole, anvil, iron-maiden, grave-cross, ballista, millstone, wall-corner-ruin"
+        },
+        {
+          "id": "props-castle-e-tall-top",
+          "kind": "ui",
+          "rows": 3,
+          "cols": 3,
+          "duration": 0,
+          "icons": [
+            "castle-banner-pole-top",
+            "castle-iron-maiden-top",
+            "castle-grave-cross-top"
+          ],
+          "action": "derived upper-half crops of the tall cells of props-castle-e (Y-sort occluder, registers 1:1 with base)"
+        },
+        {
+          "id": "props-outlands-d",
+          "kind": "ui",
+          "rows": 3,
+          "cols": 3,
+          "duration": 0,
+          "attempts": 3,
+          "icons": [
+            "outlands-split-tree",
+            "outlands-hollow-log",
+            "outlands-stone-idol",
+            "outlands-crag",
+            "outlands-axe-stump",
+            "outlands-signpost",
+            "outlands-beast-skull",
+            "outlands-trough",
+            "outlands-bird-totem"
+          ],
+          "action": "outlands standalone blockers d: split-tree, hollow-log, stone-idol, crag, axe-stump, signpost, beast-skull, trough, bird-totem"
+        },
+        {
+          "id": "props-outlands-d-tall-top",
+          "kind": "ui",
+          "rows": 3,
+          "cols": 3,
+          "duration": 0,
+          "icons": [
+            "outlands-split-tree-top",
+            "outlands-signpost-top",
+            "outlands-bird-totem-top"
+          ],
+          "action": "derived upper-half crops of the tall cells of props-outlands-d (Y-sort occluder, registers 1:1 with base)"
+        },
+        {
+          "id": "props-outlands-e",
+          "kind": "ui",
+          "rows": 3,
+          "cols": 3,
+          "duration": 0,
+          "attempts": 2,
+          "icons": [
+            "outlands-menhir",
+            "outlands-plough",
+            "outlands-cauldron",
+            "outlands-root-tangle",
+            "outlands-toadstool",
+            "outlands-barrel",
+            "outlands-wayshrine",
+            "outlands-antler-totem",
+            "outlands-wattle-corner"
+          ],
+          "action": "outlands standalone blockers e: menhir, plough, cauldron, root-tangle, toadstool, barrel, wayshrine, antler-totem, wattle-corner"
+        },
+        {
+          "id": "props-outlands-e-tall-top",
+          "kind": "ui",
+          "rows": 3,
+          "cols": 3,
+          "duration": 0,
+          "icons": [
+            "outlands-menhir-top",
+            "outlands-wayshrine-top",
+            "outlands-antler-totem-top"
+          ],
+          "action": "derived upper-half crops of the tall cells of props-outlands-e (Y-sort occluder, registers 1:1 with base)"
+        }
+      ]
+    }
+  ],
+  "qcExceptions": [
+    {
+      "id": "props-v3a/props-*-tall-top",
+      "reason": "Derived, not generated: upper-half crops of the accepted base frames (art/briefs/v3-props-a/build.py) so the occluding top registers pixel-for-pixel with its base; a generated upper half cannot align."
+    },
+    {
+      "id": "props-v3a/props-outlands-d",
+      "reason": "Third regeneration (single-cell edit of the accepted raw) to break an art_review silhouette collision (0.033 at 48px) between the round boulder and outlands-e's round cauldron; the rest of the sheet was already accepted. If the edit fails, the prior raw ships and both round cells stay, visibly different materials (stone dome vs rusted pot on ash ring)."
+    }
+  ]
+}

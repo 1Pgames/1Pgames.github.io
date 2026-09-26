@@ -1,0 +1,14 @@
+[
+ {
+  "id": "weapon-fx-v1/wpn-rail",
+  "reason": "palette meanDistance 83.0 > 48: the beam is PRD-mandated hero cyan #6fd6ff with a pale-cyan core and violet fringe, and sprite_check_palette meanDistance is distance from the style.json LIST, which has no cyan entry (same list gap as canon weapon-fx/wpn-breath 63.7); visually a hard-edged dithered pixel beam, cool-coded, no white."
+ },
+ {
+  "id": "weapon-fx-v1/wpn-rail-evo",
+  "reason": "palette meanDistance 49.8 > 48: lilac core + cyan seam of a violet beam, list has no cyan/lilac-light entry; 1.8 over the ceiling on a correct cool hero beam."
+ },
+ {
+  "id": "weapon-fx-v1/wpn-nova-evo",
+  "reason": "palette meanDistance 52.6 > 48: PRD mandates Pyre Shroud as cold violet-cyan spirit fire (not orange); the list carries #5b4bff/#c084fc but no cyan or mid-lilac, so correct cool flame reads as distance; visually on-style hard-edged pixel flame, 0% warm share (art_review)."
+ }
+]

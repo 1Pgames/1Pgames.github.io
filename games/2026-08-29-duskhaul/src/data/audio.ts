@@ -1,4 +1,5 @@
 import type { SfxName } from '../core/audio';
+import type { WeaponId } from './types-v2';
 
 /**
  * Generated-audio registry: the only place that knows audio file paths. Empty
@@ -21,14 +22,21 @@ import type { SfxName } from '../core/audio';
  * - A missing or unplayable file degrades to the synth voice/score with one
  *   console warning; it never breaks the game.
  *
- * THIS BUILD SHIPS SYNTH-ONLY, DELIBERATELY. No audio provider was available
- * for the `game-art` audio step, so `public/assets/audio/` does not exist and
- * both maps below are empty. That is the DESIGNED fallback, not a gap: every
- * §12 voice is synthesised, including the two the PRD authors specifically for
- * this game (`gate`, `collapse`, both in `core/audio.ts` VOICES), and
- * `core/music.ts` synthesises the score that `setMusicIntensity()` drives.
- * Dropping files under `public/assets/audio/` and adding a row here is the
- * whole switch — per entry, with no other code change anywhere.
+ * SFX: every `core/audio.ts` voice except the unused `jump` ships as an
+ * ElevenLabs text-to-sound-effects sample (prompts, durations and the raw MP3s
+ * in `art/briefs/sfx-elevenlabs/`). Shipped form: lead trimmed at the first
+ * sample above −50 dBFS minus 5 ms, trailing silence trimmed with a 20 ms
+ * fade-out, mono 44.1 kHz OGG Vorbis q3. Each file is level-matched to its
+ * synth voice's max momentary loudness (EBU R128 M) so the measured mix
+ * (combat SFX ≈ −20.5 LUFS, music ≈ 0.5× of it) is unchanged; the files
+ * that hit the −1 dBTP cap (`die`, `nova`, `levelup`) carry the remainder as `sampleGain` in VOICES.
+ * Polyphony, jitter, vary, the xp rising chain and music ducking all apply
+ * to samples (rate → playbackRate, volume → gain). The synth voices stay as
+ * the FAILURE path: a sample that 404s or fails to decode keeps its synth
+ * voice with one console warning.
+ *
+ * Music: the two stems below; `core/music.ts` synthesises the score only for
+ * a mood with no usable stem.
  *
  * Pure data, no Phaser import.
  */
@@ -77,5 +85,69 @@ export const AUDIO: {
     // instead of crossfading: it swells as the horde thickens.
     'game-low': 'assets/audio/iron-chapel.ogg',
   },
-  sfx: {},
+  sfx: {
+    ui: 'assets/audio/sfx/ui.ogg',
+    tap: 'assets/audio/sfx/tap.ogg',
+    pickup: 'assets/audio/sfx/pickup.ogg',
+    combo: 'assets/audio/sfx/combo.ogg',
+    hit: 'assets/audio/sfx/hit.ogg',
+    die: 'assets/audio/sfx/die.ogg',
+    // Option G (war drum + rising wind), picked by the user over the choir swell and candidates A-C.
+    levelup: 'assets/audio/sfx/levelup.ogg',
+    whoosh: 'assets/audio/sfx/whoosh.ogg',
+    gate: 'assets/audio/sfx/gate.ogg',
+    collapse: 'assets/audio/sfx/collapse.ogg',
+    shoot: 'assets/audio/sfx/shoot.ogg',
+    slash: 'assets/audio/sfx/slash.ogg',
+    disc: 'assets/audio/sfx/disc.ogg',
+    nova: 'assets/audio/sfx/nova.ogg',
+    beam: 'assets/audio/sfx/beam.ogg',
+    chain: 'assets/audio/sfx/chain.ogg',
+    pool: 'assets/audio/sfx/pool.ogg',
+    summon: 'assets/audio/sfx/summon.ogg',
+    lob: 'assets/audio/sfx/lob.ogg',
+    crunch: 'assets/audio/sfx/crunch.ogg',
+    slain: 'assets/audio/sfx/slain.ogg',
+    hurt: 'assets/audio/sfx/hurt.ogg',
+    heartbeat: 'assets/audio/sfx/heartbeat.ogg',
+    xp: 'assets/audio/sfx/xp.ogg',
+    coin: 'assets/audio/sfx/coin.ogg',
+    smash: 'assets/audio/sfx/smash.ogg',
+    chest: 'assets/audio/sfx/chest.ogg',
+    choir: 'assets/audio/sfx/choir.ogg',
+    extract: 'assets/audio/sfx/extract.ogg',
+  },
 };
+
+/**
+ * Fire voice per weapon, by pattern class (PRD-V2 §5.8 "Pattern" column):
+ * projectile `shoot`, blade `slash`, disc `disc`, burst `nova`, beam `beam`,
+ * chain `chain`, trail/pool `pool`, summon `summon`, mine/explosion `lob`.
+ * `WeaponSystem.update` plays it once per volley. Orbit, Grave Wake and
+ * Siphon never "fire" (continuous), so theirs sound only through hits.
+ */
+export const WEAPON_VOICE: Readonly<Record<WeaponId, SfxName>> = {
+  bolt: 'shoot',
+  skull: 'shoot',
+  orbit: 'slash',
+  scythe: 'slash',
+  sickle: 'slash',
+  lash: 'slash',
+  chakram: 'disc',
+  nova: 'nova',
+  aura: 'nova',
+  totem: 'nova',
+  rail: 'beam',
+  breath: 'beam',
+  hex: 'chain',
+  censer: 'pool',
+  wake: 'pool',
+  siphon: 'pool',
+  thralls: 'summon',
+  bombs: 'lob',
+  snares: 'lob',
+  spears: 'lob',
+};
+
+/** Weapon volleys sit under hits and deaths: they are the most frequent voice. */
+export const WEAPON_VOICE_OPTS = { volume: 0.6 } as const;

@@ -3,6 +3,7 @@
   "name": "hero",
   "processing": {
     "cellSize": 256,
+    "cellHeight": 256,
     "align": "feet",
     "scaleMode": "preserve",
     "fit": 0.86,
@@ -17,13 +18,13 @@
   "reference": {
     "rows": 2,
     "cols": 2,
-    "bodyScaleMean": 0.8070175438596492,
-    "bodyScaleCv": 0.004634798181643719,
-    "anchorYMean": 0.8879585326953748,
-    "sourceToOutputScale": 0.3511323763955343,
-    "sourceCellWidth": 627,
-    "sourceCellHeight": 627,
-    "outputSubjectHeightMean": 177.5
+    "bodyScaleMean": 0.8073326771653543,
+    "bodyScaleCv": 0.013225707987654432,
+    "anchorYMean": 0.8469488188976378,
+    "sourceToOutputScale": 0.21669291338582677,
+    "sourceCellWidth": 1016,
+    "sourceCellHeight": 1016,
+    "outputSubjectHeightMean": 177.75
   },
   "qc": {
     "maxBodyScaleDrift": 0.08

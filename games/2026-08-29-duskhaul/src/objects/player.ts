@@ -1,24 +1,44 @@
 import Phaser from 'phaser';
 import { PALETTE, PLAYER_BASE_STATS, TUNING } from '../config';
 import { TEX } from '../core/keys';
-import { ANIM, artFacesRight, artScale } from '../data/art';
+import { ANIM, artFacesRight } from '../data/art';
 import { Health } from '../core/damage';
 import { StatBlock, type Modifier } from '../core/stats';
+import { outlineKey, shadowTexture } from '../core/outline';
+import { actionScale, displaySizeFor } from '../data/enemies';
+import type { ClassId } from '../data/types-v2';
+import { xpNeeded } from '../data/upgrades';
 
 /**
- * The player avatar for a survivor-like: a stat-driven body that moves toward a
- * drag target (or a keyboard axis), regenerates, holds i-frames, and tracks XP
- * and level. Combat itself lives in `systems/combat.ts` — this class never
- * spawns projectiles, so a different game can reuse it with another weapon
- * system.
+ * The hero (PRD-V2 §5.1, §13.1): a stat-driven body sized so its silhouette is
+ * `player.visiblePx` tall (cell `displaySizeFor('hero-idle', 112)` = 162),
+ * a `player.bodyRadius` 34 px hitbox, the baked GREEN outline on every
+ * animation, an `fx-shadow` at 0.45 under the feet and an HP ring under the
+ * feet below 50% HP. Combat lives in `systems/combat.ts`.
  *
- * Use for: the single controllable entity of a run.
- * Do NOT use for: pooled entities (see `objects/enemy.ts`) or anything spawned
- * in bulk — this object is constructed once per run.
+ * Class passives (§5.3) that live on the body: Gravewarden's knockback ×2
+ * (`knockbackMul`), Widowblade's crit heal (`onCrit`, 1 hp, max 5/s). The
+ * rest are stat mods from `runLoadout` (Meta) or read elsewhere by
+ * `classId` (Ashwitch burn duration → weapons; Duskhauler vein shards → POI).
  */
+
+/** External drift is clamped to this share of the hero's current speed (critic B3 anti-pin). */
+const DRIFT_CAP = 0.5;
+/** Widowblade Grief Edge: crits restore 1 hp, at most 5 per second. */
+const CRIT_HEAL_PER_S = 5;
+/** HP ring under the feet shows below this ratio (§13.1). */
+const HP_RING_BELOW = 0.5;
+/** Feet line of the hero sheets (sprite-metadata `anchorYMean`). */
+const FEET_Y = 0.846;
+
 export class Player extends Phaser.Physics.Arcade.Sprite {
   readonly stats: StatBlock;
   readonly health: Health;
+  readonly classId: ClassId;
+  /** Contact knockback multiplier applied by combat (Gravewarden ×2). */
+  readonly knockbackMul: number;
+  /** Display size of the loop cell (world px). */
+  readonly displaySize: number;
   level = 1;
   xp = 0;
 
@@ -27,20 +47,27 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   private axisX = 0;
   private axisY = 0;
   private regenCarry = 0;
-  /** Non-null while a one-shot action animation (hurt, extract, death) plays. */
   private action: string | null = null;
-  /**
-   * True while the extraction rite holds the body (§11 hero cycle "channel: 4f
-   * kneeling rite loop"). It is a HELD state, not a one-shot, so it cannot go
-   * through `playAction` — that path waits for ANIMATION_COMPLETE and
-   * `hero-channel` loops forever.
-   */
   private channelling = false;
+  /** External drift this frame (magnetic affix, gust), px/s; cleared after each tick. */
+  private driftX = 0;
+  private driftY = 0;
+  /** Forced displacement (hook pull): px/s for `shoveMs`. */
+  private shoveVx = 0;
+  private shoveVy = 0;
+  private shoveMs = 0;
+  private critHealWindowMs = 0;
+  private critHealed = 0;
+  private readonly shadow: Phaser.GameObjects.Image;
+  private readonly hpRing: Phaser.GameObjects.Graphics;
+  private hpRingDrawn = -1;
 
-  constructor(scene: Phaser.Scene, x: number, y: number, mods: readonly Modifier[] = []) {
+  constructor(scene: Phaser.Scene, x: number, y: number, mods: readonly Modifier[] = [], classId: ClassId = 'duskhauler') {
     super(scene, x, y, ANIM.heroIdle);
     scene.add.existing(this);
     scene.physics.add.existing(this);
+    this.classId = classId;
+    this.knockbackMul = classId === 'gravewarden' ? 2 : 1;
 
     this.stats = new StatBlock(PLAYER_BASE_STATS);
     for (const mod of mods) this.stats.addModifier(mod);
@@ -48,15 +75,18 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.health = new Health(this.stats.get('maxHp'));
     this.health.invulnMs = TUNING.player.invulnMs;
 
-    this.setDisplaySize(TUNING.player.size, TUNING.player.size).setDepth(20);
-    // Hitbox in source-cell pixels (256px cell, transparent margin around the
-    // chibi body), deliberately smaller than the art so grazes feel fair.
-    this.body?.setCircle(70, 58, 66);
-    this.play(ANIM.heroIdle);
-    // The arena sets the physics world bounds; the body keeps the player inside
-    // them, so no screen-space clamping (the camera scrolls now).
+    this.displaySize = displaySizeFor(ANIM.heroIdle, TUNING.player.visiblePx);
+    this.setDisplaySize(this.displaySize, this.displaySize).setDepth(20);
+    // Hitbox: `player.bodyRadius` WORLD px centred on the sprite (x, y).
+    const rs = TUNING.player.bodyRadius / (this.displaySize / 256);
+    this.body?.setCircle(rs, 128 - rs, 128 - rs);
     this.setCollideWorldBounds(true);
 
+    this.shadow = scene.add.image(x, y, shadowTexture(scene)).setDepth(8).setAlpha(0.45);
+    const sw = TUNING.player.visiblePx * 0.8;
+    this.shadow.setDisplaySize(sw, sw * 0.4);
+    this.hpRing = scene.add.graphics().setDepth(8.5);
+    this.playArt(ANIM.heroIdle);
   }
 
   setMoveTarget(x: number, y: number): void {
@@ -69,16 +99,12 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.targetY = null;
   }
 
-  /**
-   * Movement intent from a stick or the keyboard. The vector's magnitude is the
-   * throttle (0..1), so a half-pushed stick walks — never normalise it here.
-   */
+  /** Stick/keyboard intent; magnitude is the throttle (0..1). */
   setAxis(ax: number, ay: number): void {
     this.axisX = ax;
     this.axisY = ay;
   }
 
-  /** Upgrade cards and meta upgrades go through here so caps stay in sync. */
   applyModifier(mod: Modifier): void {
     this.stats.addModifier(mod);
     if (mod.stat === 'maxHp') this.health.setMax(this.stats.get('maxHp'), true);
@@ -86,16 +112,12 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   }
 
   xpNeeded(): number {
-    return Math.round(TUNING.xp.base * Math.pow(TUNING.xp.growth, this.level - 1));
+    return xpNeeded(this.level);
   }
 
-  /**
-   * Adds XP and returns how many levels it gained. There is no XP-gain stat:
-   * the frozen §16.1 `StatKey` union has no `xpGain`, so nothing in the game
-   * can scale this and an orb is worth exactly its value.
-   */
+  /** Adds XP (× `xpMul`) and returns the levels gained. */
   addXp(amount: number): number {
-    this.xp += amount;
+    this.xp += amount * this.stats.get('xpMul');
     let gained = 0;
     let needed = this.xpNeeded();
     while (this.xp >= needed) {
@@ -107,34 +129,74 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     return gained;
   }
 
-  /** Movement, regen and animation state. Called by `CombatSystem`, not the scene. */
+  /** Adds external drift for this frame (summed; cleared after `tick`). */
+  drift(vx: number, vy: number): void {
+    this.driftX += vx;
+    this.driftY += vy;
+  }
+
+  /** Ignores external drift for `ms` (anti-pin breakout). */
+  freeFromDrift(ms: number): void {
+    this.driftFreeMs = Math.max(this.driftFreeMs, ms);
+  }
+
+  /** Base-speed px/s the input asked for on the last tick (0 while shoved or idle). */
+  intentSpeed = 0;
+  private driftFreeMs = 0;
+
+  /** Forced move of (dx, dy) px over `ms` (hook pull, §5.4 Gibbet Wight). */
+  shove(dx: number, dy: number, ms: number): void {
+    this.shoveMs = ms;
+    this.shoveVx = (dx / ms) * 1000;
+    this.shoveVy = (dy / ms) * 1000;
+  }
+
+  /** Widowblade Grief Edge (§5.3): a crit heals 1 hp, capped 5/s. */
+  onCrit(): void {
+    if (this.classId !== 'widowblade' || this.critHealed >= CRIT_HEAL_PER_S) return;
+    this.critHealed += 1;
+    this.health.heal(1);
+  }
+
   tick(deltaMs: number): void {
     const speed = this.stats.get('moveSpeed');
-
+    let vx = 0;
+    let vy = 0;
     if (this.axisX !== 0 || this.axisY !== 0) {
       const len = Math.hypot(this.axisX, this.axisY);
       const throttle = Math.min(1, len);
-      this.setVelocity((this.axisX / len) * speed * throttle, (this.axisY / len) * speed * throttle);
+      vx = (this.axisX / len) * speed * throttle;
+      vy = (this.axisY / len) * speed * throttle;
     } else if (this.targetX !== null && this.targetY !== null) {
       const dx = this.targetX - this.x;
       const dy = this.targetY - this.y;
       const dist = Math.hypot(dx, dy);
-      if (dist < 4) {
-        this.setVelocity(0, 0);
-      } else {
-        // followLerp is "fraction of the remaining distance per 16ms frame";
-        // converting it to a velocity keeps the feel framerate-independent.
+      if (dist >= 4) {
         const magnitude = Math.min(speed, (dist * TUNING.player.followLerp) / 0.016);
-        this.setVelocity((dx / dist) * magnitude, (dy / dist) * magnitude);
+        vx = (dx / dist) * magnitude;
+        vy = (dy / dist) * magnitude;
       }
-    } else {
-      this.setVelocity(0, 0);
     }
+    // Speed the player ASKED for this frame (unslowed base × throttle): the anti-pin
+    // detector in combat compares real displacement against it (critic B3).
+    this.intentSpeed = this.shoveMs > 0 ? 0 : (Math.hypot(vx, vy) / Math.max(1, speed)) * PLAYER_BASE_STATS.moveSpeed;
+    if (this.shoveMs > 0) {
+      this.shoveMs -= deltaMs;
+      vx = this.shoveVx;
+      vy = this.shoveVy;
+    }
+    // External drift (magnetic elites, gust) sums across sources; clamp it to half the
+    // hero's speed so stacked pulls can slow the hero but never hold it (critic B3).
+    const drift = Math.hypot(this.driftX, this.driftY);
+    const driftCap = speed * DRIFT_CAP;
+    const k = this.driftFreeMs > 0 ? 0 : drift > driftCap ? driftCap / drift : 1;
+    if (this.driftFreeMs > 0) this.driftFreeMs -= deltaMs;
+    this.setVelocity(vx + this.driftX * k, vy + this.driftY * k);
+    this.driftX = 0;
+    this.driftY = 0;
 
-    // Regen is plain config, not a stat: the frozen union has no
-    // `regenPerSecond`, so this is the same constant the sim integrates.
-    const regen = TUNING.player.regenPerSecond;
-    if (regen > 0 && this.health.hp < this.health.max) {
+    const regen = this.stats.get('regenPerS');
+    if (regen > 0 && this.health.hp < this.health.max && this.health.hp > 0) {
       this.regenCarry += (regen * deltaMs) / 1000;
       if (this.regenCarry >= 1) {
         const whole = Math.floor(this.regenCarry);
@@ -142,20 +204,47 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
         this.health.heal(whole);
       }
     }
+    this.critHealWindowMs += deltaMs;
+    if (this.critHealWindowMs >= 1000) {
+      this.critHealWindowMs = 0;
+      this.critHealed = 0;
+    }
 
     this.syncLocomotion();
+    this.syncFeet();
   }
 
-  /**
-   * Holds or releases the extraction rite pose. While held, locomotion and
-   * one-shot actions are suppressed: the rite is the body's whole state, and a
-   * hurt flash that ended with `syncLocomotion(true)` would silently drop the
-   * loop. A hit taken mid-channel still reads — the screen flashes, the camera
-   * punches and the ChannelBar shows the setback — so nothing is lost.
-   *
-   * Called by the slice from `extraction.channelingGate`, which is the single
-   * source of truth for whether the rite is running.
-   */
+  /** Shadow + HP ring under the feet (§13.1). */
+  private syncFeet(): void {
+    const feet = this.y + (FEET_Y * 256 - 128) * (this.displaySize / 256);
+    this.shadow.setPosition(this.x, feet);
+    const ratio = this.health.ratio;
+    const show = ratio < HP_RING_BELOW && ratio > 0;
+    const bucket = show ? Math.round(ratio * 40) : -1;
+    if (bucket !== this.hpRingDrawn) {
+      this.hpRingDrawn = bucket;
+      this.hpRing.clear();
+      if (show) {
+        const r = TUNING.player.visiblePx * 0.42;
+        this.hpRing.lineStyle(5, 0x03040b, 0.7);
+        this.hpRing.strokeEllipse(0, 0, r * 2, r * 0.8);
+        this.hpRing.lineStyle(4, ratio < 0.3 ? PALETTE.bad : PALETTE.good, 0.95);
+        this.hpRing.beginPath();
+        const steps = 40;
+        const end = Math.max(1, Math.round(steps * ratio * 2));
+        for (let i = 0; i <= Math.min(steps, end); i += 1) {
+          const a = -Math.PI / 2 + (i / steps) * Math.PI * 2;
+          const px = Math.cos(a) * r;
+          const py = Math.sin(a) * r * 0.4;
+          if (i === 0) this.hpRing.moveTo(px, py);
+          else this.hpRing.lineTo(px, py);
+        }
+        this.hpRing.strokePath();
+      }
+    }
+    this.hpRing.setPosition(this.x, feet);
+  }
+
   setChannelling(on: boolean): void {
     if (this.channelling === on) return;
     this.channelling = on;
@@ -167,60 +256,54 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.syncLocomotion(true);
   }
 
-  /**
-   * Plays a one-shot action animation and returns to locomotion afterwards.
-   * Called by the combat system on damage, and by the slice for the extraction
-   * dissolve and the death collapse.
-   */
+  /** One-shot action (hurt, extract, death), then back to locomotion. */
   playAction(key: string): void {
     if (this.channelling || this.action === key) return;
     this.action = key;
     this.playArt(key);
     this.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
+      if (this.action !== key) return;
       this.action = null;
       this.syncLocomotion(true);
     });
   }
 
-  /** Switches between idle and run without restarting the current animation. */
   private syncLocomotion(force = false): void {
     if (this.channelling) return;
     if (this.action !== null && !force) return;
     const vx = this.body?.velocity.x ?? 0;
     const moving = Math.abs(vx) + Math.abs(this.body?.velocity.y ?? 0) > 24;
     const want = moving ? ANIM.heroRun : ANIM.heroIdle;
-    if (this.anims.currentAnim?.key !== want) this.playArt(want);
+    if (this.currentBase() !== want) this.playArt(want);
     if (moving) this.faceVelocity(vx);
   }
 
-  /**
-   * Plays an animation and re-applies its display size. Generated actions do
-   * not fill their cell to the same height, so without the per-asset factor the
-   * character visibly shrinks or grows when its state changes.
-   */
+  private currentBase(): string | undefined {
+    const key = this.anims.currentAnim?.key;
+    return key?.endsWith('-ol') === true ? key.slice(0, -3) : key;
+  }
+
+  /** Plays the GREEN-outlined variant (§13.1) when baked; re-applies per-action scale. */
   private playArt(key: string): void {
-    const size = TUNING.player.size * artScale(key);
+    const size = this.displaySize * actionScale(ANIM.heroIdle, key);
+    const ol = outlineKey(key, TUNING.outline.heroPx as 3);
+    this.play(this.scene.anims.exists(ol) ? ol : key, true);
     this.setDisplaySize(size, size);
-    this.play(key, true);
     this.faceVelocity(this.body?.velocity.x ?? 0);
   }
 
-  /** Mirrors the sprite so it moves face-first, whichever way the art was drawn. */
   private faceVelocity(vx: number): void {
     if (vx === 0) return;
-    const key = this.anims.currentAnim?.key ?? ANIM.heroIdle;
+    const key = this.currentBase() ?? ANIM.heroIdle;
     this.setFlipX(artFacesRight(key) ? vx < 0 : vx > 0);
   }
 
   destroyAll(): void {
+    this.shadow.destroy();
+    this.hpRing.destroy();
     this.destroy();
   }
 
-  /**
-   * One-shot ring that expands to the new pickup radius when the stat changes.
-   * A permanent aura is visual noise — the orbs drift in from anywhere anyway,
-   * so the radius only needs communicating at the moment it grows.
-   */
   private pulsePickupRadius(): void {
     const radius = this.stats.get('pickupRadius');
     const ring = this.scene.add

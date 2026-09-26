@@ -1,0 +1,242 @@
+{
+  "source": {
+    "file": "gibbet-attack-raw.png",
+    "provider": "xai",
+    "rawFile": "raw-source.png",
+    "width": 2026,
+    "height": 2026
+  },
+  "grid": {
+    "rows": 2,
+    "cols": 2
+  },
+  "output": {
+    "cellSize": 256,
+    "cellHeight": 256,
+    "align": "feet",
+    "scaleMode": "preserve",
+    "fit": 0.86,
+    "fullBleed": false,
+    "threshold": 180,
+    "feather": 0,
+    "edgeThreshold": 210,
+    "sampling": "nearest",
+    "durationMs": 100,
+    "componentMode": "all",
+    "componentPadding": 0,
+    "minComponentArea": 64,
+    "profileApplied": "gibbet",
+    "overrides": [
+      "componentMode",
+      "minComponentArea"
+    ]
+  },
+  "qc": {
+    "strict": true,
+    "passed": true,
+    "failures": [],
+    "waived": [],
+    "notes": [],
+    "keyedPixels": 3749944,
+    "summary": {
+      "frameCount": 4,
+      "validFrameCount": 4,
+      "emptyCount": 0,
+      "sourceEdgeTouchCount": 0,
+      "outputEdgeTouchCount": 0,
+      "pasteClampedCount": 0,
+      "bodyScaleMean": 0.7218657453109576,
+      "bodyScaleCv": 0.0022418593245476597,
+      "anchorXStd": 0.09793869145922612,
+      "anchorYStd": 0.002248379461782929,
+      "anchorYMean": 0.8516781836130306,
+      "outputSubjectHeightMean": 159.25,
+      "profileBodyScaleDrift": 0.025236593059936974,
+      "outputSubjectHeightDrift": 0.02741935483870961
+    },
+    "retryHints": [],
+    "background": {
+      "keyedFraction": 0.9128849633929694,
+      "edgeKeyFraction": 1,
+      "foreignRegionCount": 0,
+      "cellCoverage": [
+        0.10597279785298523,
+        0.07716857554652304,
+        0.0885146598659675,
+        0.0768041131626467
+      ],
+      "emptyCells": [],
+      "cell": {
+        "width": 1013,
+        "height": 1013,
+        "aspect": 1
+      },
+      "geometryMismatch": false,
+      "contaminated": false,
+      "findings": []
+    }
+  },
+  "scaleProfile": {
+    "path": "/Users/tmwh/homework/1Pgames/games/2026-08-29-duskhaul/public/assets/generated/enemies-v2/gibbet-scale.json",
+    "name": "gibbet",
+    "version": 2
+  },
+  "frames": [
+    {
+      "index": 0,
+      "file": "frames/frame-000.png",
+      "sourceBox": {
+        "left": 0,
+        "top": 0,
+        "width": 1013,
+        "height": 1013
+      },
+      "subjectBox": {
+        "left": 323,
+        "top": 142,
+        "width": 366,
+        "height": 731
+      },
+      "alignedBox": {
+        "left": 81,
+        "top": 81,
+        "width": 80,
+        "height": 159
+      },
+      "sourceAnchor": {
+        "x": 538,
+        "y": 865
+      },
+      "targetAnchor": {
+        "x": 128,
+        "y": 238
+      },
+      "empty": false,
+      "componentCount": 1,
+      "subjectArea": 107935,
+      "droppedArea": 0,
+      "bodyScale": 0.721618953603159,
+      "sourceEdgeTouch": false,
+      "outputEdgeTouch": false,
+      "pasteClamped": false,
+      "scale": 0.21733464955577492
+    },
+    {
+      "index": 1,
+      "file": "frames/frame-001.png",
+      "sourceBox": {
+        "left": 1013,
+        "top": 0,
+        "width": 1013,
+        "height": 1013
+      },
+      "subjectBox": {
+        "left": 345,
+        "top": 144,
+        "width": 324,
+        "height": 730
+      },
+      "alignedBox": {
+        "left": 91,
+        "top": 82,
+        "width": 70,
+        "height": 159
+      },
+      "sourceAnchor": {
+        "x": 514,
+        "y": 860
+      },
+      "targetAnchor": {
+        "x": 128,
+        "y": 238
+      },
+      "empty": false,
+      "componentCount": 2,
+      "subjectArea": 78490,
+      "droppedArea": 0,
+      "bodyScale": 0.7206317867719645,
+      "sourceEdgeTouch": false,
+      "outputEdgeTouch": false,
+      "pasteClamped": false,
+      "scale": 0.21733464955577492
+    },
+    {
+      "index": 2,
+      "file": "frames/frame-002.png",
+      "sourceBox": {
+        "left": 0,
+        "top": 1013,
+        "width": 1013,
+        "height": 1013
+      },
+      "subjectBox": {
+        "left": 182,
+        "top": 139,
+        "width": 651,
+        "height": 734
+      },
+      "alignedBox": {
+        "left": 104,
+        "top": 81,
+        "width": 141,
+        "height": 160
+      },
+      "sourceAnchor": {
+        "x": 294,
+        "y": 861
+      },
+      "targetAnchor": {
+        "x": 128,
+        "y": 238
+      },
+      "empty": false,
+      "componentCount": 1,
+      "subjectArea": 90047,
+      "droppedArea": 0,
+      "bodyScale": 0.7245804540967423,
+      "sourceEdgeTouch": false,
+      "outputEdgeTouch": false,
+      "pasteClamped": false,
+      "scale": 0.21733464955577492
+    },
+    {
+      "index": 3,
+      "file": "frames/frame-003.png",
+      "sourceBox": {
+        "left": 1013,
+        "top": 1013,
+        "width": 1013,
+        "height": 1013
+      },
+      "subjectBox": {
+        "left": 319,
+        "top": 144,
+        "width": 374,
+        "height": 730
+      },
+      "alignedBox": {
+        "left": 86,
+        "top": 81,
+        "width": 81,
+        "height": 159
+      },
+      "sourceAnchor": {
+        "x": 514,
+        "y": 865
+      },
+      "targetAnchor": {
+        "x": 128,
+        "y": 238
+      },
+      "empty": false,
+      "componentCount": 1,
+      "subjectArea": 78260,
+      "droppedArea": 0,
+      "bodyScale": 0.7206317867719645,
+      "sourceEdgeTouch": false,
+      "outputEdgeTouch": false,
+      "pasteClamped": false,
+      "scale": 0.21733464955577492
+    }
+  ]
+}

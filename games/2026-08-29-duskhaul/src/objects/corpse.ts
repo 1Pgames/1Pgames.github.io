@@ -1,7 +1,6 @@
 import Phaser from 'phaser';
 import { TEX } from '../core/keys';
 import { Pool } from '../core/pool';
-import { artScale } from '../data/art';
 
 /**
  * Death animations for POOLED bodies.
@@ -49,26 +48,27 @@ export class CorpseFx {
   }
 
   /**
-   * Plays `animKey`'s death frames at `x,y`. `size` is the dead body's tuned
-   * size — the corpse re-applies the death action's own `SpriteAsset.scale`, so
-   * a sheet that draws its collapse shorter than its walk cycle does not shrink
-   * mid-death.
+   * Plays `animKey`'s death frames at `x,y` at `shown` px (the dead body's
+   * cell size × the death action's own scale, resolved by the caller, which
+   * knows the outlined key's plain source). The key is normally the OUTLINED
+   * death (§13.1: actors play `-ol*` keys only).
    *
-   * False when that death sheet was never generated (or its art group was
-   * pruned), which is the caller's cue that there is no death animation to show
-   * — never a reason to skip the kill.
+   * False when that death sheet was never generated — never a reason to skip
+   * the kill.
    */
-  play(animKey: string, x: number, y: number, size: number, flipX: boolean): boolean {
+  play(animKey: string, x: number, y: number, shown: number, flipX: boolean, originY = 0.5): boolean {
     if (!this.scene.anims.exists(animKey)) return false;
     const sprite = this.pool.obtain();
-    const shown = size * artScale(animKey);
     sprite
       .setActive(true)
       .setVisible(true)
+      .setAlpha(1)
       .setPosition(x, y)
       .setFlipX(flipX)
-      .setDisplaySize(shown, shown);
+      .setOrigin(0.5, originY);
+    // Frame first: `setDisplaySize` divides by the CURRENT frame's size.
     sprite.play(animKey, true);
+    sprite.setDisplaySize(shown, shown);
     return true;
   }
 

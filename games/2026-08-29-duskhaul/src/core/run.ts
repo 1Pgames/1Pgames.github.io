@@ -59,7 +59,7 @@ export interface WaveSpec {
 export interface EventSpec {
   /** Seconds into the run this event fires, exactly once. */
   at: number;
-  kind: 'chest' | 'breather' | 'elite-rush';
+  kind: 'chest' | 'breather' | 'elite-rush' | 'elite' | 'poi-event' | 'den-open' | 'fence-window' | 'boss';
 }
 
 export interface RunPhase {

@@ -1,0 +1,32 @@
+{
+  "version": 2,
+  "name": "cryptcrawler",
+  "processing": {
+    "cellSize": 256,
+    "cellHeight": 256,
+    "align": "feet",
+    "scaleMode": "preserve",
+    "fit": 0.86,
+    "threshold": 180,
+    "feather": 0,
+    "edgeThreshold": 210,
+    "sampling": "nearest",
+    "componentMode": "largest",
+    "componentPadding": 0,
+    "minComponentArea": 1
+  },
+  "reference": {
+    "rows": 2,
+    "cols": 2,
+    "bodyScaleMean": 0.33203125,
+    "bodyScaleCv": 0.15196236558317067,
+    "anchorYMean": 0.845458984375,
+    "sourceToOutputScale": 0.215,
+    "sourceCellWidth": 1024,
+    "sourceCellHeight": 1024,
+    "outputSubjectHeightMean": 73.25
+  },
+  "qc": {
+    "maxBodyScaleDrift": 0.08
+  }
+}

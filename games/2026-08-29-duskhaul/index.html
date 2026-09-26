@@ -104,6 +104,20 @@
   <body>
     <div id="app"></div>
     <div id="pagebar"><a class="pill" href="../../">&larr; Games</a><details class="pill prompt"><summary>&#9432; prompt</summary><p>A hybrid of a Vampire Survivors-style horde survivor and an extraction shooter: fight through swarming horrors, loot as much as you can carry, and escape through an extraction gate before you die. Grimdark fantasy, dirty pixel-art look, meta progression between runs, and multiple zones — castles, outlands, desert, winter mountains.</p></details></div>
+    <script>
+      // Portal back-link: keep the query (`?mute=1` and friends) and never
+      // drop a live run on one stray tap in the play area (critic F6).
+      (() => {
+        const back = document.querySelector('#pagebar a.pill');
+        if (!back) return;
+        back.href = back.getAttribute('href') + location.search;
+        back.addEventListener('click', (e) => {
+          const game = window.__GAME__;
+          const inRun = !!game && game.scene.isActive('Game');
+          if (inRun && !confirm('Leave the run? Everything you carry that is not pinned is lost.')) e.preventDefault();
+        });
+      })();
+    </script>
     <div id="splash">loading</div>
     <script type="module" src="/src/main.ts"></script>
   </body>

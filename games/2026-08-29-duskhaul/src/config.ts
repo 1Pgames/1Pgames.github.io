@@ -1,4 +1,5 @@
 import type Phaser from 'phaser';
+import type { PlayerStatKey } from './data/types-v2';
 /**
  * Single source of truth for presentation + balance.
  *
@@ -121,8 +122,6 @@ export const TEXT = {
  * ---------------------------------------------------------------------------
  */
 export const TUNING = {
-  /** Reference run: 8 minutes, phases from data/waves.ts. */
-  runSeconds: 480,
   /**
    * NO `graceSeconds` KEY. The template's enemy-free opening window is not how
    * Duskhaul opens: §5.4's first wave row starts at 0s and drips one husk every
@@ -133,79 +132,200 @@ export const TUNING = {
 
   player: {
     maxHp: 110,
-    moveSpeed: 330,
+    moveSpeed: 360,
     /** Drag-follow easing: fraction of the remaining distance per 16ms. */
     followLerp: 0.22,
-    size: 96,
-    damage: 12,
-    attackMs: 620,
+    size: 162,
+    /** Law (PRD-V2 §5.4): on-screen hero height in px; `size` is the sheet cell that yields it. */
+    visiblePx: 112,
+    /** Hero collision radius; contact reach = enemy bodyRadius + this (scene AND sim). */
+    bodyRadius: 34,
     /** Auto-attack range in px. Keep under ~45% of VIEW.width so kills happen on-screen. */
-    range: 300,
-    projectiles: 1,
+    range: 380,
     projectileSpeed: 700,
     projectileSize: 18,
     critChance: 0.05,
     critMul: 2,
-    regenPerSecond: 0.4,
-    pickupRadius: 150,
+    /** User playtest (2026-09-25, "too easy"): 0.8 → 0.6. */
+    regenPerSecond: 0.6,
+    pickupRadius: 170,
     invulnMs: 700,
     /** Impulse (px/s) applied to an enemy on contact with the player; `bulwark` doubles it. */
     contactKnockback: 70,
-    contactKnockbackMs: 160,
   },
 
-  /** Weapon patterns (see `data/weapons.ts`). `bolt` reads `player.*` above unchanged. */
+  /**
+   * Weapon patterns (PRD-V2 §5.8, `systems/weapons.ts`). V1 readers still use
+   * `damageMul` (fraction of `player.damage`) and the boost riders; the V2
+   * absolute `baseDamage` / geometry / `evolved` blocks are for WS-Arsenal.
+   * PER-RANK GROWTH IS NOT HERE: it lives on the weapon row (`data/weapons.ts`
+   * `rankGrowth`, read through `weaponBoostDamageMul`).
+   */
   weapons: {
-    /** Max simultaneously-equipped weapons (§7 `weapon.slots` = 3). */
-    maxSlots: 3,
-    /**
-     * Boost cards per weapon before it evolves. Rank = boosts + 1, so 3 boosts
-     * is §7's `weapon.maxRank` 4 — the number `WEAPON_MAX_RANK`, the boost
-     * card's stack limit and the §5.3 evolution gate all derive from.
-     *
-     * DO NOT raise either number back to the pre-amendment 4 slots / rank 5.
-     * §7 was AMENDED DOWN on measurement: a 4th slot dropped deep-lane
-     * extraction 45% -> 20% and blew lane spread 0.40 -> 0.75.
-     */
+    /** Max simultaneously-equipped weapons (PRD-V2 §5.8, §18a: 3 → 4). */
+    maxSlots: 4,
+    /** Boost cards per weapon: rank = boosts + 1, so 3 is max rank 4 (law). */
     maxBoosts: 3,
-    /**
-     * PER-RANK DAMAGE IS NOT HERE. §5.3 gives every weapon one side of
-     * "+25% dmg OR +1 projectile per rank", and that number lives on the
-     * weapon row (`data/weapons.ts` `rankGrowth`, read through
-     * `weaponBoostDamageMul`). The template's per-weapon `boostDamageMul`
-     * (0.15/0.20) was a second, DIFFERENT copy of the same rule that no line
-     * of `systems/combat.ts` read — every case there calls
-     * `weaponBoostDamageMul`. The cadence/geometry riders below ARE read.
-     */
-    bolt: { boostCooldownMul: 0.07 },
+    bolt: {
+      /** ×1.5 (fix round 1, critic F1): the four class starters were killing 0.3-1.3/s live. */
+      baseDamage: 12,
+      cooldownMs: 900,
+      speed: 700,
+      size: 22,
+      boostCooldownMul: 0.07,
+      evolved: { projectiles: 3, pierce: 3, damage: 20 },
+    },
     orbit: {
-      /** Fraction of the `damage` stat one blade hit deals. */
+      /** V1: fraction of the `damage` stat one blade hit deals. */
       damageMul: 0.6,
+      baseDamage: 9,
       hitCooldownMs: 380,
-      radius: 150,
+      radius: 190,
       blades: 1,
       boostRadiusMul: 0.12,
+      evolved: { radius: 380, blades: 4, damage: 10 },
     },
     nova: {
       damageMul: 1.6,
-      cooldownMs: 2200,
-      radius: 260,
+      baseDamage: 15,
+      cooldownMs: 1600,
+      radius: 320,
       /** Fraction of radius at which falloff starts reducing damage toward 0 at the edge. */
       falloffStart: 0.4,
       boostCooldownMul: 0.1,
+      evolved: { burnMs: 3000, burnDps: 8, burnRadius: 320 },
+    },
+    scythe: {
+      baseDamage: 14,
+      cooldownMs: 1200,
+      arcDeg: 140,
+      radius: 180,
+      evolved: { arcDeg: 360, damageMul: 1.5 },
     },
     rail: {
       damageMul: 1.9,
-      cooldownMs: 1900,
+      baseDamage: 36,
+      cooldownMs: 2200,
       pierceCount: 4,
       boostPierceAdd: 1,
+      length: 640,
+      evolved: { damage: 60, critChanceAdd: 0.3 },
+    },
+    hex: {
+      baseDamage: 9,
+      cooldownMs: 1400,
+      jumps: 4,
+      jumpPx: 220,
+      evolved: { jumps: 6, dotMs: 3000, dotDps: 6 },
+    },
+    skull: {
+      baseDamage: 12,
+      cooldownMs: 1500,
+      speed: 420,
+      turnRadPerS: 4,
+      skulls: 1,
+      evolved: { skulls: 4, explodeRadius: 90, explodeDamageMul: 0.5 },
+    },
+    censer: {
+      dps: 6,
+      cooldownMs: 2400,
+      poolRadius: 110,
+      poolMs: 3000,
+      targetRange: 420,
+      pools: 1,
+      evolved: { poolRadius: 150, poolMs: 5000, slowPct: 30 },
+    },
+    sickle: {
+      baseDamage: 16,
+      cooldownMs: 1800,
+      outPx: 420,
+      sickles: 1,
+      evolved: { sickles: 3, damage: 26 },
+    },
+    lash: {
+      baseDamage: 15,
+      cooldownMs: 1300,
+      width: 360,
+      height: 90,
+      evolved: { damage: 30, bleedDps: 2, bleedMs: 3000 },
+    },
+    breath: {
+      tickDamage: 5,
+      tickMs: 200,
+      cooldownMs: 2000,
+      coneDeg: 60,
+      length: 260,
+      durationMs: 1000,
+      evolved: { coneDeg: 90, length: 360, durationMs: 2000, igniteDps: 4, cooldownMs: 1600 },
+    },
+    spears: {
+      baseDamage: 22,
+      cooldownMs: 2000,
+      spikes: 3,
+      radius: 60,
+      range: 380,
+      telegraphMs: 350,
+      evolved: { spikes: 8, rootMs: 1000 },
+    },
+    /** PRD-V2 §5.8b.1 Arsenal 20 — rank-1 + evolved numbers, transcribed verbatim. */
+    aura: {
+      radius: 110, tickDamage: 6, tickMs: 500, knockback: 40,
+      evolved: { radius: 200, tickDamage: 10, tickMs: 350, slowPct: 25, healPerKill: 1, healCapPerS: 5 },
+    },
+    chakram: {
+      baseDamage: 13, cooldownMs: 1400, speed: 520, size: 40, bounces: 3, bounceRange: 260, discs: 1,
+      evolved: { discs: 3, bounces: 7, damage: 20 },
+    },
+    wake: {
+      stepPx: 60, minSpeed: 60, radius: 45, lifeMs: 2000, tickDamage: 8, tickMs: 400,
+      evolved: { radius: 80, lifeMs: 4000, tickDamage: 14, slowPct: 30 },
+    },
+    snares: {
+      cooldownMs: 1600, armMs: 400, triggerRadius: 70, blastRadius: 120, baseDamage: 30, maxLive: 4,
+      evolved: { maxLive: 10, damage: 45, chainRadius: 220, rootMs: 800 },
+    },
+    siphon: {
+      tickDamage: 4, tickMs: 200, range: 320, healPct: 0.03, tethers: 1,
+      evolved: { tethers: 3, tickDamage: 7, healPct: 0.06, healCapPerS: 6 },
+    },
+    bombs: {
+      cooldownMs: 2000, range: 420, hopPx: 140, bounces: 3, blastRadius: 90, baseDamage: 14, urns: 1,
+      evolved: { urns: 3, bounces: 5, shardDamage: 8, shardRange: 300, shardsPerBounce: 2 },
+    },
+    totem: {
+      cooldownMs: 7000, lifeMs: 6000, pulseRadius: 200, pulseMs: 800, baseDamage: 10, maxLive: 1,
+      evolved: { maxLive: 2, pulseRadius: 300, pulseMs: 600, damage: 16, pullPxPerS: 40 },
+    },
+    thralls: {
+      cooldownMs: 12000, maxAlive: 1, hp: 40, speed: 300, bite: 10, biteMs: 700, lifeMs: 12000, bodyRadius: 26,
+      evolved: { maxAlive: 4, bite: 16, burstRadius: 90, burstDamage: 30, respawnMs: 4000 },
     },
   },
 
-  /** XP thresholds: needed(level) = round(base * growth^(level-1)). */
+  /** Charms (PRD-V2 §5.9). */
+  charms: {
+    maxSlots: 4,
+    maxRank: 5,
+    /** c_step Gloam Step: auto-dash on contact with cd ready; cd per rank 1-5. */
+    gloamStep: { dashPx: 180, iframesMs: 300, cdMs: [6000, 5000, 4200, 3600, 3000] },
+  },
+
+  /** Evolution delivery (PRD-V2 §5.8): no chest within this long of eligibility ⇒ the card enters the draft. */
+  evolution: {
+    fallbackS: 60,
+  },
+
+  /**
+   * XP curve (PRD-V2 §6.1): needed(L) = base + linear·(L−1) + (L > kneeLevel ? kneeStep·(L − kneeLevel) : 0).
+   */
   xp: {
-    base: 15,
-    growth: 1.5,
+    /** Restored to the §6.1 spec (fix round 2, critic B1: 12/20/30 starved drafts to 3-10 per run live). */
+    base: 10,
+    linear: 8,
+    kneeLevel: 20,
+    kneeStep: 12,
+    /** Early orb vacuum (critic minor: orphaned orbs): +radiusAdd pickup radius until `untilLevel`. */
+    earlyVacuum: { untilLevel: 6, radiusAdd: 130 },
     /** Orb magnetism speed once inside pickupRadius. */
     orbSpeed: 560,
     /** Speed multiplier while the orb is still outside pickupRadius. */
@@ -213,8 +333,28 @@ export const TUNING = {
   },
 
   enemy: {
+    /**
+     * Trash HP multiplier (Balance, 2026-09-25): with 4 weapons + charms the
+     * spec HP let the build clear every spawn on arrival (live@240 s ≈ 25 vs
+     * band 100-150). Ramps linearly from ×1 at `hpMulRampS[0]` to ×hpMul at
+     * `hpMulRampS[1]` so Grace/Early keep the §2.1 clear rate. Read by
+     * `scaleEnemy` for trash rows only. Fix round 2 (critic B1): 3 → 1.5 —
+     * with the §6.1 XP curve restored, ×3 trash left the live starter at LV 3-4
+     * for a minute at a time.
+     */
+    /** User playtest ("too easy"): 1.5 → 2.0 (ramp unchanged). */
+    hpMul: 2,
+    hpMulRampS: [60, 240] as readonly [number, number],
+    /**
+     * Trash damage multiplier, trash rows only. Iteration 4: 0.75. Fix round 2
+     * (live honest bot, 2026-09-25): 0.6 — the Gate B bot lost 106 hp in 20 s
+     * at 112-132 s to 7-9-damage contact from 9-20 bodies within 200 px while
+     * density sat ON target, so the per-hit number, not the count, was the killer.
+     */
+    /** User playtest ("too easy"): 0.6 → 0.8. */
+    dmgMul: 0.8,
     /** Spawn ring radius beyond the screen edge. */
-    spawnMargin: 70,
+    spawnMargin: 140,
     /** Contact damage tick interval. */
     hitMs: 500,
     /**
@@ -226,38 +366,68 @@ export const TUNING = {
      * whole Collapse ramp.
      */
     /** Hard cap on live enemies — protects 60fps. */
-    maxAlive: 220,
+    maxAlive: 250,
+    /** bodyRadius = round(ratio × visiblePx) (PRD-V2 §5.4). */
+    bodyRadiusRatio: 0.36,
+    /** Enemies farther than `leashPx` from the hero for `leashMs` are recycled near the hero. */
+    leashPx: 1800,
+    leashMs: 4000,
     /** `healAura` enemies pulse a heal to allies within this radius, this often, for this much HP. */
     healAuraRadius: 220,
     healAuraIntervalMs: 2000,
-    healAuraAmount: 8,
     /** `charge` enemies flash + telegraph a thin line before dashing. */
     chargeTelegraphMs: 400,
   },
 
   boss: {
-    /** HP ratio thresholds below which phase 2 / phase 3 begin. */
-    phase2At: 0.66,
-    phase3At: 0.33,
-    /** Phase 1: spread-shot volley cadence and shot count. */
-    volleyCooldownMs: 2200,
-    volleyShots: 5,
-    /** Phase 2: swarm summon count and shield damage reduction while adds live. */
-    summonMin: 6,
-    summonMax: 10,
+    /** Zone boss hp multiplier over the phase grunt (PRD-V2 §5.6). */
+    /** User playtest: +20% (70 → 84). */
+    hpMul: 84,
+    visiblePx: 260,
+    contactDamage: 22,
+    /** Phase 2 shield damage reduction while adds live. */
     shieldDamageMul: 0.35,
-    /**
-     * Phase 3: enrage speed plus the bullet-ring cadence. Phase 3 REPLACES the
-     * volley with the ring (`Enemy.tickBoss` routes into `tickBossRing` and
-     * never reaches the volley branch), so the ring's own cooldown is the
-     * phase-3 cadence and there is no separate enrage cadence multiplier to
-     * apply — the one that used to sit here was read by nothing but the sim,
-     * which was modelling a phase-3 volley the game does not fire.
-     */
+    /** Phase 3 enrage speed. */
     enrageSpeedMul: 1.4,
-    ringCooldownMs: 3000,
-    ringTelegraphMs: 500,
-    ringShots: 14,
+    /** Per-zone attack numbers (PRD-V2 §5.6 table), read by `objects/enemy.ts` boss patterns. */
+    castle: {
+      toll: { rings: 3, fromRadius: 120, toRadius: 520, speed: 220, damage: 18, telegraphMs: 700, cdMs: 3500, phase3CdMs: 2500 },
+      chainSweep: { arcDeg: 160, radius: 260, damage: 26, windupMs: 900 },
+      summon: { id: 'husk', count: 6, cdMs: 12000 },
+      bellDrop: { count: 4, radius: 110, telegraphMs: 1000, damage: 30 },
+      bulletRing: { shots: 14, cdMs: 3000, telegraphMs: 500 },
+    },
+    outlands: {
+      geyser: { count: 5, radius: 90, damage: 24, windupMs: 800, staggerMs: 120, phase3CdMs: 4000 },
+      gust: { pushPxPerS: 140, durationMs: 1500, warnMs: 600 },
+      summon: { id: 'kite', count: 8, cdMs: 14000 },
+      boneRain: { count: 12, radius: 70, areaRadius: 500, telegraphMs: 900, damage: 20 },
+      spiral: { arms: 3, shotsPerArm: 6, shotEveryMs: 400, durationMs: 3000, cdMs: 6000 },
+    },
+    desert: {
+      burrowCharge: { sinkMs: 600, telegraphMs: 1200, radius: 140, damage: 32, phase3CdMs: 4000 },
+      sandWall: { pillars: 6, bodyRadius: 50, durationMs: 5000 },
+      summon: { id: 'leech', count: 4 },
+      scorchBeam: { length: 400, sweepDegPerS: 180, durationMs: 3000, telegraphMs: 800, damage: 12, tickMs: 200 },
+      sinkholes: { count: 3, radius: 160, slowPct: 50, durationMs: 8000 },
+    },
+    winter: {
+      iceLance: { count: 5, spreadDeg: 30, telegraphMs: 900, damage: 20 },
+      frostNova: { radius: 300, windupMs: 1000, slowPct: 80, slowMs: 1000, phase3CdMs: 5000 },
+      summon: { id: 'widow', count: 2 },
+      glacier: { walls: 3, durationMs: 6000 },
+      blizzard: { count: 20, radius: 60, durationMs: 4000, telegraphMs: 700 },
+    },
+  },
+
+  /** Den mid-bosses (PRD-V2 §5.6). */
+  midboss: {
+    /** User playtest: +20% (30 → 36). */
+    hpMul: 36,
+    visiblePx: 200,
+    /** Bone wall lock on entering the den. */
+    lockS: 20,
+    opensS: 240,
   },
 
   /**
@@ -267,36 +437,51 @@ export const TUNING = {
    * prices the mid gate above the free early one.
    */
   elite: {
+    /** Promotion (PRD-V2 §5.5): hp ×8, visiblePx ×1.6 capped at 170, dmg ×1.5. */
+    /** User playtest: +20% (8 → 9.6). */
+    hpMul: 9.6,
+    sizeMul: 1.6,
+    sizeCap: 170,
+    dmgMul: 1.5,
+    /** Elite kill payout (was `economy.currencyPerElite`). */
+    shards: 25,
+    /** Affix numbers (PRD-V2 §5.5), read by `objects/enemy.ts`. */
+    affixes: {
+      vampiric: { healPct: 0.2, capPctMaxHpPerS: 0.05 },
+      hasted: { moveMul: 1.4, attackCdMul: 0.7 },
+      shielded: { frontalDamageMul: 0.3 },
+      splitter: { minions: 4 },
+      frenzied: { belowHpRatio: 0.5, speedMul: 1.5, damageMul: 1.3 },
+      warded: { immuneMs: 1000, everyMs: 4000 },
+      plagued: { radius: 90, dps: 3, durationMs: 4000, everyMs: 1500 },
+      magnetic: { pullPxPerS: 60, radius: 250 },
+    },
     coinDropMin: 3,
     coinDropMax: 5,
     atS: [150, 270, 390],
-    gateGuardAtS: 250,
+    /**
+     * Gate B guard (critic C1): spawns AT gate open, parked `gateGuardParkPx`
+     * beyond the gate apron (`mapgen.gateClear`) on the hero's side, so the
+     * fight happens before the player commits to the channel. Never inside
+     * `extract.suppressRadius` of the open gate.
+     */
+    gateGuardAtS: 190,
     gateGuardGate: 'b',
-    gateGuardRadiusPx: 300,
+    /** Distance past the apron edge the pack is parked at: [min, max]. */
+    gateGuardParkPx: [350, 450],
+    /** Pack spread around its park point. */
+    gateGuardRadiusPx: 160,
     gateGuardAdds: 8,
+    /** Max damage per hit from the guard elite and its adds at H1; scaled by the hazard's threatMul. */
+    gateGuardDmgCap: 12,
+    /** The park point is never closer than this to the hero at spawn (QA v2c NEW-1). */
+    gateGuardHeroClearPx: 600,
+    /** The amber ground telegraph under the parked pack lasts this long; the pack is dormant until it ends. */
+    gateGuardTelegraphMs: 2500,
   },
 
-  /**
-   * Legendary `effect` cards (PRD §5.3). `lastGasp` is the ONE live block: it
-   * is the only effect id any card in the 26-row pool carries, and
-   * `core/effects.ts` registers exactly that one hook.
-   *
-   * `glassCannon` and `bulwark` ARE DEAD NUMBERS — nothing reads either. No
-   * card names those ids, so their hooks were unreachable and have been cut
-   * from `core/effects.ts`; `bulwark`'s three stat riders are already gone from
-   * here. The four survivors below are held back by ONE thing:
-   * `scripts/w1-contract-check.mjs` in THIS game still carries the
-   * hand-transcribed `REQUIRED_TUNING` list and asserts
-   * `effects.glassCannon.hpCapRatio`, `effects.glassCannon.killIframesMs` and
-   * `effects.bulwark.knockbackMul` exist. The template's rewritten check
-   * deleted that list on purpose ("a rotted assertion is worse than no
-   * assertion" — it names `economy.scorePerKill` as one of its own fictions),
-   * so DELETE THESE FOUR KEYS in the same commit that resyncs the game's copy
-   * of that script, and not before.
-   */
+  /** Legendary `effect` cards (PRD §5.3). `lastGasp` is the only live effect id. */
   effects: {
-    glassCannon: { damageMul: 0.8, hpCapRatio: 0.4, killIframesMs: 200 },
-    bulwark: { knockbackMul: 2 },
     /**
      * Last Gasp (PRD §5.3): revive once per run at this fraction of maxHp with
      * `iframesMs` of grace. The grace matters — without it the blow that killed
@@ -311,26 +496,18 @@ export const TUNING = {
   },
 
   economy: {
-    /**
-     * Meta currency per elite and per boss. NOT per kill: §5.6 pays a kill
-     * through the enemy row's own `shards` value (`data/enemies.ts`), which is
-     * why `currencyPerKill` was read by nothing — `objects/coin.ts` still
-     * claims otherwise in a comment, filed with that file's owner.
-     */
-    currencyPerElite: 25,
+    /** Zone-boss kill payout (PRD-V2 §5.6). */
     currencyPerBoss: 120,
     /**
-     * `winBonus`/`scorePerKill`/`scorePerSecond` ARE DEAD NUMBERS too, held for
-     * the same reason and deletable in the same commit: Duskhaul has NO win
-     * state (§2A resolves a run by extraction or death only) and NO arcade
-     * score (`MetaSave.stats.bestScore` IS the best banked haul, and
-     * `scenes/gameover.ts` says "the arcade score does not appear at all").
-     * Nothing reads any of the three; the stale `REQUIRED_TUNING` list asserts
-     * all three.
+     * Economy retune (user: "maxed Sanctum very fast"): a kill pays its shard
+     * value only with this seeded chance, stepping down over the run so deep
+     * runs stop scaling ◆ with density (flattens the Gate C / Gate A premium).
+     * `[fromS, chance]` rows, last row whose `fromS ≤ elapsed` wins.
+     * Readers: `systems/combat.ts` KillReport.shards, `sim/families/arena.ts`.
      */
-    winBonus: 150,
-    scorePerKill: 10,
-    scorePerSecond: 1,
+    killShardChanceByS: [[0, 0.5], [240, 0.3], [360, 0.08]],
+    /** Valuable sell price multiplier (Vault SELL, `core/progression.ts sellValue`). */
+    sellMul: 0.5,
   },
 
   /**
@@ -339,22 +516,101 @@ export const TUNING = {
    * player can read where pressure comes from and the run has a shape.
    */
   arena: {
-    width: 1440,
-    height: 2160,
-    /** Floor tile size in px. */
-    tileSize: 512,
+    /**
+     * 24576² (user request, 16× the PRD-V2 §3.1 6144² in area): a run cannot
+     * explore it all. Gate positions come from mapgen.
+     */
+    width: 24576,
+    height: 24576,
+    /** Floor tile size in px (§3.7 Tilemap, 96×96 tiles). */
+    tileSize: 256,
     wallThickness: 26,
-    /** Impassable props per run. */
-    propsMin: 14,
-    propsMax: 20,
-    /** No props inside this radius of the centre, where the run starts. */
-    spawnClearRadius: 260,
-    /** Flat, non-colliding floor decoration. */
-    decalCount: 16,
     /** Camera follow smoothing (0..1 per frame). */
     cameraLerp: 0.12,
     /** View bias: positive pushes the player below the HUD band. */
     cameraOffsetY: 90,
+  },
+
+  /** World generation (PRD-V2 §3.2, `systems/mapgen.ts`). Densities are per px². */
+  mapgen: {
+    /** 6×6 regions of ~4096 px (36 landmarks). */
+    regionGrid: 6,
+    regionJitter: 800,
+    lloydIters: 2,
+    maskCell: 32,
+    navCell: 64,
+    roadWidth: 360,
+    extraEdgeRatio: 0.2,
+    /** Min gap between two major POIs (den/vault/lair/event yard/fence/gilt chest). */
+    poiMinSpacing: 2000,
+    /** Min gap between any two POI anchors (every kind). */
+    poiMinorSpacing: 1100,
+    clusterMinSpacing: 420,
+    /**
+     * Blocking coverage of walkable area, re-derived for SINGLE placement
+     * (user request: no heaps). Lone blockers keep a full 300 px corridor
+     * and never overlap, so the floor saturates near 6.5% before narrow
+     * floor (< 360 px passages) would pass the 0.15 band.
+     */
+    coverageTarget: 0.065,
+    coverageMin: 0.055,
+    coverageMax: 0.085,
+    minCorridor: 240,
+    narrowShareMax: 0.15,
+    pathFactorMax: 1.35,
+    plazaDiameter: 800,
+    borderBand: 192,
+    spawnClear: 600,
+    gateClear: 400,
+    maxBodyRadius: 190,
+    maxRepairs: 8,
+    maxReseeds: 3,
+    /** Floor debris: ~1 per 270k px² (~3 per screen), composed along roads and at the foot of masses. */
+    decalPerPx2: 1 / 270000,
+    /** Decals keep this far apart (no overlaps); the same decal id keeps `decalSameIdPx`. */
+    decalSpacing: 260,
+    decalSameIdPx: 900,
+    /** ≤ 1 splat per ~2 screens (2 × 720×1280). */
+    splatPerPx2: 1 / 1840000,
+    lightPoolPerPx2: 1 / 350000,
+    breakablePerPx2: 1 / 120000,
+    /** Threat multiplier by region depth 0/1/2 (§3.3). */
+    depthMul: [1.0, 1.1, 1.3],
+    chestTierBiasByDepth: [0, 1, 2],
+    /**
+     * Path distance bands from spawn (§3.6, 24576² map). Gate C is pulled
+     * in to 6,000-7,500 px (critic v2d M1: 8+ km was out of honest reach) and
+     * always sits ≥ `cBeyondB` farther along its path than Gate B.
+     */
+    gateDist: {
+      a: [2800, 4400],
+      b: [4800, 6800],
+      c: [6000, 7500],
+      cBeyondB: 800,
+      xMin: 3200,
+      separation: 3000,
+    },
+    /**
+     * POI anchors per 24576² map, per kind (user request: ~1 POI per 3
+     * screens, not 1 per screen). Lairs split 1/4 depth 1, 3/4 depth 2;
+     * rusted chests 1/4 in depth 0-1, 3/4 in depth 2.
+     * Bells (2) exist only with a Bell Gate and are not listed. Veins may
+     * come up short when the floor runs out; every other kind is exact.
+     */
+    poiCounts: {
+      den: 2, vault: 2, lair: 12, fence: 4, event_yard: 4,
+      chest_t1: 34, chest_t2: 16, chest_t3: 10,
+      shrine_blood: 3, shrine_bone: 3, shrine_curse: 3, shrine_grave: 4, shrine_gilt: 3,
+      lore: 12, vein: 30,
+    },
+  },
+
+  /** Big-map navigation (PRD-V2 §3.9), read by `systems/combat.ts`. */
+  nav: {
+    rebuildMs: 250,
+    windowCells: 40,
+    separation: 0.6,
+    separationNeighbours: 6,
   },
 
   /**
@@ -370,7 +626,6 @@ export const TUNING = {
     homeX: 170,
     homeBottom: 200,
     /** Presses above this fraction of the screen height are not stick input. */
-    zoneTop: 0.42,
     /**
      * NO `idleAlpha`/`activeAlpha`. §14.3 authors the stick's visibility —
      * INVISIBLE at rest ("no persistent chrome") and 0.35 while a touch is
@@ -380,10 +635,11 @@ export const TUNING = {
      */
   },
 
-  /** Upgrade draft: how many cards per level-up and the reroll cost. */
+  /** Upgrade draft (PRD-V2 §5.10): cards per hand and per-run reroll / banish charges. */
   draft: {
     choices: 3,
-    rerollCost: 0,
+    rerollsPerRun: 2,
+    banishPerRun: 0,
   },
 
   /**
@@ -392,18 +648,26 @@ export const TUNING = {
    * Collapse is its closing mechanism.
    */
   gate: {
-    a: { openS: 120, closeS: 210 },
-    b: { openS: 240, closeS: 360 },
+    a: { openS: 90, closeS: 180 },
+    b: { openS: 190, closeS: 320 },
     c: { openS: 420, closeS: null },
-    radius: 120,
+    radius: 150,
     /** A gate reads/renders as 'closing' inside this many seconds of its close. */
-    closingWarnS: 15,
+    closingWarnS: 25,
     /**
      * The compass previews a gate this far ahead of its open time. Raised from
      * 30 to 60 to kill the measured two-minute cold open: the extraction clock
      * has to be legible BEFORE it matters (PRD §7, §18.28).
      */
     previewS: 60,
+  },
+
+  /** Conditional extracts (PRD-V2 §5.25); one per run, kind weighted. */
+  gates: {
+    toll: { opensS: 90, closesS: 480, pct: 0.25, min: 40 },
+    offering: { opensS: 180 },
+    bell: { bells: 2, openS: 60, standMs: 2000, wave: 12 },
+    conditionalWeights: { toll: 40, offering: 30, bell: 30 },
   },
 
   /**
@@ -436,30 +700,13 @@ export const TUNING = {
      * "clear the ring, then hold" is the intended pattern. `closed`/`spent` do
      * not suppress, or the ring would refill during the commit window.
      */
-    suppressRadius: 400,
+    suppressRadius: 600,
     /** Headless fallback: with no in-ring count, contest is inferred from a hit inside this window. */
     contestedInferMs: 1000,
-    /** Added to every gate's closeS inside ExtractionSystem (Duskmirror sets +20). */
-    gateWindowBonusS: 0,
     /** Added to channelMs in one place (Gravekey sets -800). */
     channelMsDelta: 0,
     /** Effective channel = max(floor, channelMs + delta). */
     channelMsFloor: 1200,
-    /**
-     * Haul premium for extracting at or after `collapse.atS` — a multiplier on
-     * BANKED shards, applied at settlement in the slice (not inside `Bag`,
-     * whose §16.1 signature is frozen and must stay a pure function).
-     *
-     * Why it exists: the sim proved the Collapse was unreachable content.
-     * Gate C opens at 420s and its channel can be started immediately, so an
-     * optimally-played deep run always ends BEFORE 480 and nobody ever sees
-     * the ending we specced. Locking the Gate C channel until ignition was
-     * measured and rejected — it cost the deep lane 10-15 points of extraction
-     * and bolts a low-HP player in with both other gates spent. Paying for the
-     * risk instead keeps the decision the player's, which is the whole thesis
-     * of the game: you stay because it pays, not because the door is barred.
-     */
-    collapseHaulBonus: 0.5,
   },
 
   /**
@@ -482,16 +729,17 @@ export const TUNING = {
     centerGate: 'c',
     /** start = clamp(dist(player, gateC) + startPad, minStart, maxStart) at ignition. */
     startPad: 240,
-    minStart: 700,
-    maxStart: 1200,
-    /** Ring stops here — Gate C (r=120) must stay standable. */
-    minRadius: 140,
+    /** ×2 with the 24576² map (gate C sits 8,000-10,400 px from spawn). */
+    minStart: 2000,
+    maxStart: 4800,
+    /** Ring stops here — Gate C (r=150) must stay standable. */
+    minRadius: 170,
     /** Initial shrink rate toward Gate C. */
     ringSpeedPxPerS: 22,
     /** Shrink-rate ramp (escalation 1 of 3). */
-    ringAccel: 0.8,
+    ringAccel: 10,
     /** Cap on the instantaneous shrink rate. */
-    ringSpeedMax: 90,
+    ringSpeedMax: 220,
     /** Standing in the fire drains this many hp/s, bypassing i-frames. */
     fireDps: 10,
     /** Fire damage ramp (escalation 2 of 3). */
@@ -522,9 +770,18 @@ export const TUNING = {
     spawnFloorMs: 100,
   },
 
-  /** Carried-loot bag (PRD §7 `bag.*`). */
+  /** Greed meter (PRD-V2 §5.26): ×(1 + stepPct/100 · floor((t − startS)/stepS)), capped at maxMul. */
+  greed: {
+    startS: 240,
+    stepS: 48,
+    stepPct: 5,
+    maxMul: 1.25,
+  },
+
+  /** Carried-loot bag (PRD-V2 §5.16): a cols × rows cell grid. */
   bag: {
-    slots: 8,
+    cols: 4,
+    rows: 3,
     casketSlots: 1,
     /** An overflow-dropped relic lingers on the ground this long for regret pickup. */
     dropLingerS: 10,
@@ -537,47 +794,89 @@ export const TUNING = {
     autoPinHighest: false,
   },
 
-  /** Relic loot (PRD §7 `loot.*`): tier weights t1-t4 and salvage values per tier. */
+  /** Loot from elites and bosses (items otherwise come from POIs and breakables). */
   loot: {
-    tierWeights: [60, 27, 10, 3],
-    salvage: [10, 30, 80, 200],
-    /** First relic drop. Was implicitly 120s, which left a two-minute cold open. */
-    firstRelicS: 35,
-    /** Ambient relic drip. Was 55s, which meant the 8-slot bag first bound at t=497s of a 509s run. */
-    relicDripS: 26,
-    /** Relics dropped per elite kill. */
-    eliteRelics: 2,
-    /** Tier-weight shift for elite / boss (Warden) drops. */
+    /** Valuables per elite kill (PRD-V2 §5.5). */
+    eliteValuables: 1,
+    /** Items in a Boss Chest (PRD-V2 §5.6). */
+    bossItems: 2,
+    /** Tier shift for elite / boss drops. */
     eliteTierBias: 1,
     bossTierBias: 2,
+  },
+
+  /** Points of interest (PRD-V2 §5.12, `systems/poi.ts`). */
+  poi: {
+    /** POIs within this of the hero are live (and discovered). */
+    activateRadius: 900,
+    chest: {
+      t1: { channelMs: 1500, tierBias: 0, shards: [25, 40] },
+      t2: { channelMs: 2000, tierBias: 1, shards: [35, 55] },
+      t3: { channelMs: 2500, tierBias: 1, shards: [50, 75], guards: 4 },
+    },
+    vault: { densityMul: 2.5, radius: 260, channelMs: 12000 },
+    vein: { standMs: 3000, shards: [25, 40] },
+    lair: { wakePx: 600, guards: [6, 10], keyChance: 0.35 },
+    eventTimesS: [100, 220, 340],
+    events: {
+      caravan: { ghouls: 5, speed: 176, durationS: 40 },
+      vigil: { radius: 200, holdS: 25, waves: 3, waveSize: 20 },
+      rising: { kills: 60, windowS: 30, radius: 420 },
+    },
+    fence: { chance: 0.6, windowS: [180, 300], stayS: 90 },
+    shrines: {
+      blood: { maxHpPenalty: 0.2, drafts: 2 },
+      gilt: { shardsMul: 1.3, spawnMul: 1.5, durationS: 60 },
+      curse: { elites: 3, radius: 500, tierBonus: 1, rolls: 3 },
+    },
+  },
+
+  /** Breakables (PRD-V2 §5.13, `objects/breakable.ts`); drop chances sum to 1. */
+  breakable: {
+    chunk: 1024,
+    spawnPx: 1400,
+    despawnPx: 2200,
+    drops: {
+      shards: { chance: 0.55, coins: [1, 3] },
+      xp: { chance: 0.15, orbs: 5, value: 4 },
+      /** Critic v2c M1: bread is the in-run heal — 10% while the hero is below `lowHpRatio`, 4% otherwise. */
+      pk_bread: { chance: 0.04, lowHpChance: 0.08, lowHpRatio: 0.5 },
+      pk_bell: { chance: 0.06 },
+      pk_flask: { chance: 0.05 },
+      pk_salt: { chance: 0.05 },
+      item: { chance: 0.04, tierBias: -1 },
+    },
+  },
+
+  /** Ground pickups (PRD-V2 §5.13), resolved in `game.ts`. */
+  pickups: {
+    /** Grave Bread also drops from elite kills (`eliteChance`) and t2+ reliquaries (`chestChance`), critic v2c M1. */
+    bread: { heal: 25, eliteChance: 0.3, chestChance: 0.5 },
+    bell: { vacuumMs: 2000 },
+    flask: { damage: 80, radius: 520 },
+    salt: { freezeMs: 3000, radius: 700 },
+  },
+
+  /** Gear (PRD-V2 §5.15); arrays are indexed by rarity − 1. */
+  gear: {
+    valueByRarity: [30, 60, 120, 240, 480, 900],
+    rarityWeights: [50, 28, 14, 6, 2, 0],
+    dustByRarity: [1, 3, 8, 20, 50, 120],
     /**
-     * Shard caches: the non-kill income source (PRD §6). Income was measured as
-     * a FORK, not a curve — an avoidant player banked 0.79-1.30/s against a
-     * 2.4-3.2 spec while a killing player hit it exactly. Caches give the
-     * avoidant branch a floor that does not require clearing the screen.
+     * Item level is the main mid/late ◆ sink (economy retune): L → L+1 costs
+     * `dustBase + dustPerLevel·L` Bone Dust and `round(shardsBase·shardsGrowth^(L−1))` ◆.
      */
-    cacheEveryS: 30,
-    cacheValue: 18,
-    cacheMinDist: 500,
-    cacheMaxDist: 700,
-    cacheLingerS: 45,
+    levelCost: { dustBase: 4, dustPerLevel: 3, shardsBase: 60, shardsGrowth: 1.22 },
+    /** Max item level = min(20, base + perHazard × highest hazard extracted at). */
+    levelCap: { base: 10, perHazard: 2 },
+    /** Affix reroll: `shardsBase × implicitMul(rarity) × growth^rerolls` ◆ + `dust`, escalating per item. */
+    affixReroll: { shardsBase: 150, growth: 1.6, dust: 10 },
+    /** Unique chance per Boss Chest / Vault item roll. */
+    uniqueChance: 0.08,
   },
 
-  /** Guaranteed relic chests (PRD §7 `chest.*`). */
-  chest: {
-    atS: [165, 345],
-    tierBias: 1,
-    relics: 1,
-  },
-
-  /** The Dread Shrine (PRD §7 `shrine.*`): a high-density, high-reward pocket. */
-  shrine: {
-    atS: 300,
-    densityMul: 2.5,
-    radiusPx: 260,
-    tierBias: 2,
-    minTier: 3,
-  },
+  /** Dread Ascension (post-Sanctum infinite node): +perRankPct % damage and shards per rank, `base × growth^rank` ◆. */
+  ascension: { perRankPct: 1, base: 5000, growth: 1.15 },
 
   /** The Gate Warden (PRD §7 `warden.*`): guards Gate C from 420s. */
   warden: {
@@ -630,15 +929,128 @@ export const TUNING = {
    * spikes the timeline is written around.
    */
   wave: {
+    /**
+     * Near-hero DENSITY TARGET (fix round 1, critic F1 / QA #3): ambient
+     * spawns (director drip AND leash re-seats) only land while the live
+     * count within 900 px of the hero is below this curve, so bodies the
+     * player fails to clear throttle new arrivals instead of snowballing to
+     * `enemy.maxAlive`. `[runSecond, bodies]` knots, linear between, flat
+     * after the last. Read through `data/waves.ts densityTarget`.
+     */
+    densityTarget: [
+      // Fix round 2 (critic B1): raised toward §6.3 (30/70/120/170/230) by Main's
+      // decision; the throttle, not the spawn table, keeps it survivable.
+      [0, 15],
+      [30, 28],
+      // Live fix round 2: 120 s / 240 s at −20% of Main's 55/90 — honest
+      // Gate-B bots died at 130-165 s to 9-dmg contact from 10-23 bodies
+      // within 200 px while density sat ON the curve.
+      // User playtest ("too easy", 2026-09-25): 0-30 s unchanged, 120 s+ ~+20%.
+      [120, 52],
+      [180, 62],
+      [240, 88],
+      [420, 150],
+    ] as readonly (readonly [number, number])[],
+    /** The Wicket (FTUE) run holds this fraction of the curve. */
+    /** 0.6 → 0.55 with the +20% mid curve, so the Wicket's 60-120 s density stays ~20-29 (was 20-26). */
+    ftueDensityMul: 0.55,
     compositionFromS: 285,
     eliteSwapEveryS: 40,
-    eliteShareMax: 0.25,
+    /** Fix round 2 (critic B3): 0.25 → 0.1; an elite swap is skipped while elites are ≥ this share of the live pool. */
+    eliteShareMax: 0.1,
+    /**
+     * Density hard cap (critic B2): POI / event / elite / gate-guard bodies
+     * count toward the near-hero budget; ambient spawning yields while they are
+     * awake, and NOTHING (scripted or POI) lands near the hero once
+     * `liveNear(900) ≥ densityTarget × densityHardCapMul`.
+     */
+    densityHardCapMul: 1.4,
+    /**
+     * Fix round 3 (QA v2b): ambient bodies ANYWHERE may not exceed
+     * densityTarget × this. The near-hero throttle alone let 900-1800 px
+     * stragglers pile up to 167 total and converge on the hero at ~120 s.
+     */
+    ambientTotalMul: 1.8,
+    /** Critic B3: at most this many elites within `eliteNearPx` of the hero; extra elite spawns wait / seat farther out. */
+    eliteNearCap: 2,
+    eliteNearPx: 400,
   },
 
-  /** Meta valves read at settlement (PRD §7 `meta.*`). */
+  /** Meta valves read at loadout/settlement (PRD-V2 §5.26). */
   meta: {
-    /** % of carried shards kept on death — 0 until the Rot Tithe upgrade exists. */
-    deathKeepPct: 0,
+    /** % of carried shards kept on death (base). */
+    deathKeepPct: 25,
+    /** Rot Tithe `m_tithe` levels 1 / 2. */
+    tithePct: [40, 55],
+  },
+
+  /** Hauler XP & account ladder (PRD-V2 §5.20); XP to next level = xpBase + xpStep·(L−1). */
+  account: {
+    xpBase: 200,
+    xpStep: 75,
+    deathMul: 0.6,
+    perKill: 1,
+    perSecond: 0.5,
+    perPoi: 25,
+    extractBonus: 100,
+    perBoss: 150,
+  },
+
+  /** Hazard XP bonus per level above H1 (PRD-V2 §5.21); the rest of the table lives in `data/hazards.ts`. */
+  hazard: {
+    xpPerLevel: 0.15,
+  },
+
+  /** Grave's Pity (PRD-V2 §5.28): hidden help after consecutive deaths. */
+  mercy: {
+    deathStreak: 2,
+    hpBonus: 0.15,
+    chestBias: 1,
+  },
+
+  /** Minimap (PRD-V2 §14.10). */
+  minimap: {
+    /** Fog reveal radius; ×1.5 for the 24576² map. */
+    revealPx: 1400,
+    peekMs: 1500,
+  },
+
+  /** Baked outlines (PRD-V2 §13.1, `core/outline.ts`). */
+  outline: {
+    enemyPx: 3,
+    elitePx: 4,
+    bossPx: 5,
+    heroPx: 3,
+    enemyColor: 0xff2d2d,
+    heroColor: 0x39ff6a,
+    eliteGlow: 0x7a0000,
+  },
+
+  /** Floor lighting pools (PRD-V2 §3.7). */
+  lighting: {
+    poolAlpha: 0.32,
+    flicker: 0.04,
+    gradeMul: 0.85,
+  },
+
+  /** Wicket first run (PRD-V2 §5.28). */
+  ftue: {
+    runS: 240,
+    /** Gate A sits ~1,200 px out (reached in ~5 s); 60 s left ~50 s of dead air at a shut door (critic F4). */
+    gateAOpenS: 40,
+    /** …or this long after the Ash Locket is picked up, if sooner (critic v2c M2)… */
+    gateAAfterLocketS: 10,
+    /** …but never before this. */
+    gateAEarliestS: 30,
+    gateADist: 1200,
+    threatMul: 0.7,
+    maxRetries: 2,
+  },
+
+  /** Low-tier device fallback (PRD-V2 §15): below `lowTierFps` for `lowTierWindowMs`. */
+  perf: {
+    lowTierFps: 50,
+    lowTierWindowMs: 5000,
   },
 
   /** Scripted timeline events (see `data/waves.ts` `TIMELINE_EVENTS`). */
@@ -664,8 +1076,6 @@ export const TUNING = {
     /** `breather` silences ordinary spawns for this long and heals this fraction of max HP. */
     breatherSilenceMs: 8000,
     breatherHealRatio: 0.1,
-    /** `elite-rush` spawns this many elites in a tight arc facing one random direction. */
-    eliteRushCount: 2,
   },
 
   /** Performance and feel caps from the design heuristics and the §13 juice table. */
@@ -685,8 +1095,6 @@ export const TUNING = {
      * rises — so this cap is quieter in overtime than at Climax, by design.
      */
     burstEntityLimit: 200,
-    /** §13/§12: at most this many enemy-death voices a second. */
-    dieSfxPerSecond: 4,
     /** §12: at most this many enemy-hit voices a second. */
     hitSfxPerSecond: 6,
     /** §13 "1 shake/s" on the player-hurt beat. */
@@ -698,30 +1106,25 @@ export const TUNING = {
 export type Tuning = typeof TUNING;
 
 /**
- * The player's `StatBlock` base values — and, just as importantly, the ONE list
- * of stat keys upgrades are allowed to modify. `data/upgrades.ts` is validated
- * against these keys at boot, because a card pointing at a stat nobody reads
- * (`projectileCount` vs `projectiles`) fails completely silently: the modifier
- * lands, the number changes, and nothing in the game consults it.
+ * The player's `StatBlock` base values — and the ONE list of stat keys
+ * modifiers are allowed to target (PRD-V2 §5.2 frozen union, `PlayerStatKey`
+ * in `data/types-v2.ts`). `data/upgrades.ts` is validated against these keys
+ * at boot, because a card pointing at a stat nobody reads fails silently.
+ * Engine numbers nothing modifies (`projectileSpeed`, `invulnMs`…)
+ * stay plain `TUNING.player.*` config.
  *
- * THIS LIST IS THE FROZEN §16.1 `StatKey` UNION, VERBATIM, and it is the same
- * eleven keys `sim/families/arena.ts` `baseStats()` opens with — the parity
- * rule: the build the sim measures is the build the scene runs. The template's
- * own keys (`damage`, `attackMs`, `attackSpeed`, `range`, `projectiles`,
- * `projectileSpeed`, `areaMul`, `regenPerSecond`, `xpGain`) are GONE from the
- * stat surface, not renamed into it: the engine numbers among them are plain
- * `TUNING.player.*` config read directly by `systems/combat.ts` and
- * `objects/player.ts`, because a constant nothing modifies has no business
- * paying for a modifier stack (see `core/stats.ts`).
- *
- * Semantics of the eleven:
+ * Semantics:
  * - `damageMul` scales every weapon's authored base damage.
  * - `cooldownMul` scales every weapon's authored interval (lower = faster).
  * - `area` scales reach, blast radii and projectile hit radius.
- * - `shardsMul` scales every shard payout (kills, coins, caches).
+ * - `shardsMul` scales every shard payout (kills, coins, veins).
  * - `channelMs` is the extraction hold in ms; the scene turns the DELTA from
  *   its base into `ExtractionTuning.channel.channelMsDelta`.
- * - `bagSlots` is the relic bag size; the delta feeds `resolveBagCapacity`.
+ * - `bagCells` is the bag grid size (cols × rows).
+ * - `projectileBonus` adds projectiles to every projectile weapon.
+ * - `durationMul` scales DoTs, pools and buffs; `regenPerS` is hp/s.
+ * - `contactDamageMul` scales every blow that reaches the hero.
+ * - `xpMul` scales XP pickups; `luck` shifts item rarity (§5.15).
  * - `pickupRadius` is px, `critChance` is 0..1, `critMul` is a multiplier.
  */
 export const PLAYER_BASE_STATS = {
@@ -735,7 +1138,13 @@ export const PLAYER_BASE_STATS = {
   pickupRadius: TUNING.player.pickupRadius,
   shardsMul: 1,
   channelMs: TUNING.extract.channelMs,
-  bagSlots: TUNING.bag.slots,
-} as const satisfies Record<string, number>;
+  bagCells: TUNING.bag.cols * TUNING.bag.rows,
+  projectileBonus: 0,
+  durationMul: 1,
+  regenPerS: TUNING.player.regenPerSecond,
+  contactDamageMul: 1,
+  xpMul: 1,
+  luck: 0,
+} as const satisfies Record<PlayerStatKey, number>;
 
-export type PlayerStatKey = keyof typeof PLAYER_BASE_STATS;
+export type { PlayerStatKey };

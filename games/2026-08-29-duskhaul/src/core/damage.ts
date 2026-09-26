@@ -121,6 +121,20 @@ export class Health {
     this.hp = this.dead ? 0 : Math.min(cap, n * ratio);
   }
 
+  /**
+   * Brings a dead pool back at `hp` (§5.4 Sand Revenant "revive once at 50%",
+   * Last Gasp). The only way out of the dead state; a no-op while alive.
+   */
+  revive(hp: number): void {
+    if (!this.dead) return;
+    this.dead = false;
+    this.hp = Math.max(1, Math.min(this.max, hp));
+  }
+
+  get isDead(): boolean {
+    return this.dead;
+  }
+
   get ratio(): number {
     return this.max > 0 ? this.hp / this.max : 0;
   }

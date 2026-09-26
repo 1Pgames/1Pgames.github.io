@@ -1,30 +1,30 @@
 import Phaser from 'phaser';
 import { TUNING } from '../config';
 import { TEX } from '../core/keys';
-import type { Rng } from '../core/rng';
+import { Rng } from '../core/rng';
 import type { ArtSlot } from '../data/art';
 import { enemiesForZone, exclusiveEnemies, type EnemyDef } from '../data/enemies';
-import { DECALS_BY_ZONE, PROPS_BY_ZONE } from '../data/props';
-import { zoneGates, type ZoneDef } from '../data/zones';
-import { FLOOR_GRADE, IDENTITY } from '../ui/duskChrome';
-import type { Arena, ArenaLayout } from './arena';
-import type { GateSpec } from './extraction';
+import type { GeneratedMap } from '../data/types-v2';
+import type { ZoneDef, ZoneHazardKind } from '../data/zones';
+import { IDENTITY } from '../ui/duskChrome';
 
 /**
- * Applies one `ZoneDef` (PRD §5.7 / §16.1) to the live arena for the whole
- * run: floor art, gate positions scaled out of the PRD's 1600x1600 design
- * space, the spawn-table bias that lets the zone's two exclusive archetypes
- * in, and the zone hazard as a REAL mechanic rather than a decal.
+ * Applies one `ZoneDef` (PRD-V2 §5.29 / §16.1 E6) to the live run: the
+ * spawn-table bias that lets the zone's exclusive archetypes in, and the zone
+ * hazard as a REAL mechanic placed on the map's `hazardAnchors` (§3.9 — mapgen
+ * places them algorithmically: braziers/pits/ice off-road with spacing, ash
+ * zones and winter torches ON roads). Gates are no longer here: they are
+ * `GeneratedMap.gates`.
  *
  * There is no mid-run zone travel (§5.7), so a `ZoneSystem` is constructed
  * once in the scene's `create` and torn down with the scene.
  *
- * Performance contract (§15): every hazard node is allocated up front — six
- * braziers, three ash zones, five pits, or four ice sheets plus five torches,
- * so the worst zone costs 9 extra sprites plus 9 field rings against a
- * 300-sprite budget. `update` allocates nothing, creates no tweens and redraws
- * no Graphics: field rings are pre-sized `Image`s whose alpha/visibility is
- * written numerically, and `pickSpawnId` runs off cached, pre-sorted tables.
+ * Performance contract (§15): hazard node DATA is allocated up front (up to
+ * 1,296 in winter); their images exist only near the subject (`syncVisuals`),
+ * and `update` allocates nothing,
+ * creates no tweens and redraws no Graphics: field rings are pre-sized
+ * `Image`s whose alpha/visibility is written numerically, and `pickSpawnId`
+ * runs off cached, pre-sorted tables.
  *
  * Balance discipline: every number a hazard uses comes from
  * `ZoneDef.hazard.params` (content, `data/zones.ts`) or `TUNING`. A missing
@@ -32,7 +32,7 @@ import type { GateSpec } from './extraction';
  * must be loud, never silently defaulted into a different game.
  */
 
-export type ZoneHazardKind = ZoneDef['hazard']['kind'];
+export type { ZoneHazardKind } from '../data/zones';
 
 /**
  * How a hazard reaches the rest of the run. The zone system never plays sfx,
@@ -90,7 +90,9 @@ const GALE_TORCH_ART: ArtSlot = { key: 'props-winter-a', frame: 0 }; // torchrin
 
 /** Node fallback tint per hazard kind, used only when the prop sheet is absent. */
 const HAZARD_FALLBACK_TINT: Record<ZoneHazardKind, number> = {
-  braziers: IDENTITY.threat,
+  // Hazards are amber (PRD-V2 §13.2): red is reserved for hostiles and the
+  // brazier's own strike frame (`STRIKE_FLASH_MS`).
+  braziers: IDENTITY.hazardAmber,
   bonestorm: IDENTITY.cooled,
   sinksand: IDENTITY.gilt,
   gale: IDENTITY.gateOpen,
@@ -106,14 +108,31 @@ const FIELD_ALPHA = 0.22;
 /** Brazier telegraph: alpha at arming, and how much it swells before the strike. */
 const TELEGRAPH_ALPHA_BASE = 0.15;
 const TELEGRAPH_ALPHA_SWELL = 0.5;
+/**
+ * Lazy hazard visuals (24576² map: up to 1,296 sites): a node gets its glyph
+ * and field only within `VISUAL_IN_PX` of the subject and loses them beyond
+ * `VISUAL_OUT_PX`; the check runs every `VISUAL_SYNC_MS`. The mechanics
+ * (timers, containment tests) run for every node regardless — they are plain
+ * arithmetic — but telegraph/strike hooks fire only for visible nodes, so the
+ * slice never sells a brazier the player cannot see.
+ */
+const VISUAL_IN_PX = 2400;
+const VISUAL_OUT_PX = 3000;
+const VISUAL_SYNC_MS = 250;
+/** The brazier strike frame: the ring flashes hostile red this long after it fires, then goes dark. */
+const STRIKE_FLASH_MS = 160;
+const STRIKE_FLASH_ALPHA = 0.6;
 
 /**
  * One hazard site. Threat nodes (braziers, pits, ash, ice) and safe nodes
  * (torches) share the record: `field` is the radius ring, `glyph` the prop.
  */
 interface HazardNode {
-  glyph: Phaser.GameObjects.Image;
-  field: Phaser.GameObjects.Image;
+  /** Visuals exist only while the node is within `VISUAL_IN_PX` of the subject (lazy, see `syncVisuals`). */
+  glyph: Phaser.GameObjects.Image | null;
+  field: Phaser.GameObjects.Image | null;
+  /** A safe site (winter torch) rather than a threat. */
+  haven: boolean;
   x: number;
   y: number;
   radius: number;
@@ -136,40 +155,18 @@ function requireParam(zone: ZoneDef, key: string): number {
   return value;
 }
 
-/**
- * The `ArenaLayout` a zone implies: the same field size as always, but the
- * zone's own floor tile, its own edge band, its own per-zone lighting grade
- * and its own prop/decal cells (`data/props.ts`), so a castle run scatters
- * castle masses and a desert run desert ones. `Arena` already falls back to
- * the template floor and then to a procedural tile, and to a tinted square
- * per prop, so a zone whose art has not landed still renders.
- *
- * `grade` is the Step 5.5 ground-lighting pass: the generated floor tiles came
- * out LIT rather than shadowed, so each zone multiplies its ground layer down
- * to a measured value. The table and its contrast reasoning live in
- * `ui/duskChrome.ts#FLOOR_GRADE` — this is the single consumer.
- */
-export function zoneArenaLayout(zone: ZoneDef): ArenaLayout {
-  return {
-    width: TUNING.arena.width,
-    height: TUNING.arena.height,
-    floorKey: `floor-${zone.id}`,
-    borderKey: `border-${zone.id}`,
-    grade: FLOOR_GRADE[zone.id],
-    propSet: PROPS_BY_ZONE[zone.id],
-    decalSet: DECALS_BY_ZONE[zone.id],
-  };
-}
-
 export class ZoneSystem {
   readonly zone: ZoneDef;
-  readonly gates: [GateSpec, GateSpec, GateSpec];
 
   private readonly scene: Phaser.Scene;
   private readonly rng: Rng;
-  private readonly arena: Arena;
-  private readonly subject: ZoneSubject;
+  private readonly map: GeneratedMap;
   private readonly hooks: ZoneHooks;
+  /** The mover hazards act on; hazards idle until `setSubject` (the player exists after combat). */
+  private subject: ZoneSubject | null = null;
+  /** Next road anchor an ash zone rises from (bonestorm streams along roads). */
+  private ashCursor = 0;
+  private syncMs = VISUAL_SYNC_MS;
 
   /** Threat sites: braziers / pits / ice sheets / ash zones. */
   private readonly nodes: HazardNode[] = [];
@@ -196,21 +193,13 @@ export class ZoneSystem {
   /** Scratch for the clamped push/slide displacement — never reallocated. */
   private readonly displaced = { x: 0, y: 0 };
 
-  constructor(
-    scene: Phaser.Scene,
-    rng: Rng,
-    arena: Arena,
-    zone: ZoneDef,
-    subject: ZoneSubject,
-    hooks: ZoneHooks,
-  ) {
+  /** §16.1 E6. The hazard's own draws use `Rng(\`zone:${zone}:${map.seed}\`)` so a seed replays exactly. */
+  constructor(scene: Phaser.Scene, zone: ZoneDef, map: GeneratedMap, hooks: ZoneHooks) {
     this.scene = scene;
-    this.rng = rng;
-    this.arena = arena;
+    this.rng = new Rng(`zone:${zone.id}:${map.seed}`);
+    this.map = map;
     this.zone = zone;
-    this.subject = subject;
     this.hooks = hooks;
-    this.gates = zoneGates(zone);
 
     const table = enemiesForZone(zone.id);
     for (const def of table) this.byId[def.id] = def;
@@ -219,7 +208,7 @@ export class ZoneSystem {
     this.sharedSorted = table
       .filter(
         (def) =>
-          !this.exclusiveIds.has(def.id) && def.behaviour !== 'elite' && def.behaviour !== 'boss',
+          !this.exclusiveIds.has(def.id) && def.rank === 'trash',
       )
       .sort((a, b) => a.firstSeenS - b.firstSeenS);
 
@@ -231,8 +220,19 @@ export class ZoneSystem {
    * TICKING frame from the slice — never while paused or drafting, so a hazard
    * cannot pulse behind an upgrade overlay.
    */
+  /** Binds the mover hazards act on (the player). Until bound, hazards animate but touch nobody. */
+  setSubject(subject: ZoneSubject): void {
+    this.subject = subject;
+  }
+
   update(deltaMs: number, elapsedS: number): void {
     this.advanceEligibility(elapsedS);
+    if (this.subject === null) return;
+    this.syncMs += deltaMs;
+    if (this.syncMs >= VISUAL_SYNC_MS) {
+      this.syncMs = 0;
+      this.syncVisuals();
+    }
 
     switch (this.zone.hazard.kind) {
       case 'braziers':
@@ -254,8 +254,8 @@ export class ZoneSystem {
    * The archetype a scheduled spawn actually becomes in this zone (§5.7
    * exclusivity). A TRASH spawn is re-rolled onto one of the zone's two
    * exclusives in proportion to how much of the live table they are — no
-   * tuning dial, because the share IS the roster composition. Elites, the
-   * Warden, ids that are already exclusive, and unknown ids pass through.
+   * tuning dial, because the share IS the roster composition. Mid-bosses, the
+   * zone boss, ids that are already exclusive, and unknown ids pass through.
    *
    * Allocation-free: both tables are pre-sorted and eligibility is an index.
    */
@@ -263,7 +263,7 @@ export class ZoneSystem {
     if (this.exclusiveEligible === 0) return requestedId;
     if (this.exclusiveIds.has(requestedId)) return requestedId;
     const def = this.byId[requestedId];
-    if (def === undefined || def.behaviour === 'elite' || def.behaviour === 'boss') return requestedId;
+    if (def === undefined || def.rank !== 'trash') return requestedId;
     const pool = this.sharedEligible + this.exclusiveEligible;
     if (pool === 0) return requestedId;
     if (!this.rng.chance(this.exclusiveEligible / pool)) return requestedId;
@@ -277,78 +277,75 @@ export class ZoneSystem {
   }
 
   destroy(): void {
-    this.subject.stats.removeBySource(ZONE_SLOW_SOURCE);
-    for (const node of this.nodes) {
-      node.glyph.destroy();
-      node.field.destroy();
-    }
-    for (const node of this.havens) {
-      node.glyph.destroy();
-      node.field.destroy();
-    }
+    this.subject?.stats.removeBySource(ZONE_SLOW_SOURCE);
+    this.subject = null;
+    for (const node of this.nodes) this.hideNode(node);
+    for (const node of this.havens) this.hideNode(node);
     this.nodes.length = 0;
     this.havens.length = 0;
   }
 
   // === construction =========================================================
 
+  /**
+   * Builds the hazard on `map.hazardAnchors` in the order mapgen documents:
+   * braziers / ash-zone road anchors / pits in one list; winter lists its
+   * `iceSheets` ice anchors first, then its `torches` torch anchors. A map
+   * with fewer anchors than the param (a best-effort reseed map) builds fewer.
+   */
   private buildHazard(): void {
     const zone = this.zone;
+    const anchors = this.map.hazardAnchors;
+    let cursor = 0;
+    const take = (n: number): Array<{ x: number; y: number }> => {
+      const out = anchors.slice(cursor, cursor + n);
+      cursor += out.length;
+      return out;
+    };
     switch (zone.hazard.kind) {
       case 'braziers': {
-        const count = requireParam(zone, 'count');
+        const sites = take(requireParam(zone, 'count'));
         const radius = requireParam(zone, 'radius');
         const periodMs = requireParam(zone, 'intervalS') * 1000;
-        for (let i = 0; i < count; i += 1) {
+        sites.forEach((p, i) => {
           // Even phase spread: the field pulses as a rolling wave, so there is
           // always somewhere safe and the player reads rhythm, not luck.
-          const node = this.addNode(radius, (periodMs * i) / count);
-          this.setGlyphArt(node.glyph, BRAZIER_COLD);
-          node.field.setVisible(false);
-        }
+          this.addNode(p, radius, (periodMs * i) / sites.length);
+        });
         break;
       }
       case 'bonestorm': {
-        const count = requireParam(zone, 'dotZones');
         const radius = requireParam(zone, 'dotRadius');
-        for (let i = 0; i < count; i += 1) {
-          const node = this.addNode(radius, 0);
-          node.live = false;
-          node.glyph.setVisible(false);
-          node.field.setVisible(false);
+        for (const p of take(requireParam(zone, 'dotZones'))) {
+          this.addNode(p, radius, 0).live = false;
         }
         break;
       }
       case 'sinksand': {
-        const count = requireParam(zone, 'pits');
         const radius = requireParam(zone, 'radius');
-        for (let i = 0; i < count; i += 1) this.addNode(radius, 0);
-        this.cacheShadeProps();
+        for (const p of take(requireParam(zone, 'pits'))) this.addNode(p, radius, 0);
+        // Shade (§5.29 scorch): every blocking prop the map placed casts it.
+        for (const prop of this.map.props) this.shade.push(prop.x, prop.y);
         break;
       }
       case 'gale': {
-        const sheets = requireParam(zone, 'iceSheets');
         const iceRadius = requireParam(zone, 'iceRadius');
-        for (let i = 0; i < sheets; i += 1) this.addNode(iceRadius, 0);
-        const torches = requireParam(zone, 'torches');
+        for (const p of take(requireParam(zone, 'iceSheets'))) this.addNode(p, iceRadius, 0);
         const torchRadius = requireParam(zone, 'torchRadius');
-        for (let i = 0; i < torches; i += 1) this.addHaven(torchRadius);
+        for (const p of take(requireParam(zone, 'torches'))) this.addHaven(p, torchRadius);
         break;
       }
     }
   }
 
-  /**
-   * Places one threat site, rejecting the run's starting pocket so the player
-   * never spawns already standing in the zone's teeth.
-   */
-  private addNode(radius: number, phaseMs: number): HazardNode {
-    const point = this.scatter(radius);
+  /** One threat site on a mapgen anchor (anchors already keep off spawn, gates and POIs). */
+  private addNode(p: { x: number; y: number }, radius: number, phaseMs: number): HazardNode {
     const node: HazardNode = {
-      glyph: this.placeGlyph(HAZARD_NODE_ART[this.zone.hazard.kind], point.x, point.y),
-      field: this.placeField(point.x, point.y, radius, HAZARD_FALLBACK_TINT[this.zone.hazard.kind]),
-      x: point.x,
-      y: point.y,
+      glyph: null,
+      field: null,
+      haven: false,
+      x: p.x,
+      y: p.y,
       radius,
       phaseMs,
       cycle: 0,
@@ -359,14 +356,14 @@ export class ZoneSystem {
     return node;
   }
 
-  /** Places one SAFE site (a winter torch): standing in it lifts the gale slow. */
-  private addHaven(radius: number): HazardNode {
-    const point = this.scatter(radius);
+  /** One SAFE site (a winter torch on a road): standing in it lifts the gale slow. */
+  private addHaven(p: { x: number; y: number }, radius: number): HazardNode {
     const node: HazardNode = {
-      glyph: this.placeGlyph(GALE_TORCH_ART, point.x, point.y),
-      field: this.placeField(point.x, point.y, radius, IDENTITY.hazardAmber),
-      x: point.x,
-      y: point.y,
+      glyph: null,
+      field: null,
+      haven: true,
+      x: p.x,
+      y: p.y,
       radius,
       phaseMs: 0,
       cycle: 0,
@@ -377,28 +374,48 @@ export class ZoneSystem {
     return node;
   }
 
-  /** A seeded in-bounds point outside the start pocket. Deterministic per seed. */
-  private scatter(radius: number): { x: number; y: number } {
-    const edge = TUNING.arena.wallThickness + radius * 0.5;
-    for (let attempt = 0; attempt < 24; attempt += 1) {
-      const x = this.rng.float(edge, this.arena.width - edge);
-      const y = this.rng.float(edge, this.arena.height - edge);
-      const dx = x - this.arena.centerX;
-      const dy = y - this.arena.centerY;
-      if (Math.hypot(dx, dy) < TUNING.arena.spawnClearRadius + radius) continue;
-      return { x, y };
+  /** Creates visuals for nodes near the subject, destroys those far away. */
+  private syncVisuals(): void {
+    const s = this.subject!;
+    const inSq = VISUAL_IN_PX * VISUAL_IN_PX;
+    const outSq = VISUAL_OUT_PX * VISUAL_OUT_PX;
+    const sync = (node: HazardNode): void => {
+      const dx = node.x - s.x;
+      const dy = node.y - s.y;
+      const d = dx * dx + dy * dy;
+      if (node.glyph === null && d <= inSq) this.showNode(node);
+      else if (node.glyph !== null && d > outSq) this.hideNode(node);
+    };
+    for (const node of this.nodes) sync(node);
+    for (const node of this.havens) sync(node);
+  }
+
+  /** Builds a node's glyph + field in its resting state for this hazard. */
+  private showNode(node: HazardNode): void {
+    const kind = this.zone.hazard.kind;
+    if (node.haven) {
+      node.glyph = this.placeGlyph(GALE_TORCH_ART, node.x, node.y);
+      node.field = this.placeField(node.x, node.y, node.radius, IDENTITY.hazardAmber);
+      return;
     }
-    // Exhausted: park it on the pocket's rim rather than inside it.
-    const angle = this.rng.float(0, Math.PI * 2);
-    const dist = TUNING.arena.spawnClearRadius + radius;
-    const out = { x: 0, y: 0 };
-    this.arena.clamp(
-      this.arena.centerX + Math.cos(angle) * dist,
-      this.arena.centerY + Math.sin(angle) * dist,
-      edge,
-      out,
-    );
-    return out;
+    node.glyph = this.placeGlyph(HAZARD_NODE_ART[kind], node.x, node.y);
+    node.field = this.placeField(node.x, node.y, node.radius, HAZARD_FALLBACK_TINT[kind]);
+    if (kind === 'braziers') {
+      this.setGlyphArt(node.glyph, BRAZIER_COLD);
+      node.field.setVisible(false);
+      // Re-diff the telegraph on the next tick so a node that appears mid-arming lights up.
+      node.armed = false;
+    } else if (kind === 'bonestorm') {
+      node.glyph.setVisible(node.live);
+      node.field.setVisible(node.live);
+    }
+  }
+
+  private hideNode(node: HazardNode): void {
+    node.glyph?.destroy();
+    node.field?.destroy();
+    node.glyph = null;
+    node.field = null;
   }
 
   private placeGlyph(art: ArtSlot, x: number, y: number): Phaser.GameObjects.Image {
@@ -427,26 +444,14 @@ export class ZoneSystem {
       .setDepth(FIELD_DEPTH);
   }
 
-  /**
-   * Caches the arena's impassable props as the desert's shade. "Outside shade
-   * props" (§5.7) means the field the arena already scattered — inventing a
-   * second set of shade objects would put shade where the art has none. Walls
-   * are plain rectangles in the same group and are filtered out.
-   */
-  private cacheShadeProps(): void {
-    for (const child of this.arena.obstacles.getChildren()) {
-      if (!(child instanceof Phaser.GameObjects.Sprite)) continue;
-      this.shade.push(child.x, child.y);
-    }
-  }
-
   // === hazards ==============================================================
 
   /**
    * Cursed braziers (castle): each site pulses on its own phase of the shared
    * cycle, arming a telegraph `telegraphS` before it fires. The telegraph is a
-   * broad ring of light swelling out of the brazier — light, never notation:
-   * the player reads WHERE the heat will land, not a diagram of it.
+   * broad AMBER ring of light swelling out of the brazier — light, never
+   * notation: the player reads WHERE the heat will land. Only the strike frame
+   * flashes hostile red, so at a glance braziers never read as enemies.
    */
   private tickBraziers(elapsedS: number): void {
     const zone = this.zone;
@@ -460,26 +465,38 @@ export class ZoneSystem {
       const cycle = Math.floor(local / periodMs);
       const intoCycle = local - cycle * periodMs;
       const armed = intoCycle >= periodMs - telegraphMs;
+      // Strike frame: the first STRIKE_FLASH_MS of a cycle that followed a real strike.
+      const flashing = cycle > 0 && node.cycle >= cycle - 1 && intoCycle < STRIKE_FLASH_MS && nowMs >= STRIKE_FLASH_MS;
 
-      if (armed !== node.armed) {
-        node.armed = armed;
-        node.field.setVisible(armed);
-        if (armed) {
-          this.setGlyphArt(node.glyph, HAZARD_NODE_ART.braziers);
-          this.hooks.onHazardTelegraph('braziers', node.x, node.y);
-        } else {
-          this.setGlyphArt(node.glyph, BRAZIER_COLD);
+      const glyph = node.glyph;
+      const field = node.field;
+      if (glyph !== null && field !== null) {
+        if (armed !== node.armed) {
+          node.armed = armed;
+          field.setVisible(armed || flashing);
+          if (armed) {
+            this.setGlyphArt(glyph, HAZARD_NODE_ART.braziers);
+            this.hooks.onHazardTelegraph('braziers', node.x, node.y);
+          } else {
+            this.setGlyphArt(glyph, BRAZIER_COLD);
+          }
         }
-      }
-      // Telegraph intensity, written numerically — no tween, no Graphics.
-      if (armed) {
-        const into = (intoCycle - (periodMs - telegraphMs)) / telegraphMs;
-        node.field.setAlpha(TELEGRAPH_ALPHA_BASE + TELEGRAPH_ALPHA_SWELL * into);
+        // Telegraph intensity, written numerically — no tween, no Graphics.
+        if (armed) {
+          const into = (intoCycle - (periodMs - telegraphMs)) / telegraphMs;
+          field.setTint(IDENTITY.hazardAmber).setAlpha(TELEGRAPH_ALPHA_BASE + TELEGRAPH_ALPHA_SWELL * into);
+        } else if (flashing) {
+          field.setVisible(true).setTint(IDENTITY.threat).setAlpha(STRIKE_FLASH_ALPHA);
+        } else if (field.visible) {
+          field.setVisible(false);
+        }
+      } else {
+        node.armed = armed;
       }
 
       if (cycle <= node.cycle) continue;
       node.cycle = cycle;
-      this.hooks.onHazardStrike('braziers', node.x, node.y);
+      if (glyph !== null) this.hooks.onHazardStrike('braziers', node.x, node.y);
       if (this.withinSq(node.x, node.y, node.radius)) this.hooks.onHazardHit(damage, node.x, node.y);
     }
   }
@@ -506,8 +523,8 @@ export class ZoneSystem {
       this.gusting = false;
       for (const node of this.nodes) {
         node.live = false;
-        node.glyph.setVisible(false);
-        node.field.setVisible(false);
+        node.glyph?.setVisible(false);
+        node.field?.setVisible(false);
       }
     }
     if (!this.gusting) return;
@@ -518,33 +535,49 @@ export class ZoneSystem {
     for (const node of this.nodes) {
       if (!node.live) continue;
       node.x += push * dt;
-      node.glyph.x = node.x;
-      node.field.x = node.x;
+      if (node.glyph !== null) node.glyph.x = node.x;
+      if (node.field !== null) node.field.x = node.x;
       if (this.withinSq(node.x, node.y, node.radius)) this.hooks.onHazardDrain(dps * dt);
     }
   }
 
-  /** Places the gust's ash zones on the upwind edge at fresh heights. */
+  /**
+   * Raises the gust's ash zones from the road anchors (§3.9: ash streams
+   * along roads). Each gust rotates which anchor feeds which zone, so the
+   * pattern shifts between gusts while staying on the roads.
+   */
   private startGust(): void {
-    const margin = TUNING.arena.wallThickness;
-    for (const node of this.nodes) {
-      node.x = this.rng.float(margin, margin + node.radius);
-      node.y = this.rng.float(margin + node.radius, this.arena.height - margin - node.radius);
+    const anchors = this.map.hazardAnchors;
+    this.ashCursor += 1;
+    this.nodes.forEach((node, i) => {
+      const a = anchors[(i + this.ashCursor) % Math.max(1, anchors.length)];
+      if (a !== undefined) {
+        node.x = a.x;
+        node.y = a.y;
+      }
       node.live = true;
-      node.glyph.setPosition(node.x, node.y).setVisible(true);
-      node.field.setPosition(node.x, node.y).setVisible(true);
+      node.glyph?.setPosition(node.x, node.y).setVisible(true);
+      node.field?.setPosition(node.x, node.y).setVisible(true);
+    });
+    // Visuals follow the zones' new positions right away.
+    this.syncVisuals();
+    // The warning points at the ash zone nearest the subject.
+    const s = this.subject!;
+    let lead: HazardNode | null = null;
+    let best = Infinity;
+    for (const node of this.nodes) {
+      const d = (node.x - s.x) ** 2 + (node.y - s.y) ** 2;
+      if (d < best) {
+        best = d;
+        lead = node;
+      }
     }
-    const lead = this.nodes[0];
-    this.hooks.onHazardTelegraph(
-      'bonestorm',
-      lead?.x ?? this.arena.centerX,
-      lead?.y ?? this.arena.centerY,
-    );
+    this.hooks.onHazardTelegraph('bonestorm', lead?.x ?? this.map.spawn.x, lead?.y ?? this.map.spawn.y);
   }
 
   /**
-   * Sinking sand (desert): pits slow anything standing in them and shift when
-   * nobody is watching; the midday scorch burns everything out of shade.
+   * Sinking sand (desert): the pits on their anchors slow anything standing
+   * in them; the midday scorch burns everything out of shade.
    */
   private tickSinksand(deltaMs: number, elapsedS: number): void {
     const zone = this.zone;
@@ -556,18 +589,9 @@ export class ZoneSystem {
 
     let inPit = false;
     for (const node of this.nodes) {
-      if (this.withinSq(node.x, node.y, node.radius)) {
-        inPit = true;
-        continue;
-      }
-      // "Shifting pits": a pit only relocates while it is a whole field away,
-      // so the sand changes between visits instead of teleporting underfoot.
-      if (this.withinSq(node.x, node.y, node.radius + this.arena.width)) continue;
-      const point = this.scatter(node.radius);
-      node.x = point.x;
-      node.y = point.y;
-      node.glyph.setPosition(point.x, point.y);
-      node.field.setPosition(point.x, point.y);
+      if (!this.withinSq(node.x, node.y, node.radius)) continue;
+      inPit = true;
+      break;
     }
     this.applySlow(inPit ? slowPct : 0);
 
@@ -619,7 +643,7 @@ export class ZoneSystem {
    * stopping on ice keeps gliding, turning on ice arcs wide.
    */
   private tickIce(onIce: boolean, friction: number, dt: number): void {
-    const body = this.subject.body;
+    const body = this.subject!.body;
     const vx = body === null ? 0 : body.velocity.x;
     const vy = body === null ? 0 : body.velocity.y;
     if (!onIce) {
@@ -642,31 +666,30 @@ export class ZoneSystem {
 
   /** Squared-distance containment test against the subject. No allocation. */
   private withinSq(x: number, y: number, radius: number): boolean {
-    const dx = this.subject.x - x;
-    const dy = this.subject.y - y;
+    const dx = this.subject!.x - x;
+    const dy = this.subject!.y - y;
     return dx * dx + dy * dy <= radius * radius;
   }
 
-  /** Moves the subject by an environmental displacement, clamped in-bounds. */
+  /** Moves the subject by an environmental displacement, clamped inside the border band. */
   private displace(dx: number, dy: number): void {
     if (dx === 0 && dy === 0) return;
-    this.arena.clamp(
-      this.subject.x + dx,
-      this.subject.y + dy,
-      TUNING.arena.wallThickness + TUNING.player.size * 0.5,
-      this.displaced,
-    );
-    this.subject.x = this.displaced.x;
-    this.subject.y = this.displaced.y;
+    const subject = this.subject!;
+    const lo = TUNING.mapgen.borderBand + TUNING.player.bodyRadius;
+    this.displaced.x = Phaser.Math.Clamp(subject.x + dx, lo, this.map.width - lo);
+    this.displaced.y = Phaser.Math.Clamp(subject.y + dy, lo, this.map.height - lo);
+    subject.x = this.displaced.x;
+    subject.y = this.displaced.y;
   }
 
   /** Sets the zone's movement penalty. Re-applied only when the value changes. */
   private applySlow(pct: number): void {
     if (pct === this.slowPct) return;
     this.slowPct = pct;
-    this.subject.stats.removeBySource(ZONE_SLOW_SOURCE);
+    const subject = this.subject!;
+    subject.stats.removeBySource(ZONE_SLOW_SOURCE);
     if (pct > 0) {
-      this.subject.stats.addModifier({
+      subject.stats.addModifier({
         stat: 'moveSpeed',
         mul: -pct / 100,
         source: ZONE_SLOW_SOURCE,

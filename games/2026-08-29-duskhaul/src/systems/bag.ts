@@ -1,358 +1,404 @@
 /**
- * Carried-loot bag for Duskhaul (PRD §5.6/§16.1): weightless shards, a fixed
- * number of relic slots, the Gravekeeper's Casket (secure slots that survive
- * death), drop-lowest overflow with a regret window, and the end-of-run
- * settlement.
+ * Carried-loot bag (PRD-V2 §5.16, §16.1 E22/E23): a `cols`-wide cell grid
+ * (12 cells base), 1-cell gear and 1-2-cell valuables auto-packed, a visible
+ * casket (items that survive death), the value swap rule when full, and the
+ * run settlement (§2.4, §5.26).
  *
- * Pure TypeScript, ZERO imports — the headless sim ticks this.
+ * Pure TypeScript — the headless sim and `sim/kits/loot.selftest.ts` tick it.
  *
- * ## The casket is MANUAL-PIN ONLY (post-playtest re-spec, PRD §5.6)
- * The greybox auto-pinned the highest-tier carried relic, which inverted the
- * fear the casket exists to create: whatever died with you was BY DEFINITION
- * your worst loot (measured: 3 of 5 runs ended "BANKED 0sh 1rl / LOST 448sh
- * 0rl"). The casket now starts EMPTY and stays empty until the player pins
- * deliberately — so pinning is a real decision with an opportunity cost, and
- * never pinning means nothing survives. `autoPinHighest` keeps the old
- * behaviour available to the balance loop as a number change, defaulting off.
+ * Packing law: 2-cell items occupy two horizontally adjacent cells of one row.
+ * Pairs are placed first (row-major first fit), singles fill what remains, so
+ * the grid holds a set iff `pairs ≤ Σ floor(rowWidth/2)` and
+ * `2·pairs + singles ≤ cells` — which makes the swap rule's minimum-value
+ * victim set computable exactly from sorted prefix sums.
  */
+import { gearValue } from '../data/gear';
+import type { Rng } from '../core/rng';
+import { valuableDef } from '../data/valuables';
+import type { BagAddResult, BagItemView, BagSettlement, BagView, LootItem, Rarity } from '../data/types-v2';
 
-export type RelicTier = 1 | 2 | 3 | 4;
-
-/**
- * The relic shape the bag and the results screen read. `data/relics.ts` owns
- * the FULL §16.1 `RelicDef` (desc/slot/gear/effect) and is a structural
- * superset of this, so a real relic is assignable here without a cast and this
- * module stays importable by a headless fixture that has no content table —
- * which `sim/kits/extraction.selftest.ts` relies on. Deliberately NOT collapsed
- * into an import of `data/relics.ts`: that would drag the content table (and
- * `config.ts`, and Phaser) into every consumer of the bag.
- */
-export interface RelicDef {
-  id: string;
-  name: string;
-  tier: RelicTier;
-  /** Shard value when salvaged (also the results screen's value readout). */
-  salvage: number;
-}
-
-export interface BagSettlement {
-  shards: number;
-  relics: RelicDef[];
-  lost: RelicDef[];
-}
-
-/** `TUNING.bag` — mirrors that section's key names verbatim (PRD §7). */
+/** `TUNING.bag` subset the bag reads (pass the section whole). */
 export interface BagTuning {
-  /**
-   * FALSE IS LAW (PRD §5.6): the casket starts empty and `pinCasket` is the
-   * only way in. True restores the greybox's auto-pin of the highest tier —
-   * kept only so the balance loop can revisit without a code change.
-   */
-  autoPinHighest: boolean;
-  /** An overflow-dropped relic lingers on the ground this long for regret pickup. */
+  cols: number;
+  /** Swap/overflow drops linger on the ground this long (the caller spawns them). */
   dropLingerS: number;
+  /** FALSE IS LAW (PRD §5.6/§5.16): true auto-pins the most valuable pickup into a free casket slot. */
+  autoPinHighest: boolean;
 }
 
-/**
- * MODULE-PRIVATE: a copy of `TUNING.bag`, kept only so an omitted key in the
- * optional `tuning` argument has a defined meaning. Exporting it would publish
- * a second source of truth for two numbers config already owns.
- */
-const BAG_DEFAULTS: BagTuning = {
-  autoPinHighest: false,
-  dropLingerS: 10,
-};
-
-/** Result of a pickup: what got in, what fell out, and how long it lingers. */
-export interface BagAddResult {
-  accepted: boolean;
-  dropped: RelicDef | null;
-  /** ms the dropped (or refused) relic stays re-pickable on the ground. */
-  dropLingerMs: number;
+/** §16.1 E23: sell value in ◆ (gear: Meta's `gearValue` = `gear.valueByRarity`; valuable: table value). */
+export function itemValue(item: LootItem): number {
+  if (item.kind === 'gear') return gearValue(item.item);
+  return valuableDef(item.item.id).value;
 }
 
-/** What `pinCasket` did: the pin, what it displaced, and what fell on the floor. */
-export interface BagPinResult {
-  pinned: boolean;
-  /** The relic a full casket had to give up, if any. */
-  unpinned: RelicDef | null;
-  /** Set when the unpinned relic could not fit back into a full bag. */
-  dropped: RelicDef | null;
-  dropLingerMs: number;
+/** Cells the item occupies (gear 1; valuables 1-2). */
+function itemCells(item: LootItem): 1 | 2 {
+  return item.kind === 'gear' ? 1 : valuableDef(item.item.id).cells;
 }
 
-interface CarriedRelic {
-  def: RelicDef;
-  /** Monotonic acquisition index — the deterministic tie-break everywhere. */
+/** Rarity colour index (valuable tier maps 1:1 onto §5.15.1 rarities). */
+export function itemRarity(item: LootItem): Rarity {
+  return item.kind === 'gear' ? item.item.rarity : valuableDef(item.item.id).tier;
+}
+
+/** Codex key for `RunReport.itemsSeen` ('gear:<base>' | 'uniq:<id>' | 'val:<id>'). */
+export function itemCodexKey(item: LootItem): string {
+  if (item.kind === 'valuable') return `val:${item.item.id}`;
+  return item.item.unique !== undefined ? `uniq:${item.item.unique}` : `gear:${item.item.base}`;
+}
+
+interface Carried {
+  item: LootItem;
+  uid: string;
+  cells: 1 | 2;
+  value: number;
+  rarity: Rarity;
+  /** Acquisition order — deterministic tie-break everywhere. */
   seq: number;
-  /** True while it occupies a casket slot. */
   pinned: boolean;
-  /** True when the PLAYER pinned it — an auto-pin may be displaced, a manual one may not. */
-  manual: boolean;
-  /** Pin order — the deterministic "oldest pin" a full casket displaces. */
-  pinSeq: number;
+  col: number;
+  row: number;
 }
 
-/**
- * One instance per run. `relics` is the ordinary bag (bounded by `slots`);
- * `casket` is the secure slice (bounded by `casketSlots`). Casket relics do NOT
- * occupy bag slots (PRD §5.1: 8 bag slots + 1 casket slot), so pinning frees a
- * bag slot and un-pinning re-occupies one.
- */
 export class Bag {
-  readonly slots: number;
-  readonly casketSlots: number;
+  readonly cols: number;
   readonly tuning: BagTuning;
-
+  private cellCount: number;
+  private casketCount: number;
   private shardCount = 0;
-  /** Everything carried, casket included, in acquisition order. */
-  private readonly carried: CarriedRelic[] = [];
+  private readonly carried: Carried[] = [];
   private nextSeq = 0;
-  private nextPinSeq = 0;
+  private picked = 0;
+  private nudged = false;
 
-  /** Scratch, rebuilt by `repartition` — exposed via the readonly getters. */
-  private bagView: RelicDef[] = [];
-  private casketView: RelicDef[] = [];
-
-  constructor(slots: number, casketSlots: number, tuning?: Partial<BagTuning>) {
-    this.slots = slots;
-    this.casketSlots = casketSlots;
-    this.tuning = { ...BAG_DEFAULTS, ...tuning };
+  constructor(cap: { cells: number; casketSlots: number }, tuning: BagTuning) {
+    this.tuning = tuning;
+    this.cols = Math.max(1, tuning.cols);
+    this.cellCount = Math.max(1, Math.floor(cap.cells));
+    this.casketCount = Math.max(0, Math.floor(cap.casketSlots));
   }
 
   get shards(): number {
     return this.shardCount;
   }
 
-  /** Carried relics OUTSIDE the casket, acquisition order. */
-  get relics(): readonly RelicDef[] {
-    return this.bagView;
+  get cells(): number {
+    return this.cellCount;
   }
 
-  /** Casket-pinned relics — these survive death. Empty until the player pins. */
-  get casket(): readonly RelicDef[] {
-    return this.casketView;
+  get casketSlots(): number {
+    return this.casketCount;
   }
 
-  /** Bag slots occupied (casket excluded) — the HUD pip count. */
-  get used(): number {
-    return this.bagView.length;
+  /** Items ever accepted this run (Ward Candle gate, coach beat). */
+  get itemsPickedUp(): number {
+    return this.picked;
   }
 
-  /** True when the next relic will force a drop-lowest decision. */
-  get full(): boolean {
-    return this.bagView.length >= this.slots;
-  }
-
-  /** Salvage value of everything carried, casket included — results readout. */
-  get carriedValue(): number {
-    let total = 0;
-    for (const entry of this.carried) total += entry.def.salvage;
-    return total;
-  }
-
-  /** How long a dropped relic stays re-pickable, ms. */
   get dropLingerMs(): number {
     return this.tuning.dropLingerS * 1000;
   }
 
   addShards(n: number): void {
-    if (n > 0) this.shardCount += n;
+    if (n > 0) this.shardCount += Math.floor(n);
+  }
+
+  /** Spends shards (Fence reveal); false and no change when short. */
+  spendShards(n: number): boolean {
+    if (n < 0 || n > this.shardCount) return false;
+    this.shardCount -= n;
+    return true;
+  }
+
+  /** Ward Candle (`cb_candle`): extra casket slots for the rest of the run. */
+  addCasketSlots(n: number): void {
+    this.casketCount += Math.max(0, Math.floor(n));
   }
 
   /**
-   * Picks up a relic. Overflow drops the LOWEST-tier unpinned bag relic
-   * (earliest acquired on ties); a casket-pinned relic is NEVER a victim. When
-   * the new relic itself is the worst thing carried it never enters:
-   * `{accepted: false, dropped: null}` — the caller leaves it on the ground for
-   * `dropLingerMs`, exactly as it does a displaced one.
+   * Picks an item up (§5.16). Fits ⇒ accepted. Full ⇒ the cheapest set of
+   * unpinned bag items whose removal lets it pack is found; if the new item's
+   * value is STRICTLY greater than that set's value the set is dropped
+   * (`dropped`, the caller leaves them on the ground for `dropLingerMs`),
+   * otherwise the new item is `refused` and stays on the ground.
    */
-  addRelic(def: RelicDef): BagAddResult {
-    const entry: CarriedRelic = { def, seq: this.nextSeq, pinned: false, manual: false, pinSeq: -1 };
-    this.nextSeq += 1;
-    this.carried.push(entry);
-    this.repartition();
-
-    if (this.bagView.length <= this.slots) {
-      return { accepted: true, dropped: null, dropLingerMs: this.dropLingerMs };
+  add(item: LootItem): BagAddResult {
+    const entry = this.wrap(item);
+    const bagItems = this.bagEntries();
+    if (this.fits(bagItems, entry)) {
+      this.accept(entry);
+      return { accepted: true, dropped: [], refused: null };
     }
-
-    const victim = this.overflowVictim();
-    if (victim === null) return { accepted: true, dropped: null, dropLingerMs: this.dropLingerMs };
-    this.remove(victim);
-    if (victim === entry) return { accepted: false, dropped: null, dropLingerMs: this.dropLingerMs };
-    return { accepted: true, dropped: victim.def, dropLingerMs: this.dropLingerMs };
+    const victims = this.cheapestVictims(bagItems, entry);
+    if (victims === null || entry.value <= sumValue(victims)) {
+      return { accepted: false, dropped: [], refused: item };
+    }
+    for (const v of victims) this.removeEntry(v);
+    this.accept(entry);
+    return { accepted: true, dropped: victims.map((v) => v.item), refused: null };
   }
 
   /**
-   * Deliberately pins a carried relic into the casket (PRD §5.6: tap a bag pip
-   * on the pause overlay). A full casket gives up its OLDEST pin, which returns
-   * to the bag — and is dropped (with the linger window) only if the bag has no
-   * room, since the player chose the swap.
-   *
-   * Reports the whole outcome rather than a bare boolean because the caller has
-   * to sell all three of them: the pin, the relic it displaced, and the relic
-   * that fell on the floor. A boolean `pinCasket` sat beside this for the whole
-   * build with no product call site precisely because no UI could use it.
+   * Moves a bag item into the casket. With the casket full, its OLDEST pin is
+   * swapped back into the bag — allowed only if the grid can hold it once the
+   * newly pinned item leaves. False when nothing changed.
    */
-  pinCasket(relicId: string): BagPinResult {
-    const miss: BagPinResult = {
-      pinned: false,
-      unpinned: null,
-      dropped: null,
-      dropLingerMs: this.dropLingerMs,
-    };
-    if (this.casketSlots <= 0) return miss;
-    const target = this.carried.find((e) => e.def.id === relicId && !e.pinned);
-    if (target === undefined) return miss;
-
-    let unpinned: CarriedRelic | null = null;
-    if (this.pinnedCount() >= this.casketSlots) {
-      unpinned = this.oldestPin();
-      if (unpinned !== null) {
-        unpinned.pinned = false;
-        unpinned.manual = false;
-        unpinned.pinSeq = -1;
-      }
+  pin(uid: string): boolean {
+    const target = this.carried.find((e) => e.uid === uid && !e.pinned);
+    if (target === undefined || this.casketCount <= 0) return false;
+    const pins = this.carried.filter((e) => e.pinned);
+    if (pins.length < this.casketCount) {
+      target.pinned = true;
+      this.repack();
+      return true;
     }
+    const oldest = pins.reduce((a, b) => (a.seq <= b.seq ? a : b));
+    const rest = this.bagEntries().filter((e) => e !== target);
+    if (!this.fits(rest, oldest)) return false;
+    oldest.pinned = false;
     target.pinned = true;
-    target.manual = true;
-    target.pinSeq = this.nextPinSeq;
-    this.nextPinSeq += 1;
-    this.repartition();
+    this.repack();
+    return true;
+  }
 
-    let dropped: RelicDef | null = null;
-    if (this.bagView.length > this.slots && unpinned !== null) {
-      // The displaced relic is the one that falls out: the player chose the swap.
-      this.remove(unpinned);
-      dropped = unpinned.def;
-    }
+  /** Returns a casket item to the bag; stays pinned when the grid has no room for it. */
+  unpin(uid: string): void {
+    const target = this.carried.find((e) => e.uid === uid && e.pinned);
+    if (target === undefined || !this.fits(this.bagEntries(), target)) return;
+    target.pinned = false;
+    this.repack();
+  }
+
+  /** Removes an item (bag or casket) — the caller drops it on the ground. */
+  drop(uid: string): LootItem | null {
+    const target = this.carried.find((e) => e.uid === uid);
+    if (target === undefined) return null;
+    this.removeEntry(target);
+    return target.item;
+  }
+
+  /** Offering Altar (§5.25): the highest-value UNPINNED item, removed. Earliest on ties. */
+  takeHighestValue(): LootItem | null {
+    let best: Carried | null = null;
+    for (const e of this.carried) if (!e.pinned && (best === null || e.value > best.value)) best = e;
+    if (best === null) return null;
+    this.removeEntry(best);
+    return best.item;
+  }
+
+  /**
+   * Toll Gate (§5.25): pays `max(min, round(shards·pct))`. Returns the amount
+   * paid, or 0 (nothing deducted) when the carried shards cannot cover it.
+   */
+  payToll(pct: number, min: number): number {
+    const cost = Math.max(min, Math.round(this.shardCount * pct));
+    if (cost > this.shardCount || cost <= 0) return 0;
+    this.shardCount -= cost;
+    return cost;
+  }
+
+  /** Every carried item, casket first then grid order. */
+  private items(): LootItem[] {
+    return [...this.casketEntries(), ...this.bagEntries()].map((e) => e.item);
+  }
+
+  view(): BagView {
+    const items = this.bagEntries().map(toView);
+    const used = items.reduce((n, v) => n + v.cells, 0);
+    const casket = this.casketEntries().map(toView);
     return {
-      pinned: true,
-      unpinned: unpinned === null ? null : unpinned.def,
-      dropped,
-      dropLingerMs: this.dropLingerMs,
+      cols: this.cols,
+      rows: Math.ceil(this.cellCount / this.cols),
+      cells: this.cellCount,
+      used,
+      full: used >= this.cellCount,
+      shards: this.shardCount,
+      casketSlots: this.casketCount,
+      casket,
+      items,
     };
   }
 
-  /** Releases a pin back into the bag. False if it was not pinned. */
-  unpinCasket(relicId: string): boolean {
-    const entry = this.carried.find((e) => e.def.id === relicId && e.pinned);
-    if (entry === undefined) return false;
-    entry.pinned = false;
-    entry.manual = false;
-    entry.pinSeq = -1;
-    this.repartition();
+  /** `HudModelV2.bag`; `rarityStrip` = casket then grid order. */
+  hud(): { used: number; cells: number; casketUsed: number; casketSlots: number; rarityStrip: Rarity[]; full: boolean } {
+    const v = this.view();
+    return {
+      used: v.used,
+      cells: v.cells,
+      casketUsed: v.casket.length,
+      casketSlots: v.casketSlots,
+      rarityStrip: [...v.casket, ...v.items].map((i) => i.rarity),
+      full: v.full,
+    };
+  }
+
+  /**
+   * §5.16 casket nudge: true exactly once per run, the first time the casket
+   * has a free slot and a Gilded+ (rarity ≥ 4) item sits unpinned in the bag.
+   */
+  casketNudgeDue(): boolean {
+    if (this.nudged || this.casketCount <= 0) return false;
+    if (this.casketEntries().length > 0) return false;
+    if (!this.bagEntries().some((e) => e.rarity >= 4)) return false;
+    this.nudged = true;
     return true;
   }
 
   /**
-   * Ends the run. `extracted` banks everything carried; `died` banks the casket
-   * plus `keepPct`% (0-100) of carried shards — the Rot Tithe meta valve,
-   * `TUNING.meta.deathKeepPct`, 0 without it — and reports the bag as lost.
-   *
-   * Nothing EQUIPPED or already banked appears here: gear lives in the meta
-   * save, so a death can never touch it (PRD §2A "equipped gear is never
-   * lost"). Only carried loot is ever at stake.
+   * §16.1 E22 settlement (§2.4, §5.26). Extracted: shards × greed, every item
+   * kept. Died/abandoned: `deathKeepPct`% of shards (floor), casket kept, plus
+   * one random bag item with Grave Pact (`e_gravepact`); the rest is lost.
    */
-  settle(outcome: 'extracted' | 'died', keepPct: number): BagSettlement {
+  settle(
+    outcome: BagSettlement['outcome'],
+    opts: { deathKeepPct: number; greedMul: number; gravePact: boolean; rng: Rng },
+  ): BagSettlement {
+    const shards = this.shardCount;
     if (outcome === 'extracted') {
-      return { shards: this.shardCount, relics: [...this.casketView, ...this.bagView], lost: [] };
+      const banked = Math.floor(shards * Math.max(1, opts.greedMul));
+      return { outcome, shardsBanked: banked, shardsLost: 0, greedMul: Math.max(1, opts.greedMul), kept: this.items(), lost: [] };
     }
+    const keepPct = Math.max(0, Math.min(100, opts.deathKeepPct));
+    const banked = Math.floor((shards * keepPct) / 100);
+    const kept = this.casketEntries().map((e) => e.item);
+    const bag = this.bagEntries();
+    if (opts.gravePact && bag.length > 0) {
+      const saved = opts.rng.pick(bag);
+      kept.push(saved.item);
+      bag.splice(bag.indexOf(saved), 1);
+    }
+    return { outcome, shardsBanked: banked, shardsLost: shards - banked, greedMul: 1, kept, lost: bag.map((e) => e.item) };
+  }
+
+  // ─── internals ───
+
+  private wrap(item: LootItem): Carried {
     return {
-      shards: Math.floor((this.shardCount * Math.max(0, Math.min(100, keepPct))) / 100),
-      relics: [...this.casketView],
-      lost: [...this.bagView],
+      item,
+      uid: item.item.uid,
+      cells: itemCells(item),
+      value: itemValue(item),
+      rarity: itemRarity(item),
+      seq: -1,
+      pinned: false,
+      col: -1,
+      row: -1,
     };
   }
 
-  /** Lowest-tier unpinned entry, earliest acquired on ties. */
-  private overflowVictim(): CarriedRelic | null {
-    let victim: CarriedRelic | null = null;
-    for (const entry of this.carried) {
-      if (entry.pinned) continue;
-      if (victim === null || entry.def.tier < victim.def.tier) victim = entry;
+  private accept(entry: Carried): void {
+    entry.seq = this.nextSeq;
+    this.nextSeq += 1;
+    this.picked += 1;
+    this.carried.push(entry);
+    if (this.tuning.autoPinHighest && this.casketEntries().length < this.casketCount) {
+      const best = this.bagEntries().reduce<Carried | null>((a, b) => (a === null || b.value > a.value ? b : a), null);
+      if (best !== null) best.pinned = true;
     }
-    return victim;
+    this.repack();
   }
 
-  private pinnedCount(): number {
-    let n = 0;
-    for (const entry of this.carried) if (entry.pinned) n += 1;
-    return n;
+  private removeEntry(entry: Carried): void {
+    const i = this.carried.indexOf(entry);
+    if (i >= 0) this.carried.splice(i, 1);
+    this.repack();
   }
 
-  private oldestPin(): CarriedRelic | null {
-    let oldest: CarriedRelic | null = null;
-    for (const entry of this.carried) {
-      if (!entry.pinned) continue;
-      if (oldest === null || entry.pinSeq < oldest.pinSeq) oldest = entry;
+  private bagEntries(): Carried[] {
+    return this.carried.filter((e) => !e.pinned).sort((a, b) => a.row - b.row || a.col - b.col || a.seq - b.seq);
+  }
+
+  private casketEntries(): Carried[] {
+    return this.carried.filter((e) => e.pinned).sort((a, b) => a.seq - b.seq);
+  }
+
+  /** Row widths of the grid (last row partial when cells % cols ≠ 0). */
+  private rowWidths(): number[] {
+    const rows = Math.ceil(this.cellCount / this.cols);
+    return Array.from({ length: rows }, (_, r) => Math.min(this.cols, this.cellCount - r * this.cols));
+  }
+
+  private pairCapacity(): number {
+    return this.rowWidths().reduce((n, w) => n + Math.floor(w / 2), 0);
+  }
+
+  private fitsCounts(pairs: number, singles: number): boolean {
+    return pairs <= this.pairCapacity() && pairs * 2 + singles <= this.cellCount;
+  }
+
+  private fits(current: readonly Carried[], extra: Carried): boolean {
+    let pairs = extra.cells === 2 ? 1 : 0;
+    let singles = extra.cells === 1 ? 1 : 0;
+    for (const e of current) {
+      if (e.cells === 2) pairs += 1;
+      else singles += 1;
     }
-    return oldest;
-  }
-
-  private remove(entry: CarriedRelic): void {
-    const index = this.carried.indexOf(entry);
-    if (index >= 0) this.carried.splice(index, 1);
-    this.repartition();
+    return this.fitsCounts(pairs, singles);
   }
 
   /**
-   * Rebuilds the casket/bag split from the PIN FLAGS — never from def identity.
-   * Relic defs come from a shared table, so two copies of one relic are the
-   * same object and an identity comparison would conflate them (the greybox
-   * bug: a duplicate of a casketed relic vanished from both views).
-   * Both views keep acquisition order for stable HUD pips.
+   * Minimum-value victim set among unpinned bag items that lets `entry` pack.
+   * Feasibility depends only on remaining pair/single COUNTS, so the cheapest
+   * set removing p pairs and s singles is the p cheapest pairs + s cheapest
+   * singles (latest-acquired first on value ties — older items are kept).
+   * Ties on total value prefer fewer items. Null when nothing frees enough.
    */
-  private repartition(): void {
-    if (this.tuning.autoPinHighest) this.autoPin();
-    this.casketView = [];
-    this.bagView = [];
-    for (const entry of this.carried) {
-      if (entry.pinned) this.casketView.push(entry.def);
-      else this.bagView.push(entry.def);
-    }
-  }
-
-  /**
-   * Legacy greybox behaviour, OFF by default: keep the spare casket slots
-   * filled with the best carried relics. Auto-pins are re-evaluated on every
-   * mutation (a later Dread relic displaces an auto-pinned Tarnished one);
-   * MANUAL pins are never displaced by it.
-   */
-  private autoPin(): void {
-    for (const entry of this.carried) {
-      if (entry.pinned && !entry.manual) {
-        entry.pinned = false;
-        entry.pinSeq = -1;
+  private cheapestVictims(bag: readonly Carried[], entry: Carried): Carried[] | null {
+    const byCheap = (a: Carried, b: Carried): number => a.value - b.value || b.seq - a.seq;
+    const pairs = bag.filter((e) => e.cells === 2).sort(byCheap);
+    const singles = bag.filter((e) => e.cells === 1).sort(byCheap);
+    const addP = entry.cells === 2 ? 1 : 0;
+    const addS = entry.cells === 1 ? 1 : 0;
+    let best: { p: number; s: number; cost: number } | null = null;
+    let pCost = 0;
+    for (let p = 0; p <= pairs.length; p += 1) {
+      if (p > 0) pCost += pairs[p - 1]!.value;
+      let sCost = 0;
+      for (let s = 0; s <= singles.length; s += 1) {
+        if (s > 0) sCost += singles[s - 1]!.value;
+        if (!this.fitsCounts(pairs.length - p + addP, singles.length - s + addS)) continue;
+        const cost = pCost + sCost;
+        if (best === null || cost < best.cost || (cost === best.cost && p + s < best.p + best.s)) best = { p, s, cost };
+        break; // more singles only cost more
       }
     }
-    let free = this.casketSlots - this.pinnedCount();
-    if (free <= 0) return;
-    const candidates = this.carried
-      .filter((entry) => !entry.pinned)
-      .sort((a, b) => (a.def.tier !== b.def.tier ? b.def.tier - a.def.tier : a.seq - b.seq));
-    for (const entry of candidates) {
-      if (free <= 0) break;
-      entry.pinned = true;
-      entry.pinSeq = this.nextPinSeq;
-      this.nextPinSeq += 1;
-      free -= 1;
+    if (best === null) return null;
+    return [...pairs.slice(0, best.p), ...singles.slice(0, best.s)];
+  }
+
+  /** Re-derives every bag item's cell: pairs first-fit row-major, then singles, acquisition order. */
+  private repack(): void {
+    const widths = this.rowWidths();
+    const occupied = widths.map((w) => new Array<boolean>(w).fill(false));
+    const bag = this.carried.filter((e) => !e.pinned).sort((a, b) => a.seq - b.seq);
+    for (const e of this.carried) {
+      e.col = -1;
+      e.row = -1;
     }
+    const place = (e: Carried): void => {
+      for (let r = 0; r < occupied.length; r += 1) {
+        const row = occupied[r]!;
+        for (let c = 0; c + e.cells <= row.length; c += 1) {
+          if (row[c] || (e.cells === 2 && row[c + 1])) continue;
+          row[c] = true;
+          if (e.cells === 2) row[c + 1] = true;
+          e.row = r;
+          e.col = c;
+          return;
+        }
+      }
+      throw new Error(`Bag packing invariant broken for ${e.uid}`);
+    };
+    for (const e of bag) if (e.cells === 2) place(e);
+    for (const e of bag) if (e.cells === 1) place(e);
   }
 }
 
-/**
- * Meta-resolved bag capacity (PRD §10): Marrow Sack adds bag slots per stack,
- * Widow's Casket adds a secure slot. One place, so the scene and the sim size
- * the bag identically.
- */
-export function resolveBagCapacity(
-  base: { slots: number; casketSlots: number },
-  meta: { bagSlotsBonus?: number; casketSlotsBonus?: number } = {},
-): { slots: number; casketSlots: number } {
-  return {
-    slots: Math.max(1, base.slots + (meta.bagSlotsBonus ?? 0)),
-    casketSlots: Math.max(0, base.casketSlots + (meta.casketSlotsBonus ?? 0)),
-  };
+function sumValue(list: readonly Carried[]): number {
+  return list.reduce((n, e) => n + e.value, 0);
+}
+
+function toView(e: Carried): BagItemView {
+  return { uid: e.uid, item: e.item, cells: e.cells, value: e.value, rarity: e.rarity, pinned: e.pinned, col: e.col, row: e.row };
 }

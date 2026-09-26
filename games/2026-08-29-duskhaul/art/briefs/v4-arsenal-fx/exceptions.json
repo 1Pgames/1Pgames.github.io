@@ -1,0 +1,58 @@
+[
+ {
+  "id": "weapon-fx-v2/wpn-thralls-move",
+  "reason": "attempt 3 shipped: xai returned a 3x2 sheet (a1) then 4 near-identical frames (a2); a3 has 4 distinct but subtle crawl poses (arch, reach) \u2014 reads as a scuttle at the 70 px target height with the code's move bob; identity, cyan eyes and feet line consistent."
+ },
+ {
+  "id": "weapon-fx-v2/wpn-totem-pulse-evo",
+  "reason": "attempt 3 written before generation: a1 (1x5 strip) rings crossed cell boundaries, a2 came back an irregular non-uniform 3x3 panel layout with a ring clipped at the canvas edge; a3 is requested on the 3x3 layout xai actually honours and 5 of its cells are selected (clean.py RETILE)."
+ },
+ {
+  "id": "weapon-fx-v2/wpn-totem-pulse",
+  "reason": "attempt 3 written before generation: a1 (1x5 strip) rings crossed cells and carried a white letterbox; a2 returned 3x3 but 5 of its 9 cells were so faint the ring keys away with the magenta (cell coverage <0.5%), leaving only 4 usable frames of the 5 the PRD asks for."
+ },
+ {
+  "id": "weapon-fx-v2/wpn-aura",
+  "reason": "palette meanDistance 61.84 > 48: PRD \u00a75.8b.1 mandates cyan #6fd6ff / violet #ad6eef hero fx and style.json's list has no cyan or mid-lilac entry (same list gap as canon weapon-fx-v1/wpn-rail 83.0, wpn-nova-evo 52.6); visually hard-edged cool pixel fx, no red/amber/white."
+ },
+ {
+  "id": "weapon-fx-v2/wpn-aura-evo",
+  "reason": "palette meanDistance 56.72 > 48: PRD \u00a75.8b.1 mandates cyan #6fd6ff / violet #ad6eef hero fx and style.json's list has no cyan or mid-lilac entry (same list gap as canon weapon-fx-v1/wpn-rail 83.0, wpn-nova-evo 52.6); visually hard-edged cool pixel fx, no red/amber/white."
+ },
+ {
+  "id": "weapon-fx-v2/wpn-wake",
+  "reason": "palette meanDistance 65.41 > 48: PRD \u00a75.8b.1 mandates cyan #6fd6ff / violet #ad6eef hero fx and style.json's list has no cyan or mid-lilac entry (same list gap as canon weapon-fx-v1/wpn-rail 83.0, wpn-nova-evo 52.6); visually hard-edged cool pixel fx, no red/amber/white."
+ },
+ {
+  "id": "weapon-fx-v2/wpn-wake-evo",
+  "reason": "palette meanDistance 51.87 > 48: PRD \u00a75.8b.1 mandates cyan #6fd6ff / violet #ad6eef hero fx and style.json's list has no cyan or mid-lilac entry (same list gap as canon weapon-fx-v1/wpn-rail 83.0, wpn-nova-evo 52.6); visually hard-edged cool pixel fx, no red/amber/white."
+ },
+ {
+  "id": "weapon-fx-v2/wpn-snares-blast",
+  "reason": "palette meanDistance 62.71 > 48: PRD \u00a75.8b.1 mandates cyan #6fd6ff / violet #ad6eef hero fx and style.json's list has no cyan or mid-lilac entry (same list gap as canon weapon-fx-v1/wpn-rail 83.0, wpn-nova-evo 52.6); visually hard-edged cool pixel fx, no red/amber/white."
+ },
+ {
+  "id": "weapon-fx-v2/wpn-snares-blast-evo",
+  "reason": "palette meanDistance 59.39 > 48: PRD \u00a75.8b.1 mandates cyan #6fd6ff / violet #ad6eef hero fx and style.json's list has no cyan or mid-lilac entry (same list gap as canon weapon-fx-v1/wpn-rail 83.0, wpn-nova-evo 52.6); visually hard-edged cool pixel fx, no red/amber/white."
+ },
+ {
+  "id": "weapon-fx-v2/wpn-bombs-blast",
+  "reason": "palette meanDistance 52.42 > 48: PRD \u00a75.8b.1 mandates cyan #6fd6ff / violet #ad6eef hero fx and style.json's list has no cyan or mid-lilac entry (same list gap as canon weapon-fx-v1/wpn-rail 83.0, wpn-nova-evo 52.6); visually hard-edged cool pixel fx, no red/amber/white."
+ },
+ {
+  "id": "weapon-fx-v2/wpn-bombs-blast-evo",
+  "reason": "palette meanDistance 53.55 > 48: PRD \u00a75.8b.1 mandates cyan #6fd6ff / violet #ad6eef hero fx and style.json's list has no cyan or mid-lilac entry (same list gap as canon weapon-fx-v1/wpn-rail 83.0, wpn-nova-evo 52.6); visually hard-edged cool pixel fx, no red/amber/white."
+ },
+ {
+  "id": "weapon-fx-v2/wpn-totem-pulse-evo",
+  "reason": "palette meanDistance 67.22 > 48: PRD \u00a75.8b.1 mandates cyan #6fd6ff / violet #ad6eef hero fx and style.json's list has no cyan or mid-lilac entry (same list gap as canon weapon-fx-v1/wpn-rail 83.0, wpn-nova-evo 52.6); visually hard-edged cool pixel fx, no red/amber/white."
+ },
+ {
+  "id": "weapon-fx-v2/wpn-thralls-evo-burst",
+  "reason": "palette meanDistance 58.52 > 48: PRD \u00a75.8b.1 mandates cyan #6fd6ff / violet #ad6eef hero fx and style.json's list has no cyan or mid-lilac entry (same list gap as canon weapon-fx-v1/wpn-rail 83.0, wpn-nova-evo 52.6); visually hard-edged cool pixel fx, no red/amber/white."
+ },
+ {
+  "id": "weapon-fx-v2/wpn-siphon*",
+  "reason": "exported fullBleed + allow-source-edge-touch on purpose: a beam SEGMENT whose braid must run to its own left/right edges so code can repeat/stretch it end-to-end (canon wpn-rail pattern); contamination verdict waived by fullBleed, measurement kept in qc.background."
+ }
+]

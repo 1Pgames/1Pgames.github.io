@@ -1,10 +1,10 @@
 import Phaser from 'phaser';
 import { PALETTE, VIEW } from './config';
+import { installAudioDebug } from './core/audio';
 import { armLoopVisibility, armWakeLock } from './core/wake';
 import { BootScene } from './scenes/boot';
 import { PreloadScene } from './scenes/preload';
-import { MenuScene } from './scenes/menu';
-import { MetaScene } from './scenes/meta';
+import { HubScene } from './scenes/hub/hub';
 import { GameScene } from './scenes/game';
 import { GameOverScene } from './scenes/gameover';
 
@@ -44,8 +44,12 @@ const config: Phaser.Types.Core.GameConfig = {
   fps: { target: 60, forceSetTimeOut: false },
   autoFocus: true,
   disableContextMenu: true,
-  scene: [BootScene, PreloadScene, MenuScene, MetaScene, GameScene, GameOverScene],
+  scene: [BootScene, PreloadScene, HubScene, GameScene, GameOverScene],
 };
+
+// PRD-V2 §12 T1: `window.__AUDIO__` must exist before the first scene can
+// request a sound, so the `?mute=1` proof counts every call.
+installAudioDebug();
 
 const game = new Phaser.Game(config);
 

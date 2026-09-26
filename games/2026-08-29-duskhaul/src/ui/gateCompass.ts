@@ -1,217 +1,262 @@
 import Phaser from 'phaser';
 import { CSS, TEXT, TUNING, bareText } from '../config';
+import type { GateId, MinimapModel } from '../data/types-v2';
 import { paintPill } from './primitives';
+import { TOAST_RECT, toastShowing } from './toast';
 import { DEEP_INK, DEEP_INK_CSS, HUD_DEPTH, IDENTITY, PANEL } from './duskChrome';
 
 /**
- * The gate compass (§14.2): up to three screen-edge arrows pointing at the
- * extraction gates, each with a countdown chip.
+ * PRD-V2 §14.10 compass ring + §13.2 off-screen chevrons.
  *
- * This exists because the arena is 1440x2160 seen through a 720x1280 window,
- * so an open gate is OFF SCREEN most of the time and the world-space ring only
- * helps once you are already standing on it. Without the compass the only way
- * to find Gate B is to read coordinates out of `data/zones.ts` — which is
- * exactly what a playtester had to do. The compass is therefore load-bearing
- * for the whole extraction axis, not decoration.
+ * ≤ 5 ARROWS: up to 3 gates, the nearest undiscovered chest and the active
+ * event, each with a chip `B · 42m · 1:12` (64 world px = 1 m). Arrows clamp
+ * to the ring x 40-680 / y 330-1000 (§14.1 playfield) and skip the belt rect
+ * (600-688 × 820-1008). A target comfortably on screen drops its arrow head;
+ * a gate keeps its chip there (the arch is the "where", the chip the clock),
+ * a chest/event hides entirely (its art is visible).
  *
- * It RENDERS ONLY. It never reads game state, never touches the director and
- * never owns a timer: the slice feeds it a plain data object every frame and
- * this class decides what that looks like. That is what keeps the same
- * component honest in the sim, in a screenshot harness and in the live game.
+ * CHEVRONS: off-screen elites and the boss get red 40 px chevrons on the same
+ * ring (boss 52 px). They carry no chip and never count toward the 5 arrows.
  *
- * Five visually DISTINCT states, because "GATE A OPEN 90s" was measured as
- * ambiguous — it reads as "has been open 90s" as readily as "closes in 90s":
+ * Gate looks, from `ExtractionSystem.view()` state + label:
  *
  * | State | Arrow | Chip |
  * | --- | --- | --- |
- * | opening within `previewS` | amber, 0.75 alpha, steady | `OPENS 0:35` |
- * | open | violet `#8546dd`, full | `CLOSES 1:12` |
- * | closing (inside the warn window) | amber, PULSING | `CLOSES 0:11` |
- * | just closed | cooled grey, 2s flash then drops | `CLOSED` |
- * | spent | threat red, 0.45 alpha, permanent | `SPENT` |
+ * | closed, opens within `previewS` | violet, 0.6 alpha | `A · 42m · 0:35` |
+ * | open | violet, full | `A · 42m · 1:12` (C: no time) |
+ * | closing | amber, PULSING | `A · 42m · 0:11` |
+ * | just closed | cooled grey, 2 s then drops | `A · CLOSED` |
+ * | spent / closed beyond preview | hidden | — |
  *
- * The spent arrow staying on screen is deliberate: it is a standing reminder
- * of the door you refused, which is the whole tension of a greed run.
+ * It RENDERS ONLY: the slice feeds a plain data object every frame.
  */
 
-/** One gate, as the slice sees it. World px — the compass projects them. */
-export interface GateCompassGate {
-  id: 'a' | 'b' | 'c';
-  x: number;
-  y: number;
-  state: 'closed' | 'open' | 'closing' | 'spent';
-  opensS: number;
-  /** `null` for Gate C, which never closes — the Collapse is its clock. */
-  closesS: number | null;
-}
-
-export interface GateCompassModel {
-  playerX: number;
-  playerY: number;
+export interface CompassModel {
+  hero: { x: number; y: number };
+  /** `ExtractionSystem.view()` verbatim — the same feed the minimap takes. */
+  gates: MinimapModel['gates'];
+  /** `PoiSystem.nearestUndiscovered` when it is a chest; else null. */
+  chest: { x: number; y: number } | null;
+  /** The active POI event, if any. */
+  event: { x: number; y: number } | null;
+  /** Elites and the boss (world px); only off-screen ones draw a chevron. */
+  threats: readonly { x: number; y: number; boss: boolean }[];
+  /** Run seconds; from `ETA_FROM_S` gate chips add a travel estimate (critic v2d M1). */
   elapsedS: number;
-  /**
-   * Every gate, every frame, EXCEPT retired spent ones — `closed` and live
-   * gates are always fed and the compass owns their visibility rules, because
-   * filtering those upstream would kill the opens-soon preview and the closed
-   * flash. The one filter the slice does own is dropping a `spent` gate once
-   * another gate is live: a door you already used stops being news the moment
-   * a usable one exists. OMISSION MEANS RETIRE — an id absent from this array
-   * is hidden the same frame, so the slice can drop a gate without leaving a
-   * frozen arrow behind.
-   */
-  gates: readonly GateCompassGate[];
+  /** Hero move speed, world px/s (current stat, so boots and shrines count). */
+  heroSpeed: number;
 }
 
-/** §14.2: arrows are clamped to this ring, in screen px. */
-const RING = { left: 40, right: 680, top: 200, bottom: 1000 } as const;
+/** A screen rect (design px, top-left) a compass unit occupies this frame. */
+export interface CompassRect { x: number; y: number; w: number; h: number }
 
-/** §14.2: 48px arrow sprites. Chrome primitives — an arrow is UI geometry. */
+/** Live compass rects per scene, for world labels (elite plates) to keep clear of. */
+const occupied = new WeakMap<Phaser.Scene, CompassRect[]>();
+
+/**
+ * Screen rects of every visible compass arrow+chip this frame (critic v2d M2:
+ * right-edge chips over elite name plates). Updated by `GateCompass.update`;
+ * empty when no compass exists. Callers must not keep the array.
+ */
+export function compassRects(scene: Phaser.Scene): readonly CompassRect[] {
+  return occupied.get(scene) ?? [];
+}
+
+/**
+ * §14.1 compass ring, screen px — x 40-680 / y 330-1000, with the TOP lowered
+ * to 380: the authored §14.9 boss bar + its scrim occupy 286-354, and an arrow
+ * clamped at 330 drew underneath it (measured in the harness screenshot).
+ */
+const RING = { left: 40, right: 680, top: 380, bottom: 1000 } as const;
+/**
+ * While a toast is visible the ring's top drops below the toast lane (360-448)
+ * so no arrow or chip is drawn under it (critic F11). Set once per `update`.
+ */
+const RING_TOP_UNDER_TOAST = TOAST_RECT.y + TOAST_RECT.height + 12;
+let ringTop: number = RING.top;
+/** §14.1 belt rect — arrows are pushed out of it. */
+const BELT = { left: 600, right: 688, top: 820, bottom: 1008 } as const;
 const ARROW_SIZE = 48;
-
-/**
- * §14.2 authors the chip at 60x24. The height is kept verbatim; the WIDTH
- * grows to fit the disambiguated verb ("CLOSES 0:47" rather than a bare
- * number), because a 60px chip cannot carry the word that removes the
- * ambiguity. 60 remains the floor.
- */
-const CHIP = { minWidth: 60, height: 24, padX: 20, fontSize: '18px' } as const;
-
-/** How long a gate's arrow lingers, greyed and reading CLOSED, after it shuts. */
+const CHEVRON = { elite: 40, boss: 52 } as const;
+const MAX_CHEVRONS = 8;
+const MAX_GATE_ARROWS = 3;
+const CHIP = { minWidth: 60, height: 26, padX: 20, fontSize: '18px' } as const;
 const CLOSED_FLASH_MS = 2000;
-
-/** Chip sits below its arrow, or above it near the bottom of the ring. */
 const CHIP_OFFSET = 38;
-
-/**
- * How far inside the camera frame a gate must be before its ARROW is dropped
- * (the chip stays). The gate ring is r=120 world px and the arch art is wider
- * still, so 150 means "the whole gate, not just its centre, is in frame with
- * room to spare" — a gate hugging an edge keeps its arrow, because at that
- * distance the arrow is still the thing that finds it.
- */
 const ONSCREEN_INSET = 150;
-
-/** Minimum clear space between two chips before one is pushed off the other. */
 const CHIP_GAP = 6;
+/** §14.10: 64 world px = 1 m. */
+const PX_PER_M = 64;
+/** Gate chips show a travel ETA from this run second (critic v2d M1). */
+const ETA_FROM_S = 300;
+/** Walked path ≈ straight line × this (blockers, roads). */
+const PATH_FACTOR = 1.2;
 
-/** Everything one arrow needs for one frame, resolved before anything is drawn. */
+/** `42m` under 1 km, else `6.8km`. */
+function distance(worldPx: number): string {
+  const m = worldPx / PX_PER_M;
+  return m < 1000 ? `${Math.round(m)}m` : `${(m / 1000).toFixed(1)}km`;
+}
+
+/** `~22s` under a minute, else `~2:10`. */
+function travel(seconds: number): string {
+  const t = Math.max(1, Math.round(seconds));
+  return t < 60 ? `${t}s` : clock(t);
+}
+
+type Look = 'preview' | 'open' | 'closing' | 'closed' | 'chest' | 'event';
+
+const LOOK: Record<Look, { tone: number; alpha: number; pulse: boolean }> = {
+  preview: { tone: IDENTITY.gateOpen, alpha: 0.6, pulse: false },
+  open: { tone: IDENTITY.gateOpen, alpha: 1, pulse: false },
+  closing: { tone: IDENTITY.hazardAmber, alpha: 1, pulse: true },
+  closed: { tone: IDENTITY.cooled, alpha: 0.85, pulse: false },
+  chest: { tone: IDENTITY.gilt, alpha: 0.95, pulse: false },
+  event: { tone: IDENTITY.gateOpen, alpha: 1, pulse: true },
+};
+
 interface Placement {
   arrow: Arrow;
   x: number;
   y: number;
   angle: number;
-  /** False when the gate is on screen: chip only, no arrow head. */
   showHead: boolean;
   chipWidth: number;
   chipX: number;
   chipY: number;
 }
 
+/** Vertical gap between two stacked arrow+chip units (critic M2: ≥ 44 px chip pitch). */
+const UNIT_GAP = 14;
+/** Lowest y any unit may reach (chip bottom), just above the stick band. */
+const UNIT_FLOOR = RING.bottom + CHIP.height / 2;
 /**
- * Pushes overlapping chips apart vertically.
- *
- * Three gates project independently, and two gates in roughly the same
- * direction clamp to roughly the same ring point — which is how "B SPENT" and
- * "C OPEN" ended up rendered on top of each other at the bottom-right corner,
- * both illegible. Widgets that can collide must resolve it, not hope.
- *
- * Resolved in ascending y with downward pushes only, so the pass terminates
- * and the topmost chip keeps its authored position: the chip that moves is the
- * one further from the read the player is already tracking. At most three
- * chips exist, so this is a handful of comparisons per frame.
+ * Units that reach into the belt column (x ≥ BELT.left) must end above the belt
+ * (critic v2c: B / TOLL / X stacked beside the belt, under the stick thumb). They
+ * reflow UP the right edge instead of sliding in toward the stick.
  */
-function declutterChips(shown: readonly Placement[]): void {
-  if (shown.length < 2) return;
-  const order = [...shown].sort((a, b) => a.chipY - b.chipY);
-  for (let i = 1; i < order.length; i += 1) {
-    const chip = order[i];
-    if (chip === undefined) continue;
-    for (let j = 0; j < i; j += 1) {
-      const other = order[j];
-      if (other === undefined) continue;
-      const overlapX =
-        Math.abs(chip.chipX - other.chipX) < (chip.chipWidth + other.chipWidth) / 2 + CHIP_GAP;
-      const overlapY = Math.abs(chip.chipY - other.chipY) < CHIP.height + CHIP_GAP;
-      if (overlapX && overlapY) chip.chipY = other.chipY + CHIP.height + CHIP_GAP;
+const BELT_COLUMN_FLOOR = BELT.top - UNIT_GAP;
+
+function floorFor(p: Placement): number {
+  return unitRight(p) > BELT.left - CHIP_GAP ? BELT_COLUMN_FLOOR : UNIT_FLOOR;
+}
+
+/** A placement's arrow + chip as one block: x-range and y-range, screen px. */
+function unitLeft(p: Placement): number {
+  return Math.min(p.showHead ? p.x - ARROW_SIZE / 2 : Infinity, p.chipX - p.chipWidth / 2);
+}
+function unitRight(p: Placement): number {
+  return Math.max(p.showHead ? p.x + ARROW_SIZE / 2 : -Infinity, p.chipX + p.chipWidth / 2);
+}
+function unitTop(p: Placement): number {
+  return Math.min(p.showHead ? p.y - ARROW_SIZE / 2 : Infinity, p.chipY - CHIP.height / 2);
+}
+function unitBottom(p: Placement): number {
+  return Math.max(p.showHead ? p.y + ARROW_SIZE / 2 : -Infinity, p.chipY + CHIP.height / 2);
+}
+function sharesColumn(a: Placement, b: Placement): boolean {
+  return unitLeft(a) < unitRight(b) + CHIP_GAP && unitLeft(b) < unitRight(a) + CHIP_GAP;
+}
+/** Moves an edge unit (arrow AND chip) — the arrow keeps pointing at its target. */
+function shiftUnit(p: Placement, dy: number): void {
+  if (p.showHead) p.y += dy;
+  p.chipY += dy;
+}
+
+/**
+ * Stacks arrow+chip units that share a column along the edge (critic M2: three
+ * chips fused into one block at the bottom-right). Each unit is a single
+ * block, so a chip can no longer land on a neighbour's arrow head either.
+ * Pass 1 pushes down in ascending order; pass 2 pushes back up from the floor.
+ * The belt slide can change a chip's x, so the stack is resolved twice around
+ * it. ≤ 5 units, so the pairwise loops are a handful of comparisons.
+ */
+function declutterChips(shown: Placement[]): void {
+  for (const p of shown) if (p.chipY - CHIP.height / 2 < ringTop) shiftUnit(p, ringTop - (p.chipY - CHIP.height / 2));
+  for (let pass = 0; pass < 2; pass += 1) {
+    shown.sort((a, b) => unitTop(a) - unitTop(b));
+    for (let i = 1; i < shown.length; i += 1) {
+      const unit = shown[i];
+      if (unit === undefined) continue;
+      for (let j = 0; j < i; j += 1) {
+        const other = shown[j];
+        if (other === undefined || !sharesColumn(unit, other)) continue;
+        const need = unitBottom(other) + UNIT_GAP - unitTop(unit);
+        if (need > 0) {
+          shiftUnit(unit, need);
+          j = -1; // re-check against everything above after moving
+        }
+      }
     }
-    chip.chipY = Phaser.Math.Clamp(chip.chipY, RING.top, RING.bottom);
+    for (let i = shown.length - 1; i >= 0; i -= 1) {
+      const unit = shown[i];
+      if (unit === undefined) continue;
+      let limit = floorFor(unit);
+      for (let k = i + 1; k < shown.length; k += 1) {
+        const below = shown[k];
+        if (below !== undefined && sharesColumn(unit, below)) limit = Math.min(limit, unitTop(below) - UNIT_GAP);
+      }
+      const over = unitBottom(unit) - limit;
+      if (over > 0) shiftUnit(unit, -over);
+    }
   }
 }
 
-/** mm:ss, the format §14b's edge-state table writes countdowns in. */
-function clock(seconds: number): string {
-  const total = Math.max(0, Math.ceil(seconds));
-  const m = Math.floor(total / 60);
-  const s = total % 60;
-  return `${m}:${s.toString().padStart(2, '0')}`;
+/** Seconds from a `m:ss` token anywhere in an extraction label (`OPENS 1:12`); null if none. */
+function labelSeconds(label: string): number | null {
+  const match = /(\d+):(\d\d)/.exec(label);
+  return match === null ? null : Number(match[1]) * 60 + Number(match[2]);
 }
 
-type ArrowLook = 'preview' | 'open' | 'closing' | 'closed' | 'spent';
+/** Clamp a screen point onto the ring; in the belt column it moves UP the right edge. */
+function clampToRing(x: number, y: number, half: number, out: { x: number; y: number }): void {
+  const cx = Phaser.Math.Clamp(x, RING.left + half, RING.right - half);
+  let cy = Phaser.Math.Clamp(y, ringTop, RING.bottom);
+  if (cx + half > BELT.left && cy + half > BELT.top - UNIT_GAP) cy = BELT.top - UNIT_GAP - half;
+  out.x = cx;
+  out.y = cy;
+}
 
-const LOOK: Record<ArrowLook, { tone: number; alpha: number; pulse: boolean }> = {
-  preview: { tone: IDENTITY.hazardAmber, alpha: 0.75, pulse: false },
-  open: { tone: IDENTITY.gateOpen, alpha: 1, pulse: false },
-  closing: { tone: IDENTITY.hazardAmber, alpha: 1, pulse: true },
-  closed: { tone: IDENTITY.cooled, alpha: 0.85, pulse: false },
-  spent: { tone: IDENTITY.threat, alpha: 0.45, pulse: false },
-};
+function paintTriangle(g: Phaser.GameObjects.Graphics, size: number, tone: number, chevron: boolean): void {
+  const h = size / 2;
+  g.clear();
+  g.fillStyle(tone, 1);
+  g.beginPath();
+  g.moveTo(h, 0);
+  g.lineTo(-h * 0.7, -h * 0.85);
+  if (chevron) g.lineTo(-h * 0.25, 0);
+  g.lineTo(-h * 0.7, h * 0.85);
+  g.closePath();
+  g.fillPath();
+  g.lineStyle(2, DEEP_INK, 0.9);
+  g.strokePath();
+}
 
-/**
- * One gate's arrow + chip. A field bag rather than a Container per arrow so
- * the pulse tween has exactly one owner and one kill site.
- */
+/** One arrow + chip; the pulse tween has exactly one owner and one kill site. */
 class Arrow {
   private readonly head: Phaser.GameObjects.Graphics;
   private readonly letter: Phaser.GameObjects.Text;
   private readonly chipBg: Phaser.GameObjects.Graphics;
   private readonly chipText: Phaser.GameObjects.Text;
-
-  /** Last painted look, so a repaint only happens on a real state change. */
-  private look: ArrowLook | null = null;
+  private look: Look | null = null;
   private chipWidth = 0;
   private chipLabel = '';
   private pulse: Phaser.Tweens.Tween | null = null;
-  /**
-   * Whether this arrow is on screen at all. Tracked separately from
-   * `head.visible` because the head is now independently suppressible: an
-   * on-screen gate keeps its chip and loses its arrow, and `hide()` reading
-   * `head.visible` in that state would decide the widget was already hidden
-   * and leave the chip stranded forever.
-   */
   private visible = false;
 
   constructor(
     private readonly scene: Phaser.Scene,
-    id: 'a' | 'b' | 'c',
+    glyph: string,
   ) {
-    // `setScrollFactor(0)` pins these to the camera; it does NOT lift them out
-    // of the world's draw order. Without the depth the arrows render UNDER the
-    // props, the pickups and the horde they are steering the player past.
-    this.head = scene.add
-      .graphics()
-      .setScrollFactor(0)
-      .setDepth(HUD_DEPTH.compass)
-      .setVisible(false);
-    // The letter sits ON the arrow fill, which §11 signs off as a fill
-    // carrying a deep-ink label (6.09:1 on violet) — so it goes BARE: the
-    // fill is already the contrast surface, and armour on 20px type over it
-    // reads as grime.
+    this.head = scene.add.graphics().setScrollFactor(0).setDepth(HUD_DEPTH.compass).setVisible(false);
+    // The letter sits ON the arrow fill (a fill carrying a deep-ink label), so it goes bare.
     this.letter = scene.add
-      .text(0, 0, id.toUpperCase(), {
-        ...TEXT.button,
-        fontSize: '20px',
-        color: DEEP_INK_CSS,
-        ...bareText(),
-      })
+      .text(0, 0, glyph, { ...TEXT.button, fontSize: '20px', color: DEEP_INK_CSS, ...bareText() })
       .setOrigin(0.5)
       .setScrollFactor(0)
       .setDepth(HUD_DEPTH.compass + 1)
       .setVisible(false);
-    this.chipBg = scene.add
-      .graphics()
-      .setScrollFactor(0)
-      .setDepth(HUD_DEPTH.compass)
-      .setVisible(false);
+    this.chipBg = scene.add.graphics().setScrollFactor(0).setDepth(HUD_DEPTH.compass).setVisible(false);
     this.chipText = scene.add
       .text(0, 0, '', { ...TEXT.label, fontSize: CHIP.fontSize, color: CSS.ink, ...bareText() })
       .setOrigin(0.5)
@@ -220,50 +265,55 @@ class Arrow {
       .setVisible(false);
   }
 
-  /**
-   * Repaints geometry only when the look changed — never per frame. It does NOT
-   * touch the pulse: whether the closing pulse should run depends on the look
-   * AND on whether the head is drawn at all, and only `place` knows the second
-   * half. Deciding it here (on a look CHANGE) once left an arrow permanently
-   * un-pulsing: the head was suppressed while the gate was on screen, which
-   * killed the pulse, and when the gate went back off screen the look had never
-   * changed, so nothing restarted it.
-   */
-  private applyLook(look: ArrowLook): void {
-    if (this.look === look) return;
-    this.look = look;
-    const { tone, alpha } = LOOK[look];
-
-    // A triangle pointing along +x from the object's origin; rotation aims it,
-    // so the arrow points at its gate even when clamped to the ring.
-    const h = ARROW_SIZE / 2;
-    this.head.clear();
-    this.head.fillStyle(tone, 1);
-    this.head.beginPath();
-    this.head.moveTo(h, 0);
-    this.head.lineTo(-h * 0.7, -h * 0.85);
-    this.head.lineTo(-h * 0.7, h * 0.85);
-    this.head.closePath();
-    this.head.fillPath();
-    this.head.lineStyle(2, DEEP_INK, 0.9);
-    this.head.strokePath();
-
-    this.head.setAlpha(alpha);
-    this.letter.setAlpha(alpha);
-    this.chipBg.setAlpha(alpha);
-    this.chipText.setAlpha(alpha);
-
-    // The chip's stroke carries the state tone too, so a glance at either
-    // half of the widget tells the same story. Force a chip repaint.
-    this.chipWidth = 0;
-    this.repaintChip();
+  prepare(look: Look, label: string): number {
+    if (this.look !== look) {
+      this.look = look;
+      const { tone, alpha } = LOOK[look];
+      paintTriangle(this.head, ARROW_SIZE, tone, false);
+      this.head.setAlpha(alpha);
+      this.letter.setAlpha(alpha);
+      this.chipBg.setAlpha(alpha);
+      this.chipText.setAlpha(alpha);
+      this.chipWidth = 0;
+    }
+    if (label !== this.chipLabel) {
+      this.chipLabel = label;
+      this.chipText.setText(label);
+      this.chipWidth = 0;
+    }
+    if (this.chipWidth === 0) {
+      this.chipWidth = Math.max(CHIP.minWidth, Math.ceil(this.chipText.width) + CHIP.padX);
+      paintPill(this.chipBg, this.chipWidth, CHIP.height, {
+        fill: PANEL.fill,
+        fillAlpha: 0.95,
+        stroke: LOOK[look].tone,
+        strokeAlpha: 0.85,
+        strokeWidth: 2,
+      });
+    }
+    return this.chipWidth;
   }
 
-  /**
-   * The closing pulse. ONE tween per arrow, killed the instant the state
-   * leaves `closing` and again in `destroy` — a loop tween outliving its view
-   * is the classic leak in a recycled HUD.
-   */
+  /** Commits geometry; owns the pulse (a suppressed head never keeps a tween). */
+  place(p: Placement): void {
+    this.head.setPosition(p.x, p.y).setRotation(p.angle).setVisible(p.showHead);
+    this.letter.setPosition(p.x, p.y).setVisible(p.showHead);
+    this.setPulsing(p.showHead && this.look !== null && LOOK[this.look].pulse);
+    this.chipBg.setPosition(p.chipX, p.chipY).setVisible(true);
+    this.chipText.setPosition(p.chipX, p.chipY).setVisible(true);
+    this.visible = true;
+  }
+
+  hide(): void {
+    if (!this.visible) return;
+    this.visible = false;
+    this.setPulsing(false);
+    this.head.setVisible(false);
+    this.letter.setVisible(false);
+    this.chipBg.setVisible(false);
+    this.chipText.setVisible(false);
+  }
+
   private setPulsing(on: boolean): void {
     if (on === (this.pulse !== null)) return;
     if (!on) {
@@ -282,66 +332,9 @@ class Arrow {
     });
   }
 
-  private repaintChip(): void {
-    const width = Math.max(CHIP.minWidth, Math.ceil(this.chipText.width) + CHIP.padX);
-    if (width === this.chipWidth) return;
-    this.chipWidth = width;
-    paintPill(this.chipBg, width, CHIP.height, {
-      fill: PANEL.fill,
-      fillAlpha: 0.95,
-      stroke: LOOK[this.look ?? 'open'].tone,
-      strokeAlpha: 0.85,
-      strokeWidth: 2,
-    });
-  }
-
-  private setChip(label: string): void {
-    if (label === this.chipLabel) return;
-    this.chipLabel = label;
-    this.chipText.setText(label);
-    this.repaintChip();
-  }
-
-  /**
-   * First half of a two-pass frame: adopt the look and the label, and report
-   * the chip's resulting WIDTH. The compass needs every chip's width before it
-   * can resolve chip-against-chip collisions, and only the arrow can measure
-   * its own text — so measuring and placing are separate calls.
-   */
-  prepare(look: ArrowLook, label: string): number {
-    this.applyLook(look);
-    this.setChip(label);
-    return this.chipWidth;
-  }
-
-  /**
-   * Second half: commit the resolved geometry. `showHead` false keeps the chip
-   * and drops the arrow — the case where the gate is already on screen and the
-   * countdown is the only part of the widget still carrying information.
-   *
-   * This call OWNS the closing pulse, because the pulse scales the head and a
-   * suppressed head must not keep a tween running. `setPulsing` is idempotent,
-   * so driving it from the desired state every frame costs nothing and — unlike
-   * deciding it on a look CHANGE — correctly restarts the pulse when a gate
-   * leaves the frame again.
-   */
-  place(x: number, y: number, angle: number, chipX: number, chipY: number, showHead: boolean): void {
-    this.head.setPosition(x, y).setRotation(angle).setVisible(showHead);
-    this.letter.setPosition(x, y).setVisible(showHead);
-    this.setPulsing(showHead && this.look !== null && LOOK[this.look].pulse);
-    this.chipBg.setPosition(chipX, chipY).setVisible(true);
-    this.chipText.setPosition(chipX, chipY).setVisible(true);
-    this.visible = true;
-  }
-
-  hide(): void {
-    if (!this.visible) return;
-    this.visible = false;
-    this.setPulsing(false);
-    this.head.setVisible(false);
-    this.letter.setVisible(false);
-    this.chipBg.setVisible(false);
-    this.chipText.setVisible(false);
+  /** Live loop tweens owned by this arrow (tween-leak probe). */
+  get loops(): number {
+    return this.pulse === null ? 0 : 1;
   }
 
   destroy(): void {
@@ -354,156 +347,237 @@ class Arrow {
 }
 
 export class GateCompass {
-  private readonly arrows = new Map<string, Arrow>();
-  /** Run-seconds a gate was last seen live — drives the 2s CLOSED flash. */
-  private readonly lastLiveS = new Map<string, number>();
-  /** Ids fed this frame — reused, never reallocated (§15: no per-frame garbage). */
-  private readonly seen = new Set<string>();
+  private readonly gateArrows = new Map<GateId, Arrow>();
+  private readonly chestArrow: Arrow;
+  private readonly eventArrow: Arrow;
+  private readonly chevrons: Phaser.GameObjects.Graphics[] = [];
+  /** Tone+size each chevron was last painted with, to repaint only on change. */
+  private readonly chevronLook: boolean[] = [];
+  /** `scene.time.now` a gate was last seen live — drives the 2 s CLOSED flash. */
+  private readonly lastLiveAt = new Map<GateId, number>();
+  private readonly shown: Placement[] = [];
+  private readonly point = { x: 0, y: 0 };
+  private readonly picks: MinimapModel['gates'][number][] = [];
+  private readonly pickLooks: Look[] = [];
+  private readonly live = new Set<GateId>();
   private destroyed = false;
 
-  /**
-   * @param x - The point the arrows orbit, x. §14 anchors this at 360.
-   * @param y - Same, y: 600, the midpoint of the playfield band (140-1060),
-   * so the ring clamp sits symmetrically around the camera-followed player.
-   */
+  /** @param previewS - `loadout.previewS` (60, or 120 with `e_beacon`). */
   constructor(
     private readonly scene: Phaser.Scene,
-    private readonly x: number,
-    private readonly y: number,
-  ) {}
-
-  update(model: GateCompassModel): void {
-    if (this.destroyed) return;
-    const view = this.scene.cameras.main.worldView;
-    // A camera that has not rendered yet reports a zero-size view; projecting
-    // through it would stack every arrow in the corner for one frame.
-    const projecting = view.width > 0 && view.height > 0;
-    const playerScreenX = projecting ? model.playerX - view.x : this.x;
-    const playerScreenY = projecting ? model.playerY - view.y : this.y;
-
-    const shown: Placement[] = [];
-    this.seen.clear();
-
-    for (const gate of model.gates) {
-      this.seen.add(gate.id);
-      const arrow = this.arrowFor(gate.id);
-      const look = this.lookFor(gate, model.elapsedS);
-      if (look === null) {
-        arrow.hide();
-        continue;
-      }
-
-      const gateScreenX = projecting ? gate.x - view.x : this.x;
-      const gateScreenY = projecting ? gate.y - view.y : this.y;
-      // Rotation comes from the UNCLAMPED target, so a clamped arrow still
-      // points at the real gate rather than at its own clamped position.
-      const angle = Math.atan2(gateScreenY - playerScreenY, gateScreenX - playerScreenX);
-
-      // AN ARROW IS A POINTER TO SOMETHING YOU CANNOT SEE. Once the gate is
-      // comfortably inside the frame it is a 240px lit arch with its own
-      // world-space ring, and a 48px triangle drawn on top of it is a third
-      // widget stacked on one 100px band — measured at 2:07 as the violet 'A'
-      // arrow, the gate arch and the channel bar all on the same rows. So the
-      // HEAD drops and the CHIP stays: the arch is the "where", the chip is
-      // the countdown, which no world-space art carries.
-      const onScreen =
-        projecting &&
-        gateScreenX > ONSCREEN_INSET &&
-        gateScreenX < view.width - ONSCREEN_INSET &&
-        gateScreenY > ONSCREEN_INSET &&
-        gateScreenY < view.height - ONSCREEN_INSET;
-
-      const chipWidth = arrow.prepare(look, this.labelFor(gate, model.elapsedS, look));
-      const x = onScreen
-        ? gateScreenX
-        : Phaser.Math.Clamp(gateScreenX, RING.left + ARROW_SIZE / 2, RING.right - ARROW_SIZE / 2);
-      const y = onScreen ? gateScreenY : Phaser.Math.Clamp(gateScreenY, RING.top, RING.bottom);
-      // Flip the chip above the arrow near the ring's floor so it never leaves
-      // the authored band and never drifts under the joystick thumb.
-      const chipY = y > RING.bottom - CHIP_OFFSET * 2 ? y - CHIP_OFFSET : y + CHIP_OFFSET;
-      // The CHIP is clamped on its own half-width, not on the arrow's: an arrow
-      // clamped to x=656 put a 150px-wide "CLOSES 0:07" chip 50px past the
-      // x=680 safe edge. The arrow stays where it points; the chip slides in.
-      const half = chipWidth / 2;
-      shown.push({
-        arrow,
-        x,
-        y,
-        angle,
-        showHead: !onScreen,
-        chipWidth,
-        chipX: Phaser.Math.Clamp(x, RING.left + half, RING.right - half),
-        chipY,
-      });
+    private readonly previewS: number = TUNING.gate.previewS,
+  ) {
+    this.chestArrow = new Arrow(scene, '');
+    this.eventArrow = new Arrow(scene, '!');
+    for (let i = 0; i < MAX_CHEVRONS; i += 1) {
+      this.chevrons.push(scene.add.graphics().setScrollFactor(0).setDepth(HUD_DEPTH.compass).setVisible(false));
+      this.chevronLook.push(false);
     }
-
-    // A gate the slice stopped feeding is RETIRED: omission means "gone", and
-    // without this the arrow froze at its last screen position for the rest of
-    // the run. (The slice drops spent gates from the feed once another gate is
-    // live, so this path runs in normal play, not only at teardown.)
-    for (const [id, arrow] of this.arrows) {
-      if (!this.seen.has(id)) arrow.hide();
-    }
-
-    declutterChips(shown);
-    for (const p of shown) p.arrow.place(p.x, p.y, p.angle, p.chipX, p.chipY, p.showHead);
   }
 
-  private arrowFor(id: 'a' | 'b' | 'c'): Arrow {
-    let arrow = this.arrows.get(id);
+  update(model: CompassModel): void {
+    if (this.destroyed) return;
+    const view = this.scene.cameras.main.worldView;
+    // A camera that has not rendered yet reports a zero-size view.
+    if (view.width <= 0 || view.height <= 0) return;
+    const heroX = model.hero.x - view.x;
+    const heroY = model.hero.y - view.y;
+    const now = this.scene.time.now;
+    ringTop = toastShowing(this.scene) ? RING_TOP_UNDER_TOAST : RING.top;
+    this.shown.length = 0;
+
+    // --- gates: up to 3, live ones first, then soonest preview ------------
+    // Reused arrays, ranked by insertion: no map/filter/sort garbage per frame.
+    const picks = this.picks;
+    const looks = this.pickLooks;
+    picks.length = 0;
+    looks.length = 0;
+    for (const g of model.gates) {
+      const look = this.gateLook(g, now);
+      if (look === null) continue;
+      let at = picks.length;
+      while (at > 0 && rank(looks[at - 1] ?? 'preview') > rank(look)) at -= 1;
+      picks.splice(at, 0, g);
+      looks.splice(at, 0, look);
+    }
+    this.live.clear();
+    for (let i = 0; i < picks.length && i < MAX_GATE_ARROWS; i += 1) {
+      const g = picks[i];
+      const look = looks[i];
+      if (g === undefined || look === undefined) continue;
+      this.live.add(g.id);
+      const arrow = this.gateArrow(g.id);
+      const prefix = g.id === 'x' ? (g.label.split(' · ')[0] ?? 'GATE') : g.id.toUpperCase();
+      const dist = Math.hypot(g.x - model.hero.x, g.y - model.hero.y);
+      const secs = labelSeconds(g.label);
+      // From ETA_FROM_S the chip adds `~travel time` (path ≈ straight × PATH_FACTOR);
+      // with the 24,576² map the remaining clock alone no longer says "can I make it".
+      const eta = model.elapsedS >= ETA_FROM_S && model.heroSpeed > 0 ? ` · ~${travel((dist * PATH_FACTOR) / model.heroSpeed)}` : '';
+      const label =
+        look === 'closed' ? `${prefix} · CLOSED` : `${prefix} · ${distance(dist)}${secs === null ? '' : ` · ${clock(secs)}`}${eta}`;
+      this.project(arrow, look, label, g.x - view.x, g.y - view.y, heroX, heroY, view, true);
+    }
+    for (const [id, arrow] of this.gateArrows) if (!this.live.has(id)) arrow.hide();
+
+    // --- chest + event ------------------------------------------------------
+    if (model.chest === null) this.chestArrow.hide();
+    else {
+      const d = distance(Math.hypot(model.chest.x - model.hero.x, model.chest.y - model.hero.y));
+      this.project(this.chestArrow, 'chest', `CHEST · ${d}`, model.chest.x - view.x, model.chest.y - view.y, heroX, heroY, view, false);
+    }
+    if (model.event === null) this.eventArrow.hide();
+    else {
+      const d = distance(Math.hypot(model.event.x - model.hero.x, model.event.y - model.hero.y));
+      this.project(this.eventArrow, 'event', `EVENT · ${d}`, model.event.x - view.x, model.event.y - view.y, heroX, heroY, view, false);
+    }
+
+    declutterChips(this.shown);
+    for (const p of this.shown) p.arrow.place(p);
+    let rects = occupied.get(this.scene);
+    if (rects === undefined) {
+      rects = [];
+      occupied.set(this.scene, rects);
+    }
+    rects.length = this.shown.length;
+    for (let i = 0; i < this.shown.length; i += 1) {
+      const p = this.shown[i];
+      if (p === undefined) continue;
+      const left = unitLeft(p);
+      const top = unitTop(p);
+      const r = rects[i] ?? { x: 0, y: 0, w: 0, h: 0 };
+      r.x = left;
+      r.y = top;
+      r.w = unitRight(p) - left;
+      r.h = unitBottom(p) - top;
+      rects[i] = r;
+    }
+
+    // --- chevrons -----------------------------------------------------------
+    let used = 0;
+    for (const t of model.threats) {
+      if (used >= MAX_CHEVRONS) break;
+      const sx = t.x - view.x;
+      const sy = t.y - view.y;
+      if (sx > 0 && sx < view.width && sy > 0 && sy < view.height) continue;
+      const g = this.chevrons[used];
+      if (g === undefined) break;
+      if (this.chevronLook[used] !== t.boss || !g.visible) {
+        this.chevronLook[used] = t.boss;
+        paintTriangle(g, t.boss ? CHEVRON.boss : CHEVRON.elite, IDENTITY.threat, true);
+      }
+      clampToRing(sx, sy, (t.boss ? CHEVRON.boss : CHEVRON.elite) / 2, this.point);
+      g.setPosition(this.point.x, this.point.y)
+        .setRotation(Math.atan2(sy - heroY, sx - heroX))
+        .setVisible(true);
+      used += 1;
+    }
+    for (let i = used; i < this.chevrons.length; i += 1) this.chevrons[i]?.setVisible(false);
+  }
+
+  /** Live loop tweens this widget owns (tween-leak probe for the integrator/QA). */
+  get liveLoops(): number {
+    let n = this.chestArrow.loops + this.eventArrow.loops;
+    for (const a of this.gateArrows.values()) n += a.loops;
+    return n;
+  }
+
+  private project(
+    arrow: Arrow,
+    look: Look,
+    label: string,
+    sx: number,
+    sy: number,
+    heroX: number,
+    heroY: number,
+    view: Phaser.Geom.Rectangle,
+    keepChipOnScreen: boolean,
+  ): void {
+    const onScreen =
+      sx > ONSCREEN_INSET && sx < view.width - ONSCREEN_INSET && sy > ONSCREEN_INSET && sy < view.height - ONSCREEN_INSET;
+    if (onScreen && !keepChipOnScreen) {
+      arrow.hide();
+      return;
+    }
+    const chipWidth = arrow.prepare(look, label);
+    if (onScreen) {
+      this.point.x = sx;
+      this.point.y = sy;
+    } else clampToRing(sx, sy, ARROW_SIZE / 2, this.point);
+    const { x, y } = this.point;
+    const half = chipWidth / 2;
+    const arrowHalf = ARROW_SIZE / 2;
+    // A head clamped to a SIDE edge takes its chip beside it, inboard: the unit is
+    // then one arrow tall, so five of them stack along the edge between the toast
+    // lane and the belt (critic v2c: units stacked 93 px tall overflowed both).
+    const onLeft = !onScreen && x <= RING.left + arrowHalf;
+    const onRight = !onScreen && x >= RING.right - arrowHalf;
+    let chipX: number;
+    let chipY: number;
+    if (onLeft || onRight) {
+      chipX = onLeft ? x + arrowHalf + CHIP_GAP + half : x - arrowHalf - CHIP_GAP - half;
+      chipY = y;
+    } else {
+      // Top/bottom edge: chip below the arrow, above it near the floor of its column.
+      const columnFloor = x + arrowHalf > BELT.left - CHIP_GAP ? BELT_COLUMN_FLOOR : RING.bottom;
+      chipX = Phaser.Math.Clamp(x, RING.left + half, RING.right - half);
+      chipY = y > columnFloor - CHIP_OFFSET * 2 ? y - CHIP_OFFSET : y + CHIP_OFFSET;
+    }
+    this.shown.push({
+      arrow,
+      x,
+      y,
+      angle: Math.atan2(sy - heroY, sx - heroX),
+      showHead: !onScreen,
+      chipWidth,
+      chipX,
+      chipY,
+    });
+  }
+
+  private gateArrow(id: GateId): Arrow {
+    let arrow = this.gateArrows.get(id);
     if (arrow === undefined) {
-      arrow = new Arrow(this.scene, id);
-      this.arrows.set(id, arrow);
+      arrow = new Arrow(this.scene, id.toUpperCase());
+      this.gateArrows.set(id, arrow);
     }
     return arrow;
   }
 
-  /** `null` means "no arrow for this gate right now". */
-  private lookFor(gate: GateCompassGate, elapsedS: number): ArrowLook | null {
-    if (gate.state === 'open' || gate.state === 'closing') {
-      this.lastLiveS.set(gate.id, elapsedS);
-      const secondsLeft = gate.closesS === null ? Number.POSITIVE_INFINITY : gate.closesS - elapsedS;
-      return gate.state === 'closing' || secondsLeft <= TUNING.gate.closingWarnS
-        ? 'closing'
-        : 'open';
+  /** `null` = no arrow for this gate now. */
+  private gateLook(g: MinimapModel['gates'][number], now: number): Look | null {
+    if (g.state === 'open' || g.state === 'closing') {
+      this.lastLiveAt.set(g.id, now);
+      return g.state;
     }
-
-    if (gate.state === 'spent') return 'spent';
-
-    // Still shut. Two reasons to draw it: it opens soon, or it JUST closed.
-    // `previewS` (60s) is read from TUNING, never as a literal: it was raised
-    // from §14.2's 30 precisely because the first two minutes of a run had no
-    // extraction signal at all.
-    const untilOpen = gate.opensS - elapsedS;
-    if (untilOpen > 0 && untilOpen <= TUNING.gate.previewS) return 'preview';
-
-    const lastLive = this.lastLiveS.get(gate.id);
-    if (lastLive !== undefined && (elapsedS - lastLive) * 1000 <= CLOSED_FLASH_MS) return 'closed';
-
-    return null;
-  }
-
-  private labelFor(gate: GateCompassGate, elapsedS: number, look: ArrowLook): string {
-    switch (look) {
-      case 'preview':
-        return `OPENS ${clock(gate.opensS - elapsedS)}`;
-      case 'open':
-      case 'closing':
-        // Gate C never closes, so a countdown there would be a lie: it is
-        // simply OPEN until the Collapse takes the arena.
-        return gate.closesS === null ? 'OPEN' : `CLOSES ${clock(gate.closesS - elapsedS)}`;
-      case 'closed':
-        return 'CLOSED';
-      case 'spent':
-        return 'SPENT';
-    }
+    // A gate that was live and is not any more flashes CLOSED for 2 s, then retires.
+    const lastLive = this.lastLiveAt.get(g.id);
+    if (lastLive !== undefined) return now - lastLive <= CLOSED_FLASH_MS ? 'closed' : null;
+    if (g.state === 'spent') return null;
+    const secs = labelSeconds(g.label);
+    // Conditional gates without a clock (offering/bell before their condition) always show.
+    if (secs === null) return g.id === 'x' ? 'preview' : null;
+    return secs <= this.previewS ? 'preview' : null;
   }
 
   destroy(): void {
     if (this.destroyed) return;
     this.destroyed = true;
-    for (const arrow of this.arrows.values()) arrow.destroy();
-    this.arrows.clear();
-    this.lastLiveS.clear();
+    for (const arrow of this.gateArrows.values()) arrow.destroy();
+    this.gateArrows.clear();
+    this.chestArrow.destroy();
+    this.eventArrow.destroy();
+    for (const g of this.chevrons) g.destroy();
+    occupied.delete(this.scene);
+    this.chevrons.length = 0;
+    this.lastLiveAt.clear();
   }
+}
+
+function rank(look: Look): number {
+  return look === 'closing' ? 0 : look === 'open' ? 1 : look === 'closed' ? 2 : 3;
+}
+
+function clock(seconds: number): string {
+  const total = Math.max(0, Math.ceil(seconds));
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
 }

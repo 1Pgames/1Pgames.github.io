@@ -1,333 +1,291 @@
 import Phaser from 'phaser';
-import { CSS, SAFE, TEXT, VIEW } from '../config';
-import { isMuted, toggleMute } from '../core/audio';
+import { CSS, PALETTE, TEXT, VIEW, bareText } from '../config';
+import type { BagView, HazardLevel, WeaponsView } from '../data/types-v2';
+import { BagPanel, bagPanelHeight } from './bagStrip';
 import { Button } from './button';
-import { BUTTON_STYLE, IDENTITY, TIER_RING, tierColor } from './duskChrome';
+import { BUTTON_STYLE, IDENTITY, PANEL, drawDuskPanel } from './duskChrome';
+import { charmIconId, iconFor, weaponIconId } from './itemIcon';
+import { drawPanel } from './primitives';
+import { CHARMS } from '../data/charms';
+import { confirmDialog } from './sheet';
+import { openSettingsSheet } from './settingsSheet';
+import { suspendToasts } from './toast';
+
+type Closable = ReturnType<typeof confirmDialog>;
 
 /**
- * Full-screen pause overlay: dim + "PAUSED" heading, the §14.5 BAG ROW, and
- * Resume / Restart / (Menu) / Mute buttons. Caller owns actually pausing the run
- * (combat + director) before showing this, resuming after `onResume`, and
- * tearing the scene down on `onRestart`/`onMenu` — this module only draws and
- * listens, same contract as `ui/cards.ts`.
- *
- * MENU is the run's exit door and the reason the overlay has four rows: a
- * player who is out of patience with a level must not have to lose it (or
- * reload the page) to get back to the map. It is optional only because a
- * family whose run IS the menu (a single endless surface) has nowhere to go;
- * every slice with its own menu scene passes it, and the row is dropped
- * entirely — not greyed — when it is absent.
- *
- * ## The bag row is the ONLY door to the casket, both ways (§5.6, §14.5)
- * `autoPinHighest` is false by law, so a relic reaches the Gravekeeper's Casket
- * only by being tapped HERE — and leaves it the same way. That makes these pips
- * the one tappable pips in the game, and it makes the row load-bearing rather
- * than a readout: without it, every death loses 100% of the haul and the
- * 400-shard casket upgrade buys nothing.
- *
- * ## RESTART / MENU arm while the bag holds loot (§14b confirmation policy)
- * Shards are seconds of play; a carried Dread relic is minutes plus a Warden
- * kill. So both destructive rows take the same 3s two-tap arm the stash's
- * SALVAGE uses — and an empty-bag restart stays instant.
+ * PRD-V2 §14.15 pause (FlowAudit §2.11): header `PAUSED` + `Bleakspire Keep ·
+ * H2 · 3:42 · LV 9`; build panel (4 weapon + 4 charm icons 72 px with rank
+ * pips); gate timetable; bag panel (the quick-sheet grid, pin/drop live);
+ * `RESUME` 640×96 at y 900; `SETTINGS` 312×88 at (40, 1010); `ABANDON RUN`
+ * 312×88 at (368, 1010), destructive, confirmed when carrying ≥ 1 item or
+ * ≥ 50 ◆. RESTART is gone. ESC is the slice's key: it calls `back()` first so
+ * ESC on the confirm backs out to pause instead of closing both layers.
  */
+
+export interface PauseModel {
+  zone: string;
+  hazard: HazardLevel;
+  elapsedS: number;
+  level: number;
+  weapons: WeaponsView;
+  gates: string[];
+  bag: BagView;
+  carrying: { items: number; shards: number };
+}
+
+export interface PauseActions {
+  resume(): void;
+  abandon(): void;
+  pin(uid: string): void;
+  drop(uid: string): void;
+}
+
 export interface PauseOverlayHandle {
+  /** Repaint after a pin/drop (bag + carrying) — the slice passes the fresh model. */
+  refresh(model: PauseModel): void;
+  /**
+   * ESC/back, one layer at a time: closes the ABANDON confirm or the Settings
+   * sheet and returns true when one is open; returns false when the pause itself is the top layer (the
+   * slice then resumes). The slice owns the ESC/P key and must ask this first.
+   */
+  back(): boolean;
   destroy(): void;
 }
 
-/** One carried relic as the bag row needs it — no `RelicDef` dependency. */
-export interface PauseBagRelic {
-  id: string;
-  name: string;
-  /** 1-4; drives the pip's ART-LOCKED tier colour. */
-  tier: number;
-  /** True while it occupies a casket slot — pinned pips read in `gilt`. */
-  pinned: boolean;
+const HEADER_Y = 176;
+const SUB_Y = 234;
+const BUILD = { top: 266, height: 196, labelX: 64, iconX0: 208, pitch: 96, rows: [316, 406], icon: 72 } as const;
+const GATES_Y = 486;
+const BAG = { top: 526, maxHeight: 364 } as const;
+const RESUME = { top: 900, width: 640, height: 96 } as const;
+const SMALL = { top: 1010, width: 312, height: 88, leftX: 40, rightX: 368 } as const;
+/** §14.15 confirm threshold. */
+const CONFIRM = { items: 1, shards: 50 } as const;
+
+function clock(seconds: number): string {
+  const total = Math.max(0, Math.floor(seconds));
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
 }
 
-export interface PauseBagActions {
-  /**
-   * Everything carried right now, casket pins FIRST (the same order
-   * `ui/bagPips.ts` draws the HUD in, so the row and the HUD agree). Re-read
-   * after every pin or release, so the row repaints from the bag rather than
-   * from a copy it made when it opened.
-   */
-  read(): readonly PauseBagRelic[];
-  /** Tapped an unpinned pip: (re-)pin it to the casket. The caller owns the toast. */
-  pin(relicId: string): void;
-  /**
-   * Tapped a PINNED pip: release it back to the ordinary bag, so death can take
-   * it again. Without this the casket is a one-way door — the player who pinned
-   * a Tarnished trinket at 90s could never free the slot for the Dread Crown
-   * the Warden drops at 430s, which is the exact decision §5.6 is about.
-   */
-  unpin(relicId: string): void;
-  /** Casket capacity, for the row's "n/n PINNED" caption. */
-  casketSlots: number;
-}
-
-export interface PauseOverlayActions {
-  onResume: () => void;
-  onRestart: () => void;
-  /**
-   * Abandons the run for the menu. The caller owns the teardown (stop its own
-   * timers/director, then `scene.start(SCENES.menu)`). Absent = no MENU row.
-   */
-  onMenu?: () => void;
-  /** §14.5 bag readout + casket pinning. Absent = no row (a family with no bag). */
-  bag?: PauseBagActions;
-  /**
-   * §14b: while this returns true, RESTART and MENU arm for `ARM_MS` instead of
-   * committing. Absent = both commit on the first tap.
-   */
-  armDestructive?: () => boolean;
-}
-
-/** §14b confirmation policy: an arm decays silently after 3s. */
-const ARM_MS = 3000;
-/** §14b copy for an armed destructive row. */
-const ARM_LABEL = 'HAUL IS FORFEIT — TAP AGAIN';
-
-/**
- * §14.5 authors the four button rows as "full-width 640x96, x=40, from y 480,
- * 16px gaps" — i.e. centres at 528 / 640 / 752 / 864 on a 112px pitch — and
- * appends the bag readout below them.
- *
- * `ROW` replaces the template's `VIEW.centerY +/- n` offsets, which drifted the
- * stack to 530 / 660 / 770 / 880 (a 130px first gap against the authored 112)
- * and pushed the bag row so low that the pips' 88px hit rects ran to y=1074 —
- * 14px BELOW `VIEW.height - SAFE.bottom` (1060), where nothing interactive but
- * the joystick zone may live. Found in the Step 5.5 audit.
- *
- * §14.5 puts every tap target at >=88px, and the pip's 88px HIT HEIGHT is kept
- * unconditionally. The horizontal pitch collapses toward the pip art only once
- * a meta-widened bag carries more relics than 88px pitches fit across the safe
- * width — eight pips at 88 exactly fill it, so the common case is the authored
- * one and the degradation only ever affects a bag the player paid to widen.
- */
-const ROW = { firstY: 528, pitch: 112, height: 96 } as const;
-
-/**
- * The bag readout, appended under the mute row (which ends at y 912). The pips
- * sit at 1004 so their 88px hit rect spans 960-1048 — 12px clear of the
- * bottom-220 reservation.
- */
-const PIP = { hit: 88, maxPitch: 88, radius: 26, y: 1004, labelY: 944 } as const;
-
-export function showPauseOverlay(
-  scene: Phaser.Scene,
-  actions: PauseOverlayActions,
-): PauseOverlayHandle {
+/** §16.1 E44. */
+export function showPauseOverlay(scene: Phaser.Scene, model: PauseModel, actions: PauseActions): PauseOverlayHandle {
   const root = scene.add.container(0, 0).setDepth(2100).setScrollFactor(0);
+  suspendToasts(scene, true);
+  let current = model;
+  let resolved = false;
+  /** The one layer above the pause (ABANDON confirm or Settings sheet); ESC/back closes it first. */
+  let confirm: Closable | null = null;
 
   const dim = scene.add
-    .rectangle(VIEW.centerX, VIEW.centerY, VIEW.width, VIEW.height, 0x000000, 0.65)
+    .rectangle(VIEW.centerX, VIEW.centerY, VIEW.width, VIEW.height, 0x000000, 0.8)
     .setScrollFactor(0)
     .setInteractive();
   root.add(dim);
-
-  const heading = scene.add
-    .text(VIEW.centerX, ROW.firstY - 148, 'PAUSED', { ...TEXT.title, fontSize: '72px' })
+  root.add(
+    scene.add
+      .text(VIEW.centerX, HEADER_Y, 'PAUSED', { ...TEXT.heading, fontSize: '60px' })
+      .setOrigin(0.5)
+      .setScrollFactor(0),
+  );
+  const sub = scene.add
+    .text(VIEW.centerX, SUB_Y, '', { ...TEXT.label, fontSize: '24px', color: CSS.inkSoft })
     .setOrigin(0.5)
     .setScrollFactor(0);
-  root.add(heading);
+  root.add(sub);
 
-  const buttonWidth = VIEW.width - SAFE.side * 2;
-  let resolved = false;
-  /** `scene.time.now` the destructive arm expires at; 0 = not armed. */
-  let armedUntil = 0;
-  const armTimers: Phaser.Time.TimerEvent[] = [];
+  // Build panel.
+  const build = scene.add.container(0, 0).setScrollFactor(0);
+  root.add(build);
+  const gatesText = scene.add
+    .text(VIEW.centerX, GATES_Y, '', {
+      ...TEXT.label,
+      fontSize: '20px',
+      color: CSS.ink,
+      align: 'center',
+      wordWrap: { width: 640 },
+    })
+    .setOrigin(0.5)
+    .setScrollFactor(0);
+  root.add(gatesText);
 
-  /**
-   * True when the tap was consumed by ARMING the row rather than by committing
-   * it. Idempotent: re-tapping an already-armed row inside the window commits,
-   * and an expired arm simply arms again (§14b "no confirm ever stacks").
-   */
-  const armsInstead = (button: Button, label: string): boolean => {
-    if (actions.armDestructive?.() !== true) return false;
-    if (armedUntil > scene.time.now) return false;
-    armedUntil = scene.time.now + ARM_MS;
-    button.setLabel(ARM_LABEL);
-    armTimers.push(
-      scene.time.delayedCall(ARM_MS, () => {
-        armedUntil = 0;
-        button.setLabel(label);
-      }),
-    );
-    return true;
+  // Bag panel (shared grid with the quick-sheet).
+  const bagRoot = scene.add.container(40, BAG.top).setScrollFactor(0);
+  root.add(bagRoot);
+  // Bags past 3 rows (m_bag / a_bag) scale down to keep RESUME at its authored y.
+  const bagH = bagPanelHeight(model.bag);
+  bagRoot.add(drawDuskPanel(scene, 640, bagH).setPosition(320, bagH / 2));
+  bagRoot.setScale(Math.min(1, BAG.maxHeight / bagH));
+  const bag = new BagPanel(scene, bagRoot, model.bag, {
+    pin: (uid) => actions.pin(uid),
+    drop: (uid) => actions.drop(uid),
+  });
+
+  const resume = (): void => {
+    if (resolved || confirm !== null) return;
+    resolved = true;
+    actions.resume();
   };
-
-  // Rows are ordered by how likely they are to be the reason the player
-  // paused, with the destructive ones further from the thumb's resting spot.
-  // The stack is centred on the heading either way: dropping MENU closes the
-  // gap instead of leaving a hole where it was.
-  const onMenu = actions.onMenu;
-  // Dropping MENU closes the gap instead of leaving a hole where it was, so the
-  // remaining rows take the first three authored slots.
-  const resumeY = ROW.firstY;
-  const restartY = ROW.firstY + ROW.pitch;
-  const muteY = ROW.firstY + ROW.pitch * (onMenu === undefined ? 2 : 3);
-  const menuY = ROW.firstY + ROW.pitch * 2;
-
-  const resume = new Button(
-    scene,
-    VIEW.centerX,
-    resumeY,
-    'RESUME',
-    () => {
-      if (resolved) return;
-      resolved = true;
-      actions.onResume();
-    },
-    // RESUME is the overlay's primary CTA; every other row is §14.4 `idle`.
-    // The template colour-coded RESTART in `primary` green and MENU in
-    // `secondary` violet — invented interface direction, and it painted the
-    // haul-forfeiting row as the friendly one.
-    { width: buttonWidth, height: ROW.height, ...BUTTON_STYLE.primary },
+  root.add(
+    new Button(scene, VIEW.centerX, RESUME.top + RESUME.height / 2, 'RESUME', resume, {
+      width: RESUME.width,
+      height: RESUME.height,
+      ...BUTTON_STYLE.primary,
+    }),
   );
-  const restart = new Button(
-    scene,
-    VIEW.centerX,
-    restartY,
-    'RESTART',
-    () => {
-      if (resolved) return;
-      if (armsInstead(restart, 'RESTART')) return;
-      resolved = true;
-      actions.onRestart();
-    },
-    { width: buttonWidth, height: ROW.height, ...BUTTON_STYLE.idle },
+  root.add(
+    new Button(scene, SMALL.leftX + SMALL.width / 2, SMALL.top + SMALL.height / 2, 'SETTINGS', () => {
+      if (resolved || confirm !== null) return;
+      // The real Settings sheet, over the pause (user report: the button did
+      // nothing — it only queued a toast the pause itself hides). RESET SAVE is
+      // hub-only, so no `onReset` here.
+      const sheet = openSettingsSheet(scene, {
+        onClose: () => {
+          if (confirm === sheet) confirm = null;
+        },
+      });
+      confirm = sheet;
+    }, { width: SMALL.width, height: SMALL.height, fontSize: '30px', ...BUTTON_STYLE.idle }),
   );
-  root.add([resume, restart]);
-
-  if (onMenu !== undefined) {
-    const menu = new Button(
-      scene,
-      VIEW.centerX,
-      menuY,
-      'MENU',
-      () => {
-        if (resolved) return;
-        if (armsInstead(menu, 'MENU')) return;
+  root.add(
+    new Button(scene, SMALL.rightX + SMALL.width / 2, SMALL.top + SMALL.height / 2, 'ABANDON RUN', () => {
+      if (resolved || confirm !== null) return;
+      const { items, shards } = current.carrying;
+      if (items < CONFIRM.items && shards < CONFIRM.shards) {
         resolved = true;
-        onMenu();
-      },
-      { width: buttonWidth, height: ROW.height, ...BUTTON_STYLE.idle },
-    );
-    root.add(menu);
-  }
-
-  const muteButton = new Button(
-    scene,
-    VIEW.centerX,
-    muteY,
-    isMuted() ? 'SOUND: OFF' : 'SOUND: ON',
-    () => muteButton.setLabel(toggleMute() ? 'SOUND: OFF' : 'SOUND: ON'),
-    { width: buttonWidth, height: 88, ...BUTTON_STYLE.idle, fontSize: '32px' },
+        actions.abandon();
+        return;
+      }
+      confirm = confirmDialog(scene, {
+        title: 'ABANDON RUN?',
+        body: `You carry ${items} item${items === 1 ? '' : 's'} and ${Math.floor(shards)} ◆. Only your casket is kept.`,
+        confirmLabel: 'ABANDON',
+        cancelLabel: 'KEEP GOING',
+        destructive: true,
+        onConfirm: () => {
+          confirm = null;
+          resolved = true;
+          actions.abandon();
+        },
+        onCancel: () => {
+          confirm = null;
+        },
+      });
+    }, { width: SMALL.width, height: SMALL.height, fontSize: '28px', ...BUTTON_STYLE.destructive }),
   );
-  root.add(muteButton);
 
-  const bag = actions.bag;
-  if (bag !== undefined) {
-    const bagRow = scene.add.container(0, 0).setScrollFactor(0);
-    root.add(bagRow);
-    paintBagRow(scene, bagRow, bag);
-  }
+  const paint = (m: PauseModel): void => {
+    sub.setText(`${m.zone} · H${m.hazard} · ${clock(m.elapsedS)} · LV ${m.level}`);
+    gatesText.setText(m.gates.join(' · '));
+    paintBuild(scene, build, m.weapons);
+  };
+  paint(model);
+
+  let tornDown = false;
+  const teardown = (): void => {
+    if (tornDown) return;
+    tornDown = true;
+    suspendToasts(scene, false);
+    confirm?.close();
+    confirm = null;
+    root.destroy(true);
+  };
+  scene.events.once(Phaser.Scenes.Events.SHUTDOWN, teardown);
 
   return {
+    refresh(next: PauseModel): void {
+      if (resolved) return;
+      current = next;
+      paint(next);
+      bag.refresh(next.bag);
+    },
+    back(): boolean {
+      if (confirm === null) return false;
+      confirm.close();
+      confirm = null;
+      return true;
+    },
     destroy(): void {
-      for (const timer of armTimers) timer.remove(false);
-      armTimers.length = 0;
-      root.destroy(true);
+      resolved = true;
+      scene.events.off(Phaser.Scenes.Events.SHUTDOWN, teardown);
+      teardown();
     },
   };
 }
 
-/**
- * Draws (and redraws) the bag row from the bag itself. A pin reorders the row —
- * the pinned relic moves to the casket group — so the row is rebuilt from
- * `read()` rather than patched, which is also what keeps it honest when a pin
- * displaces an older one, or when a release drops one back into the bag.
- *
- * EVERY pip is tappable, pinned or not: pinned toggles OFF, unpinned toggles
- * ON. A pinned pip used to be drawn with no hit zone at all, which made the
- * casket a one-way door and stranded a slot behind whatever the player pinned
- * first.
- *
- * Each pip arms on its OWN pointer-down and disarms on pointer-out, the same
- * gesture rule `scenes/meta.ts` uses for the GEAR cells: a release that merely
- * ENDED over a pip (a stray drag off the RESUME button) must not spend or free
- * a casket slot.
- */
-function paintBagRow(
-  scene: Phaser.Scene,
-  row: Phaser.GameObjects.Container,
-  bag: PauseBagActions,
-): void {
-  row.removeAll(true);
-
-  const relics = bag.read();
-  const pinned = relics.filter((relic) => relic.pinned).length;
-  const caption =
-    relics.length === 0
-      ? 'BAG EMPTY — RELICS YOU CARRY CAN BE PINNED HERE'
-      : `TAP TO PIN OR RELEASE · CASKET ${pinned}/${bag.casketSlots}`;
-  row.add(
-    scene.add
-      .text(VIEW.centerX, PIP.labelY, caption, { ...TEXT.label, fontSize: '22px', color: CSS.inkSoft })
-      .setOrigin(0.5)
-      .setScrollFactor(0),
-  );
-  if (relics.length === 0) return;
-
-  const safeWidth = VIEW.width - SAFE.side * 2;
-  const pitch = Math.min(PIP.maxPitch, safeWidth / relics.length);
-  const left = VIEW.centerX - (pitch * (relics.length - 1)) / 2;
-
-  for (let i = 0; i < relics.length; i += 1) {
-    const relic = relics[i];
-    if (relic === undefined) continue;
-    const x = left + i * pitch;
-
-    const swatch = scene.add.graphics().setScrollFactor(0);
-    swatch.fillStyle(tierColor(relic.tier), 1);
-    swatch.fillCircle(x, PIP.y, PIP.radius);
-    // The mandatory tier ring (tier 2 Burnished is 2.91:1 unringed); a pinned
-    // pip takes the gilt ring instead, which is the row's whole state readout.
-    swatch.lineStyle(relic.pinned ? 4 : TIER_RING.width, relic.pinned ? IDENTITY.gilt : TIER_RING.color, 1);
-    swatch.strokeCircle(x, PIP.y, PIP.radius);
-    row.add(swatch);
-
-    if (relic.pinned) {
-      row.add(
-        scene.add
-          .text(x, PIP.y + PIP.radius + 16, 'PINNED', {
-            ...TEXT.label,
-            fontSize: '16px',
-            color: CSS.accent,
-          })
-          .setOrigin(0.5)
-          .setScrollFactor(0),
-      );
+/** 4 weapon + 4 charm slots, 72 px icons, rank pips under each (evolved = gilt ring). */
+function paintBuild(scene: Phaser.Scene, build: Phaser.GameObjects.Container, view: WeaponsView): void {
+  build.removeAll(true);
+  const panel = drawDuskPanel(scene, 640, BUILD.height).setPosition(VIEW.centerX, BUILD.top + BUILD.height / 2);
+  build.add(panel);
+  const rows: { label: string; max: number; rankMax: number; slots: { icon: string; rank: number; evolved: boolean }[] }[] = [
+    {
+      label: 'WEAPONS',
+      max: view.maxWeapons,
+      rankMax: view.maxRank,
+      slots: view.weapons.map((w) => ({ icon: weaponIconId(w.id, w.evolved), rank: w.rank, evolved: w.evolved })),
+    },
+    {
+      label: 'CHARMS',
+      max: view.maxCharms,
+      rankMax: view.maxCharmRank,
+      slots: view.charms.map((c) => ({ icon: charmIconId(c.id), rank: c.rank, evolved: false })),
+    },
+  ];
+  // Evolution pairs (user request): a violet link from each owned weapon to its
+  // owned partner charm; a gilt ring on a weapon whose evolution is ready now.
+  const links = scene.add.graphics();
+  build.add(links);
+  view.weapons.forEach((w, wi) => {
+    const wx = BUILD.iconX0 + wi * BUILD.pitch;
+    const wy = (BUILD.rows[0] ?? 316) - 6;
+    if (view.evolutionEligible.includes(w.id)) {
+      links.lineStyle(3, IDENTITY.gilt, 1).strokeRoundedRect(wx - BUILD.icon / 2 - 8, wy - BUILD.icon / 2 - 8, BUILD.icon + 16, BUILD.icon + 16, 14);
     }
-
-    const zone = scene.add
-      .zone(x, PIP.y, Math.max(PIP.hit, pitch), PIP.hit)
-      .setScrollFactor(0)
-      .setInteractive({ useHandCursor: true });
-    let armed = false;
-    zone.on(Phaser.Input.Events.POINTER_DOWN, () => {
-      armed = true;
+    if (w.evolved) return;
+    view.charms.forEach((c, ci) => {
+      if (CHARMS.find((d) => d.id === c.id)?.evolves !== w.id) return;
+      const cx = BUILD.iconX0 + ci * BUILD.pitch;
+      const cy = (BUILD.rows[1] ?? 406) - 6;
+      links.lineStyle(4, IDENTITY.gateOpen, 0.95).lineBetween(wx, wy + BUILD.icon / 2 - 10, cx, cy - BUILD.icon / 2 + 10);
+      links.fillStyle(IDENTITY.gateOpen, 1).fillCircle(wx, wy + BUILD.icon / 2 - 10, 5).fillCircle(cx, cy - BUILD.icon / 2 + 10, 5);
     });
-    zone.on(Phaser.Input.Events.POINTER_OUT, () => {
-      armed = false;
-    });
-    zone.on(Phaser.Input.Events.POINTER_UP, () => {
-      if (!armed) return;
-      armed = false;
-      if (relic.pinned) bag.unpin(relic.id);
-      else bag.pin(relic.id);
-      paintBagRow(scene, row, bag);
-    });
-    row.add(zone);
-  }
+  });
+  rows.forEach((row, r) => {
+    const y = BUILD.rows[r] ?? BUILD.rows[0];
+    build.add(
+      scene.add
+        .text(BUILD.labelX, y, `${row.label}\n${row.slots.length}/${row.max}`, {
+          ...TEXT.label,
+          fontSize: '18px',
+          color: CSS.inkSoft,
+          ...bareText(),
+        })
+        .setOrigin(0, 0.5),
+    );
+    for (let i = 0; i < Math.max(row.max, 4); i += 1) {
+      const x = BUILD.iconX0 + i * BUILD.pitch;
+      const slot = row.slots[i];
+      const tile = drawPanel(scene, BUILD.icon + 8, BUILD.icon + 8, {
+        fill: PANEL.fill,
+        fillAlpha: slot ? 0.95 : 0.4,
+        stroke: slot?.evolved ? IDENTITY.gilt : PANEL.stroke,
+        strokeAlpha: slot ? 0.9 : 0.4,
+        strokeWidth: slot?.evolved ? 3 : 2,
+        radius: 12,
+      }).setPosition(x, y - 6);
+      build.add(tile);
+      if (slot === undefined) continue;
+      build.add(iconFor(scene, slot.icon, BUILD.icon - 8, r === 0 ? PALETTE.primary : PALETTE.secondary).setPosition(x, y - 6));
+      const pips = scene.add.graphics();
+      const pitch = 12;
+      const x0 = x - ((row.rankMax - 1) * pitch) / 2;
+      for (let p = 0; p < row.rankMax; p += 1) {
+        if (p < slot.rank) pips.fillStyle(PALETTE.accent, 1).fillCircle(x0 + p * pitch, y + 38, 4);
+        else pips.lineStyle(1.5, IDENTITY.cooled, 1).strokeCircle(x0 + p * pitch, y + 38, 4);
+      }
+      build.add(pips);
+    }
+  });
+  build.bringToTop(links);
 }

@@ -3,8 +3,8 @@
 export const SCENES = {
   boot: 'Boot',
   preload: 'Preload',
-  menu: 'Menu',
-  meta: 'Meta',
+  /** V2 hub (PRD-V2 §14.2, `scenes/hub/hub.ts`). */
+  hub: 'Hub',
   game: 'Game',
   gameOver: 'GameOver',
 } as const;

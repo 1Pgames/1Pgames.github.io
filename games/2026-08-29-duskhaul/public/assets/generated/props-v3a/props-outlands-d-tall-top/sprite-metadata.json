@@ -1,0 +1,100 @@
+{
+  "source": {
+    "file": "derived: crop of base prop frames (art/briefs/v3-props-a/build.py)",
+    "provider": "derived",
+    "width": 768,
+    "height": 768
+  },
+  "grid": {
+    "rows": 3,
+    "cols": 3
+  },
+  "output": {
+    "cellSize": 256,
+    "durationMs": 0,
+    "frameCount": 3,
+    "derivation": "upper half of each tall base frame (rows above alignedBox.top + height//2), identical cell geometry; cells after frameCount are empty"
+  },
+  "qc": {
+    "strict": true,
+    "passed": true,
+    "failures": [],
+    "notes": [
+      "derived-crop: registers pixel-for-pixel with its base cell"
+    ]
+  },
+  "frames": [
+    {
+      "index": 0,
+      "file": "frames/frame-000.png",
+      "name": "outlands-split-tree-top",
+      "base": {
+        "asset": "props-outlands-d",
+        "group": "props-v3a",
+        "frame": 0,
+        "alignedBox": {
+          "left": 68,
+          "top": 23,
+          "width": 118,
+          "height": 209
+        }
+      },
+      "cutY": 127,
+      "alignedBox": {
+        "left": 105,
+        "top": 23,
+        "width": 80,
+        "height": 104
+      },
+      "empty": false
+    },
+    {
+      "index": 1,
+      "file": "frames/frame-001.png",
+      "name": "outlands-signpost-top",
+      "base": {
+        "asset": "props-outlands-d",
+        "group": "props-v3a",
+        "frame": 5,
+        "alignedBox": {
+          "left": 71,
+          "top": 38,
+          "width": 113,
+          "height": 181
+        }
+      },
+      "cutY": 128,
+      "alignedBox": {
+        "left": 77,
+        "top": 38,
+        "width": 107,
+        "height": 90
+      },
+      "empty": false
+    },
+    {
+      "index": 2,
+      "file": "frames/frame-002.png",
+      "name": "outlands-bird-totem-top",
+      "base": {
+        "asset": "props-outlands-d",
+        "group": "props-v3a",
+        "frame": 8,
+        "alignedBox": {
+          "left": 76,
+          "top": 35,
+          "width": 104,
+          "height": 185
+        }
+      },
+      "cutY": 127,
+      "alignedBox": {
+        "left": 85,
+        "top": 35,
+        "width": 93,
+        "height": 92
+      },
+      "empty": false
+    }
+  ]
+}

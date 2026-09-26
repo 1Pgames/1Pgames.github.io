@@ -1,4 +1,3 @@
-import { dailyDay, isDailyMode } from './daily';
 import { track } from './telemetry';
 
 /**
@@ -6,9 +5,8 @@ import { track } from './telemetry';
  * where it exists (Android/iOS browsers, installed PWAs), falls back to the
  * clipboard on desktop, and reports 'unavailable' when neither is permitted so
  * the caller can leave its button silent instead of lying.
- *
- * In daily mode the shared URL carries `?d=<day>`, which `core/daily.ts` reads
- * at import: the receiver gets the exact run the sender played.
+ * The Daily Rite is seeded by the local date (`core/daily.ts dailyInfo`), so
+ * the shared URL is the plain page URL.
  */
 export type ShareOutcome = 'shared' | 'copied' | 'unavailable';
 
@@ -43,6 +41,5 @@ export async function shareResult(opts: { score: string; won: boolean }): Promis
 /** Canonical page URL, stripped of the query/hash this visit happened to have. */
 function shareUrl(): string {
   if (typeof location === 'undefined') return '';
-  const base = location.origin + location.pathname;
-  return isDailyMode() ? `${base}?d=${dailyDay()}` : base;
+  return location.origin + location.pathname;
 }

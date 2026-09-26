@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { PALETTE, TUNING, VIEW } from '../config';
+import { PALETTE, SAFE, TUNING, VIEW } from '../config';
 import { DEEP_INK, IDENTITY } from './duskChrome';
 
 /**
@@ -17,12 +17,13 @@ const ACTIVE_ALPHA = 0.35;
  * On-screen thumb joystick for portrait games: the movement verb for anything
  * where the player steers continuously (survivor-like, twin-stick, roguelike).
  *
- * Floating by default: the base jumps to wherever the thumb lands inside the
- * control zone, so the player never has to find a fixed pad — the single most
- * common failure of virtual sticks on phones. It renders NOTHING while idle:
- * §14.3 reserves the bottom 220px as the joystick region with "no persistent
- * chrome", so the ring and thumb fade in only under a live touch. The
- * `tut:stick` coach beat is the authored teacher for the control.
+ * Floating: the base jumps to wherever the thumb lands anywhere on the
+ * playfield BELOW the HUD band (y ≥ `SAFE.top`, PRD-V2 §14.1/§14.14), so the
+ * player never has to find a fixed pad. A press that lands on an interactive
+ * UI object (belt buttons, minimap, bag widget, a tappable toast) belongs to
+ * that object and never arms the stick (§14.1 "consume pointer before
+ * joystick"). It renders NOTHING while idle; the `move` coach beat
+ * (`ui/coachBeats.ts`) is the authored teacher and its copy names this zone.
  *
  * Drawn with primitives (`Graphics`), so it scales with `TUNING.joystick`; its
  * tones come from the §14.4 chrome spec (`#7e7376` on `#03040b`), not from
@@ -84,9 +85,12 @@ export class Joystick {
     this.scene.input.off(Phaser.Input.Events.POINTER_UP_OUTSIDE, this.onUp, this);
   }
 
-  /** Pointer presses above this line belong to the game/UI, not the stick. */
+  /**
+   * The whole playfield below the HUD band is stick input (PRD-V2 §14.14: the
+   * move beat's copy must match the zone). The HUD band itself is widgets.
+   */
   private inControlZone(y: number): boolean {
-    return y >= VIEW.height * TUNING.joystick.zoneTop;
+    return y >= SAFE.top;
   }
 
   /**
@@ -114,7 +118,9 @@ export class Joystick {
     if (pointer.isDown) this.arm(pointer);
   }
 
-  private onDown(pointer: Phaser.Input.Pointer): void {
+  private onDown(pointer: Phaser.Input.Pointer, over: Phaser.GameObjects.GameObject[]): void {
+    // A UI control under the thumb consumes the press (belt, minimap, bag).
+    if (over.length > 0) return;
     this.arm(pointer);
   }
 
@@ -186,9 +192,8 @@ export class Joystick {
    * green disc sitting on it was both unauthorised chrome and the brightest
    * thing in the bottom third of the frame.
    *
-   * Discoverability is not lost — `tut:stick`'s `swap-gate` coach beat is the
-   * authored teacher for this control (§14b), and it holds forever until the
-   * player drags.
+   * Discoverability is not lost — the `move` coach toast (`ui/coachBeats.ts`)
+   * is the authored teacher for this control.
    */
   private setIdleAlpha(): void {
     this.base.setAlpha(0);

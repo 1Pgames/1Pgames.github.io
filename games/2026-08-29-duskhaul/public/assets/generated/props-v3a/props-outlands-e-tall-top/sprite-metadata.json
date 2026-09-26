@@ -1,0 +1,100 @@
+{
+  "source": {
+    "file": "derived: crop of base prop frames (art/briefs/v3-props-a/build.py)",
+    "provider": "derived",
+    "width": 768,
+    "height": 768
+  },
+  "grid": {
+    "rows": 3,
+    "cols": 3
+  },
+  "output": {
+    "cellSize": 256,
+    "durationMs": 0,
+    "frameCount": 3,
+    "derivation": "upper half of each tall base frame (rows above alignedBox.top + height//2), identical cell geometry; cells after frameCount are empty"
+  },
+  "qc": {
+    "strict": true,
+    "passed": true,
+    "failures": [],
+    "notes": [
+      "derived-crop: registers pixel-for-pixel with its base cell"
+    ]
+  },
+  "frames": [
+    {
+      "index": 0,
+      "file": "frames/frame-000.png",
+      "name": "outlands-menhir-top",
+      "base": {
+        "asset": "props-outlands-e",
+        "group": "props-v3a",
+        "frame": 0,
+        "alignedBox": {
+          "left": 62,
+          "top": 41,
+          "width": 132,
+          "height": 174
+        }
+      },
+      "cutY": 128,
+      "alignedBox": {
+        "left": 95,
+        "top": 41,
+        "width": 78,
+        "height": 87
+      },
+      "empty": false
+    },
+    {
+      "index": 1,
+      "file": "frames/frame-001.png",
+      "name": "outlands-wayshrine-top",
+      "base": {
+        "asset": "props-outlands-e",
+        "group": "props-v3a",
+        "frame": 6,
+        "alignedBox": {
+          "left": 60,
+          "top": 30,
+          "width": 136,
+          "height": 196
+        }
+      },
+      "cutY": 128,
+      "alignedBox": {
+        "left": 60,
+        "top": 30,
+        "width": 136,
+        "height": 98
+      },
+      "empty": false
+    },
+    {
+      "index": 2,
+      "file": "frames/frame-002.png",
+      "name": "outlands-antler-totem-top",
+      "base": {
+        "asset": "props-outlands-e",
+        "group": "props-v3a",
+        "frame": 7,
+        "alignedBox": {
+          "left": 69,
+          "top": 21,
+          "width": 119,
+          "height": 214
+        }
+      },
+      "cutY": 128,
+      "alignedBox": {
+        "left": 69,
+        "top": 21,
+        "width": 119,
+        "height": 107
+      },
+      "empty": false
+    }
+  ]
+}

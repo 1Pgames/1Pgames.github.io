@@ -1,0 +1,243 @@
+{
+  "source": {
+    "file": "derived: crop of base prop frames (see art/briefs/v2-world/talltop.py)",
+    "provider": "derived",
+    "width": 768,
+    "height": 768
+  },
+  "grid": {
+    "rows": 3,
+    "cols": 3
+  },
+  "output": {
+    "cellSize": 256,
+    "durationMs": 0,
+    "derivation": "upper half of each base frame (rows above alignedBox.top + height/2), identical cell geometry"
+  },
+  "qc": {
+    "strict": true,
+    "passed": true,
+    "failures": [],
+    "notes": [
+      "derived-crop: registers pixel-for-pixel with its base cell"
+    ]
+  },
+  "frames": [
+    {
+      "index": 0,
+      "file": "frames/frame-000.png",
+      "name": "wall-straight",
+      "base": {
+        "asset": "props-castle-c",
+        "group": "props-v2",
+        "frame": 0,
+        "alignedBox": {
+          "left": 18,
+          "top": 59,
+          "width": 216,
+          "height": 139
+        }
+      },
+      "cutY": 128,
+      "alignedBox": {
+        "left": 24,
+        "top": 59,
+        "width": 209,
+        "height": 69
+      },
+      "empty": false
+    },
+    {
+      "index": 1,
+      "file": "frames/frame-001.png",
+      "name": "wall-corner",
+      "base": {
+        "asset": "props-castle-c",
+        "group": "props-v2",
+        "frame": 1,
+        "alignedBox": {
+          "left": 28,
+          "top": 66,
+          "width": 201,
+          "height": 124
+        }
+      },
+      "cutY": 128,
+      "alignedBox": {
+        "left": 36,
+        "top": 66,
+        "width": 189,
+        "height": 62
+      },
+      "empty": false
+    },
+    {
+      "index": 2,
+      "file": "frames/frame-002.png",
+      "name": "pillar",
+      "base": {
+        "asset": "props-castle-c",
+        "group": "props-v2",
+        "frame": 3,
+        "alignedBox": {
+          "left": 84,
+          "top": 35,
+          "width": 88,
+          "height": 186
+        }
+      },
+      "cutY": 128,
+      "alignedBox": {
+        "left": 95,
+        "top": 35,
+        "width": 73,
+        "height": 93
+      },
+      "empty": false
+    },
+    {
+      "index": 3,
+      "file": "frames/frame-003.png",
+      "name": "monolith",
+      "base": {
+        "asset": "props-castle-c",
+        "group": "props-v2",
+        "frame": 6,
+        "alignedBox": {
+          "left": 72,
+          "top": 47,
+          "width": 112,
+          "height": 163
+        }
+      },
+      "cutY": 128,
+      "alignedBox": {
+        "left": 83,
+        "top": 47,
+        "width": 89,
+        "height": 81
+      },
+      "empty": false
+    },
+    {
+      "index": 4,
+      "file": "frames/frame-004.png",
+      "name": "lamppost",
+      "base": {
+        "asset": "props-castle-c",
+        "group": "props-v2",
+        "frame": 7,
+        "alignedBox": {
+          "left": 87,
+          "top": 35,
+          "width": 83,
+          "height": 185
+        }
+      },
+      "cutY": 127,
+      "alignedBox": {
+        "left": 93,
+        "top": 35,
+        "width": 77,
+        "height": 92
+      },
+      "empty": false
+    },
+    {
+      "index": 5,
+      "file": "frames/frame-005.png",
+      "name": "torch",
+      "base": {
+        "asset": "props-castle-a",
+        "group": "zone-castle",
+        "frame": 6,
+        "alignedBox": {
+          "left": 87,
+          "top": 37,
+          "width": 82,
+          "height": 181
+        }
+      },
+      "cutY": 127,
+      "alignedBox": {
+        "left": 115,
+        "top": 37,
+        "width": 54,
+        "height": 90
+      },
+      "empty": false
+    },
+    {
+      "index": 6,
+      "file": "frames/frame-006.png",
+      "name": "statue",
+      "base": {
+        "asset": "props-castle-a",
+        "group": "zone-castle",
+        "frame": 7,
+        "alignedBox": {
+          "left": 62,
+          "top": 41,
+          "width": 132,
+          "height": 175
+        }
+      },
+      "cutY": 128,
+      "alignedBox": {
+        "left": 82,
+        "top": 41,
+        "width": 91,
+        "height": 87
+      },
+      "empty": false
+    },
+    {
+      "index": 7,
+      "file": "frames/frame-007.png",
+      "name": "column",
+      "base": {
+        "asset": "props-castle-b",
+        "group": "zone-castle",
+        "frame": 5,
+        "alignedBox": {
+          "left": 57,
+          "top": 36,
+          "width": 142,
+          "height": 184
+        }
+      },
+      "cutY": 128,
+      "alignedBox": {
+        "left": 85,
+        "top": 36,
+        "width": 85,
+        "height": 92
+      },
+      "empty": false
+    },
+    {
+      "index": 8,
+      "file": "frames/frame-008.png",
+      "name": "hook",
+      "base": {
+        "asset": "props-castle-b",
+        "group": "zone-castle",
+        "frame": 7,
+        "alignedBox": {
+          "left": 54,
+          "top": 43,
+          "width": 147,
+          "height": 169
+        }
+      },
+      "cutY": 127,
+      "alignedBox": {
+        "left": 124,
+        "top": 43,
+        "width": 22,
+        "height": 84
+      },
+      "empty": false
+    }
+  ]
+}

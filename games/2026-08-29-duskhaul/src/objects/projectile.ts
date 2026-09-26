@@ -27,6 +27,12 @@ const BOLT_TARGET = { length: 1.9, thickness: 0.62 } as const;
 const BOLT_LENGTH_MUL = (BOLT_TARGET.length * BOLT_CONTENT.cell) / BOLT_CONTENT.w;
 const BOLT_THICKNESS_MUL = (BOLT_TARGET.thickness * BOLT_CONTENT.cell) / BOLT_CONTENT.h;
 
+/** Hero violet `#ad6eef` (PRD-V2 §5.8 hero VFX palette). */
+const HERO_CRIT_TINT = 0xad6eef;
+
+/** On-screen side of the square `wpn-bolt` cell, in multiples of the shot `size`. */
+const NAIL_CELL_MUL = 3;
+
 /**
  * Pooled projectile for auto-attacks and enemy shots. Carries its own damage
  * payload so a hit needs no lookup back into the shooter (which may already be
@@ -46,6 +52,12 @@ export class Projectile extends Phaser.Physics.Arcade.Sprite {
   pierceRemaining = 0;
   /** Enemies already hit this flight, so a piercing shot never double-hits the same target. */
   readonly hitTargets: Set<Enemy> = new Set();
+
+  /**
+   * Hero nail art (`wpn-bolt` / `wpn-bolt-evo` once Coffin Nail evolves), set
+   * by `WeaponSystem` per run. Missing texture ⇒ the V1 `bolt-arcane` dart.
+   */
+  static heroArt = 'wpn-bolt';
 
   constructor(scene: Phaser.Scene) {
     super(scene, 0, 0, TEXTURE.bullet);
@@ -76,21 +88,34 @@ export class Projectile extends Phaser.Physics.Arcade.Sprite {
     this.pierceRemaining = pierce;
     this.hitTargets.clear();
 
-    const size = TUNING.player.projectileSize * (crit ? 1.6 : 1) * (hostile ? 1.3 : 1) * area;
+    // Hero shots are Rustspike nails (`weapons.bolt.size`, §5.8); hostile shots keep the V1 size.
+    const base = hostile ? TUNING.player.projectileSize * 1.3 : TUNING.weapons.bolt.size;
+    const size = base * (crit ? 1.6 : 1) * area;
     this.hitRadius = size;
     this.setPosition(x, y);
-    this.setDisplaySize(size * BOLT_LENGTH_MUL, size * BOLT_THICKNESS_MUL);
+    const art = Projectile.heroArt;
+    if (!hostile && this.scene.textures.exists(art)) {
+      // `wpn-bolt` is a nail pointing right in a square 64 cell.
+      this.setTexture(art, 0);
+      if (this.scene.anims.exists(art)) this.play(art, true);
+      this.setDisplaySize(size * NAIL_CELL_MUL, size * NAIL_CELL_MUL);
+    } else {
+      this.stop();
+      this.setTexture(TEXTURE.bullet);
+      this.setDisplaySize(size * BOLT_LENGTH_MUL, size * BOLT_THICKNESS_MUL);
+    }
     // The bolt art is drawn head-first to the RIGHT (measured: mass +26.9% and
     // value +25.4 on the right), so rotation 0 is travelling right.
     this.setRotation(Math.atan2(vy, vx));
     // Hostile shots are recoloured so the player can read incoming danger;
-    // friendly shots keep the generated cyan, crits get a gold overlay.
+    // friendly shots keep the generated cyan, crits get the hero violet
+    // (§5.8: hero VFX palette is cool — never red/amber).
     if (hostile) this.setTint(PALETTE.bad);
-    else if (crit) this.setTint(PALETTE.accent);
+    else if (crit) this.setTint(HERO_CRIT_TINT);
     else this.clearTint();
     this.setActive(true).setVisible(true);
     this.enableBody(false, x, y, true, true);
-    this.body?.setCircle(64, 0, 0);
+    this.body?.setCircle(this.frame.width / 2, 0, 0);
     this.setVelocity(vx, vy);
   }
 
