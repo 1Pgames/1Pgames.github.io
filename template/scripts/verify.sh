@@ -5,7 +5,8 @@
 #   2  content contract check   (scripts/w1-contract-check.mjs)
 #   3  consumer-edge check      (scripts/consumer-edge-check.mjs)
 #   4  art registry freshness   (scripts/gen-art-registry.mjs --check)
-#   5  genre-kit selftests      (src/sim/kits/*.selftest.ts)
+#   5  genre-kit selftests      (src/sim/kits/*.timing.selftest.ts alone,
+#                                then the other *.selftest.ts in parallel)
 #   6  balance sims, strict     (npm run sim -- --strict)
 #
 # EVERY STAGE RUNS. The exit code is aggregated at the end and a per-stage
@@ -25,6 +26,10 @@
 # resolution with `.ts`/`.tsx`/`.js`/`.mjs` appended; every `node` invocation
 # below that touches `src/` loads it via `--import` so the same source tree
 # runs unmodified in Node as it does in Vite/tsc.
+#
+# Stage 5 runs the kit selftests concurrently (`VERIFY_JOBS=N` caps them;
+# default: CPU count). A kit whose gate is a wall-clock budget is named
+# `src/sim/kits/*.timing.selftest.ts` instead: those run first, alone.
 set -uo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
@@ -102,24 +107,81 @@ run_art_registry_check() {
 stage "art registry" run_art_registry_check
 
 # ------------------------------------------------------- 5. genre-kit tests --
+# `*.timing.selftest.ts` kits hold wall-clock budgets: they run FIRST and
+# ALONE, because a budget measured while the selftest pool shares the CPU fails
+# on load, not on code. Then every other `*.selftest.ts` runs concurrently, at
+# most VERIFY_JOBS (default: CPU count) at a time. Each one's output is buffered and printed
+# whole when it finishes, under its own header, so the log stays readable; the
+# exit codes are aggregated — one broken kit never hides the others, for the
+# same reason the stages never short-circuit. Written for bash 3.2 (macOS
+# /bin/bash has no `wait -n`): the parent polls its children and is the only
+# writer to the log.
+cpu_count() {
+  nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 2
+}
+
 run_kit_selftests() {
   shopt -s nullglob
-  local selftests=(src/sim/kits/*.selftest.ts)
-  if [ ${#selftests[@]} -eq 0 ]; then
+  local f
+  local timings=(src/sim/kits/*.timing.selftest.ts)
+  local selftests=()
+  for f in src/sim/kits/*.selftest.ts; do
+    case "$f" in *.timing.selftest.ts) ;; *) selftests+=("$f") ;; esac
+  done
+  if [ $((${#timings[@]} + ${#selftests[@]})) -eq 0 ]; then
     echo "SKIP: no src/sim/kits/*.selftest.ts files present yet"
     return 0
   fi
-  # Each selftest reports independently for the same reason the stages do: one
-  # broken kit must not hide the other eight.
   local rc=0
-  local f
-  for f in "${selftests[@]}"; do
-    echo "-- $f --"
+  for f in ${timings[@]+"${timings[@]}"}; do
+    echo "-- $f (alone) --"
     if ! node --import ./scripts/ts-resolve.mjs "$f"; then
       echo "-- $f FAILED"
       rc=1
     fi
   done
+
+  local max_jobs="${VERIFY_JOBS:-$(cpu_count)}"
+  local logdir
+  logdir="$(mktemp -d "${TMPDIR:-/tmp}/verify-kits.XXXXXX")"
+  local -a pids=() files=() starts=()
+  local next=0 i pid code
+  echo "-- ${#selftests[@]} selftests, up to $max_jobs at a time --"
+  while [ "$next" -lt "${#selftests[@]}" ] || [ "${#pids[@]}" -gt 0 ]; do
+    while [ "$next" -lt "${#selftests[@]}" ] && [ "${#pids[@]}" -lt "$max_jobs" ]; do
+      f="${selftests[$next]}"
+      node --import ./scripts/ts-resolve.mjs "$f" >"$logdir/$next.log" 2>&1 &
+      pids+=("$!")
+      files+=("$next")
+      starts+=("$SECONDS")
+      next=$((next + 1))
+    done
+    sleep 0.2
+    local -a still_pids=() still_files=() still_starts=()
+    for i in "${!pids[@]}"; do
+      pid="${pids[$i]}"
+      if kill -0 "$pid" 2>/dev/null; then
+        still_pids+=("$pid")
+        still_files+=("${files[$i]}")
+        still_starts+=("${starts[$i]}")
+        continue
+      fi
+      wait "$pid"
+      code=$?
+      f="${selftests[${files[$i]}]}"
+      echo "-- $f ($((SECONDS - ${starts[$i]})) s) --"
+      cat "$logdir/${files[$i]}.log"
+      if [ "$code" -ne 0 ]; then
+        echo "-- $f FAILED (exit $code)"
+        rc=1
+      fi
+    done
+    pids=(${still_pids[@]+"${still_pids[@]}"})
+    files=(${still_files[@]+"${still_files[@]}"})
+    starts=(${still_starts[@]+"${still_starts[@]}"})
+    unset still_pids still_files still_starts
+  done
+  rm -rf "$logdir"
   return $rc
 }
 stage "kit selftests" run_kit_selftests

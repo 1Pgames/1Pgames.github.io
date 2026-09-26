@@ -13,3 +13,5 @@ art/briefs/**/raw-*.png
 public/assets/generated/**/raw-source.*
 public/assets/generated/**/raw-provider.*
 **/provider-raw.*
+# Disk cache for generated maps (src/sim/mapgen-cache.ts), node-only.
+.cache/

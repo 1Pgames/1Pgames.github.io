@@ -1,5 +1,6 @@
 // run: node --import ./scripts/ts-resolve.mjs src/sim/kits/actors.selftest.ts
-//   ACTORS_SEEDS=20 for a quick pass (default 200 seeds × 4 zones).
+//   ACTORS_SEEDS=20 for a quick pass (default 200 seeds × 4 zones). Maps come
+//   through the node-only disk cache (`src/sim/mapgen-cache.ts`).
 //
 // WS-Actors laws (PRD-V2 §5.4-5.6, §3.9, §13): the roster census and its
 // §5.4 numbers, `visiblePx` → cell size / body radius / contact reach, elite
@@ -34,7 +35,7 @@ import {
 import { ELITE_AFFIXES, affixDef } from '../../data/eliteAffixes';
 import { ZONES } from '../../data/zones';
 import type { EliteAffixId, ZoneId } from '../../data/types-v2';
-import { generateMap } from '../../systems/mapgen';
+import { cachedGenerateMap, prewarmMapCache } from '../mapgen-cache';
 
 const SEEDS = Number(process.env.ACTORS_SEEDS ?? 200);
 const ZONE_IDS: readonly ZoneId[] = ['castle', 'outlands', 'desert', 'winter'];
@@ -197,9 +198,11 @@ for (const z of ZONE_IDS) {
   let spawned = 0;
   let abandoned = 0;
   const out = { x: 0, y: 0 };
+  // Cold cache: generate every map on every core first; the loop then reads hits.
+  await prewarmMapCache(ZONES, Array.from({ length: SEEDS }, (_, s) => `actors-${s}`));
   for (const zone of ZONES) {
     for (let s = 0; s < SEEDS; s += 1) {
-      const map = generateMap(zone, `actors-${s}`);
+      const map = cachedGenerateMap(zone, `actors-${s}`);
       const nav = NavGrid.fromBlocked(map.nav.cols, map.nav.rows, map.nav.cell, map.nav.blocked);
       const rng = new Rng(`ring:${zone.id}:${s}`);
       // Hero walks the spawn plus a few random reachable cells.

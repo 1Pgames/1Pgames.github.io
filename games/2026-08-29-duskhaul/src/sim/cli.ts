@@ -2,11 +2,14 @@ import { readdirSync } from 'node:fs';
 
 import { LANES, type LanePolicy } from './bots';
 import { SIM_FAMILY } from './family';
+import { mapgenSourceClosure, mapgenSourceHash } from './mapgen-cache';
 import runArenaSim from './families/arena';
 import type { FamilySim } from './families/types';
 
 /**
  * Headless balance CLI. `npm run sim -- --family <code> [flags]`.
+ * `npm run sim -- --mapgen-cache-key [--files]` prints the generated-map cache
+ * key (`mapgen-cache.ts`) instead of running anything.
  *
  * Every family's gates live in `src/sim/families/<code>.ts`, which prints its
  * own report and returns the process exit code; this file only parses flags and
@@ -168,7 +171,14 @@ async function runFamily(options: CliOptions): Promise<number> {
 }
 
 function main(): void {
-  const options = parseArgs(process.argv.slice(2));
+  const argv = process.argv.slice(2);
+  if (argv[0] === '--mapgen-cache-key') {
+    // `.cache/mapgen/<hash>/` dir name and the CI actions/cache key; `--files` lists what it hashes.
+    if (argv.includes('--files')) for (const file of mapgenSourceClosure()) console.log(file);
+    console.log(mapgenSourceHash());
+    return;
+  }
+  const options = parseArgs(argv);
   runFamily(options).then(
     (code) => process.exit(code),
     (error: unknown) => {

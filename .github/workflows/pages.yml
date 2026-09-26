@@ -39,8 +39,8 @@ jobs:
           restore-keys: |
             dists-
       # build-site reuses each game's `npm run build` (tsc + vite), so types
-      # are checked here too; the `verify` job runs the full gate suite
-      # (sims, selftests, release-check) in parallel and blocks the deploy.
+      # are checked here too; the `verify` job runs the gate suite (sims,
+      # selftests, release-check) in parallel and blocks the deploy.
       - name: Build catalog and games
         run: node scripts/build-site.mjs
       - uses: actions/upload-pages-artifact@v3
@@ -48,6 +48,17 @@ jobs:
           path: _site
 
   # Design/quality gates: typecheck, headless sims and selftests.
+  #
+  # Push profile, sized for a deploy that waits on it:
+  #   - typecheck of EVERY workspace and release-check of every released game
+  #     always run (seconds);
+  #   - the full verify.sh gate runs only for games this push changed, or for
+  #     everything when template/, scripts/, root package files or a workflow
+  #     changed, on a first push or a force-push, and on workflow_dispatch
+  #     (scripts/ci-verify.sh owns that selection);
+  #   - VERIFY_QUICK=1: same stages and thresholds on smaller seeded samples
+  #     (see each game's scripts/verify.sh header). The FULL profile runs
+  #     nightly for every game: .github/workflows/nightly-verify.yml.
   verify:
     runs-on: ubuntu-latest
     steps:
@@ -64,30 +75,49 @@ jobs:
             echo "== typecheck $dir"
             (cd "$dir" && npx tsc --noEmit)
           done
-      - name: Verify template
-        run: cd template && bash scripts/verify.sh
+      # Generated-map disk cache (src/sim/mapgen-cache.ts in games that have
+      # one). Keyed by every game's mapgen source hash: an unchanged generator
+      # restores an exact hit; a changed one restores the newest entry, whose
+      # stale per-hash dirs the cache prunes on first write.
+      - name: Mapgen cache key
+        id: mapgen-key
+        run: echo "key=$(bash scripts/ci-verify.sh mapgen-cache-key)" >> "$GITHUB_OUTPUT"
+      - name: Restore mapgen cache
+        id: mapgen-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: games/*/.cache/mapgen
+          key: mapgen-${{ steps.mapgen-key.outputs.key }}
+          restore-keys: |
+            mapgen-
       # Family gates measure whether a game is TUNED WELL. A variant is a
       # frozen historical build (`variantOf` in its game.json) that is
       # deliberately never improved — holding it to a bar that keeps rising
       # would turn it into permanent CI failure for doing exactly its job. It
       # still has to COMPILE and RUN: the typecheck loop above covers it, and
       # build-site.mjs builds it like any other workspace.
-      - name: Verify games (family gates)
-        run: |
-          for dir in games/*/; do
-            [ -f "$dir/package.json" ] || continue
-            if [ -f "$dir/game.json" ] && node -e "process.exit(JSON.parse(require('fs').readFileSync('$dir/game.json','utf8')).variantOf?0:1)"; then
-              echo "== skip $dir (frozen variant — gates are a record, not a bar)"
-              continue
-            fi
-            echo "== verify $dir"
-            (cd "$dir" && bash scripts/verify.sh)
-          done
+      - name: Verify changed games (quick profile)
+        env:
+          VERIFY_QUICK: '1'
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+        if: ${{ !cancelled() }}
+        run: bash scripts/ci-verify.sh run ${{ github.event_name == 'push' && 'changed' || 'all' }}
+      # Saved even when a gate failed (plain actions/cache only saves on
+      # success): the maps are correct either way, and the re-run after a fix
+      # should not regenerate them.
+      - name: Save mapgen cache
+        if: ${{ !cancelled() && steps.mapgen-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v4
+        with:
+          path: games/*/.cache/mapgen
+          key: mapgen-${{ steps.mapgen-key.outputs.key }}
       # The storefront gate: every game claiming `released` must actually
       # clear the release checklist (manifest, playtest sign-off, cover,
       # screenshots, no scaffold leftovers). A hand-flipped status without
       # the gate no longer deploys.
       - name: Release-check released games
+        if: ${{ !cancelled() }}
         run: |
           for dir in games/*/; do
             [ -f "$dir/game.json" ] || continue

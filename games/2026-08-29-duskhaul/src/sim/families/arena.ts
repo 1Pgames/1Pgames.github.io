@@ -1,3 +1,6 @@
+import { availableParallelism } from 'node:os';
+import { isMainThread, parentPort, Worker, workerData } from 'node:worker_threads';
+
 import { PLAYER_BASE_STATS, TUNING, VIEW } from '../../config';
 import { RunDirector, type EventSpec, type WaveSpec } from '../../core/run';
 import { Rng } from '../../core/rng';
@@ -43,7 +46,7 @@ import {
   worstCaseChannelMs,
   type ChannelContest,
 } from '../../systems/extraction';
-import { depthAt, generateMap } from '../../systems/mapgen';
+import { depthAt } from '../../systems/mapgen';
 import { poiXpBurst } from '../../systems/poi';
 import {
   CEILING_SKILL,
@@ -58,6 +61,7 @@ import {
   type RouteProfile,
 } from '../bots';
 import { createDirectorHost } from '../director-host';
+import { cachedGenerateMap } from '../mapgen-cache';
 import { finishFamily, hard, median, num, pct, printTable, type FamilySimOptions, type GateResult } from './types';
 
 /**
@@ -630,7 +634,7 @@ function simulateRoute(options: RouteSimOptions): RouteRun {
   const rng = new Rng(seed);
   const hazard = hazardDef(1);
   const loadout = simLoadout(zone, profile.classId, hazard, seed);
-  const map = generateMap(zone, seed);
+  const map = cachedGenerateMap(zone, seed);
   const nav = new NavFields(map);
   const collapseAtS = loadout.hazardExtras.collapseAtS;
 
@@ -2567,7 +2571,69 @@ function renderReport(runs: readonly RouteRun[], ceiling: readonly RouteRun[], p
 // ---------------------------------------------------------------------------
 
 function sampleMapFor(zone: ZoneDef): GeneratedMap {
-  return generateMap(zone, `probe:${zone.id}`);
+  return cachedGenerateMap(zone, `probe:${zone.id}`);
+}
+
+/** One seeded route run, as posted to a run-pool worker (zones travel by id). */
+interface RouteJob {
+  index: number;
+  seed: string;
+  lane: LanePolicy;
+  skill: number;
+  zoneId: string;
+  weaponSlots: number;
+}
+
+/** `workerData` tag of a run-pool worker: this very module, started by `playRoutes`. */
+const ROUTE_WORKER = 'arena-route-worker';
+
+function playJob(job: RouteJob): RouteRun {
+  const zone = ZONES.find((z) => z.id === job.zoneId);
+  if (zone === undefined) throw new Error(`arena sim: unknown zone ${job.zoneId}`);
+  return simulateRoute({ seed: job.seed, lane: job.lane, skill: job.skill, zone, weaponSlots: job.weaponSlots });
+}
+
+/**
+ * Plays every job and returns the runs IN JOB ORDER. Runs are independent and
+ * fully seeded, so a pool of worker threads (one per core; `SIM_WORKERS=N`
+ * overrides, `SIM_WORKERS=1` plays serially in-process) produces exactly the
+ * serial result — the report and gates read `runs` in this order only. Each
+ * worker runs THIS module (see the `ROUTE_WORKER` block at the bottom): the
+ * parent posts one job at a time and the worker answers `{ index, run }` by
+ * structured clone, so `Infinity`/`null`/nested records survive exactly.
+ */
+async function playRoutes(jobs: readonly RouteJob[]): Promise<RouteRun[]> {
+  const requested = Number(process.env.SIM_WORKERS ?? availableParallelism());
+  const workerCount = Math.max(1, Math.min(jobs.length, Number.isInteger(requested) && requested > 0 ? requested : 1));
+  if (workerCount === 1) {
+    return jobs.map(playJob);
+  }
+  const runs: RouteRun[] = new Array(jobs.length);
+  let next = 0;
+  const workers: Worker[] = [];
+  try {
+    await new Promise<void>((resolve, reject) => {
+      let done = 0;
+      for (let w = 0; w < workerCount; w += 1) {
+        const worker = new Worker(new URL(import.meta.url), { workerData: ROUTE_WORKER });
+        workers.push(worker);
+        worker.on('error', reject);
+        worker.on('exit', (code) => {
+          if (done < jobs.length) reject(new Error(`arena sim worker exited (code ${code}) with ${jobs.length - done} runs outstanding`));
+        });
+        worker.on('message', (message: { index: number; run: RouteRun }) => {
+          runs[message.index] = message.run;
+          done += 1;
+          if (done === jobs.length) resolve();
+          else if (next < jobs.length) worker.postMessage(jobs[next++]);
+        });
+        worker.postMessage(jobs[next++]);
+      }
+    });
+  } finally {
+    await Promise.all(workers.map((worker) => worker.terminate()));
+  }
+  return runs;
 }
 
 export interface ArenaSimOptions extends FamilySimOptions {
@@ -2577,22 +2643,23 @@ export interface ArenaSimOptions extends FamilySimOptions {
   weaponSlots?: number;
 }
 
-function runArenaSim(options: ArenaSimOptions): number {
+async function runArenaSim(options: ArenaSimOptions): Promise<number> {
   const lanes = options.lane === undefined || options.lane === 'all' ? LANES : [options.lane];
   const runCount = Number.isFinite(options.runs) && options.runs > 0 ? options.runs : 20;
   const weaponSlots = options.weaponSlots ?? TUNING.weapons.maxSlots;
   const seeder = new Rng(`${options.seed}:arena`);
-  const runs: RouteRun[] = [];
+  const jobs: RouteJob[] = [];
   for (const zone of ZONES) {
     for (const lane of lanes) {
       for (const skill of SKILL_LEVELS) {
         for (let i = 0; i < runCount; i += 1) {
           const seed = `${options.seed}:${zone.id}:${lane}:${skill}:${i}:${seeder.int(0, 0x7fffffff)}`;
-          runs.push(simulateRoute({ seed, lane, skill, zone, weaponSlots }));
+          jobs.push({ index: jobs.length, seed, lane, skill, zoneId: zone.id, weaponSlots });
         }
       }
     }
   }
+  const runs = await playRoutes(jobs);
 
   const maps = ZONES.map((zone) => ({ zone, map: sampleMapFor(zone) }));
   const castle = maps[0]!;
@@ -2618,3 +2685,8 @@ function runArenaSim(options: ArenaSimOptions): number {
 }
 
 export default runArenaSim;
+
+if (!isMainThread && workerData === ROUTE_WORKER) {
+  const port = parentPort!;
+  port.on('message', (job: RouteJob) => port.postMessage({ index: job.index, run: playJob(job) }));
+}

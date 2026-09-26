@@ -1,0 +1,83 @@
+name: Nightly full verify
+
+# The FULL gate profile for every game (full seeded samples; see each game's
+# scripts/verify.sh header). Push runs in pages.yml verify only changed games
+# on the quick profile so the deploy is not held for ~20 minutes; this run is
+# what keeps the full bands honest. It never builds or deploys anything.
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+    inputs:
+      full:
+        description: 'Full profile (untick for the quick push profile over every game)'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly-verify
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Typecheck every workspace
+        run: |
+          for dir in template games/*/; do
+            [ -f "$dir/package.json" ] || continue
+            echo "== typecheck $dir"
+            (cd "$dir" && npx tsc --noEmit)
+          done
+      # Same generated-map cache as pages.yml, under its own prefix: the full
+      # profile's 200-seed entries are a superset of the push profile's, and a
+      # push run with no exact hit restores the newest `mapgen-` entry — this
+      # one included.
+      # A quick-profile dispatch saves under the push prefix, so it never
+      # claims the full key with a 40-seed subset.
+      - name: Mapgen cache key
+        id: mapgen-key
+        env:
+          PREFIX: ${{ (github.event_name == 'workflow_dispatch' && !inputs.full) && 'mapgen-' || 'mapgen-full-' }}
+        run: echo "key=${PREFIX}$(bash scripts/ci-verify.sh mapgen-cache-key)" >> "$GITHUB_OUTPUT"
+      - name: Restore mapgen cache
+        id: mapgen-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: games/*/.cache/mapgen
+          key: ${{ steps.mapgen-key.outputs.key }}
+          restore-keys: |
+            mapgen-full-
+            mapgen-
+      - name: Verify every game
+        if: ${{ !cancelled() }}
+        env:
+          VERIFY_QUICK: ${{ (github.event_name == 'workflow_dispatch' && !inputs.full) && '1' || '0' }}
+        run: bash scripts/ci-verify.sh run all
+      - name: Save mapgen cache
+        if: ${{ !cancelled() && steps.mapgen-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v4
+        with:
+          path: games/*/.cache/mapgen
+          key: ${{ steps.mapgen-key.outputs.key }}
+      - name: Release-check released games
+        if: ${{ !cancelled() }}
+        run: |
+          for dir in games/*/; do
+            [ -f "$dir/game.json" ] || continue
+            status=$(node -p "JSON.parse(require('fs').readFileSync('$dir/game.json','utf8')).status")
+            if [ "$status" = "released" ]; then
+              slug=$(basename "$dir")
+              echo "== release-check $slug"
+              node scripts/release-check.mjs "$slug"
+            fi
+          done

@@ -97,9 +97,18 @@ at the end, so a red stage never hides the stages behind it:
    that catches a perfectly built thing wired to nothing; five review blockers
    on the last build were all that one shape.
 4. **art registry** `--check`
-5. **kit selftests**
+5. **kit selftests** — `src/sim/kits/*.timing.selftest.ts` (wall-clock budgets) first
+   and alone, then every `*.selftest.ts` concurrently (`VERIFY_JOBS=N` caps
+   them; each one's output is printed whole when it finishes)
 6. **sim gates** — last, because this is the one stage that legitimately
    ships flagged
+
+CI (`.github/workflows/pages.yml`) verifies on push only the games the push
+changed — everything when `template/`, `scripts/`, root package files or a
+workflow changed — with `VERIFY_QUICK=1` exported; a game with expensive
+seeded samples reads it in its `scripts/verify.sh` to shrink them (thresholds
+never change). `.github/workflows/nightly-verify.yml` runs the full profile
+for every game.
 
 Ordering is not cosmetic. When the permanently-flagged sim gates ran first
 under `set -e`, their failure skipped the art-registry check and all nine kit

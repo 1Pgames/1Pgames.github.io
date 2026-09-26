@@ -5,7 +5,8 @@
 #   2  content contract check   (scripts/w1-contract-check.mjs)
 #   3  consumer-edge check      (scripts/consumer-edge-check.mjs)
 #   4  art registry freshness   (scripts/gen-art-registry.mjs --check)
-#   5  genre-kit selftests      (src/sim/kits/*.selftest.ts)
+#   5  genre-kit selftests      (src/sim/kits/*.timing.selftest.ts alone,
+#                                then the other *.selftest.ts in parallel)
 #   6  balance sims, strict     (npm run sim -- --strict)
 #
 # EVERY STAGE RUNS. The exit code is aggregated at the end and a per-stage
@@ -25,8 +26,32 @@
 # resolution with `.ts`/`.tsx`/`.js`/`.mjs` appended; every `node` invocation
 # below that touches `src/` loads it via `--import` so the same source tree
 # runs unmodified in Node as it does in Vite/tsc.
+#
+# SPEED PROFILES. `npm run verify` is the FULL gate (what the nightly CI
+# workflow runs). `VERIFY_QUICK=1 npm run verify` is the push/PR profile: the
+# same stages and thresholds on smaller seeded samples — MAPGEN_SEEDS=40 and
+# ACTORS_SEEDS=40 instead of 200 × 4 zones each, and 10 instead of 20 fresh
+# generations per zone for the mapgen timing gate (MAPGEN_TIMING_SEEDS). The arena sim keeps its
+# `--runs 20` in both profiles (its gates read win/extraction rates whose
+# sample the thresholds were set on; no reduced-runs equivalence is claimed).
+# An explicitly exported MAPGEN_SEEDS / ACTORS_SEEDS wins over either profile.
+#
+# Speed without weaker gates: generated maps come from a node-only disk cache
+# (`src/sim/mapgen-cache.ts`, `.cache/mapgen/`, keyed by a content hash of
+# mapgen's whole import closure; `MAPGEN_NO_CACHE=1` bypasses it), the arena
+# sim plays its runs on one worker thread per core (`SIM_WORKERS=1` = serial,
+# same numbers), and stage 5 runs the selftests concurrently (`VERIFY_JOBS=N`
+# caps them).
 set -uo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
+
+if [ "${VERIFY_QUICK:-0}" = "1" ]; then
+  export MAPGEN_SEEDS="${MAPGEN_SEEDS:-40}" ACTORS_SEEDS="${ACTORS_SEEDS:-40}" MAPGEN_TIMING_SEEDS="${MAPGEN_TIMING_SEEDS:-10}"
+  echo "verify: QUICK profile (MAPGEN_SEEDS=$MAPGEN_SEEDS, ACTORS_SEEDS=$ACTORS_SEEDS, MAPGEN_TIMING_SEEDS=$MAPGEN_TIMING_SEEDS)"
+else
+  export MAPGEN_SEEDS="${MAPGEN_SEEDS:-200}" ACTORS_SEEDS="${ACTORS_SEEDS:-200}" MAPGEN_TIMING_SEEDS="${MAPGEN_TIMING_SEEDS:-20}"
+  echo "verify: FULL profile (MAPGEN_SEEDS=$MAPGEN_SEEDS, ACTORS_SEEDS=$ACTORS_SEEDS, MAPGEN_TIMING_SEEDS=$MAPGEN_TIMING_SEEDS)"
+fi
 
 declare -a STAGE_NAMES=()
 declare -a STAGE_STATUS=()
@@ -102,24 +127,81 @@ run_art_registry_check() {
 stage "art registry" run_art_registry_check
 
 # ------------------------------------------------------- 5. genre-kit tests --
+# `*.timing.selftest.ts` kits hold wall-clock budgets: they run FIRST and
+# ALONE, because a budget measured while the selftest pool shares the CPU fails
+# on load, not on code. Then every other `*.selftest.ts` runs concurrently, at
+# most VERIFY_JOBS (default: CPU count) at a time. Each one's output is buffered and printed
+# whole when it finishes, under its own header, so the log stays readable; the
+# exit codes are aggregated — one broken kit never hides the others, for the
+# same reason the stages never short-circuit. Written for bash 3.2 (macOS
+# /bin/bash has no `wait -n`): the parent polls its children and is the only
+# writer to the log.
+cpu_count() {
+  nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 2
+}
+
 run_kit_selftests() {
   shopt -s nullglob
-  local selftests=(src/sim/kits/*.selftest.ts)
-  if [ ${#selftests[@]} -eq 0 ]; then
+  local f
+  local timings=(src/sim/kits/*.timing.selftest.ts)
+  local selftests=()
+  for f in src/sim/kits/*.selftest.ts; do
+    case "$f" in *.timing.selftest.ts) ;; *) selftests+=("$f") ;; esac
+  done
+  if [ $((${#timings[@]} + ${#selftests[@]})) -eq 0 ]; then
     echo "SKIP: no src/sim/kits/*.selftest.ts files present yet"
     return 0
   fi
-  # Each selftest reports independently for the same reason the stages do: one
-  # broken kit must not hide the other eight.
   local rc=0
-  local f
-  for f in "${selftests[@]}"; do
-    echo "-- $f --"
+  for f in ${timings[@]+"${timings[@]}"}; do
+    echo "-- $f (alone) --"
     if ! node --import ./scripts/ts-resolve.mjs "$f"; then
       echo "-- $f FAILED"
       rc=1
     fi
   done
+
+  local max_jobs="${VERIFY_JOBS:-$(cpu_count)}"
+  local logdir
+  logdir="$(mktemp -d "${TMPDIR:-/tmp}/verify-kits.XXXXXX")"
+  local -a pids=() files=() starts=()
+  local next=0 i pid code
+  echo "-- ${#selftests[@]} selftests, up to $max_jobs at a time --"
+  while [ "$next" -lt "${#selftests[@]}" ] || [ "${#pids[@]}" -gt 0 ]; do
+    while [ "$next" -lt "${#selftests[@]}" ] && [ "${#pids[@]}" -lt "$max_jobs" ]; do
+      f="${selftests[$next]}"
+      node --import ./scripts/ts-resolve.mjs "$f" >"$logdir/$next.log" 2>&1 &
+      pids+=("$!")
+      files+=("$next")
+      starts+=("$SECONDS")
+      next=$((next + 1))
+    done
+    sleep 0.2
+    local -a still_pids=() still_files=() still_starts=()
+    for i in "${!pids[@]}"; do
+      pid="${pids[$i]}"
+      if kill -0 "$pid" 2>/dev/null; then
+        still_pids+=("$pid")
+        still_files+=("${files[$i]}")
+        still_starts+=("${starts[$i]}")
+        continue
+      fi
+      wait "$pid"
+      code=$?
+      f="${selftests[${files[$i]}]}"
+      echo "-- $f ($((SECONDS - ${starts[$i]})) s) --"
+      cat "$logdir/${files[$i]}.log"
+      if [ "$code" -ne 0 ]; then
+        echo "-- $f FAILED (exit $code)"
+        rc=1
+      fi
+    done
+    pids=(${still_pids[@]+"${still_pids[@]}"})
+    files=(${still_files[@]+"${still_files[@]}"})
+    starts=(${still_starts[@]+"${still_starts[@]}"})
+    unset still_pids still_files still_starts
+  done
+  rm -rf "$logdir"
   return $rc
 }
 stage "kit selftests" run_kit_selftests
@@ -153,6 +235,14 @@ run_sim_gates() {
   for family_module in src/sim/families/*.ts; do
     family_code="$(basename "$family_module" .ts)"
     if [ "$family_code" = "types" ]; then continue; fi
+    # In THIS game `src/sim/cli.ts` routes `--family arena` to the lane
+    # pipeline with `--lane all` as the default, so the family-loop arena run
+    # is the exact command the `arena lanes` block above already gated (same
+    # seeds, same report — it used to cost a second full sim pass).
+    if [ "$family_code" = "arena" ] && grep -q "SIM_FAMILY = 'arena'" src/sim/family.ts; then
+      echo "-- arena -- (identical to 'arena lanes' above; not re-run)"
+      continue
+    fi
     echo "-- $family_code --"
     case "$family_code" in
       # 20 runs per level is a +-10 point win-rate estimate, too coarse for the

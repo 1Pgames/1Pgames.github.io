@@ -18,8 +18,22 @@ npm run typecheck # tsc --noEmit — must be clean
 npm run build     # typecheck + production bundle
 npm run sim       # headless balance sim + gates for THIS game's family
 npm run sim -- --family board   # gates of a specific family (arena adds --runs N --lane all --strict)
-npm run verify    # typecheck + sim gates + art-registry check + kit selftests
+npm run verify    # FULL gate: typecheck + sim gates + art-registry check + kit selftests
+VERIFY_QUICK=1 npm run verify   # push-profile gate: same stages/thresholds, 40-seed map samples
 ```
+
+`npm run verify` is the full profile (MAPGEN_SEEDS/ACTORS_SEEDS 200 × 4 zones;
+nightly CI runs it for every game, `.github/workflows/nightly-verify.yml`).
+`VERIFY_QUICK=1` is what a push to master runs for changed games (40 seeds, 10
+timing generations per zone instead of 20; the arena sim keeps `--runs 20`).
+Both read maps through the node-only disk cache `src/sim/mapgen-cache.ts`
+(`.cache/mapgen/`, gitignored, keyed by a content hash of mapgen's import
+closure — `MAPGEN_NO_CACHE=1` bypasses it). The arena sim plays its runs on one
+worker thread per core (`SIM_WORKERS=1` = serial, same numbers); kit selftests
+run concurrently (`VERIFY_JOBS=N`), after the wall-clock
+`src/sim/kits/*.timing.selftest.ts` gate runs alone. The mapgen timing budget
+(600/1200 ms) scales with a measured reference workload, so a slower runner is
+not a failure.
 
 `?debug` in the URL enables Arcade physics debug bodies in dev. Headless TS
 runs through Node 24 type stripping: `node --import ./scripts/ts-resolve.mjs <file.ts>`.

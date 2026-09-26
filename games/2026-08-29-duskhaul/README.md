@@ -12,7 +12,8 @@ npm install
 npm run dev      # http://localhost:5173
 npm run sim      # headless balance sim + design gates for this game's family
 npm run sim -- --family board   # a specific family's gates
-npm run verify   # typecheck + sim gates + art-registry check + kit selftests
+npm run verify   # FULL gate: typecheck + sim gates + art-registry check + kit selftests
+VERIFY_QUICK=1 npm run verify   # push profile: same gates, 40-seed map samples (see AGENTS.md)
 npm run build    # typecheck + dist/
 ```
 

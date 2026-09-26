@@ -1,16 +1,25 @@
 // run: node --import ./scripts/ts-resolve.mjs src/sim/kits/mapgen.selftest.ts
-//   Default 40 seeds × 4 zones (PRD-V2 §3.8 asks 200; the 24576² map takes
-//   ~0.35 s per seed, so the default is 40 and the run logs it). MAPGEN_SEEDS=200 for the full band.
+//   Default 40 seeds × 4 zones; MAPGEN_SEEDS=200 for the full PRD-V2 §3.8 band
+//   (what a full `npm run verify` runs; `VERIFY_QUICK=1` runs 40).
 //
 // Bands (§3.8): coverage, min corridor, narrow share, zero unreachable nav
 // cells, path factor, POI count/spacing (900 px between large POIs, 450 px
 // between any two — see `MAJOR_POIS`), gate bands + separation, empty gate
-// aprons and POI clearings, body radius cap, reseed rate, generation time,
-// determinism. Plus the conservation laws consumers rely on: every anchor is
-// on reachable nav floor, depth rules (§3.3) hold for every POI and gate, the
-// hazard anchor census matches the zone's hazard params, and `depthAt` agrees
-// with the anchors' recorded depth.
+// aprons and POI clearings, body radius cap, reseed rate, determinism. Plus
+// the conservation laws consumers rely on: every anchor is on reachable nav
+// floor, depth rules (§3.3) hold for every POI and gate, the hazard anchor
+// census matches the zone's hazard params, and `depthAt` agrees with the
+// anchors' recorded depth.
+//
+// The band maps come through the node-only disk cache (`src/sim/mapgen-cache.ts`;
+// `MAPGEN_NO_CACHE=1` bypasses it) and this file proves cached == fresh. The
+// generator's own laws — determinism here, generation TIME in
+// `mapgen.timing.selftest.ts` — always call `generateMap` directly. Timing
+// lives in its own file because `verify.sh` runs the selftests in parallel and
+// a wall-clock budget measured on a shared CPU is noise; `verify.sh` runs
+// `*.timing.selftest.ts` alone, first.
 import assert from 'node:assert/strict';
+import { isMainThread, parentPort, Worker, workerData } from 'node:worker_threads';
 import { TUNING } from '../../config';
 import { NavGrid } from '../../core/grid';
 import { propDef } from '../../data/props';
@@ -18,6 +27,7 @@ import { MAJOR_POIS, POI_CLEARING } from '../../data/stamps';
 import { ZONES, type ZoneDef } from '../../data/zones';
 import type { Depth, GeneratedMap, PoiKind } from '../../data/types-v2';
 import { depthAt, generateMap } from '../../systems/mapgen';
+import { cachedGenerateMap, prewarmMapCache } from '../mapgen-cache';
 
 /** Spec bands (PRD-V2 §3.8 + user requests): central spawn, edge-safe objectives, POI total from the quota table. */
 const SPAWN_MAX_OFF_CENTRE = 1000;
@@ -26,7 +36,6 @@ const POI_TOTAL_SPEC = Object.values(TUNING.mapgen.poiCounts as Record<string, n
 const POI_BAND: readonly [number, number] = [Math.floor(POI_TOTAL_SPEC * 0.85), POI_TOTAL_SPEC + 2];
 
 const SEEDS = Number(process.env.MAPGEN_SEEDS ?? 40);
-console.log(`mapgen selftest: ${SEEDS} seeds × 4 zones (24576² map)`);
 const cfg = TUNING.mapgen;
 
 /** §3.3 / §5.12 depth law per POI kind. */
@@ -91,17 +100,20 @@ function navPaths(map: GeneratedMap): Float64Array {
   return dist;
 }
 
-const times: number[] = [];
-
-for (const zone of ZONES) {
+/**
+ * Every §3.8 band for one zone over SEEDS seeds; returns the zone's summary line.
+ * The four zones run on four worker threads (this module, `workerData` = zone id):
+ * the checks are per-zone laws, so the split changes no verdict, and the parent
+ * prints the lines in zone order, so the log does not change either.
+ */
+function checkZone(zone: ZoneDef): string {
   let reseeded = 0;
   const hazards = expectedHazards(zone);
   for (let i = 0; i < SEEDS; i += 1) {
     const seed = `selftest-${i}`;
-    const map = generateMap(zone, seed);
+    const map = cachedGenerateMap(zone, seed);
     const tag = `${zone.id}/${seed}`;
     const m = map.metrics;
-    times.push(m.ms);
     if (m.reseeds > 0) reseeded += 1;
 
     assert.ok(m.coverage >= cfg.coverageMin && m.coverage <= cfg.coverageMax, `${tag}: coverage ${m.coverage}`);
@@ -220,52 +232,81 @@ for (const zone of ZONES) {
   }
   const rate = reseeded / SEEDS;
   assert.ok(rate <= 0.1, `${zone.id}: reseed rate ${rate}`);
-  console.log(`${zone.id}: ${SEEDS} seeds OK, reseed rate ${(rate * 100).toFixed(1)}%`);
+  return `${zone.id}: ${SEEDS} seeds OK, reseed rate ${(rate * 100).toFixed(1)}%`;
 }
 
-// Determinism: same seed ⇒ byte-identical nav + anchor/prop lists.
-for (const zone of ZONES) {
-  const a = generateMap(zone, 'determinism');
-  const b = generateMap(zone, 'determinism');
-  assert.deepEqual(Buffer.from(a.nav.blocked), Buffer.from(b.nav.blocked), `${zone.id}: nav differs`);
-  const strip = (m: GeneratedMap): string => JSON.stringify({ ...m, metrics: { ...m.metrics, ms: 0 } }, (_k, v: unknown) => (v instanceof Uint8Array ? Array.from(v) : v));
-  assert.equal(strip(a), strip(b), `${zone.id}: map differs`);
-}
+if (!isMainThread) {
+  parentPort!.postMessage(checkZone(ZONES.find((z) => z.id === workerData)!));
+} else {
+  console.log(`mapgen selftest: ${SEEDS} seeds × 4 zones (24576² map)`);
+  // Cold cache: generate the band's maps on every core first; the zone checks then read hits.
+  await prewarmMapCache(ZONES, Array.from({ length: SEEDS }, (_, i) => `selftest-${i}`));
+  const zoneLines = await Promise.all(
+    ZONES.map(
+      (zone) =>
+        new Promise<string>((resolveLine, reject) => {
+          const worker = new Worker(new URL(import.meta.url), { workerData: zone.id });
+          worker.once('message', resolveLine);
+          worker.once('error', reject);
+          worker.once('exit', (code) => { if (code !== 0) reject(new Error(`${zone.id}: band worker exited with code ${code}`)); });
+        }),
+    ),
+  );
+  for (const line of zoneLines) console.log(line);
 
-// NavGrid over the export: a window flow field steers every reachable cell toward the goal.
-{
-  const map = generateMap(ZONES[0]!, 'nav-probe');
-  const nav = NavGrid.fromBlocked(map.nav.cols, map.nav.rows, map.nav.cell, map.nav.blocked);
-  const out = { col: 0, row: 0 };
-  nav.worldToCell(map.spawn.x, map.spawn.y, out);
-  nav.buildFlowFieldWindow(out.col, out.row, TUNING.nav.windowCells);
-  const dir = { x: 0, y: 0 };
-  let steered = 0;
-  for (let r = out.row - 10; r <= out.row + 10; r += 1) {
-    for (let c = out.col - 10; c <= out.col + 10; c += 1) {
-      if (nav.isBlocked(c, r)) continue;
-      assert.ok(nav.steer(c * map.nav.cell + 32, r * map.nav.cell + 32, dir), `nav: reachable cell (${c},${r}) has no direction`);
-      // Following the direction never increases the BFS distance.
-      if (dir.x === 0 && dir.y === 0) continue;
-      const nc = c + Math.round(dir.x / Math.max(Math.abs(dir.x), Math.abs(dir.y)));
-      const nr = r + Math.round(dir.y / Math.max(Math.abs(dir.x), Math.abs(dir.y)));
-      assert.ok(nav.distanceAt(nc, nr) < nav.distanceAt(c, r), `nav: step from (${c},${r}) does not descend`);
-      steered += 1;
+  // Cache equivalence: the disk cache (`src/sim/mapgen-cache.ts`) that the loop
+  // above, the actors selftest and the arena sim read must hand back exactly what
+  // the generator produces. The prewarm stored every band map, so
+  // `cachedGenerateMap` here is a disk read (gunzip + v8.deserialize); it must
+  // equal a fresh `generateMap` field for field, typed arrays included, up to
+  // `metrics.ms` — the wall-clock measurement of whichever run generated it.
+  const cacheOff = process.env.MAPGEN_NO_CACHE === '1';
+  for (const zone of ZONES) {
+    for (let i = 0; i < Math.min(SEEDS, 2); i += 1) {
+      const seed = `selftest-${i}`;
+      const fresh = generateMap(zone, seed);
+      const cached = cachedGenerateMap(zone, seed);
+      assert.deepStrictEqual({ ...cached, metrics: { ...cached.metrics, ms: 0 } }, { ...fresh, metrics: { ...fresh.metrics, ms: 0 } }, `${zone.id}/${seed}: cached map differs from a fresh generation`);
     }
   }
-  assert.ok(steered > 100, 'nav: window steers the spawn neighbourhood');
-  // A walkable cell beyond the window radius has no field: the caller straight-steers.
-  const far = out.col + TUNING.nav.windowCells + 2 < map.nav.cols ? out.col + TUNING.nav.windowCells + 2 : out.col - TUNING.nav.windowCells - 2;
-  assert.equal(nav.steer(far * map.nav.cell + 32, out.row * map.nav.cell + 32, dir), false, 'nav: outside the window → false');
-  assert.equal(nav.isBlocked(-1, 0), true, 'nav: out of bounds is blocked');
+  console.log(cacheOff ? 'cache: MAPGEN_NO_CACHE=1 — cache bypassed, equivalence not exercised' : 'cache: cached == fresh');
+
+  // Determinism (the generator itself, never the cache): same seed ⇒ byte-identical nav + anchor/prop lists.
+  for (const zone of ZONES) {
+    const a = generateMap(zone, 'determinism');
+    const b = generateMap(zone, 'determinism');
+    assert.deepEqual(Buffer.from(a.nav.blocked), Buffer.from(b.nav.blocked), `${zone.id}: nav differs`);
+    const strip = (m: GeneratedMap): string => JSON.stringify({ ...m, metrics: { ...m.metrics, ms: 0 } }, (_k, v: unknown) => (v instanceof Uint8Array ? Array.from(v) : v));
+    assert.equal(strip(a), strip(b), `${zone.id}: map differs`);
+  }
+
+  // NavGrid over the export: a window flow field steers every reachable cell toward the goal.
+  {
+    const map = generateMap(ZONES[0]!, 'nav-probe');
+    const nav = NavGrid.fromBlocked(map.nav.cols, map.nav.rows, map.nav.cell, map.nav.blocked);
+    const out = { col: 0, row: 0 };
+    nav.worldToCell(map.spawn.x, map.spawn.y, out);
+    nav.buildFlowFieldWindow(out.col, out.row, TUNING.nav.windowCells);
+    const dir = { x: 0, y: 0 };
+    let steered = 0;
+    for (let r = out.row - 10; r <= out.row + 10; r += 1) {
+      for (let c = out.col - 10; c <= out.col + 10; c += 1) {
+        if (nav.isBlocked(c, r)) continue;
+        assert.ok(nav.steer(c * map.nav.cell + 32, r * map.nav.cell + 32, dir), `nav: reachable cell (${c},${r}) has no direction`);
+        // Following the direction never increases the BFS distance.
+        if (dir.x === 0 && dir.y === 0) continue;
+        const nc = c + Math.round(dir.x / Math.max(Math.abs(dir.x), Math.abs(dir.y)));
+        const nr = r + Math.round(dir.y / Math.max(Math.abs(dir.x), Math.abs(dir.y)));
+        assert.ok(nav.distanceAt(nc, nr) < nav.distanceAt(c, r), `nav: step from (${c},${r}) does not descend`);
+        steered += 1;
+      }
+    }
+    assert.ok(steered > 100, 'nav: window steers the spawn neighbourhood');
+    // A walkable cell beyond the window radius has no field: the caller straight-steers.
+    const far = out.col + TUNING.nav.windowCells + 2 < map.nav.cols ? out.col + TUNING.nav.windowCells + 2 : out.col - TUNING.nav.windowCells - 2;
+    assert.equal(nav.steer(far * map.nav.cell + 32, out.row * map.nav.cell + 32, dir), false, 'nav: outside the window → false');
+    assert.equal(nav.isBlocked(-1, 0), true, 'nav: out of bounds is blocked');
+  }
+
+  console.log('mapgen selftest OK');
 }
-
-times.sort((p, q) => p - q);
-const median = times[Math.floor(times.length / 2)]!;
-const p95 = times[Math.floor(times.length * 0.95)]!;
-console.log(`generation ms: median ${median.toFixed(1)}, p95 ${p95.toFixed(1)}, max ${times[times.length - 1]!.toFixed(1)}`);
-// 24576² map budget (user request): median ≤ 600 ms, p95 ≤ 1.2 s.
-assert.ok(median <= 600, `median generation ${median.toFixed(1)} ms > 600`);
-assert.ok(p95 <= 1200, `p95 generation ${p95.toFixed(1)} ms > 1200`);
-
-console.log('mapgen selftest OK');
