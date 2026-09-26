@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { TUNING } from '../config';
 import { ANIM } from '../data/art';
+import { safePlay } from '../core/anim';
 
 /**
  * Pooled XP pickup. Idles where the enemy died, then magnetises to the player
@@ -34,7 +35,7 @@ export class XpOrb extends Phaser.Physics.Arcade.Sprite {
     this.resize();
     this.clearTint();
     this.setActive(true).setVisible(true);
-    this.play(ANIM.xpOrb, true);
+    safePlay(this, ANIM.xpOrb, true);
     this.enableBody(false, x, y, true, true);
     this.body?.setCircle(64, 0, 0);
     this.setVelocity(0, 0);

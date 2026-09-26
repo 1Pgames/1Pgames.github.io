@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { CSS, FONT, PALETTE, VIEW } from '../config';
 import { TEX } from './keys';
+import { playable, safePlay } from './anim';
 
 /**
  * Game feel toolkit. A generated game lives or dies on these 6 effects, so they
@@ -157,13 +158,13 @@ export function playFx(
   size = 96,
   depth = 890,
 ): void {
-  if (!scene.anims.exists(key)) return;
+  if (!playable(scene.anims, key)) return;
   const fx = scene.add
     .sprite(x, y, key)
     .setDisplaySize(size, size)
     .setDepth(depth)
     .setBlendMode(Phaser.BlendModes.ADD);
-  fx.play(key);
+  safePlay(fx, key);
   fx.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => fx.destroy());
 }
 

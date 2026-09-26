@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { TEX } from '../core/keys';
+import { safePlay } from '../core/anim';
 
 /**
  * Hero weapon visuals (PRD-V2 §5.8). Hit resolution never lives here: every
@@ -42,8 +43,7 @@ export class FxSprite extends Phaser.GameObjects.Sprite {
     if (this.usingArt && artKey !== null) {
       this.setTexture(artKey, 0);
       this.clearTint();
-      if (scene.anims.exists(artKey)) this.play(artKey, true);
-      else this.stop();
+      safePlay(this, artKey, true);
     } else {
       this.stop();
       this.setTexture(fallback);

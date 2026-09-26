@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { TUNING } from '../config';
 import { TEX } from '../core/keys';
+import { safePlay } from '../core/anim';
 import { ICON } from '../data/art';
 import { pickupDef, PICKUP_ART } from '../data/pickups';
 import type { LootItem, PickupId } from '../data/types-v2';
@@ -117,7 +118,7 @@ export class LootPickup extends Phaser.Physics.Arcade.Sprite {
     this.setVelocity(0, 0);
     this.aura.setPosition(x, y).setTint(tint).setAlpha(0.55).setVisible(true);
     this.rim.setPosition(x, y).setVisible(payload.kind === 'item');
-    if (hasArt && art.anim !== null && this.scene.anims.exists(art.anim)) this.play(art.anim, true);
+    if (hasArt && art.anim !== null) safePlay(this, art.anim, true);
   }
 
   /** One frame of ground behaviour (sim time); returns what happened. */

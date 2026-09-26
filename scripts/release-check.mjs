@@ -679,6 +679,10 @@ function checkArtWiring(dir) {
 
   const sources = tsSources(path.join(dir, 'src'));
   sources.delete(path.join('data', 'art.ts'));
+  // Selftests and the headless sim use fixture keys on stub scenes, never real art.
+  for (const file of [...sources.keys()]) {
+    if (file.startsWith(`sim${path.sep}`) || file.endsWith('.selftest.ts')) sources.delete(file);
+  }
 
   // Texture keys named by gameplay data: PropDef/DecalDef/EnemyDef `texture:`,
   // and `ArtSlot` object literals (`art: { key }`, `{ key, frame }`).

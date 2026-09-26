@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { TEX } from '../core/keys';
 import { Pool } from '../core/pool';
+import { playable, safePlay } from '../core/anim';
 
 /**
  * Death animations for POOLED bodies.
@@ -53,11 +54,12 @@ export class CorpseFx {
    * knows the outlined key's plain source). The key is normally the OUTLINED
    * death (§13.1: actors play `-ol*` keys only).
    *
-   * False when that death sheet was never generated — never a reason to skip
-   * the kill.
+   * False when that death sheet was never generated or has no frames (its
+   * sheet failed to load) — never a reason to skip the kill. A corpse is only
+   * released by ANIMATION_COMPLETE, so an unplayable key must not take one.
    */
   play(animKey: string, x: number, y: number, shown: number, flipX: boolean, originY = 0.5): boolean {
-    if (!this.scene.anims.exists(animKey)) return false;
+    if (!playable(this.scene.anims, animKey)) return false;
     const sprite = this.pool.obtain();
     sprite
       .setActive(true)
@@ -67,7 +69,7 @@ export class CorpseFx {
       .setFlipX(flipX)
       .setOrigin(0.5, originY);
     // Frame first: `setDisplaySize` divides by the CURRENT frame's size.
-    sprite.play(animKey, true);
+    safePlay(sprite, animKey, true);
     sprite.setDisplaySize(shown, shown);
     return true;
   }

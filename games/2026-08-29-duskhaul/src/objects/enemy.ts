@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { FONT, TUNING } from '../config';
 import { TEX } from '../core/keys';
+import { playable, safePlay } from '../core/anim';
 import { Health } from '../core/damage';
 import { ACTOR_FX, ensureOutline, measuredSubjectHeight, outlineKey, shadowTexture, type OutlinePx } from '../core/outline';
 import {
@@ -543,18 +544,15 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   private showAnim(key: string): void {
     const size = this.displaySize * actionScale(this.artKey, key);
     const ol = this.outlined(key);
-    if (this.scene.anims.exists(ol)) this.play(ol, true);
-    else if (this.scene.anims.exists(key)) this.play(key, true);
-    else if (this.scene.textures.exists(ol)) this.setTexture(ol, 0);
-    else this.setTexture(key);
+    if (!safePlay(this, ol, true) && !safePlay(this, key, true)) this.setTexture(this.scene.textures.exists(ol) ? ol : key, 0);
     this.setDisplaySize(size, size);
   }
 
-  /** Plays a one-shot action and returns to the loop; false when the sheet does not exist. */
+  /** Plays a one-shot action and returns to the loop; false when the sheet does not exist or has no frames. */
   private playAction(suffix: string): boolean {
     const key = `${actorBaseKey(this.artKey)}-${suffix}`;
     const anim = this.scene.anims.get(key);
-    if (anim === null || anim === undefined) return false;
+    if (anim === null || anim === undefined || !playable(this.scene.anims, key)) return false;
     this.actionMs = anim.duration > 0 ? anim.duration : anim.msPerFrame * anim.frames.length;
     this.showAnim(key);
     return true;
@@ -1148,7 +1146,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
       if (next === 2) this.playAction('summon');
       if (next === 3) {
         const enrage = `${actorBaseKey(this.artKey)}-enrage`;
-        if (this.scene.anims.exists(enrage)) {
+        if (playable(this.scene.anims, enrage)) {
           this.loopKey = enrage;
           this.actionMs = 0;
           this.showAnim(enrage);

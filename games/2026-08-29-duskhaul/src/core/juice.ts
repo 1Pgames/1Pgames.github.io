@@ -3,6 +3,7 @@ import { CSS, FONT, PALETTE, VIEW } from '../config';
 import { STORE, TEX } from './keys';
 import { load } from './storage';
 import { baseKeyOf } from './outline';
+import { playable, safePlay } from './anim';
 import { BANNER_EVENT } from '../ui/toast';
 
 /**
@@ -492,13 +493,13 @@ export function playFx(
   depth = 890,
   additive = true,
 ): void {
-  if (!scene.anims.exists(key)) return;
+  if (!playable(scene.anims, key)) return;
   const fx = scene.add
     .sprite(x, y, key)
     .setDisplaySize(size, size)
     .setDepth(depth)
     .setBlendMode(additive ? Phaser.BlendModes.ADD : Phaser.BlendModes.NORMAL);
-  fx.play(key);
+  safePlay(fx, key);
   fx.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => fx.destroy());
 }
 

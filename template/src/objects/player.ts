@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { PALETTE, PLAYER_BASE_STATS, TUNING } from '../config';
 import { TEX } from '../core/keys';
+import { safePlay } from '../core/anim';
 import { ANIM, artFacesRight, artScale } from '../data/art';
 import { displaySizeFor } from '../data/enemies';
 import { OUTLINE, baseKeyOf, outlineKey } from '../core/outline';
@@ -177,7 +178,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.body?.setCircle(radius, HERO_BODY_CENTER_X - radius, HERO_BODY_CENTER_Y - radius);
     // The baked GREEN team outline (`core/outline.ts`, declared by the slice); plain sheet if missing.
     const outlined = outlineKey(key, OUTLINE.px.trash);
-    this.play(this.scene.anims.exists(outlined) ? outlined : key, true);
+    if (!safePlay(this, outlined, true)) safePlay(this, key, true);
     this.faceVelocity(this.body?.velocity.x ?? 0);
   }
 

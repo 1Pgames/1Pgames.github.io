@@ -250,6 +250,7 @@ The template default is `arena`.
 | `src/sim/mapgen-cache.ts` | node-only disk cache: `cachedGenerateWorld(world, seed)` keyed by mapgen's source closure + `TUNING.arena` + V8 (`.cache/mapgen/`, `MAPGEN_NO_CACHE=1` bypasses) — sim and selftests only |
 | `src/ui/joystick.ts` | `Joystick`: floating on-screen thumb stick (movement), `vector` carries throttle, `setEnabled` for overlays — re-enabling ADOPTS a pointer that is already down |
 | `src/core/controls.ts` | `Controls`: tap / swipe / drag / hold callbacks + `axisX/axisY` keyboard parity |
+| `src/core/anim.ts` | `safePlay(sprite, key, ignoreIfPlaying?) → boolean` plays only a key with ≥1 frame, else stops and shows the key texture's frame 0 (or keeps the current texture); `playable(anims, key)` is the matching check. The ONLY way to play an animation (see Phaser 4 traps) |
 | `src/core/juice.ts` | `shake`, `flash`, `pop`, `floatText`, `burst`, `hitstop`, `countTo`, `enterFromBottom`, `idleBob`, `starfield`. `flash(scene, color?, durationMs?, peakAlpha = 0.4)` is never opaque — hard-clamped to 0.6 and rate-capped at one flash per 220ms, so a burst of damage events reads as one hit and not a strobe. `enterFromBottom` is for INERT decor ONLY: it slides the hit area with the pixels |
 | `src/ui/entrance.ts` | `enterPinningHitArea(scene, obj, opts?) → Tween` — the only entrance helper permitted for interactive objects. `opts`: `delayMs` (0), `distance` (80), `from` (`'bottom'`\|`'top'`\|`'left'`\|`'right'`), `durationMs` (380), `ease` (`'Back.easeOut'`), `fade` (true), `fadeTo` (1), `onComplete`. Animates the VISUAL position only; pins every hit area in the object's tree (rect/circle/ellipse, nested and scaled containers corrected by accumulated scale) at its final rest rect, restores them on complete/stop, and starts alpha at 0.001 rather than 0. It does not tween scale. Template call sites: `menu.ts` play/shop/mute/daily, `gameover.ts` primary/shop/share/menu, `cards.ts` the three upgrade cards + reroll chip — everything else in those files is inert copy and stays on `enterFromBottom` |
 | `src/core/audio.ts` | `sfx(name, {rate?, volume?, delay?})` over a voice table (`ui tap pickup combo jump hit die levelup whoosh`): every voice has a synth definition, a `poly` cap that STEALS the oldest instance (never stacks a kill spike into clipping), optional `duck` (dips the music bus −6 dB for 400 ms) and `sampleGain`; `sfxArp`, `isMuted`, `toggleMute`, `onMuteChange`. Mix: voice → SFX bus (glue compressor) → Settings×mute master; music enters through `musicInput()` (the duck gain). Generated samples registered in `src/data/audio.ts` are the shipping default, loaded by `initGeneratedAudio()` (once, `PreloadScene`); the synth voice is their failure fallback. Settings: `playerSettings()` / `savePlayerSettings(patch)` (music, sfx, reduceMotion; applied to what is playing NOW) / `onSettingsChange`. `?mute` forces silence for one page load WITHOUT touching the stored preference (§URL parameters), and `audioStatus()` / `window.__AUDIO__()` expose `muted`, `forcedByUrl`, `storedPreference`, `masterGain`, `contextState`, `requested`, `played`, `lastRequested` so a silent run still proves its audio |
@@ -852,6 +853,15 @@ the sim HOLDS difficulty and the live bot SETS it.
 - `TextureManager.generate` / `Create.GenerateTexture` are gone → draw with
   `Graphics#generateTexture` (see `core/textures.ts`).
 - `DynamicTexture`/`RenderTexture` buffer draws and need an explicit `render()`.
+- `anims.exists(key)` does NOT mean playable: a sheet whose download failed
+  still gets a registered anim with ZERO frames, and `play()` on it throws
+  `Cannot read properties of undefined (reading 'duration')` inside
+  `startAnimation → getFirstTick`, stopping the game loop. `PreloadScene`
+  skips anims whose texture is missing, and every play goes through
+  `core/anim.ts` (`safePlay(sprite, key, ignoreIfPlaying?)` /
+  `playable(anims, key)`), which falls back to the static frame; never call
+  `sprite.play()` / `anims.play()` directly (pinned by
+  `src/sim/kits/anim.selftest.ts`).
 - `Phaser` has no global: **every file using `Phaser` at runtime must
   `import Phaser from 'phaser'`.**
 - `TimerEvent#delay` is read-only → `timer.reset({...})`.

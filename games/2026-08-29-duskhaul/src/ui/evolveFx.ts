@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { CSS, FONT, PALETTE, VIEW } from '../config';
 import { TEX } from '../core/keys';
+import { safePlay } from '../core/anim';
 import { sfx, sfxArp, audioSettings } from '../core/audio';
 import { setTimeDilation, shake } from '../core/juice';
 import { holdToasts } from './toast';
@@ -444,7 +445,7 @@ function evolutionBeat(scene: Phaser.Scene, d: Director, spec: EvolutionSpec): B
   const columnKey = scene.textures.exists('fx-chest-beam') ? 'fx-chest-beam' : TEX.square;
   const column = scene.add.sprite(hero.x, hero.y, columnKey).setOrigin(0.5, 0.92).setDepth(DEPTH.world);
   column.setBlendMode(Phaser.BlendModes.ADD).setTint(HERO_FX.violet).setAlpha(0);
-  if (columnKey === 'fx-chest-beam' && scene.anims.exists('fx-chest-beam')) column.play('fx-chest-beam');
+  if (columnKey === 'fx-chest-beam') safePlay(column, 'fx-chest-beam');
   const core = scene.add.sprite(hero.x, hero.y, columnKey).setOrigin(0.5, 0.92).setDepth(DEPTH.world + 1);
   core.setBlendMode(Phaser.BlendModes.ADD).setTint(HERO_FX.bone).setAlpha(0);
   const colW = 150 / Math.max(1, column.width);

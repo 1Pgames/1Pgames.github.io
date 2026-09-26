@@ -6,6 +6,7 @@ import { Rng } from '../../core/rng';
 import { NavGrid } from '../../core/grid';
 import { resetDamageClock, setDamageClock } from '../../core/damage';
 import { Pool } from '../../core/pool';
+import { playable, safePlay } from '../../core/anim';
 import { RunDirector, type EventSpec, type WaveSpec } from '../../core/run';
 import { combatBonuses, loadMeta, runLoadout, settleRun, writeRunJournal } from '../../core/progression';
 import { applyEffect } from '../../core/effects';
@@ -694,7 +695,7 @@ export class GameScene extends Phaser.Scene {
     if (this.textures.exists(LOCKET_BEACON)) {
       // Above tall props and their tops (critic v2d: novices never saw the light).
       this.locketBeacon = this.add.sprite(at.x, at.y - 90, LOCKET_BEACON).setOrigin(0.5, 0.65).setDepth(LOCKET_BEACON_DEPTH).setAlpha(0.95);
-      if (this.playable(LOCKET_BEACON)) this.locketBeacon.play(LOCKET_BEACON);
+      safePlay(this.locketBeacon, LOCKET_BEACON);
     }
   }
 
@@ -1897,10 +1898,10 @@ export class GameScene extends Phaser.Scene {
         .setDepth(6);
       this.gateVisuals.push({ gate, ring, sprite, state: null });
     }
-    if (this.playable(ANIM.collapseRing)) {
+    if (playable(this.anims, ANIM.collapseRing)) {
       for (let i = 0; i < COLLAPSE_SEGMENT_POOL; i += 1) {
         const segment = this.add.sprite(0, 0, ANIM.collapseRing).setDisplaySize(COLLAPSE_SEGMENT_W, COLLAPSE_SEGMENT_H).setDepth(45).setVisible(false);
-        segment.play(ANIM.collapseRing);
+        safePlay(segment, ANIM.collapseRing);
         this.collapseSegments.push(segment);
       }
     }
@@ -1969,33 +1970,20 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  /**
-   * An anim that exists AND has frames. A registered key whose sheet failed to
-   * load has zero frames, and playing it throws inside Phaser's startAnimation.
-   */
-  private playable(key: string): boolean {
-    const anim = this.anims.get(key);
-    return anim !== undefined && anim.frames.length > 0;
-  }
-
   private paintGate(sprite: Phaser.GameObjects.Sprite, gate: GateCandidate, state: GateState, previous: GateState | null): void {
     sprite.setAlpha(state === 'spent' ? GATE_SPENT_ALPHA : 1);
     const timed = gate.kind === 'timed';
     const openKey = timed ? ANIM.gateOpen : `gate-${gate.kind}-open`;
     const closedKey = timed ? TEXTURE.gateClosed : `gate-${gate.kind}-closed`;
     if (state === 'open' || state === 'closing') {
-      if (timed && state === 'closing' && this.playable(ANIM.gateClosing)) {
-        sprite.play(ANIM.gateClosing, true);
-        return;
-      }
-      if (timed && (previous === 'closed' || previous === null) && this.playable(ANIM.gateOpening) && this.playable(ANIM.gateOpen)) {
-        sprite.play(ANIM.gateOpening, true);
+      if (timed && state === 'closing' && safePlay(sprite, ANIM.gateClosing, true)) return;
+      if (timed && (previous === 'closed' || previous === null) && playable(this.anims, ANIM.gateOpen) && safePlay(sprite, ANIM.gateOpening, true)) {
         sprite.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
-          if (sprite.active) sprite.play(ANIM.gateOpen, true);
+          if (sprite.active) safePlay(sprite, ANIM.gateOpen, true);
         });
         return;
       }
-      if (this.playable(openKey)) sprite.play(openKey, true);
+      safePlay(sprite, openKey, true);
       return;
     }
     sprite.stop();

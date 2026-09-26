@@ -19,7 +19,7 @@ scripts/release-check.mjs  release gate: manifest, English-only fields, cover, s
 scripts/build-site.mjs     games/*/game.json → _site/ (catalog + store pages + built games)
 scripts/telemetry-pull.mjs reads the GoatCounter funnel back: per-event counts + per-level retention for one game
 scripts/preview-capture.mjs  records the live canvas into shots/preview.webm (browser-sandbox module, like cert-driver)
-site/                      store-front assets (styles, filter, lightbox, config.json)
+site/                      store-front assets (styles, catalog filter, store-page tabs + lightbox, config.json)
 .github/workflows/pages.yml  push to master → build catalog + games → GitHub Pages
 games/<slug>/              one generated game per folder: PRD.md, game.json, shots/, build-state.json
 ```
@@ -130,14 +130,18 @@ warnings to failures.
 The repo is the deployable monorepo: `scripts/build-site.mjs` assembles
 `_site/` from every `games/<slug>/game.json` —
 
-- `/` — the store-front: hero with the latest release, family filter chips,
-  search, one card per game (cover, badges, and the **generating prompt** —
-  English — as the card's quote);
-- `/game/<slug>/` — the game's store page: cover, description, the prompt
-  block, screenshots gallery with a lightbox, optional preview loop, play
-  button;
-- `/play/<slug>/` — the built game itself, with a `← Games` pill and an
-  `ⓘ prompt` chip injected into its shell.
+- `/` — the store-front: hero with the latest release (title, one-line
+  `description`, Play + Compare versions), family filter chips, search, one
+  card per game (cover, badges, description, and its versions as chips);
+- `/game/<slug>/` — the game's store page: one **tab per version**, each with
+  that build's own preview loop, cover, screenshots (lightbox), version note,
+  date and Play button; a **What changed** comparison; the original prompt
+  in a secondary block. `/game/<variant-slug>/` is the same page opened on
+  the variant's tab (noindex, canonical = the released build's URL);
+- `/play/<slug>/` — the built game itself, one per version, with a
+  `← Games` pill and an `ⓘ prompt` chip injected into its shell;
+- `/media/<slug>/` — cover, screenshots, og image and preview clip, one folder
+  per version (copied from that build's `public/cover.png` and `shots/`).
 
 `game.json` is the single catalog source of truth, written at scaffold time:
 `{slug, title, family, genre, description, prompt, date, tags, cover,
@@ -145,6 +149,16 @@ screenshots, status}`. The `prompt` field is the English pitch the game was
 generated from (translated at scaffold time when the pitch was not English);
 `game-build` tightens `description` from PRD §1 and appends its verification
 screenshots to `shots/` + `screenshots`.
+
+**Versions.** A second playable build of a game (e.g. the frozen AI original
+kept next to a refined release) is its own `games/<slug>-ai/` folder whose
+`game.json` carries `"status": "variant"`, `"variantOf": "<parent-slug>"` and a
+`versionLabel`. It gets no catalog card; it ships when its parent ships and
+appears as a tab on the parent's page. Version fields on the released build:
+`versionLabel` (tab subtitle, e.g. "V2 — production overhaul"), `versionNote`
+(one paragraph: what this build is), `versionDate` (when this build shipped;
+defaults to `date`) and `changes` (short English bullets for "What changed"
+versus the older version).
 
 **Draft vs released.** The scaffold writes `"status": "draft"`, and
 `build-site.mjs` publishes released games only. The release flow is:

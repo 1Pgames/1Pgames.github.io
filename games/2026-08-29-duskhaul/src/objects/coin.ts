@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { TUNING } from '../config';
 import { ANIM } from '../data/art';
 import { TEX } from '../core/keys';
+import { safePlay } from '../core/anim';
 
 /**
  * Pooled currency pickup: identical magnetism to `XpOrb` but grants run
@@ -34,8 +35,7 @@ export class Coin extends Phaser.Physics.Arcade.Sprite {
     this.setDisplaySize(size * 1.8, size * 1.8);
     this.clearTint();
     this.setActive(true).setVisible(true);
-    if (this.scene.anims.exists(ANIM.shard)) this.play(ANIM.shard, true);
-    else this.setTexture(TEX.disc).setTint(0xf3ca67);
+    if (!safePlay(this, ANIM.shard, true) && !this.scene.textures.exists(ANIM.shard)) this.setTexture(TEX.disc).setTint(0xf3ca67);
     this.enableBody(false, x, y, true, true);
     this.body?.setCircle(64, 0, 0);
     this.setVelocity(0, 0);

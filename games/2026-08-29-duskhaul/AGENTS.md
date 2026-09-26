@@ -474,6 +474,12 @@ A build over budget is a defect even when every feature "works".
 - `TextureManager.generate` / `Create.GenerateTexture` are gone → draw with
   `Graphics#generateTexture` (see `core/textures.ts`).
 - `DynamicTexture`/`RenderTexture` buffer draws and need an explicit `render()`.
+- `anims.exists(key)` does NOT mean playable: a sheet whose download failed
+  still gets a registered anim with ZERO frames, and `play()` on it throws
+  `Cannot read properties of undefined (reading 'duration')` inside
+  `startAnimation`, stopping the game loop. Every play goes through
+  `core/anim.ts` (`safePlay(sprite, key)` / `playable(anims, key)`), which
+  falls back to the static frame; never call `sprite.play()` directly.
 - `Phaser` has no global: **every file using `Phaser` at runtime must
   `import Phaser from 'phaser'`.**
 - `TimerEvent#delay` is read-only → `timer.reset({...})`.

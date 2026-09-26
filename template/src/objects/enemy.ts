@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { PALETTE, TUNING, VIEW } from '../config';
 import { TEX } from '../core/keys';
+import { safePlay } from '../core/anim';
 import { Health } from '../core/damage';
 import { displaySizeFor, outlineRankOf, scaleEnemy, type EnemyDef } from '../data/enemies';
 import { Bar } from '../ui/bars';
@@ -124,7 +125,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.body?.setCircle(radius, BODY_CENTER_X - radius, BODY_CENTER_Y - radius);
     this.setVelocity(0, 0);
     // Pooled sprites keep the previous animation's frame: always restart.
-    if (this.scene.anims.exists(key)) this.play(key, true);
+    safePlay(this, key, true);
 
     // HP bars only for the enemies whose HP the player actually tracks.
     if (def.id === 'elite' || def.id === 'boss') {

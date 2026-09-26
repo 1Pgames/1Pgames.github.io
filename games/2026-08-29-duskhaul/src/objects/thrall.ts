@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { TUNING } from '../config';
 import { TEX } from '../core/keys';
+import { playable, safePlay } from '../core/anim';
 import { hitFlash } from '../core/juice';
 import { THRALL_FALLBACK_KEY, THRALL_VISIBLE_PX, outlineKey, shadowTexture } from '../core/outline';
 import { artFacesRight } from '../data/art';
@@ -92,10 +93,7 @@ export class Thrall extends Phaser.Physics.Arcade.Sprite {
   /** Plays the 2 px green-outlined variant when baked. Frame first, then size. */
   private show(key: string): void {
     const ol = outlineKey(key, 2);
-    const anims = this.scene.anims;
-    if (anims.exists(ol)) this.play(ol, true);
-    else if (anims.exists(key)) this.play(key, true);
-    else this.setTexture(this.scene.textures.exists(ol) ? ol : key, 0);
+    if (!safePlay(this, ol, true) && !safePlay(this, key, true)) this.setTexture(this.scene.textures.exists(ol) ? ol : key, 0);
     const size = this.displaySize * actionScale(this.moveKey, key);
     this.setDisplaySize(size, size);
   }
@@ -140,8 +138,10 @@ export class Thrall extends Phaser.Physics.Arcade.Sprite {
       host.biteEnemy(target, this.spec.bite, this.x, this.y);
       if (this.biteKey !== this.moveKey) {
         this.show(this.biteKey);
-        const anim = this.scene.anims.get(outlineKey(this.biteKey, 2)) ?? this.scene.anims.get(this.biteKey);
-        this.biteAnimMs = anim !== undefined && anim !== null ? anim.duration : 300;
+        const anims = this.scene.anims;
+        const ol = outlineKey(this.biteKey, 2);
+        const shown = playable(anims, ol) ? anims.get(ol) : playable(anims, this.biteKey) ? anims.get(this.biteKey) : undefined;
+        this.biteAnimMs = shown?.duration ?? 300;
       }
     }
 

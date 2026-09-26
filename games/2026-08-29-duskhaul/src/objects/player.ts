@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { PALETTE, PLAYER_BASE_STATS, TUNING } from '../config';
 import { TEX } from '../core/keys';
+import { safePlay } from '../core/anim';
 import { ANIM, artFacesRight } from '../data/art';
 import { Health } from '../core/damage';
 import { StatBlock, type Modifier } from '../core/stats';
@@ -260,7 +261,11 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   playAction(key: string): void {
     if (this.channelling || this.action === key) return;
     this.action = key;
-    this.playArt(key);
+    if (!this.playArt(key)) {
+      // No frames → no ANIMATION_COMPLETE would ever release the action.
+      this.action = null;
+      return;
+    }
     this.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
       if (this.action !== key) return;
       this.action = null;
@@ -283,13 +288,18 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     return key?.endsWith('-ol') === true ? key.slice(0, -3) : key;
   }
 
-  /** Plays the GREEN-outlined variant (§13.1) when baked; re-applies per-action scale. */
-  private playArt(key: string): void {
+  /**
+   * Plays the GREEN-outlined variant (§13.1) when baked; re-applies per-action
+   * scale. False when neither variant is playable (a static frame is shown).
+   */
+  private playArt(key: string): boolean {
     const size = this.displaySize * actionScale(ANIM.heroIdle, key);
     const ol = outlineKey(key, TUNING.outline.heroPx as 3);
-    this.play(this.scene.anims.exists(ol) ? ol : key, true);
+    const played = safePlay(this, ol, true) || safePlay(this, key, true);
+    if (!played && this.scene.textures.exists(ol)) this.setTexture(ol, 0);
     this.setDisplaySize(size, size);
     this.faceVelocity(this.body?.velocity.x ?? 0);
+    return played;
   }
 
   private faceVelocity(vx: number): void {

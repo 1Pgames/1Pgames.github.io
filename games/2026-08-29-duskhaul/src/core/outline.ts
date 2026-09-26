@@ -18,6 +18,7 @@
  */
 import type Phaser from 'phaser';
 import { TUNING } from '../config';
+import { playable } from './anim';
 import { ANIM } from '../data/art';
 import { ACTION_SUFFIXES, ENEMIES, actionScale, actorBaseKey, displaySizeFor, visiblePxOf } from '../data/enemies';
 
@@ -213,7 +214,7 @@ function bakeOne(scene: Phaser.Scene, entry: OutlineEntry): void {
   stats.frames += frames.length;
 
   const anim = scene.anims.get(entry.key);
-  if (anim !== undefined && anim !== null && !scene.anims.exists(olKey)) {
+  if (anim !== undefined && anim !== null && playable(scene.anims, entry.key) && !scene.anims.exists(olKey)) {
     scene.anims.create({
       key: olKey,
       frames: anim.frames.map((f) => ({ key: olKey, frame: f.textureFrame })),

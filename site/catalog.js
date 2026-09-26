@@ -14,16 +14,19 @@
       const okFamily = family === 'all' || card.dataset.family === family;
       const okQuery = query === '' || (card.dataset.text || '').includes(query);
       const show = okFamily && okQuery;
-      card.style.display = show ? '' : 'none';
+      card.hidden = !show;
       if (show) shown += 1;
     }
-    if (empty) empty.style.display = shown === 0 ? '' : 'none';
+    if (empty) empty.hidden = shown !== 0;
   };
 
   for (const chip of chips) {
     chip.addEventListener('click', () => {
       family = chip.dataset.family || 'all';
-      for (const c of chips) c.classList.toggle('active', c === chip);
+      for (const c of chips) {
+        c.classList.toggle('active', c === chip);
+        c.setAttribute('aria-pressed', String(c === chip));
+      }
       apply();
     });
   }

@@ -6,6 +6,7 @@
 import Phaser from 'phaser';
 import { CSS, PALETTE } from '../../config';
 import { sfx } from '../../core/audio';
+import { safePlay } from '../../core/anim';
 import { outlineKey } from '../../core/outline';
 import {
   beltSlotsUnlocked,
@@ -71,7 +72,7 @@ export function buildArmoryTab(scene: Phaser.Scene, content: Phaser.GameObjects.
     if (scene.textures.exists(heroKey)) {
       const hero = scene.add.sprite(360, 184 - C + 170, heroKey, 0);
       hero.setScale(260 / Math.max(hero.height, 1));
-      if (scene.anims.exists(heroKey)) hero.play(heroKey);
+      safePlay(hero, heroKey);
       content.add(hero);
       // Designed idle presence: a slow breath, registered here and killed on rebuild/destroy.
       bob = scene.tweens.add({ targets: hero, y: hero.y - 6, duration: 1400, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });

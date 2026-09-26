@@ -14,11 +14,21 @@
     "shots/01-hub-expedition.png",
     "shots/02-run-horde.png",
     "shots/03-draft.png",
-    "shots/04-results.png"
+    "shots/04-evolution.png",
+    "shots/05-results.png"
   ],
   "status": "released",
   "versionLabel": "V2 — production overhaul",
   "versionNote": "Runs now take place on procedurally generated maps 16× larger than before, packed with points of interest, conditional extraction gates and outlined, readable actors. Between runs, a five-tab hub carries gear, the Sanctum tree, contracts and the codex.",
+  "versionDate": "2026-09-26",
+  "changes": [
+    "Procedurally generated maps 16× larger, with roads, landmarks and about 140 points of interest per run",
+    "Bigger, outlined enemies and hero; flow-field swarms, elite affixes, 4 zone bosses and 4 mid-bosses",
+    "20 weapons, each with a partner charm and an evolution, plus a choice of starting weapon",
+    "Loot rework: breakables, a 4×3 bag with a casket slot, conditional extraction gates and a greed meter",
+    "Five-tab hub between runs: Expedition, Armory, Vault, a 41-node Sanctum tree and the Codex; account levels 1–40, contracts, daily and weekly challenges",
+    "Generated sound effects mixed under the music, and harder, playtest-tuned balance"
+  ],
   "playtestHistory": [
     {
       "approved": true,

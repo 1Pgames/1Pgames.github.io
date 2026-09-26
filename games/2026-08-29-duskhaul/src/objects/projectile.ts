@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { PALETTE, TUNING } from '../config';
 import { TEXTURE } from '../data/art';
+import { safePlay } from '../core/anim';
 import type { Enemy } from './enemy';
 
 /**
@@ -97,7 +98,7 @@ export class Projectile extends Phaser.Physics.Arcade.Sprite {
     if (!hostile && this.scene.textures.exists(art)) {
       // `wpn-bolt` is a nail pointing right in a square 64 cell.
       this.setTexture(art, 0);
-      if (this.scene.anims.exists(art)) this.play(art, true);
+      safePlay(this, art, true);
       this.setDisplaySize(size * NAIL_CELL_MUL, size * NAIL_CELL_MUL);
     } else {
       this.stop();

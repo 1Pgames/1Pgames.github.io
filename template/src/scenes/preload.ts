@@ -72,6 +72,14 @@ export class PreloadScene extends Phaser.Scene {
     for (const asset of SPRITES) {
       if (!LOADED_GROUPS.includes(asset.group)) continue;
       if (asset.duration <= 0 || asset.frames < 2 || this.anims.exists(asset.key)) continue;
+      // A sheet whose download failed has no texture: registering its key would
+      // make an anim with ZERO frames that `anims.exists` still reports, and
+      // playing it throws inside Phaser (`reading 'duration'`). Leave it
+      // unregistered so every guard sees "no anim" and falls back to static art.
+      if (!this.textures.exists(asset.key)) {
+        console.warn(`[preload] sheet "${asset.key}" did not load; its animation is skipped`);
+        continue;
+      }
       this.anims.create({
         key: asset.key,
         frames: this.anims.generateFrameNumbers(asset.key, { start: 0, end: asset.frames - 1 }),
