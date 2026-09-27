@@ -1,0 +1,268 @@
+{
+  "source": {
+    "file": "omp-image-158f2c675784902c.jpg",
+    "provider": "xai-oauth",
+    "rawFile": "raw-source.png",
+    "width": 1024,
+    "height": 1024,
+    "originalRaw": "raw-original.jpg"
+  },
+  "grid": {
+    "rows": 2,
+    "cols": 2
+  },
+  "output": {
+    "cellSize": 256,
+    "cellHeight": 256,
+    "align": "center",
+    "scaleMode": "fit",
+    "fit": 0.86,
+    "fullBleed": false,
+    "threshold": 150,
+    "feather": 55,
+    "edgeThreshold": 170,
+    "sampling": "smooth",
+    "durationMs": 0,
+    "componentMode": "all",
+    "componentPadding": 0,
+    "minComponentArea": 1,
+    "profileApplied": null,
+    "overrides": []
+  },
+  "qc": {
+    "strict": true,
+    "passed": false,
+    "failures": [
+      "frame-000.png:source-edge-touch",
+      "frame-001.png:source-edge-touch",
+      "frame-002.png:source-edge-touch",
+      "frame-003.png:source-edge-touch"
+    ],
+    "waived": [],
+    "notes": [
+      "chroma-guard-protected:763564px kept that the key would have deleted"
+    ],
+    "chromaGuard": {
+      "anchors": [],
+      "declaredAnchors": 18,
+      "protectedPixels": 763564
+    },
+    "keyedPixels": 957,
+    "summary": {
+      "frameCount": 4,
+      "validFrameCount": 4,
+      "emptyCount": 0,
+      "sourceEdgeTouchCount": 4,
+      "outputEdgeTouchCount": 0,
+      "pasteClampedCount": 0,
+      "bodyScaleMean": 1,
+      "bodyScaleCv": 0,
+      "anchorXStd": 0,
+      "anchorYStd": 0,
+      "anchorYMean": 0.5,
+      "outputSubjectHeightMean": 220
+    },
+    "retryHints": [
+      {
+        "failure": "source-edge-touch",
+        "frames": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "promptDelta": "Redraw the character fully inside its source grid cell with a visible margin on all four sides; the subject currently touches the raw source cell boundary before any scaling is applied.",
+        "processorDelta": {
+          "componentPadding": 2
+        }
+      }
+    ],
+    "background": {
+      "keyedFraction": 0.7239933013916016,
+      "edgeKeyFraction": 1,
+      "foreignRegionCount": 0,
+      "cellCoverage": [
+        0.36248779296875,
+        0.15951156616210938,
+        0.2283172607421875,
+        0.3537101745605469
+      ],
+      "emptyCells": [],
+      "cell": {
+        "width": 512,
+        "height": 512,
+        "aspect": 1
+      },
+      "geometryMismatch": false,
+      "contaminated": false,
+      "findings": []
+    }
+  },
+  "frames": [
+    {
+      "index": 0,
+      "file": "frames/frame-000.png",
+      "sourceBox": {
+        "left": 0,
+        "top": 0,
+        "width": 512,
+        "height": 512
+      },
+      "subjectBox": {
+        "left": 0,
+        "top": 0,
+        "width": 512,
+        "height": 512
+      },
+      "alignedBox": {
+        "left": 18,
+        "top": 18,
+        "width": 220,
+        "height": 220
+      },
+      "sourceAnchor": {
+        "x": 256,
+        "y": 256
+      },
+      "targetAnchor": {
+        "x": 128,
+        "y": 128
+      },
+      "empty": false,
+      "componentCount": 1,
+      "subjectArea": 262144,
+      "droppedArea": 0,
+      "bodyScale": 1,
+      "sourceEdgeTouch": true,
+      "outputEdgeTouch": false,
+      "pasteClamped": false,
+      "scale": 0.43
+    },
+    {
+      "index": 1,
+      "file": "frames/frame-001.png",
+      "sourceBox": {
+        "left": 512,
+        "top": 0,
+        "width": 512,
+        "height": 512
+      },
+      "subjectBox": {
+        "left": 0,
+        "top": 0,
+        "width": 512,
+        "height": 512
+      },
+      "alignedBox": {
+        "left": 18,
+        "top": 18,
+        "width": 220,
+        "height": 220
+      },
+      "sourceAnchor": {
+        "x": 256,
+        "y": 256
+      },
+      "targetAnchor": {
+        "x": 128,
+        "y": 128
+      },
+      "empty": false,
+      "componentCount": 1,
+      "subjectArea": 261187,
+      "droppedArea": 0,
+      "bodyScale": 1,
+      "sourceEdgeTouch": true,
+      "outputEdgeTouch": false,
+      "pasteClamped": false,
+      "scale": 0.43
+    },
+    {
+      "index": 2,
+      "file": "frames/frame-002.png",
+      "sourceBox": {
+        "left": 0,
+        "top": 512,
+        "width": 512,
+        "height": 512
+      },
+      "subjectBox": {
+        "left": 0,
+        "top": 0,
+        "width": 512,
+        "height": 512
+      },
+      "alignedBox": {
+        "left": 18,
+        "top": 18,
+        "width": 220,
+        "height": 220
+      },
+      "sourceAnchor": {
+        "x": 256,
+        "y": 256
+      },
+      "targetAnchor": {
+        "x": 128,
+        "y": 128
+      },
+      "empty": false,
+      "componentCount": 1,
+      "subjectArea": 262144,
+      "droppedArea": 0,
+      "bodyScale": 1,
+      "sourceEdgeTouch": true,
+      "outputEdgeTouch": false,
+      "pasteClamped": false,
+      "scale": 0.43
+    },
+    {
+      "index": 3,
+      "file": "frames/frame-003.png",
+      "sourceBox": {
+        "left": 512,
+        "top": 512,
+        "width": 512,
+        "height": 512
+      },
+      "subjectBox": {
+        "left": 0,
+        "top": 0,
+        "width": 512,
+        "height": 512
+      },
+      "alignedBox": {
+        "left": 18,
+        "top": 18,
+        "width": 220,
+        "height": 220
+      },
+      "sourceAnchor": {
+        "x": 256,
+        "y": 256
+      },
+      "targetAnchor": {
+        "x": 128,
+        "y": 128
+      },
+      "empty": false,
+      "componentCount": 1,
+      "subjectArea": 262144,
+      "droppedArea": 0,
+      "bodyScale": 1,
+      "sourceEdgeTouch": true,
+      "outputEdgeTouch": false,
+      "pasteClamped": false,
+      "scale": 0.43
+    }
+  ],
+  "undivide": {
+    "tool": "art/exports/icons-a/tools/undivide.py",
+    "key": [
+      229,
+      91,
+      155
+    ],
+    "repaintedPx": 42567
+  }
+}

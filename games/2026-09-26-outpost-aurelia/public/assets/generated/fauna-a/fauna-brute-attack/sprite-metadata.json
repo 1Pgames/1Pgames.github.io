@@ -1,0 +1,251 @@
+{
+  "source": {
+    "file": "omp-image-158f2b3a48c48fd0.jpg",
+    "provider": "xai-oauth",
+    "rawFile": "raw-source.jpg",
+    "width": 1024,
+    "height": 1024
+  },
+  "grid": {
+    "rows": 2,
+    "cols": 2
+  },
+  "output": {
+    "cellSize": 256,
+    "cellHeight": 256,
+    "align": "bottom",
+    "scaleMode": "fit",
+    "fit": 0.86,
+    "fullBleed": false,
+    "threshold": 150,
+    "feather": 55,
+    "edgeThreshold": 170,
+    "sampling": "smooth",
+    "durationMs": 100,
+    "componentMode": "largest",
+    "componentPadding": 0,
+    "minComponentArea": 1,
+    "profileApplied": "fauna-brute",
+    "overrides": []
+  },
+  "qc": {
+    "strict": true,
+    "passed": true,
+    "failures": [],
+    "waived": [],
+    "notes": [],
+    "postureChange": [
+      "body-scale-cv:0.1502>0.0800"
+    ],
+    "keyedPixels": 804747,
+    "summary": {
+      "frameCount": 4,
+      "validFrameCount": 4,
+      "emptyCount": 0,
+      "sourceEdgeTouchCount": 0,
+      "outputEdgeTouchCount": 0,
+      "pasteClampedCount": 0,
+      "bodyScaleMean": 0.55322265625,
+      "bodyScaleCv": 0.15018683831849472,
+      "anchorXStd": 0.007059000143945782,
+      "anchorYStd": 0.017325385741416184,
+      "anchorYMean": 0.77880859375,
+      "outputSubjectHeightMean": 143,
+      "profileBodyScaleDrift": 0.056902985074626766,
+      "outputSubjectHeightDrift": 0.059259259259259345
+    },
+    "retryHints": [],
+    "background": {
+      "keyedFraction": 0.766510009765625,
+      "edgeKeyFraction": 1,
+      "foreignRegionCount": 0,
+      "cellCoverage": [
+        0.24663162231445312,
+        0.21640777587890625,
+        0.2088623046875,
+        0.2620582580566406
+      ],
+      "emptyCells": [],
+      "cell": {
+        "width": 512,
+        "height": 512,
+        "aspect": 1
+      },
+      "geometryMismatch": false,
+      "contaminated": false,
+      "findings": []
+    }
+  },
+  "scaleProfile": {
+    "path": "/Users/tmwh/homework/1Pgames/games/2026-09-26-outpost-aurelia/art/exports/fauna-a/fauna-brute-walk/fauna-brute-scale.json",
+    "name": "fauna-brute",
+    "version": 2
+  },
+  "frames": [
+    {
+      "index": 0,
+      "file": "frames/frame-000.png",
+      "sourceBox": {
+        "left": 0,
+        "top": 0,
+        "width": 512,
+        "height": 512
+      },
+      "subjectBox": {
+        "left": 40,
+        "top": 108,
+        "width": 425,
+        "height": 290
+      },
+      "alignedBox": {
+        "left": 21,
+        "top": 92,
+        "width": 215,
+        "height": 146
+      },
+      "sourceAnchor": {
+        "x": 252.5,
+        "y": 398
+      },
+      "targetAnchor": {
+        "x": 128,
+        "y": 238
+      },
+      "empty": false,
+      "componentCount": 1,
+      "subjectArea": 64372,
+      "droppedArea": 0,
+      "bodyScale": 0.56640625,
+      "sourceEdgeTouch": false,
+      "outputEdgeTouch": false,
+      "pasteClamped": false,
+      "scale": 0.5049541284403669
+    },
+    {
+      "index": 1,
+      "file": "frames/frame-001.png",
+      "sourceBox": {
+        "left": 512,
+        "top": 0,
+        "width": 512,
+        "height": 512
+      },
+      "subjectBox": {
+        "left": 40,
+        "top": 158,
+        "width": 441,
+        "height": 228
+      },
+      "alignedBox": {
+        "left": 17,
+        "top": 123,
+        "width": 223,
+        "height": 115
+      },
+      "sourceAnchor": {
+        "x": 260.5,
+        "y": 386
+      },
+      "targetAnchor": {
+        "x": 128,
+        "y": 238
+      },
+      "empty": false,
+      "componentCount": 1,
+      "subjectArea": 56490,
+      "droppedArea": 0,
+      "bodyScale": 0.4453125,
+      "sourceEdgeTouch": false,
+      "outputEdgeTouch": false,
+      "pasteClamped": false,
+      "scale": 0.5049541284403669
+    },
+    {
+      "index": 2,
+      "file": "frames/frame-002.png",
+      "sourceBox": {
+        "left": 0,
+        "top": 512,
+        "width": 512,
+        "height": 512
+      },
+      "subjectBox": {
+        "left": 66,
+        "top": 65,
+        "width": 372,
+        "height": 346
+      },
+      "alignedBox": {
+        "left": 34,
+        "top": 63,
+        "width": 188,
+        "height": 175
+      },
+      "sourceAnchor": {
+        "x": 252,
+        "y": 411
+      },
+      "targetAnchor": {
+        "x": 128,
+        "y": 238
+      },
+      "empty": false,
+      "componentCount": 1,
+      "subjectArea": 54532,
+      "droppedArea": 0,
+      "bodyScale": 0.67578125,
+      "sourceEdgeTouch": false,
+      "outputEdgeTouch": false,
+      "pasteClamped": false,
+      "scale": 0.5049541284403669
+    },
+    {
+      "index": 3,
+      "file": "frames/frame-003.png",
+      "sourceBox": {
+        "left": 512,
+        "top": 512,
+        "width": 512,
+        "height": 512
+      },
+      "subjectBox": {
+        "left": 42,
+        "top": 131,
+        "width": 432,
+        "height": 269
+      },
+      "alignedBox": {
+        "left": 19,
+        "top": 102,
+        "width": 218,
+        "height": 136
+      },
+      "sourceAnchor": {
+        "x": 258,
+        "y": 400
+      },
+      "targetAnchor": {
+        "x": 128,
+        "y": 238
+      },
+      "empty": false,
+      "componentCount": 1,
+      "subjectArea": 68435,
+      "droppedArea": 0,
+      "bodyScale": 0.525390625,
+      "sourceEdgeTouch": false,
+      "outputEdgeTouch": false,
+      "pasteClamped": false,
+      "scale": 0.5049541284403669
+    }
+  ],
+  "reprocess": {
+    "tool": "art/exports/fauna-a/refit.py",
+    "chromaGuard": "off",
+    "reason": "marker scaleMode key ignored (field is `scale`); fit 0.86",
+    "processedInput": "raw-clean.png",
+    "deshadowRepaintedPx": 797722,
+    "markerMetadata": "sprite-metadata.marker.json",
+    "styleProfile": "games/2026-09-26-outpost-aurelia/art/style.json"
+  }
+}

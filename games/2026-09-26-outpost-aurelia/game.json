@@ -1,0 +1,29 @@
+{
+  "slug": "2026-09-26-outpost-aurelia",
+  "title": "Outpost Aurelia",
+  "family": "colony",
+  "genre": "Survival colony builder",
+  "description": "Land on a hostile alien world, grow self-running production chains on a lit power grid, and hold your colony through ten ever-colder nights of swarming fauna until the Beacon calls the Ark.",
+  "prompt": "Let's create a new mobile game. Genre is resource automation survival city builder. Example games to take inspiration from are township, they are billions, frostpunk, factorio and satisfactory. Work thoroughly on PRD before jumping into implementation, deeply research listed games and come up with the fun game loop where user works towards survival of their city. UI and game world interaction should not be tedious on mobile. Art style is sleek polished retro sci-fi world, but not pixel art. Muted colors, hard outlines. Game setting is an alien world humans are colonizing.",
+  "date": "2026-09-26",
+  "tags": [
+    "colony"
+  ],
+  "cover": "cover.png",
+  "screenshots": [
+    "shots/01-hub.png",
+    "shots/02-night-alpha.png",
+    "shots/03-directive-draft.png",
+    "shots/04-beacon-charging.png",
+    "shots/05-launched.png"
+  ],
+  "status": "released",
+  "playtest": {
+    "approved": true,
+    "by": "tmwh",
+    "date": "2026-09-27"
+  },
+  "versionLabel": "V1",
+  "versionNote": "First release. Player feedback goes into the refined V2.",
+  "versionDate": "2026-09-27"
+}

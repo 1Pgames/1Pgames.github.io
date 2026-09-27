@@ -1,0 +1,253 @@
+{
+  "source": {
+    "file": "omp-image-158f2b3bb6048fd5.jpg",
+    "provider": "xai-oauth",
+    "rawFile": "raw-source.jpg",
+    "width": 1024,
+    "height": 1024
+  },
+  "grid": {
+    "rows": 2,
+    "cols": 2
+  },
+  "output": {
+    "cellSize": 256,
+    "cellHeight": 256,
+    "align": "bottom",
+    "scaleMode": "fit",
+    "fit": 0.86,
+    "fullBleed": false,
+    "threshold": 150,
+    "feather": 55,
+    "edgeThreshold": 170,
+    "sampling": "smooth",
+    "durationMs": 100,
+    "componentMode": "largest",
+    "componentPadding": 0,
+    "minComponentArea": 1,
+    "profileApplied": "fauna-grub",
+    "overrides": []
+  },
+  "qc": {
+    "strict": true,
+    "passed": true,
+    "failures": [],
+    "waived": [],
+    "notes": [],
+    "postureChange": [
+      "body-scale-cv:0.2570>0.0800",
+      "profile-body-scale-drift:0.2000>0.0800 (raise --max-profile-scale-drift or pass --posture-change if the action changes posture on purpose)",
+      "output-subject-height-drift:0.1987>0.0800 (raise --max-profile-scale-drift or pass --posture-change if the action changes posture on purpose)"
+    ],
+    "keyedPixels": 877562,
+    "summary": {
+      "frameCount": 4,
+      "validFrameCount": 4,
+      "emptyCount": 0,
+      "sourceEdgeTouchCount": 0,
+      "outputEdgeTouchCount": 0,
+      "pasteClampedCount": 0,
+      "bodyScaleMean": 0.3486328125,
+      "bodyScaleCv": 0.25698658158696946,
+      "anchorXStd": 0.0066726808440998285,
+      "anchorYStd": 0.043942599742659225,
+      "anchorYMean": 0.68994140625,
+      "outputSubjectHeightMean": 89,
+      "profileBodyScaleDrift": 0.19999999999999996,
+      "outputSubjectHeightDrift": 0.19865319865319875
+    },
+    "retryHints": [],
+    "background": {
+      "keyedFraction": 0.8360433578491211,
+      "edgeKeyFraction": 1,
+      "foreignRegionCount": 0,
+      "cellCoverage": [
+        0.15377044677734375,
+        0.17267990112304688,
+        0.18874740600585938,
+        0.14062881469726562
+      ],
+      "emptyCells": [],
+      "cell": {
+        "width": 512,
+        "height": 512,
+        "aspect": 1
+      },
+      "geometryMismatch": false,
+      "contaminated": false,
+      "findings": []
+    }
+  },
+  "scaleProfile": {
+    "path": "/Users/tmwh/homework/1Pgames/games/2026-09-26-outpost-aurelia/art/exports/fauna-a/fauna-grub-walk/fauna-grub-scale.json",
+    "name": "fauna-grub",
+    "version": 2
+  },
+  "frames": [
+    {
+      "index": 0,
+      "file": "frames/frame-000.png",
+      "sourceBox": {
+        "left": 0,
+        "top": 0,
+        "width": 512,
+        "height": 512
+      },
+      "subjectBox": {
+        "left": 77,
+        "top": 182,
+        "width": 346,
+        "height": 187
+      },
+      "alignedBox": {
+        "left": 42,
+        "top": 145,
+        "width": 173,
+        "height": 93
+      },
+      "sourceAnchor": {
+        "x": 250,
+        "y": 369
+      },
+      "targetAnchor": {
+        "x": 128,
+        "y": 238
+      },
+      "empty": false,
+      "componentCount": 1,
+      "subjectArea": 40093,
+      "droppedArea": 0,
+      "bodyScale": 0.365234375,
+      "sourceEdgeTouch": false,
+      "outputEdgeTouch": false,
+      "pasteClamped": false,
+      "scale": 0.4992290249433107
+    },
+    {
+      "index": 1,
+      "file": "frames/frame-001.png",
+      "sourceBox": {
+        "left": 512,
+        "top": 0,
+        "width": 512,
+        "height": 512
+      },
+      "subjectBox": {
+        "left": 70,
+        "top": 130,
+        "width": 372,
+        "height": 240
+      },
+      "alignedBox": {
+        "left": 35,
+        "top": 118,
+        "width": 186,
+        "height": 120
+      },
+      "sourceAnchor": {
+        "x": 256,
+        "y": 370
+      },
+      "targetAnchor": {
+        "x": 128,
+        "y": 238
+      },
+      "empty": false,
+      "componentCount": 1,
+      "subjectArea": 45050,
+      "droppedArea": 0,
+      "bodyScale": 0.46875,
+      "sourceEdgeTouch": false,
+      "outputEdgeTouch": false,
+      "pasteClamped": false,
+      "scale": 0.4992290249433107
+    },
+    {
+      "index": 2,
+      "file": "frames/frame-002.png",
+      "sourceBox": {
+        "left": 0,
+        "top": 512,
+        "width": 512,
+        "height": 512
+      },
+      "subjectBox": {
+        "left": 27,
+        "top": 183,
+        "width": 443,
+        "height": 176
+      },
+      "alignedBox": {
+        "left": 17,
+        "top": 150,
+        "width": 221,
+        "height": 88
+      },
+      "sourceAnchor": {
+        "x": 248.5,
+        "y": 359
+      },
+      "targetAnchor": {
+        "x": 128,
+        "y": 238
+      },
+      "empty": false,
+      "componentCount": 1,
+      "subjectArea": 49237,
+      "droppedArea": 0,
+      "bodyScale": 0.34375,
+      "sourceEdgeTouch": false,
+      "outputEdgeTouch": false,
+      "pasteClamped": false,
+      "scale": 0.4992290249433107
+    },
+    {
+      "index": 3,
+      "file": "frames/frame-003.png",
+      "sourceBox": {
+        "left": 512,
+        "top": 512,
+        "width": 512,
+        "height": 512
+      },
+      "subjectBox": {
+        "left": 21,
+        "top": 204,
+        "width": 470,
+        "height": 111
+      },
+      "alignedBox": {
+        "left": 11,
+        "top": 183,
+        "width": 235,
+        "height": 55
+      },
+      "sourceAnchor": {
+        "x": 256,
+        "y": 315
+      },
+      "targetAnchor": {
+        "x": 128,
+        "y": 238
+      },
+      "empty": false,
+      "componentCount": 1,
+      "subjectArea": 36634,
+      "droppedArea": 0,
+      "bodyScale": 0.216796875,
+      "sourceEdgeTouch": false,
+      "outputEdgeTouch": false,
+      "pasteClamped": false,
+      "scale": 0.4992290249433107
+    }
+  ],
+  "reprocess": {
+    "tool": "art/exports/fauna-a/refit.py",
+    "chromaGuard": "off",
+    "reason": "marker scaleMode key ignored (field is `scale`); fit 0.86",
+    "processedInput": "raw-source.jpg",
+    "deshadowRepaintedPx": null,
+    "markerMetadata": "sprite-metadata.marker.json",
+    "styleProfile": "games/2026-09-26-outpost-aurelia/art/style.json"
+  }
+}

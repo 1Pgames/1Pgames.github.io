@@ -1,0 +1,259 @@
+{
+  "source": {
+    "file": "omp-image-158f2b393f848fcf.jpg",
+    "provider": "xai-oauth",
+    "rawFile": "raw-source.jpg",
+    "width": 1024,
+    "height": 1024
+  },
+  "grid": {
+    "rows": 2,
+    "cols": 2
+  },
+  "output": {
+    "cellSize": 256,
+    "cellHeight": 256,
+    "align": "bottom",
+    "scaleMode": "fit",
+    "fit": 0.86,
+    "fullBleed": false,
+    "threshold": 150,
+    "feather": 55,
+    "edgeThreshold": 170,
+    "sampling": "smooth",
+    "durationMs": 100,
+    "componentMode": "largest",
+    "componentPadding": 0,
+    "minComponentArea": 1,
+    "profileApplied": "fauna-skitter",
+    "overrides": []
+  },
+  "qc": {
+    "strict": true,
+    "passed": false,
+    "failures": [
+      "background-contamination"
+    ],
+    "waived": [],
+    "notes": [
+      "chroma-guard-protected:12540px kept that the key would have deleted",
+      "components-dropped:25465px removed by componentMode \"largest\"; use componentMode \"none\" or \"all\" to keep briefed debris"
+    ],
+    "chromaGuard": {
+      "anchors": [],
+      "declaredAnchors": 18,
+      "protectedPixels": 12540
+    },
+    "keyedPixels": 869311,
+    "summary": {
+      "frameCount": 4,
+      "validFrameCount": 4,
+      "emptyCount": 0,
+      "sourceEdgeTouchCount": 0,
+      "outputEdgeTouchCount": 0,
+      "pasteClampedCount": 0,
+      "bodyScaleMean": 0.46240234375,
+      "bodyScaleCv": 0.04883772367411691,
+      "anchorXStd": 0.011616579348994452,
+      "anchorYStd": 0.017325385741416184,
+      "anchorYMean": 0.76513671875,
+      "outputSubjectHeightMean": 154.25,
+      "profileBodyScaleDrift": 0.07369614512471645,
+      "outputSubjectHeightDrift": 0.07491289198606266
+    },
+    "retryHints": [
+      {
+        "failure": "background-contamination",
+        "promptDelta": "Repaint the background as one flat, solid magenta (#FF00FF) fill with no gradient, shadow, texture, vignette, or stray non-magenta pixels; the background failed the chroma-key preflight contamination check.",
+        "processorDelta": {
+          "threshold": 200
+        }
+      }
+    ],
+    "background": {
+      "keyedFraction": 0.837371826171875,
+      "edgeKeyFraction": 0.989247311827957,
+      "foreignRegionCount": 1,
+      "cellCoverage": [
+        0.16290283203125,
+        0.16882705688476562,
+        0.15919113159179688,
+        0.1595916748046875
+      ],
+      "emptyCells": [],
+      "cell": {
+        "width": 512,
+        "height": 512,
+        "aspect": 1
+      },
+      "geometryMismatch": false,
+      "contaminated": true,
+      "findings": [
+        "foreign-region-count:1>0"
+      ]
+    }
+  },
+  "scaleProfile": {
+    "path": "/Users/tmwh/homework/1Pgames/games/2026-09-26-outpost-aurelia/art/exports/fauna-a/fauna-skitter-walk/fauna-skitter-scale.json",
+    "name": "fauna-skitter",
+    "version": 2
+  },
+  "frames": [
+    {
+      "index": 0,
+      "file": "frames/frame-000.png",
+      "sourceBox": {
+        "left": 0,
+        "top": 0,
+        "width": 512,
+        "height": 512
+      },
+      "subjectBox": {
+        "left": 63,
+        "top": 161,
+        "width": 359,
+        "height": 220
+      },
+      "alignedBox": {
+        "left": 11,
+        "top": 95,
+        "width": 234,
+        "height": 143
+      },
+      "sourceAnchor": {
+        "x": 242.5,
+        "y": 381
+      },
+      "targetAnchor": {
+        "x": 128,
+        "y": 238
+      },
+      "empty": false,
+      "componentCount": 1,
+      "subjectArea": 37876,
+      "droppedArea": 6625,
+      "bodyScale": 0.4296875,
+      "sourceEdgeTouch": false,
+      "outputEdgeTouch": false,
+      "pasteClamped": false,
+      "scale": 0.6513609467455621
+    },
+    {
+      "index": 1,
+      "file": "frames/frame-001.png",
+      "sourceBox": {
+        "left": 512,
+        "top": 0,
+        "width": 512,
+        "height": 512
+      },
+      "subjectBox": {
+        "left": 64,
+        "top": 152,
+        "width": 389,
+        "height": 248
+      },
+      "alignedBox": {
+        "left": 1,
+        "top": 76,
+        "width": 253,
+        "height": 162
+      },
+      "sourceAnchor": {
+        "x": 258.5,
+        "y": 400
+      },
+      "targetAnchor": {
+        "x": 128,
+        "y": 238
+      },
+      "empty": false,
+      "componentCount": 1,
+      "subjectArea": 39163,
+      "droppedArea": 7144,
+      "bodyScale": 0.484375,
+      "sourceEdgeTouch": false,
+      "outputEdgeTouch": false,
+      "pasteClamped": false,
+      "scale": 0.6513609467455621
+    },
+    {
+      "index": 2,
+      "file": "frames/frame-002.png",
+      "sourceBox": {
+        "left": 0,
+        "top": 512,
+        "width": 512,
+        "height": 512
+      },
+      "subjectBox": {
+        "left": 59,
+        "top": 153,
+        "width": 376,
+        "height": 232
+      },
+      "alignedBox": {
+        "left": 6,
+        "top": 87,
+        "width": 245,
+        "height": 151
+      },
+      "sourceAnchor": {
+        "x": 247,
+        "y": 385
+      },
+      "targetAnchor": {
+        "x": 128,
+        "y": 238
+      },
+      "empty": false,
+      "componentCount": 1,
+      "subjectArea": 38550,
+      "droppedArea": 5602,
+      "bodyScale": 0.453125,
+      "sourceEdgeTouch": false,
+      "outputEdgeTouch": false,
+      "pasteClamped": false,
+      "scale": 0.6513609467455621
+    },
+    {
+      "index": 3,
+      "file": "frames/frame-003.png",
+      "sourceBox": {
+        "left": 512,
+        "top": 512,
+        "width": 512,
+        "height": 512
+      },
+      "subjectBox": {
+        "left": 63,
+        "top": 154,
+        "width": 378,
+        "height": 247
+      },
+      "alignedBox": {
+        "left": 5,
+        "top": 77,
+        "width": 246,
+        "height": 161
+      },
+      "sourceAnchor": {
+        "x": 252,
+        "y": 401
+      },
+      "targetAnchor": {
+        "x": 128,
+        "y": 238
+      },
+      "empty": false,
+      "componentCount": 1,
+      "subjectArea": 38211,
+      "droppedArea": 6094,
+      "bodyScale": 0.482421875,
+      "sourceEdgeTouch": false,
+      "outputEdgeTouch": false,
+      "pasteClamped": false,
+      "scale": 0.6513609467455621
+    }
+  ]
+}

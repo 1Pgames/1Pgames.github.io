@@ -1,0 +1,262 @@
+{
+  "source": {
+    "file": "omp-image-158f2b3a48c48fd0.jpg",
+    "provider": "xai-oauth",
+    "rawFile": "raw-source.jpg",
+    "width": 1024,
+    "height": 1024
+  },
+  "grid": {
+    "rows": 2,
+    "cols": 2
+  },
+  "output": {
+    "cellSize": 256,
+    "cellHeight": 256,
+    "align": "bottom",
+    "scaleMode": "fit",
+    "fit": 0.86,
+    "fullBleed": false,
+    "threshold": 150,
+    "feather": 55,
+    "edgeThreshold": 170,
+    "sampling": "smooth",
+    "durationMs": 100,
+    "componentMode": "largest",
+    "componentPadding": 0,
+    "minComponentArea": 1,
+    "profileApplied": "fauna-brute",
+    "overrides": []
+  },
+  "qc": {
+    "strict": true,
+    "passed": false,
+    "failures": [
+      "background-contamination"
+    ],
+    "waived": [],
+    "notes": [
+      "chroma-guard-protected:48470px kept that the key would have deleted",
+      "components-dropped:21359px removed by componentMode \"largest\"; use componentMode \"none\" or \"all\" to keep briefed debris"
+    ],
+    "postureChange": [
+      "output-subject-height-drift:0.0815>0.0800 (raise --max-profile-scale-drift or pass --posture-change if the action changes posture on purpose)"
+    ],
+    "chromaGuard": {
+      "anchors": [],
+      "declaredAnchors": 18,
+      "protectedPixels": 48470
+    },
+    "keyedPixels": 742176,
+    "summary": {
+      "frameCount": 4,
+      "validFrameCount": 4,
+      "emptyCount": 0,
+      "sourceEdgeTouchCount": 0,
+      "outputEdgeTouchCount": 0,
+      "pasteClampedCount": 0,
+      "bodyScaleMean": 0.564453125,
+      "bodyScaleCv": 0.15426085207722326,
+      "anchorXStd": 0.007720404443770457,
+      "anchorYStd": 0.02161713244255728,
+      "anchorYMean": 0.78515625,
+      "outputSubjectHeightMean": 146,
+      "profileBodyScaleDrift": 0.07835820895522394,
+      "outputSubjectHeightDrift": 0.08148148148148149
+    },
+    "retryHints": [
+      {
+        "failure": "background-contamination",
+        "promptDelta": "Repaint the background as one flat, solid magenta (#FF00FF) fill with no gradient, shadow, texture, vignette, or stray non-magenta pixels; the background failed the chroma-key preflight contamination check.",
+        "processorDelta": {
+          "threshold": 200
+        }
+      }
+    ],
+    "background": {
+      "keyedFraction": 0.7266740798950195,
+      "edgeKeyFraction": 0.9931573802541545,
+      "foreignRegionCount": 1,
+      "cellCoverage": [
+        0.2843017578125,
+        0.2530517578125,
+        0.24939346313476562,
+        0.30655670166015625
+      ],
+      "emptyCells": [],
+      "cell": {
+        "width": 512,
+        "height": 512,
+        "aspect": 1
+      },
+      "geometryMismatch": false,
+      "contaminated": true,
+      "findings": [
+        "foreign-region-count:1>0"
+      ]
+    }
+  },
+  "scaleProfile": {
+    "path": "/Users/tmwh/homework/1Pgames/games/2026-09-26-outpost-aurelia/art/exports/fauna-a/fauna-brute-walk/fauna-brute-scale.json",
+    "name": "fauna-brute",
+    "version": 2
+  },
+  "frames": [
+    {
+      "index": 0,
+      "file": "frames/frame-000.png",
+      "sourceBox": {
+        "left": 0,
+        "top": 0,
+        "width": 512,
+        "height": 512
+      },
+      "subjectBox": {
+        "left": 37,
+        "top": 105,
+        "width": 430,
+        "height": 295
+      },
+      "alignedBox": {
+        "left": 19,
+        "top": 89,
+        "width": 217,
+        "height": 149
+      },
+      "sourceAnchor": {
+        "x": 252,
+        "y": 400
+      },
+      "targetAnchor": {
+        "x": 128,
+        "y": 238
+      },
+      "empty": false,
+      "componentCount": 1,
+      "subjectArea": 74809,
+      "droppedArea": 5069,
+      "bodyScale": 0.576171875,
+      "sourceEdgeTouch": false,
+      "outputEdgeTouch": false,
+      "pasteClamped": false,
+      "scale": 0.5049541284403669
+    },
+    {
+      "index": 1,
+      "file": "frames/frame-001.png",
+      "sourceBox": {
+        "left": 512,
+        "top": 0,
+        "width": 512,
+        "height": 512
+      },
+      "subjectBox": {
+        "left": 39,
+        "top": 155,
+        "width": 444,
+        "height": 233
+      },
+      "alignedBox": {
+        "left": 16,
+        "top": 120,
+        "width": 224,
+        "height": 118
+      },
+      "sourceAnchor": {
+        "x": 261,
+        "y": 388
+      },
+      "targetAnchor": {
+        "x": 128,
+        "y": 238
+      },
+      "empty": false,
+      "componentCount": 1,
+      "subjectArea": 65676,
+      "droppedArea": 5510,
+      "bodyScale": 0.455078125,
+      "sourceEdgeTouch": false,
+      "outputEdgeTouch": false,
+      "pasteClamped": false,
+      "scale": 0.5049541284403669
+    },
+    {
+      "index": 2,
+      "file": "frames/frame-002.png",
+      "sourceBox": {
+        "left": 0,
+        "top": 512,
+        "width": 512,
+        "height": 512
+      },
+      "subjectBox": {
+        "left": 64,
+        "top": 63,
+        "width": 375,
+        "height": 356
+      },
+      "alignedBox": {
+        "left": 33,
+        "top": 58,
+        "width": 189,
+        "height": 180
+      },
+      "sourceAnchor": {
+        "x": 251.5,
+        "y": 419
+      },
+      "targetAnchor": {
+        "x": 128,
+        "y": 238
+      },
+      "empty": false,
+      "componentCount": 1,
+      "subjectArea": 65020,
+      "droppedArea": 5185,
+      "bodyScale": 0.6953125,
+      "sourceEdgeTouch": false,
+      "outputEdgeTouch": false,
+      "pasteClamped": false,
+      "scale": 0.5049541284403669
+    },
+    {
+      "index": 3,
+      "file": "frames/frame-003.png",
+      "sourceBox": {
+        "left": 512,
+        "top": 512,
+        "width": 512,
+        "height": 512
+      },
+      "subjectBox": {
+        "left": 40,
+        "top": 129,
+        "width": 435,
+        "height": 272
+      },
+      "alignedBox": {
+        "left": 18,
+        "top": 101,
+        "width": 220,
+        "height": 137
+      },
+      "sourceAnchor": {
+        "x": 257.5,
+        "y": 401
+      },
+      "targetAnchor": {
+        "x": 128,
+        "y": 238
+      },
+      "empty": false,
+      "componentCount": 1,
+      "subjectArea": 79536,
+      "droppedArea": 5595,
+      "bodyScale": 0.53125,
+      "sourceEdgeTouch": false,
+      "outputEdgeTouch": false,
+      "pasteClamped": false,
+      "scale": 0.5049541284403669
+    }
+  ]
+}

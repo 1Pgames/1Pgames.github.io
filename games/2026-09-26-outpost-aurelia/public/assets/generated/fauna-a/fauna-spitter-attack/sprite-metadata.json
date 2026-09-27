@@ -1,0 +1,253 @@
+{
+  "source": {
+    "file": "omp-image-158f2bc4ba049015.jpg",
+    "provider": "xai-oauth",
+    "rawFile": "raw-source.jpg",
+    "width": 1024,
+    "height": 1024
+  },
+  "grid": {
+    "rows": 2,
+    "cols": 2
+  },
+  "output": {
+    "cellSize": 256,
+    "cellHeight": 256,
+    "align": "bottom",
+    "scaleMode": "fit",
+    "fit": 0.72,
+    "fullBleed": false,
+    "threshold": 150,
+    "feather": 55,
+    "edgeThreshold": 170,
+    "sampling": "smooth",
+    "durationMs": 100,
+    "componentMode": "largest",
+    "componentPadding": 0,
+    "minComponentArea": 1,
+    "profileApplied": "fauna-spitter",
+    "overrides": []
+  },
+  "qc": {
+    "strict": true,
+    "passed": true,
+    "failures": [],
+    "waived": [],
+    "notes": [
+      "components-dropped:514px removed by componentMode \"largest\"; use componentMode \"none\" or \"all\" to keep briefed debris"
+    ],
+    "postureChange": [
+      "body-scale-cv:0.0844>0.0800"
+    ],
+    "keyedPixels": 808984,
+    "summary": {
+      "frameCount": 4,
+      "validFrameCount": 4,
+      "emptyCount": 0,
+      "sourceEdgeTouchCount": 0,
+      "outputEdgeTouchCount": 0,
+      "pasteClampedCount": 0,
+      "bodyScaleMean": 0.75,
+      "bodyScaleCv": 0.08436455053606805,
+      "anchorXStd": 0.006328848338288926,
+      "anchorYStd": 0.004979511243742954,
+      "anchorYMean": 0.888671875,
+      "outputSubjectHeightMean": 189.25,
+      "profileBodyScaleDrift": 0.028801071667782896,
+      "outputSubjectHeightDrift": 0.028532608695652106
+    },
+    "retryHints": [],
+    "background": {
+      "keyedFraction": 0.7710819244384766,
+      "edgeKeyFraction": 1,
+      "foreignRegionCount": 0,
+      "cellCoverage": [
+        0.1888275146484375,
+        0.238739013671875,
+        0.24640274047851562,
+        0.24170303344726562
+      ],
+      "emptyCells": [],
+      "cell": {
+        "width": 512,
+        "height": 512,
+        "aspect": 1
+      },
+      "geometryMismatch": false,
+      "contaminated": false,
+      "findings": []
+    }
+  },
+  "scaleProfile": {
+    "path": "/Users/tmwh/homework/1Pgames/games/2026-09-26-outpost-aurelia/public/assets/generated/fauna-a/fauna-spitter-walk/fauna-spitter-scale.json",
+    "name": "fauna-spitter",
+    "version": 2
+  },
+  "frames": [
+    {
+      "index": 0,
+      "file": "frames/frame-000.png",
+      "sourceBox": {
+        "left": 0,
+        "top": 0,
+        "width": 512,
+        "height": 512
+      },
+      "subjectBox": {
+        "left": 95,
+        "top": 125,
+        "width": 316,
+        "height": 329
+      },
+      "alignedBox": {
+        "left": 50,
+        "top": 58,
+        "width": 156,
+        "height": 162
+      },
+      "sourceAnchor": {
+        "x": 253,
+        "y": 454
+      },
+      "targetAnchor": {
+        "x": 128,
+        "y": 220
+      },
+      "empty": false,
+      "componentCount": 1,
+      "subjectArea": 49407,
+      "droppedArea": 0,
+      "bodyScale": 0.642578125,
+      "sourceEdgeTouch": false,
+      "outputEdgeTouch": false,
+      "pasteClamped": false,
+      "scale": 0.49283422459893045
+    },
+    {
+      "index": 1,
+      "file": "frames/frame-001.png",
+      "sourceBox": {
+        "left": 512,
+        "top": 0,
+        "width": 512,
+        "height": 512
+      },
+      "subjectBox": {
+        "left": 124,
+        "top": 53,
+        "width": 264,
+        "height": 406
+      },
+      "alignedBox": {
+        "left": 63,
+        "top": 20,
+        "width": 130,
+        "height": 200
+      },
+      "sourceAnchor": {
+        "x": 256,
+        "y": 459
+      },
+      "targetAnchor": {
+        "x": 128,
+        "y": 220
+      },
+      "empty": false,
+      "componentCount": 1,
+      "subjectArea": 62498,
+      "droppedArea": 0,
+      "bodyScale": 0.79296875,
+      "sourceEdgeTouch": false,
+      "outputEdgeTouch": false,
+      "pasteClamped": false,
+      "scale": 0.49283422459893045
+    },
+    {
+      "index": 2,
+      "file": "frames/frame-002.png",
+      "sourceBox": {
+        "left": 0,
+        "top": 512,
+        "width": 512,
+        "height": 512
+      },
+      "subjectBox": {
+        "left": 88,
+        "top": 60,
+        "width": 348,
+        "height": 392
+      },
+      "alignedBox": {
+        "left": 42,
+        "top": 27,
+        "width": 172,
+        "height": 193
+      },
+      "sourceAnchor": {
+        "x": 262,
+        "y": 452
+      },
+      "targetAnchor": {
+        "x": 128,
+        "y": 220
+      },
+      "empty": false,
+      "componentCount": 1,
+      "subjectArea": 63894,
+      "droppedArea": 514,
+      "bodyScale": 0.765625,
+      "sourceEdgeTouch": false,
+      "outputEdgeTouch": false,
+      "pasteClamped": false,
+      "scale": 0.49283422459893045
+    },
+    {
+      "index": 3,
+      "file": "frames/frame-003.png",
+      "sourceBox": {
+        "left": 512,
+        "top": 512,
+        "width": 512,
+        "height": 512
+      },
+      "subjectBox": {
+        "left": 124,
+        "top": 46,
+        "width": 266,
+        "height": 409
+      },
+      "alignedBox": {
+        "left": 62,
+        "top": 18,
+        "width": 131,
+        "height": 202
+      },
+      "sourceAnchor": {
+        "x": 257,
+        "y": 455
+      },
+      "targetAnchor": {
+        "x": 128,
+        "y": 220
+      },
+      "empty": false,
+      "componentCount": 1,
+      "subjectArea": 63279,
+      "droppedArea": 0,
+      "bodyScale": 0.798828125,
+      "sourceEdgeTouch": false,
+      "outputEdgeTouch": false,
+      "pasteClamped": false,
+      "scale": 0.49283422459893045
+    }
+  ],
+  "reprocess": {
+    "tool": "art/exports/fauna-a/refit.py",
+    "chromaGuard": "off",
+    "reason": "fit 0.72 to match the walk base (fauna-spitter-scale.json): ground line y 220/256 on both; scale unchanged (profile-bound)",
+    "processedInput": "raw-clean.png",
+    "deshadowRepaintedPx": 805231,
+    "markerMetadata": "sprite-metadata.marker.json",
+    "styleProfile": "games/2026-09-26-outpost-aurelia/art/style.json"
+  }
+}

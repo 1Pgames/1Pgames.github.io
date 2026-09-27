@@ -1,0 +1,59 @@
+{
+  "schema": "sprite-forge.style.v1",
+  "name": "aurelia-retro-nasa",
+  "artStyle": "Sleek polished retro sci-fi illustration in the manner of 1970s NASA concept art and Syd Mead, with a Moebius paperback palette: clean painted shapes with smooth two-to-three step soft gradient shading, never pixel art and never photographic texture. Human hardware is rounded pressure-hull forms, domes, capsules and chamfered boxes in warm cream hull paint with sodium-amber trim, recessed panel lines and small glowing amber windows; alien Aurelia is violet, ochre and iridescent nacre crystal shards with faceted planes; fauna are glassy segmented chitin insects with pale lime lens eyes. Every object carries a hard, thick, even dark ink outline. Proportions are chunky and toy-readable: one clear silhouette mass per object, detail only as panel lines, rivets and window rows, never noise. Consistent 3/4 top-down orthographic game camera.",
+  "palette": [
+    "#1a1418",
+    "#2e1f34",
+    "#423957",
+    "#4c2f24",
+    "#6b452a",
+    "#845730",
+    "#a78f75",
+    "#e3dcc4",
+    "#e2b450",
+    "#c38935",
+    "#6f9fa6",
+    "#736a8c",
+    "#c4c0cc",
+    "#c9e08a",
+    "#c8553d",
+    "#7d93b8",
+    "#3e4652",
+    "#4a4644"
+  ],
+  "camera": "Frontal 3/4 top-down orthographic game camera looking straight north: the object shows its top plus a front face about 30% of its height, no isometric diagonal rotation, no perspective convergence, constant camera distance and scale across every asset.",
+  "lighting": "Low warm dusk key light from the upper left, cool violet ambient in the shadows, small amber practical glows from windows and lamps; soft gradient form shading only, no cast shadow, no ground contact shading, no ground plane.",
+  "outline": "Hard, thick, even 3-4 px near-black warm ink outline (#1a1418) around every outer silhouette at a 256 px cell, thinner ink lines for panel seams and internal overlaps; never a coloured or light outline.",
+  "maxPaletteDistance": 52,
+  "plan": {
+    "valuePlan": { "dark": 0.38, "mid": 0.47, "light": 0.15 },
+    "temperature": "Colony and player are warm: cream hull, sodium amber, brass. Aurelia is cool: violet, dusk purple, nacre. Threat is rust (#c8553d) and oxblood outlines baked at runtime, never painted into sprites; fauna bodies stay desaturated glass-violet with pale lime eyes. Reward is brass/gold. Rime biome owns cold frost blue (#7d93b8).",
+    "saturationHierarchy": [
+      "amber window glow and reward brass",
+      "fauna lime lens eyes and threat rust",
+      "teal colony tech accents",
+      "violet and nacre crystal",
+      "cream hull and ochre ground neutrals",
+      "dusk violet shadows"
+    ],
+    "focal": {
+      "primary": "the glowing amber windows / emitter of a building, or the single glyph of an icon",
+      "secondary": "the silhouette-defining hardware: drill mast, turret barrels, dome cap, crystal spire",
+      "rest": "large smooth cream hull panels and the dark ochre ground"
+    },
+    "materials": {
+      "hull": "enamel-painted pressure hull, smooth soft gradient, crisp inked panel seams, a few rivets, faint wear on edges",
+      "metal": "brushed machine steel in warm grey, one soft specular band, dark ink seams",
+      "glass": "amber-lit window glass that glows from inside with a soft bloom",
+      "crystal": "faceted iridescent nacre-violet shards with flat planes and one pale edge highlight",
+      "chitin": "translucent glassy insect shell, segmented plates, a pale rim light, lens-like glowing eyes",
+      "rock": "rust-dark ore rock, cracked angular planes, matte, two value steps",
+      "energy": "amber or teal plasma with a bright near-white core and a soft additive fringe"
+    },
+    "renderScale": 128
+  },
+  "references": [
+    "games/2026-09-26-outpost-aurelia/art/refs/vision-1.png"
+  ]
+}

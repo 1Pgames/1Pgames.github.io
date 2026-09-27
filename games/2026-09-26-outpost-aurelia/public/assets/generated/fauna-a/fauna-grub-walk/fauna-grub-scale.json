@@ -1,0 +1,32 @@
+{
+  "version": 2,
+  "name": "fauna-grub",
+  "processing": {
+    "cellSize": 256,
+    "cellHeight": 256,
+    "align": "bottom",
+    "scaleMode": "fit",
+    "fit": 0.86,
+    "threshold": 150,
+    "feather": 55,
+    "edgeThreshold": 170,
+    "sampling": "smooth",
+    "componentMode": "largest",
+    "componentPadding": 0,
+    "minComponentArea": 1
+  },
+  "reference": {
+    "rows": 2,
+    "cols": 2,
+    "bodyScaleMean": 0.29052734375,
+    "bodyScaleCv": 0.23001889680832804,
+    "anchorYMean": 0.65673828125,
+    "sourceToOutputScale": 0.4992290249433107,
+    "sourceCellWidth": 512,
+    "sourceCellHeight": 512,
+    "outputSubjectHeightMean": 74.25
+  },
+  "qc": {
+    "maxBodyScaleDrift": 0.08
+  }
+}

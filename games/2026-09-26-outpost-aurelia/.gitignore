@@ -1,0 +1,22 @@
+node_modules
+dist
+dist-ssr
+.DS_Store
+*.local
+.vite
+art/exports/
+shots/cert/
+.cache/
+# Provider raws: regeneration inputs only, never loaded by the game (kept locally).
+art/briefs/**/raw/
+art/briefs/**/raw-frames/
+art/briefs/**/raw-*.png
+art/anchors/**/raw-*
+public/assets/generated/**/raw-source.*
+public/assets/generated/**/raw-cropped.*
+public/assets/generated/**/raw-provider.*
+**/provider-raw.*
+**/__pycache__/
+# Build-process evidence (critic/qa/uidev/flow/feel runs); only top-level store shots ship.
+shots/*/
+review/.qa-drv/

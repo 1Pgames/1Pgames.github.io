@@ -1,0 +1,118 @@
+{
+  "source": {
+    "file": "omp-image-158f2f59138490d1.jpg",
+    "provider": "xai-oauth",
+    "rawFile": "raw-source.jpg",
+    "width": 1024,
+    "height": 1024
+  },
+  "grid": {
+    "rows": 1,
+    "cols": 1
+  },
+  "output": {
+    "cellSize": 256,
+    "cellHeight": 256,
+    "align": "center",
+    "scaleMode": "fit",
+    "fit": 0.86,
+    "fullBleed": false,
+    "threshold": 150,
+    "feather": 55,
+    "edgeThreshold": 170,
+    "sampling": "smooth",
+    "durationMs": 0,
+    "componentMode": "all",
+    "componentPadding": 0,
+    "minComponentArea": 1,
+    "profileApplied": null,
+    "overrides": []
+  },
+  "qc": {
+    "strict": true,
+    "passed": true,
+    "failures": [],
+    "waived": [],
+    "notes": [],
+    "keyedPixels": 708158,
+    "summary": {
+      "frameCount": 1,
+      "validFrameCount": 1,
+      "emptyCount": 0,
+      "sourceEdgeTouchCount": 0,
+      "outputEdgeTouchCount": 0,
+      "pasteClampedCount": 0,
+      "bodyScaleMean": 0.6435546875,
+      "bodyScaleCv": 0,
+      "anchorXStd": 0,
+      "anchorYStd": 0,
+      "anchorYMean": 0.49755859375,
+      "outputSubjectHeightMean": 220
+    },
+    "retryHints": [],
+    "background": {
+      "keyedFraction": 0.675105094909668,
+      "edgeKeyFraction": 1,
+      "foreignRegionCount": 0,
+      "cellCoverage": [
+        0.32489490509033203
+      ],
+      "emptyCells": [],
+      "cell": {
+        "width": 1024,
+        "height": 1024,
+        "aspect": 1
+      },
+      "geometryMismatch": false,
+      "contaminated": false,
+      "findings": []
+    }
+  },
+  "frames": [
+    {
+      "index": 0,
+      "file": "frames/frame-000.png",
+      "sourceBox": {
+        "left": 0,
+        "top": 0,
+        "width": 1024,
+        "height": 1024
+      },
+      "subjectBox": {
+        "left": 183,
+        "top": 180,
+        "width": 658,
+        "height": 659
+      },
+      "alignedBox": {
+        "left": 18,
+        "top": 18,
+        "width": 220,
+        "height": 220
+      },
+      "sourceAnchor": {
+        "x": 512,
+        "y": 509.5
+      },
+      "targetAnchor": {
+        "x": 128,
+        "y": 128
+      },
+      "empty": false,
+      "componentCount": 1,
+      "subjectArea": 340418,
+      "droppedArea": 0,
+      "bodyScale": 0.6435546875,
+      "sourceEdgeTouch": false,
+      "outputEdgeTouch": false,
+      "pasteClamped": false,
+      "scale": 0.33408194233687405
+    }
+  ],
+  "rekey": {
+    "tool": "art/tools/rekey.py",
+    "chromaGuard": "off",
+    "markerMetadata": "sprite-metadata.marker.json",
+    "styleProfile": "games/2026-09-26-outpost-aurelia/art/style.json"
+  }
+}

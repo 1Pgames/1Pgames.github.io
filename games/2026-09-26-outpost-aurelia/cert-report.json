@@ -1,0 +1,2514 @@
+{
+  "passed": true,
+  "slug": "2026-09-26-outpost-aurelia",
+  "family": "colony",
+  "baseUrl": "http://192.168.101.53:5432/?mute=1",
+  "startedAt": "2026-09-27T03:14:27.719Z",
+  "finishedAt": "2026-09-27T03:18:08.039Z",
+  "durationMs": 220320,
+  "blockers": [],
+  "majors": [
+    {
+      "id": "ftue:beats",
+      "message": "5 of the 6 coach beats (§14 FTUE) appeared by sol 4",
+      "evidence": [
+        "ore",
+        "dock",
+        "dusk",
+        "draft",
+        "vent"
+      ]
+    },
+    {
+      "id": "budget:fps-unnamed-window",
+      "message": "the worst unnamed 3s window of the run held 54fps median / 54fps min (budget 55/40) at t=559ms — no named peak beat covers it. Name that beat in the adapter to make it a blocker, or confirm it is the host machine.",
+      "evidence": [
+        {
+          "label": "worst-3s-window",
+          "epoch": "until:end of run",
+          "samples": 18,
+          "min": 54,
+          "median": 54,
+          "fromMs": 559
+        }
+      ]
+    },
+    {
+      "id": "cert:teleported:colony-beacon-stock",
+      "message": "CONDITIONAL CERTIFICATION: \"colony-beacon-stock\" was never reached by real input (the Beacon Spire price ({\"alloy\":100,\"prism\":20}) and the charge cells are granted: a cert-length session cannot earn them; the Spire placement, BEACON and CHARGE are real taps; the core and the Spire are sustained at >= 50 % hp through the charge (the cert colony cannot hold the Chorus)). The driver PLACED the player there. Certified from that placed position, NOT walked to: win: Beacon launch. Session outcome(s) settled from it: win.",
+      "evidence": {
+        "id": "colony-beacon-stock",
+        "reason": "the Beacon Spire price ({\"alloy\":100,\"prism\":20}) and the charge cells are granted: a cert-length session cannot earn them; the Spire placement, BEACON and CHARGE are real taps; the core and the Spire are sustained at >= 50 % hp through the charge (the cert colony cannot hold the Chorus)",
+        "placement": null,
+        "requiredPx": null,
+        "closestPx": null,
+        "budgetMs": null,
+        "atMs": 113327,
+        "beats": [
+          "win: Beacon launch"
+        ],
+        "surfaces": [
+          "spire-ready",
+          "beacon-confirm",
+          "chorus",
+          "results-win"
+        ],
+        "outcomes": [
+          "win"
+        ]
+      }
+    }
+  ],
+  "measurements": {
+    "ack": {
+      "budgetMs": 100,
+      "worstMs": 37.9,
+      "samples": [
+        {
+          "label": "coach ore: tap the deposit",
+          "ms": 37.9,
+          "frames": 12,
+          "via": "paint",
+          "changed": [
+            "#Game/16:Container/8:Container",
+            "#Game/16:Container/8:Container/1:Text#t"
+          ],
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "coach ore: BUILD chip",
+          "ms": 4.3,
+          "frames": 10,
+          "via": "paint",
+          "changed": [
+            "#Game/16:Container/8:Container"
+          ],
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "coach dock: arm relay_pylon",
+          "ms": 4.3,
+          "frames": 10,
+          "via": "paint",
+          "changed": [
+            "#Game/17:Container/1:Container"
+          ],
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "sol1 policy: arm pulse_turret",
+          "ms": 5.2,
+          "frames": 10,
+          "via": "paint",
+          "changed": [
+            "#Game/21:Container/0:Container"
+          ],
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "sol1 policy: arm sun_sail",
+          "ms": 4.2,
+          "frames": 10,
+          "via": "paint",
+          "changed": [
+            "#Game/21:Container/1:Container"
+          ],
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "coach dusk continue",
+          "ms": 4.8,
+          "frames": 10,
+          "via": "paint",
+          "changed": [
+            "#Game/20:Container/1:Text#t",
+            "#Game/20:Container/2:Container",
+            "#Game/20:Container/2:Container/1:Text#t",
+            "#Game/20:Container/7:Container/1:Text#t"
+          ],
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "coach dusk: arm pulse_turret",
+          "ms": 3.9,
+          "frames": 10,
+          "via": "paint",
+          "changed": [
+            "#Game/17:Container/0:Container"
+          ],
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "coach dusk RESUME",
+          "ms": 4.3,
+          "frames": 10,
+          "via": "paint",
+          "changed": [
+            "#Game/20:Container/2:Container"
+          ],
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "coach draft continue",
+          "ms": 4.4,
+          "frames": 10,
+          "via": "paint",
+          "changed": [
+            "#Game/24:Container/4:Container"
+          ],
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "coach vent: arm vent_tap",
+          "ms": 5.5,
+          "frames": 10,
+          "via": "paint",
+          "changed": [
+            "#Game/25:Container/0:Container"
+          ],
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "sol2 policy: arm ferrite_drill",
+          "ms": 5.7,
+          "frames": 10,
+          "via": "paint",
+          "changed": [
+            "#Game/17:Container/0:Container"
+          ],
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "sol2 policy: arm rime_borer",
+          "ms": 5.3,
+          "frames": 10,
+          "via": "paint",
+          "changed": [
+            "#Game/25:Container/1:Container"
+          ],
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "sol2 policy: arm ferrite_drill",
+          "ms": 8.7,
+          "frames": 10,
+          "via": "paint",
+          "changed": [
+            "#Game/17:Container/0:Container"
+          ],
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "sol2 policy: arm sun_sail",
+          "ms": 5.2,
+          "frames": 10,
+          "via": "paint",
+          "changed": [
+            "#Game/25:Container/1:Container"
+          ],
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "draft pick",
+          "ms": 4.1,
+          "frames": 10,
+          "via": "paint",
+          "changed": [
+            "#Game/24:Container/3:Container"
+          ],
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "sol3 policy: arm hydro_terrace",
+          "ms": 6.3,
+          "frames": 10,
+          "via": "paint",
+          "changed": [
+            "#Game/25:Container/0:Container"
+          ],
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "sol3 policy: arm pulse_turret",
+          "ms": 4.7,
+          "frames": 10,
+          "via": "paint",
+          "changed": [
+            "#Game/25:Container/0:Container"
+          ],
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "draft pick",
+          "ms": 4.1,
+          "frames": 10,
+          "via": "paint",
+          "changed": [
+            "#Game/24:Container/3:Container"
+          ],
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "pause RESUME",
+          "ms": 6.1,
+          "frames": 10,
+          "via": "paint",
+          "changed": [
+            "#Game/24:Container/4:Container"
+          ],
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "sol4 policy: arm pulse_turret",
+          "ms": 4.5,
+          "frames": 10,
+          "via": "paint",
+          "changed": [
+            "#Game/17:Container/2:Container"
+          ],
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "draft pick",
+          "ms": 4.3,
+          "frames": 10,
+          "via": "paint",
+          "changed": [
+            "#Game/25:Container/3:Container"
+          ],
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "sol5 policy: arm sun_sail",
+          "ms": 5.2,
+          "frames": 10,
+          "via": "paint",
+          "changed": [
+            "#Game/26:Container/1:Container"
+          ],
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "draft pick",
+          "ms": 3.6,
+          "frames": 10,
+          "via": "paint",
+          "changed": [
+            "#Game/25:Container/3:Container"
+          ],
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "sol6 policy: arm ferrite_drill",
+          "ms": 6.5,
+          "frames": 10,
+          "via": "paint",
+          "changed": [
+            "#Game/18:Container/0:Container"
+          ],
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "sol6 policy: arm ferrite_drill",
+          "ms": 5.5,
+          "frames": 10,
+          "via": "paint",
+          "changed": [
+            "#Game/18:Container/0:Container"
+          ],
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "draft pick",
+          "ms": 4,
+          "frames": 10,
+          "via": "paint",
+          "changed": [
+            "#Game/25:Container/3:Container"
+          ],
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "sol7 policy: arm ferrite_drill",
+          "ms": 5.8,
+          "frames": 10,
+          "via": "paint",
+          "changed": [
+            "#Game/18:Container/0:Container"
+          ],
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "sol7 policy: arm sun_sail",
+          "ms": 5.6,
+          "frames": 10,
+          "via": "paint",
+          "changed": [
+            "#Game/18:Container/2:Container"
+          ],
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "draft pick",
+          "ms": 5.4,
+          "frames": 10,
+          "via": "paint",
+          "changed": [
+            "#Game/25:Container/3:Container"
+          ],
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "sol8 policy: arm ferrite_drill",
+          "ms": 5.3,
+          "frames": 10,
+          "via": "paint",
+          "changed": [
+            "#Game/0:Container/12:Container/97:Text#t",
+            "#Game/18:Container/0:Container"
+          ],
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "sol8 policy: arm sun_sail",
+          "ms": 4.5,
+          "frames": 10,
+          "via": "paint",
+          "changed": [
+            "#Game/18:Container/2:Container"
+          ],
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "draft pick",
+          "ms": 5.2,
+          "frames": 10,
+          "via": "paint",
+          "changed": [
+            "#Game/25:Container/3:Container"
+          ],
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "sol9 policy: arm ferrite_drill",
+          "ms": 6,
+          "frames": 10,
+          "via": "paint",
+          "changed": [
+            "#Game/18:Container/0:Container"
+          ],
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "sol9 policy: arm sun_sail",
+          "ms": 5.9,
+          "frames": 10,
+          "via": "paint",
+          "changed": [
+            "#Game/18:Container/2:Container"
+          ],
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "nav results RETRY",
+          "ms": 8,
+          "frames": 10,
+          "via": "paint",
+          "changed": [
+            "#GameOver/24:Container"
+          ],
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "draft pick",
+          "ms": 4.3,
+          "frames": 10,
+          "via": "paint",
+          "changed": [
+            "#Game/20:Container/3:Container"
+          ],
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "sol1 policy: arm ferrite_drill",
+          "ms": 3.7,
+          "frames": 10,
+          "via": "paint",
+          "changed": [
+            "#Game/17:Container/0:Container"
+          ],
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "sol1 policy: arm pulse_turret",
+          "ms": 7,
+          "frames": 10,
+          "via": "paint",
+          "changed": [
+            "#Game/21:Container/0:Container"
+          ],
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "sol1 policy: arm sun_sail",
+          "ms": 7.3,
+          "frames": 10,
+          "via": "paint",
+          "changed": [
+            "#Game/21:Container/1:Container"
+          ],
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "sol1 policy: arm rime_borer",
+          "ms": 4.1,
+          "frames": 10,
+          "via": "paint",
+          "changed": [
+            "#Game/21:Container/1:Container"
+          ],
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "draft pick",
+          "ms": 4,
+          "frames": 10,
+          "via": "paint",
+          "changed": [
+            "#Game/24:Container/3:Container"
+          ],
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "sol2 policy: arm hydro_terrace",
+          "ms": 5.8,
+          "frames": 10,
+          "via": "paint",
+          "changed": [
+            "#Game/25:Container/0:Container"
+          ],
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "sol2 policy: arm pulse_turret",
+          "ms": 3.5,
+          "frames": 10,
+          "via": "paint",
+          "changed": [
+            "#Game/25:Container/0:Container"
+          ],
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "sol2 policy: arm sun_sail",
+          "ms": 6.3,
+          "frames": 10,
+          "via": "paint",
+          "changed": [
+            "#Game/25:Container/1:Container"
+          ],
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "draft pick",
+          "ms": 4.3,
+          "frames": 10,
+          "via": "paint",
+          "changed": [
+            "#Game/24:Container/3:Container"
+          ],
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "sol3 policy: arm pulse_turret",
+          "ms": 5.5,
+          "frames": 10,
+          "via": "paint",
+          "changed": [
+            "#Game/17:Container/3:Container"
+          ],
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "draft pick",
+          "ms": 5.5,
+          "frames": 10,
+          "via": "paint",
+          "changed": [
+            "#Game/24:Container/3:Container"
+          ],
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "sol4 policy: arm pulse_turret",
+          "ms": 4.3,
+          "frames": 10,
+          "via": "paint",
+          "changed": [
+            "#Game/17:Container/2:Container"
+          ],
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "draft pick",
+          "ms": 4.1,
+          "frames": 10,
+          "via": "paint",
+          "changed": [
+            "#Game/24:Container/3:Container"
+          ],
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "sol5 policy: arm pulse_turret",
+          "ms": 6.9,
+          "frames": 10,
+          "via": "paint",
+          "changed": [
+            "#Game/17:Container/2:Container"
+          ],
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "draft pick",
+          "ms": 4.6,
+          "frames": 10,
+          "via": "paint",
+          "changed": [
+            "#Game/24:Container/3:Container"
+          ],
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "win: arm beacon_spire",
+          "ms": 6.8,
+          "frames": 10,
+          "via": "paint",
+          "changed": [
+            "#Game/25:Container/0:Container"
+          ],
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "trigger BEACON",
+          "ms": 5.9,
+          "frames": 10,
+          "via": "paint",
+          "changed": [
+            "#Game/0:Container/12:Container/98:Text#t",
+            "#Game/22:Container/10:Container"
+          ],
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "confirm CHARGE",
+          "ms": 6.5,
+          "frames": 10,
+          "via": "paint",
+          "changed": [
+            "#Game/24:Container/6:Container"
+          ],
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "draft pick",
+          "ms": 3.2,
+          "frames": 10,
+          "via": "paint",
+          "changed": [
+            "#Game/25:Container/3:Container"
+          ],
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "sol7 policy: arm ferrite_drill",
+          "ms": 3.8,
+          "frames": 10,
+          "via": "paint",
+          "changed": [
+            "#Game/18:Container/0:Container"
+          ],
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "sol7 policy: arm hydro_terrace",
+          "ms": 8.4,
+          "frames": 10,
+          "via": "paint",
+          "changed": [
+            "#Game/26:Container/0:Container"
+          ],
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "sol7 policy: arm pulse_turret",
+          "ms": 4.4,
+          "frames": 10,
+          "via": "paint",
+          "changed": [
+            "#Game/18:Container/3:Container"
+          ],
+          "epoch": "until:end of run"
+        },
+        {
+          "label": "nav results HUB",
+          "ms": 5,
+          "frames": 10,
+          "via": "paint",
+          "changed": [
+            "#GameOver/30:Container"
+          ],
+          "epoch": "until:end of run"
+        }
+      ],
+      "verdict": "pass",
+      "worstLabel": "coach ore: tap the deposit"
+    },
+    "swallowedInput": {
+      "budgetMs": 100,
+      "probed": true,
+      "reacted": true,
+      "verdict": "pass",
+      "detail": {
+        "pause": {
+          "x": 540,
+          "y": 188,
+          "alpha": 0.45,
+          "interactive": false,
+          "depth": 0
+        },
+        "topmost": {
+          "label": "",
+          "depth": 2000,
+          "noop": "draft scrim: a draft has no skip; pick a card"
+        },
+        "after": {
+          "drafting": true,
+          "pauseOpen": false
+        }
+      },
+      "surface": "HUD pause icon during the Dawn Directive draft"
+    },
+    "transitions": {
+      "budgetMs": 400,
+      "worstMs": 224,
+      "samples": [
+        {
+          "from": "results RETRY",
+          "to": "Game",
+          "ms": 224,
+          "cold": true,
+          "trail": [
+            "Game"
+          ]
+        },
+        {
+          "from": "results HUB",
+          "to": "Hub",
+          "ms": 209,
+          "cold": true,
+          "trail": [
+            "Hub"
+          ]
+        }
+      ],
+      "verdict": "pass",
+      "worstLabel": "results RETRY -> Game"
+    },
+    "retryToPlayable": {
+      "budgetMs": 2000,
+      "worstMs": 376,
+      "samples": [
+        {
+          "label": "pause RESUME -> playable",
+          "ms": 2
+        },
+        {
+          "label": "results RETRY -> playable",
+          "ms": 376
+        }
+      ],
+      "verdict": "pass",
+      "worstLabel": "results RETRY -> playable"
+    },
+    "fps": {
+      "medianMin": 55,
+      "windows": [
+        {
+          "label": "chorus",
+          "epoch": "until:end of run",
+          "samples": 27,
+          "min": 59.4,
+          "median": 59.5,
+          "fromMs": 122133
+        },
+        {
+          "label": "worst-3s-window",
+          "epoch": "until:end of run",
+          "samples": 18,
+          "min": 54,
+          "median": 54,
+          "fromMs": 559
+        }
+      ],
+      "verdict": "pass-with-leads",
+      "fence": {
+        "captures": 22,
+        "fencedMs": 7286,
+        "unrecovered": 0,
+        "samplesDropped": 60,
+        "samplesKept": 1949,
+        "medianFpsDropped": 60.2,
+        "medianFpsKept": 60.4,
+        "note": "screenshot spans are excluded from every fps window; the driver waits for the smoothed reading to recover before it resumes"
+      }
+    },
+    "tapDepth": {
+      "budget": 2,
+      "taps": 2,
+      "verdict": "pass",
+      "path": "boot (0 taps) → ore deposit → BUILD chip"
+    },
+    "controls": {
+      "budgetDead": 0,
+      "tapped": 36,
+      "reacted": 36,
+      "dead": [],
+      "dimmedNoReaction": [],
+      "declaredNoop": [],
+      "surfaces": [
+        {
+          "surface": "results",
+          "tapped": 0,
+          "reacted": [],
+          "dead": [],
+          "dimmed": [],
+          "declared": [],
+          "skipped": [
+            "NEXT RUNG",
+            "HUB"
+          ],
+          "aborted": null
+        },
+        {
+          "surface": "hub:land",
+          "tapped": 15,
+          "reacted": [
+            "★3: save+visual(19)",
+            "★0: save+text(4)+visual(20)",
+            "R1: visual(19)",
+            "R2: scene/overlay+text(1)",
+            "R3: scene/overlay+text(1)",
+            "R4: scene/overlay+text(1)",
+            "R5: scene/overlay+text(1)",
+            "Engineer: save+text(1)+visual(20)",
+            "Warden: save+text(1)+visual(19)",
+            "Settler: scene/overlay+controls+text(2)+visual(4)",
+            "Surveyor: scene/overlay+controls+text(2)+visual(4)",
+            "Tinker: scene/overlay+controls+text(2)+visual(4)",
+            "ARK: scene/overlay+controls+text(83)+visual(165)",
+            "LOG: scene/overlay+controls+text(33)+visual(53)",
+            "Container@636,1008: scene/overlay+controls+text(8)+visual(23)"
+          ],
+          "dead": [],
+          "dimmed": [],
+          "declared": [],
+          "skipped": [
+            "DAILY",
+            "LAUNCH · Halcyon Flats R1 (gone after an earlier tap)",
+            "LAND"
+          ],
+          "aborted": null
+        },
+        {
+          "surface": "hub:land > R2",
+          "tapped": 0,
+          "reacted": [],
+          "dead": [],
+          "dimmed": [],
+          "declared": [],
+          "skipped": [],
+          "aborted": null
+        },
+        {
+          "surface": "hub:land > R3",
+          "tapped": 0,
+          "reacted": [],
+          "dead": [],
+          "dimmed": [],
+          "declared": [],
+          "skipped": [],
+          "aborted": null
+        },
+        {
+          "surface": "hub:ark",
+          "tapped": 14,
+          "reacted": [
+            "Bunk Racks: scene/overlay+save+controls+text(3)+visual(87)",
+            "Settler Charter: scene/overlay+text(1)",
+            "Kin Charter: scene/overlay+text(1)",
+            "Homeworld Letters: scene/overlay+text(1)",
+            "Cargo Bay: scene/overlay+save+controls+text(3)+visual(87)",
+            "Forge Charter: scene/overlay+text(1)",
+            "Tooling Dies: scene/overlay+text(1)",
+            "Crucible Notes: scene/overlay+text(1)",
+            "Core Coils: scene/overlay+save+controls+text(3)+visual(87)",
+            "Hearth Charter: scene/overlay+text(1)",
+            "Wide Emitter: scene/overlay+text(1)",
+            "Vent Schematics: scene/overlay+text(1)",
+            "LOG: controls+text(34)+visual(53)",
+            "Container@636,1008: scene/overlay+controls+text(8)+visual(23)"
+          ],
+          "dead": [],
+          "dimmed": [],
+          "declared": [],
+          "skipped": [
+            "LAND",
+            "ARK"
+          ],
+          "aborted": null
+        },
+        {
+          "surface": "hub:ark > Bunk Racks",
+          "tapped": 1,
+          "reacted": [
+            "UNDO: scene/overlay+save+controls+text(1)+visual(83)"
+          ],
+          "dead": [],
+          "dimmed": [],
+          "declared": [],
+          "skipped": [],
+          "aborted": null
+        },
+        {
+          "surface": "hub:ark > Settler Charter",
+          "tapped": 0,
+          "reacted": [],
+          "dead": [],
+          "dimmed": [],
+          "declared": [],
+          "skipped": [],
+          "aborted": null
+        },
+        {
+          "surface": "hub:log",
+          "tapped": 2,
+          "reacted": [
+            "ARK: controls+text(82)+visual(164)",
+            "Container@636,1008: scene/overlay+controls+text(8)+visual(23)"
+          ],
+          "dead": [],
+          "dimmed": [],
+          "declared": [],
+          "skipped": [
+            "LAND",
+            "LOG"
+          ],
+          "aborted": null
+        },
+        {
+          "surface": "hub:log > Container@636,1008",
+          "tapped": 4,
+          "reacted": [
+            "Zone@445,614: save",
+            "Zone@445,714: save",
+            "Reduce motion: save+visual(8)",
+            "Container@656,516: scene/overlay+controls"
+          ],
+          "dead": [],
+          "dimmed": [],
+          "declared": [],
+          "skipped": [
+            "Rectangle@360,640 (backdrop)",
+            "Zone@360,870 (backdrop)",
+            "Sound (mute is forced by the harness)",
+            "RESET SAVE"
+          ],
+          "aborted": null
+        }
+      ],
+      "verdict": "pass"
+    },
+    "audioRate": {
+      "budgetPerSec": 5,
+      "minEnemies": 20,
+      "windows": [
+        {
+          "epoch": 0,
+          "fromMs": 121936,
+          "ms": 3099,
+          "requests": 61,
+          "perSec": 19.7,
+          "enemiesMin": 23
+        },
+        {
+          "epoch": 0,
+          "fromMs": 125035,
+          "ms": 3101,
+          "requests": 48,
+          "perSec": 15.5,
+          "enemiesMin": 33
+        },
+        {
+          "epoch": 0,
+          "fromMs": 128136,
+          "ms": 3083,
+          "requests": 47,
+          "perSec": 15.2,
+          "enemiesMin": 41
+        },
+        {
+          "epoch": 0,
+          "fromMs": 131219,
+          "ms": 3184,
+          "requests": 49,
+          "perSec": 15.4,
+          "enemiesMin": 46
+        },
+        {
+          "epoch": 0,
+          "fromMs": 134403,
+          "ms": 3149,
+          "requests": 46,
+          "perSec": 14.6,
+          "enemiesMin": 50
+        }
+      ],
+      "medianPerSec": 15.4,
+      "verdict": "pass",
+      "reason": null
+    },
+    "actorSize": {
+      "enemyPctW": 8,
+      "heroPctW": 15,
+      "gameW": 720,
+      "hero": {
+        "px": 134,
+        "pctW": 18.6,
+        "src": "lander core 3 tiles × zoom",
+        "samples": 51
+      },
+      "kinds": [
+        {
+          "kind": "fauna",
+          "px": 64,
+          "pctW": 8.9,
+          "src": "scene.composition()",
+          "samples": 617
+        }
+      ],
+      "verdict": "pass",
+      "reason": null
+    },
+    "composition": {
+      "decalsPerScreenP95": 3,
+      "decalAlphaMax": 0.45,
+      "propKindsPerScreenMedian": 3,
+      "propOverlapMax": 0,
+      "source": "colony.map.props",
+      "screens": 8,
+      "measured": {
+        "decalsP95": 0,
+        "decalAlphaMax": 0,
+        "propsMedian": 6,
+        "propKindsMedian": 6,
+        "overlaps": 0
+      },
+      "verdict": "pass",
+      "reason": null
+    }
+  },
+  "beats": [
+    {
+      "id": "ore",
+      "shot": "shots/cert/03-ftue-ore.png",
+      "gated": true
+    },
+    {
+      "id": "dock",
+      "shot": "shots/cert/04-ftue-dock.png",
+      "gated": true
+    },
+    {
+      "id": "dusk",
+      "shot": "shots/cert/06-ftue-dusk.png",
+      "gated": false
+    },
+    {
+      "id": "dusk-resume",
+      "shot": "shots/cert/07-ftue-dusk-resume.png",
+      "gated": true
+    },
+    {
+      "id": "draft",
+      "shot": "shots/cert/08-ftue-draft.png",
+      "gated": false
+    },
+    {
+      "id": "vent",
+      "shot": "shots/cert/09-ftue-vent.png",
+      "gated": true
+    }
+  ],
+  "surfaces": [
+    {
+      "name": "menu-cold-boot",
+      "shot": "shots/cert/01-menu-cold-boot.png"
+    },
+    {
+      "name": "landing1-start",
+      "shot": "shots/cert/02-landing1-start.png"
+    },
+    {
+      "name": "ftue-ore",
+      "shot": "shots/cert/03-ftue-ore.png"
+    },
+    {
+      "name": "ftue-dock",
+      "shot": "shots/cert/04-ftue-dock.png"
+    },
+    {
+      "name": "dusk1-arrows",
+      "shot": "shots/cert/05-dusk1-arrows.png"
+    },
+    {
+      "name": "ftue-dusk",
+      "shot": "shots/cert/06-ftue-dusk.png"
+    },
+    {
+      "name": "ftue-dusk-resume",
+      "shot": "shots/cert/07-ftue-dusk-resume.png"
+    },
+    {
+      "name": "ftue-draft",
+      "shot": "shots/cert/08-ftue-draft.png"
+    },
+    {
+      "name": "ftue-vent",
+      "shot": "shots/cert/09-ftue-vent.png"
+    },
+    {
+      "name": "pause",
+      "shot": "shots/cert/10-pause.png"
+    },
+    {
+      "name": "results-loss",
+      "shot": "shots/cert/11-results-loss.png"
+    },
+    {
+      "name": "retry-landing",
+      "shot": "shots/cert/12-retry-landing.png"
+    },
+    {
+      "name": "spire-ready",
+      "shot": "shots/cert/13-spire-ready.png",
+      "teleported": "colony-beacon-stock"
+    },
+    {
+      "name": "beacon-confirm",
+      "shot": "shots/cert/14-beacon-confirm.png",
+      "teleported": "colony-beacon-stock"
+    },
+    {
+      "name": "chorus",
+      "shot": "shots/cert/15-chorus.png",
+      "teleported": "colony-beacon-stock"
+    },
+    {
+      "name": "results-win",
+      "shot": "shots/cert/16-results-win.png",
+      "teleported": "colony-beacon-stock"
+    },
+    {
+      "name": "hub",
+      "shot": "shots/cert/17-hub.png"
+    },
+    {
+      "name": "sweep-hub-land-r2",
+      "shot": "shots/cert/18-sweep-hub-land-r2.png"
+    },
+    {
+      "name": "sweep-hub-land-r3",
+      "shot": "shots/cert/19-sweep-hub-land-r3.png"
+    },
+    {
+      "name": "sweep-hub-ark-bunk-racks",
+      "shot": "shots/cert/20-sweep-hub-ark-bunk-racks.png"
+    },
+    {
+      "name": "sweep-hub-ark-settler-charter",
+      "shot": "shots/cert/21-sweep-hub-ark-settler-charter.png"
+    },
+    {
+      "name": "sweep-hub-log-container-636-1008",
+      "shot": "shots/cert/22-sweep-hub-log-container-636-1008.png"
+    }
+  ],
+  "outcomes": {
+    "win": {
+      "via": "beacon",
+      "sols": 6,
+      "data": 156,
+      "headline": "LAUNCHED",
+      "teleported": "colony-beacon-stock"
+    },
+    "loss": {
+      "via": "core-lost",
+      "sols": 8,
+      "data": 94,
+      "headline": "CORE LOST"
+    }
+  },
+  "invariantSweeps": 6,
+  "consoleErrors": [],
+  "notes": {
+    "wipedKeys": [
+      "2026-09-26-outpost-aurelia:meta",
+      "2026-09-26-outpost-aurelia:tut:feed",
+      "2026-09-26-outpost-aurelia:colony:log",
+      "2026-09-26-outpost-aurelia:colony:activeLanding",
+      "2026-09-26-outpost-aurelia:tut:sheet-build",
+      "2026-09-26-outpost-aurelia:tut:dusk",
+      "2026-09-26-outpost-aurelia:tut:ore",
+      "2026-09-26-outpost-aurelia:tut:grid",
+      "2026-09-26-outpost-aurelia:tut:dock",
+      "2026-09-26-outpost-aurelia:tut:vent",
+      "2026-09-26-outpost-aurelia:tut:draft"
+    ],
+    "audioAfterColdBoot": {
+      "href": "http://192.168.101.53:5432/?mute=1",
+      "urlMute": "1",
+      "audioSnapshot": {
+        "muted": true,
+        "forcedByUrl": true,
+        "storedPreference": false,
+        "masterGain": null,
+        "contextState": null,
+        "requested": 0,
+        "played": 0,
+        "lastRequested": null,
+        "musicDuck": null,
+        "samplesDecoded": 0,
+        "settings": {
+          "music": 1,
+          "sfx": 1,
+          "reduceMotion": false
+        }
+      },
+      "contexts": [
+        {
+          "state": "suspended",
+          "destinationGain": 0
+        }
+      ],
+      "phaserMuted": true,
+      "media": 0
+    },
+    "storageAfterColdBoot": [
+      "2026-09-26-outpost-aurelia:colony:activeLanding"
+    ],
+    "build:off-screen:coach dock:ferrite_drill": "no legal tile on screen; skipped",
+    "build:closed-panel:coach dock:relay_pylon": {
+      "card": 3,
+      "chip": false,
+      "armed": null,
+      "paused": false
+    },
+    "placeAck": {
+      "budgetMs": 100,
+      "source": "pointerup → first rendered frame holding the new building view (page clock)",
+      "samples": [
+        {
+          "label": "coach dock: place relay_pylon",
+          "ms": 18.6
+        },
+        {
+          "label": "sol1 policy: place pulse_turret",
+          "ms": 18.9
+        },
+        {
+          "label": "sol1 policy: place sun_sail",
+          "ms": 18.8
+        },
+        {
+          "label": "coach dusk: place pulse_turret",
+          "ms": 16.8
+        },
+        {
+          "label": "coach vent: place vent_tap",
+          "ms": 4.2
+        },
+        {
+          "label": "sol2 policy: place rime_borer",
+          "ms": 16.2
+        },
+        {
+          "label": "sol2 policy: place ferrite_drill",
+          "ms": 1.7
+        },
+        {
+          "label": "sol2 policy: place sun_sail",
+          "ms": 18.6
+        },
+        {
+          "label": "sol3 policy: place hydro_terrace",
+          "ms": 15.3
+        },
+        {
+          "label": "sol3 policy: place pulse_turret",
+          "ms": 17.5
+        },
+        {
+          "label": "sol4 policy: place pulse_turret",
+          "ms": 2.9
+        },
+        {
+          "label": "sol5 policy: place sun_sail",
+          "ms": 16.5
+        },
+        {
+          "label": "sol6 policy: place ferrite_drill",
+          "ms": 3.1
+        },
+        {
+          "label": "sol7 policy: place ferrite_drill",
+          "ms": 3
+        },
+        {
+          "label": "sol7 policy: place sun_sail",
+          "ms": 2.2
+        },
+        {
+          "label": "sol8 policy: place ferrite_drill",
+          "ms": 14.6
+        },
+        {
+          "label": "sol8 policy: place sun_sail",
+          "ms": 17.6
+        },
+        {
+          "label": "sol9 policy: place ferrite_drill",
+          "ms": 17.3
+        },
+        {
+          "label": "sol9 policy: place sun_sail",
+          "ms": 3.7
+        },
+        {
+          "label": "sol1 policy: place ferrite_drill",
+          "ms": 3
+        },
+        {
+          "label": "sol1 policy: place pulse_turret",
+          "ms": 17.6
+        },
+        {
+          "label": "sol1 policy: place sun_sail",
+          "ms": 18.2
+        },
+        {
+          "label": "sol1 policy: place rime_borer",
+          "ms": 17
+        },
+        {
+          "label": "sol2 policy: place hydro_terrace",
+          "ms": 17.8
+        },
+        {
+          "label": "sol2 policy: place pulse_turret",
+          "ms": 2.7
+        },
+        {
+          "label": "sol2 policy: place sun_sail",
+          "ms": 16.9
+        },
+        {
+          "label": "sol3 policy: place pulse_turret",
+          "ms": 16.1
+        },
+        {
+          "label": "sol4 policy: place pulse_turret",
+          "ms": 1.9
+        },
+        {
+          "label": "sol5 policy: place pulse_turret",
+          "ms": 17.3
+        },
+        {
+          "label": "win: place beacon_spire",
+          "ms": 3.4
+        },
+        {
+          "label": "sol7 policy: place ferrite_drill",
+          "ms": 15.1
+        },
+        {
+          "label": "sol7 policy: place hydro_terrace",
+          "ms": 2.6
+        },
+        {
+          "label": "sol7 policy: place pulse_turret",
+          "ms": 2.5
+        }
+      ]
+    },
+    "build:off-screen:sol1 policy:ferrite_drill": "no legal tile on screen; skipped",
+    "colonyTimeline": [
+      {
+        "sol": 1,
+        "t": 9.2,
+        "built": 2,
+        "buildings": 6,
+        "stock": {
+          "ferrite": 10,
+          "ice": 0,
+          "aurelite": 0,
+          "rations": 33.2999999999999,
+          "alloy": 25,
+          "prism": 0,
+          "cell": 0
+        },
+        "coreHp": 3000,
+        "colonists": 6
+      },
+      {
+        "sol": 2,
+        "t": 100.93,
+        "built": 3,
+        "buildings": 11,
+        "stock": {
+          "ferrite": 6.840000000000003,
+          "ice": 2,
+          "aurelite": 0,
+          "rations": 0.3750000000000213,
+          "alloy": 14,
+          "prism": 0,
+          "cell": 0
+        },
+        "coreHp": 3000,
+        "colonists": 10
+      },
+      {
+        "sol": 3,
+        "t": 128.77,
+        "built": 2,
+        "buildings": 13,
+        "stock": {
+          "ferrite": 17.193121212121284,
+          "ice": 28,
+          "aurelite": 0,
+          "rations": 0,
+          "alloy": 9,
+          "prism": 0,
+          "cell": 0
+        },
+        "coreHp": 3000,
+        "colonists": 11
+      },
+      {
+        "sol": 4,
+        "t": 181.53,
+        "built": 1,
+        "buildings": 13,
+        "stock": {
+          "ferrite": 96.57312121212117,
+          "ice": 28,
+          "aurelite": 0,
+          "rations": 0.028125000000000094,
+          "alloy": 4,
+          "prism": 0,
+          "cell": 0
+        },
+        "coreHp": 3000,
+        "colonists": 9
+      },
+      {
+        "sol": 5,
+        "t": 237.53,
+        "built": 1,
+        "buildings": 13,
+        "stock": {
+          "ferrite": 163.2065757575757,
+          "ice": 28,
+          "aurelite": 0,
+          "rations": 2.184374999999987,
+          "alloy": 4,
+          "prism": 0,
+          "cell": 0
+        },
+        "coreHp": 3000,
+        "colonists": 9
+      },
+      {
+        "sol": 6,
+        "t": 295.43,
+        "built": 1,
+        "buildings": 13,
+        "stock": {
+          "ferrite": 124.86823134545449,
+          "ice": 27,
+          "aurelite": 0,
+          "rations": 4.609374999999998,
+          "alloy": 4,
+          "prism": 0,
+          "cell": 0
+        },
+        "coreHp": 2494,
+        "colonists": 9
+      },
+      {
+        "sol": 7,
+        "t": 355.52,
+        "built": 2,
+        "buildings": 13,
+        "stock": {
+          "ferrite": 122.58132680000003,
+          "ice": 26,
+          "aurelite": 0,
+          "rations": 7.3593750000000835,
+          "alloy": 4,
+          "prism": 0,
+          "cell": 0
+        },
+        "coreHp": 2052,
+        "colonists": 9
+      },
+      {
+        "sol": 8,
+        "t": 417.6,
+        "built": 2,
+        "buildings": 13,
+        "stock": {
+          "ferrite": 120.55029749999994,
+          "ice": 27,
+          "aurelite": 0,
+          "rations": 9.434375000000172,
+          "alloy": 4,
+          "prism": 0,
+          "cell": 0
+        },
+        "coreHp": 2514,
+        "colonists": 9
+      },
+      {
+        "sol": 9,
+        "t": 481.6,
+        "built": 2,
+        "buildings": 13,
+        "stock": {
+          "ferrite": 121,
+          "ice": 15,
+          "aurelite": 0,
+          "rations": 17.834375000000165,
+          "alloy": 4,
+          "prism": 0,
+          "cell": 0
+        },
+        "coreHp": 1365,
+        "colonists": 9
+      },
+      {
+        "sol": 1,
+        "t": 4.82,
+        "built": 4,
+        "buildings": 6,
+        "stock": {
+          "ferrite": 5,
+          "ice": 0,
+          "aurelite": 0,
+          "rations": 34.574999999999946,
+          "alloy": 25,
+          "prism": 0,
+          "cell": 0
+        },
+        "coreHp": 3000,
+        "colonists": 6
+      },
+      {
+        "sol": 2,
+        "t": 78.33,
+        "built": 3,
+        "buildings": 9,
+        "stock": {
+          "ferrite": 22.919999999999987,
+          "ice": 69,
+          "aurelite": 0,
+          "rations": 12.750000000000021,
+          "alloy": 20,
+          "prism": 0,
+          "cell": 0
+        },
+        "coreHp": 3000,
+        "colonists": 10
+      },
+      {
+        "sol": 3,
+        "t": 126.88,
+        "built": 1,
+        "buildings": 10,
+        "stock": {
+          "ferrite": 48.758545454545526,
+          "ice": 56,
+          "aurelite": 0,
+          "rations": 19.425000000000026,
+          "alloy": 15,
+          "prism": 0,
+          "cell": 0
+        },
+        "coreHp": 3000,
+        "colonists": 12
+      },
+      {
+        "sol": 4,
+        "t": 180.88,
+        "built": 1,
+        "buildings": 11,
+        "stock": {
+          "ferrite": 102.75854545454553,
+          "ice": 44,
+          "aurelite": 0,
+          "rations": 20.025000000000333,
+          "alloy": 15,
+          "prism": 0,
+          "cell": 0
+        },
+        "coreHp": 3000,
+        "colonists": 12
+      },
+      {
+        "sol": 5,
+        "t": 236.88,
+        "built": 1,
+        "buildings": 12,
+        "stock": {
+          "ferrite": 156.77854545454554,
+          "ice": 30,
+          "aurelite": 0,
+          "rations": 21.42500000000065,
+          "alloy": 15,
+          "prism": 0,
+          "cell": 0
+        },
+        "coreHp": 3000,
+        "colonists": 12
+      },
+      {
+        "sol": 7,
+        "t": 356.99,
+        "built": 3,
+        "buildings": 13,
+        "stock": {
+          "ferrite": 53,
+          "ice": 78,
+          "aurelite": 0,
+          "rations": 0,
+          "alloy": 85,
+          "prism": 40,
+          "cell": 28
+        },
+        "coreHp": 2000,
+        "colonists": 9
+      }
+    ],
+    "colony:ventWalk": {
+      "vent": {
+        "x": 203,
+        "y": 574
+      },
+      "shown": true,
+      "liveSecBefore": 10,
+      "liveSecAfter": 23.5
+    },
+    "build:closed-panel:coach vent:vent_tap": {
+      "card": 3,
+      "chip": false,
+      "armed": null,
+      "paused": false
+    },
+    "build:off-screen:sol2 policy:ferrite_drill": "no legal tile on screen; skipped",
+    "build:dock-deaf:sol3 policy:hydro_terrace": {
+      "resolved": "live",
+      "state": {
+        "active": [
+          "Game"
+        ],
+        "live": true,
+        "started": true,
+        "busy": false,
+        "coachActive": false,
+        "coachOwner": false,
+        "coachId": null,
+        "gated": null,
+        "seed": "halcyon:1:muj8w114",
+        "paused": false,
+        "pauseOpen": false,
+        "ended": false,
+        "drafting": false,
+        "draftOpen": false,
+        "draft": [],
+        "sol": 3,
+        "phase": "day",
+        "t": 126.13,
+        "userPaused": false,
+        "beacon": "locked",
+        "charge": 0,
+        "coreHp": 3000,
+        "coreMax": 3000,
+        "buildings": 11,
+        "colonists": 11,
+        "fauna": 6,
+        "stock": {
+          "ferrite": 51.193121212121284,
+          "ice": 27,
+          "aurelite": 0,
+          "rations": 0,
+          "alloy": 14,
+          "prism": 0,
+          "cell": 0
+        },
+        "armed": null,
+        "chip": null,
+        "acceptsInput": true
+      }
+    },
+    "build:off-screen:sol3 policy:ferrite_drill": "no legal tile on screen; skipped",
+    "ftueBeats": [
+      "ore",
+      "dock",
+      "dusk",
+      "dusk-resume",
+      "draft",
+      "vent"
+    ],
+    "pauseControls": [
+      "114",
+      "",
+      "II",
+      "×1",
+      "ORBIT",
+      "",
+      "12 Fe",
+      "10 Fe",
+      "20 Fe · 5 Alloy",
+      "20 Fe",
+      "ALL",
+      "",
+      "RESUME",
+      "SETTINGS",
+      "ABANDON LANDING"
+    ],
+    "build:off-screen:sol4 policy:ferrite_drill": "no legal tile on screen; skipped",
+    "build:off-screen:sol5 policy:ferrite_drill": "no legal tile on screen; skipped",
+    "build:dock-deaf:sol5 policy:sun_sail": {
+      "resolved": "live",
+      "state": {
+        "active": [
+          "Game"
+        ],
+        "live": true,
+        "started": true,
+        "busy": false,
+        "coachActive": false,
+        "coachOwner": false,
+        "coachId": null,
+        "gated": null,
+        "seed": "halcyon:1:muj8w114",
+        "paused": false,
+        "pauseOpen": false,
+        "ended": false,
+        "drafting": false,
+        "draftOpen": false,
+        "draft": [],
+        "sol": 5,
+        "phase": "day",
+        "t": 236.17,
+        "userPaused": false,
+        "beacon": "locked",
+        "charge": 0,
+        "coreHp": 3000,
+        "coreMax": 3000,
+        "buildings": 12,
+        "colonists": 9,
+        "fauna": 1,
+        "stock": {
+          "ferrite": 176.2065757575757,
+          "ice": 27,
+          "aurelite": 0,
+          "rations": 2.6062499999999873,
+          "alloy": 4,
+          "prism": 0,
+          "cell": 0
+        },
+        "armed": null,
+        "chip": null,
+        "acceptsInput": true
+      }
+    },
+    "build:dock-deaf:sol6 policy:ferrite_drill": {
+      "resolved": "live",
+      "state": {
+        "active": [
+          "Game"
+        ],
+        "live": true,
+        "started": true,
+        "busy": false,
+        "coachActive": false,
+        "coachOwner": false,
+        "coachId": null,
+        "gated": null,
+        "seed": "halcyon:1:muj8w114",
+        "paused": false,
+        "pauseOpen": false,
+        "ended": false,
+        "drafting": false,
+        "draftOpen": false,
+        "draft": [],
+        "sol": 6,
+        "phase": "day",
+        "t": 294.15,
+        "userPaused": false,
+        "beacon": "unbuilt",
+        "charge": 0,
+        "coreHp": 2494,
+        "coreMax": 3000,
+        "buildings": 12,
+        "colonists": 9,
+        "fauna": 7,
+        "stock": {
+          "ferrite": 135.8682313454545,
+          "ice": 28,
+          "aurelite": 0,
+          "rations": 5.115624999999996,
+          "alloy": 4,
+          "prism": 0,
+          "cell": 0
+        },
+        "armed": null,
+        "chip": null,
+        "acceptsInput": true
+      }
+    },
+    "build:off-screen:sol6 policy:ferrite_drill": "no legal tile on screen; skipped",
+    "build:off-screen:sol7 policy:ferrite_drill": "no legal tile on screen; skipped",
+    "build:dock-deaf:sol8 policy:ferrite_drill": {
+      "resolved": "live",
+      "state": {
+        "active": [
+          "Game"
+        ],
+        "live": true,
+        "started": true,
+        "busy": false,
+        "coachActive": false,
+        "coachOwner": false,
+        "coachId": null,
+        "gated": null,
+        "seed": "halcyon:1:muj8w114",
+        "paused": false,
+        "pauseOpen": false,
+        "ended": false,
+        "drafting": false,
+        "draftOpen": false,
+        "draft": [],
+        "sol": 8,
+        "phase": "day",
+        "t": 416.15,
+        "userPaused": false,
+        "beacon": "unbuilt",
+        "charge": 0,
+        "coreHp": 2514,
+        "coreMax": 3000,
+        "buildings": 11,
+        "colonists": 9,
+        "fauna": 6,
+        "stock": {
+          "ferrite": 146.55029749999994,
+          "ice": 28,
+          "aurelite": 0,
+          "rations": 8.94062500000017,
+          "alloy": 4,
+          "prism": 0,
+          "cell": 0
+        },
+        "armed": null,
+        "chip": null,
+        "acceptsInput": true
+      }
+    },
+    "build:off-screen:sol8 policy:ferrite_drill": "no legal tile on screen; skipped",
+    "build:dock-deaf:sol9 policy:ferrite_drill": {
+      "resolved": "live",
+      "state": {
+        "active": [
+          "Game"
+        ],
+        "live": true,
+        "started": true,
+        "busy": false,
+        "coachActive": false,
+        "coachOwner": false,
+        "coachId": null,
+        "gated": null,
+        "seed": "halcyon:1:muj8w114",
+        "paused": false,
+        "pauseOpen": false,
+        "ended": false,
+        "drafting": false,
+        "draftOpen": false,
+        "draft": [],
+        "sol": 9,
+        "phase": "day",
+        "t": 480.15,
+        "userPaused": false,
+        "beacon": "unbuilt",
+        "charge": 0,
+        "coreHp": 1365,
+        "coreMax": 3000,
+        "buildings": 11,
+        "colonists": 9,
+        "fauna": 13,
+        "stock": {
+          "ferrite": 147,
+          "ice": 16,
+          "aurelite": 0,
+          "rations": 17.340625000000173,
+          "alloy": 4,
+          "prism": 0,
+          "cell": 0
+        },
+        "armed": null,
+        "chip": null,
+        "acceptsInput": true
+      }
+    },
+    "build:off-screen:sol9 policy:ferrite_drill": "no legal tile on screen; skipped",
+    "results:loss": {
+      "result": {
+        "won": false,
+        "reason": "core-lost",
+        "sols": 8,
+        "data": 94
+      },
+      "texts": [
+        "CORE LOST",
+        "Halcyon Flats · rung 1\nThe Lander Core fell. The lights went out.",
+        "Sols survived",
+        "8 / 10",
+        "Colonists saved",
+        "9",
+        "Colonists lost",
+        "4",
+        "Landing",
+        "+30",
+        "Sols",
+        "+64",
+        "DATA",
+        "+94",
+        "☆",
+        "☆",
+        "☆",
+        "RETRY",
+        "HUB"
+      ]
+    },
+    "build:dock-deaf:sol1 policy:ferrite_drill": {
+      "resolved": "live",
+      "state": {
+        "active": [
+          "Game"
+        ],
+        "live": true,
+        "started": true,
+        "busy": false,
+        "coachActive": false,
+        "coachOwner": false,
+        "coachId": null,
+        "gated": null,
+        "seed": "halcyon:1:muj8w114",
+        "paused": false,
+        "pauseOpen": false,
+        "ended": false,
+        "drafting": false,
+        "draftOpen": false,
+        "draft": [],
+        "sol": 1,
+        "phase": "day",
+        "t": 0.1,
+        "userPaused": false,
+        "beacon": "locked",
+        "charge": 0,
+        "coreHp": 3000,
+        "coreMax": 3000,
+        "buildings": 2,
+        "colonists": 6,
+        "fauna": 0,
+        "stock": {
+          "ferrite": 60,
+          "ice": 0,
+          "aurelite": 0,
+          "rations": 36,
+          "alloy": 30,
+          "prism": 0,
+          "cell": 0
+        },
+        "armed": null,
+        "chip": null,
+        "acceptsInput": true
+      }
+    },
+    "build:dock-deaf:sol2 policy:hydro_terrace": {
+      "resolved": "live",
+      "state": {
+        "active": [
+          "Game"
+        ],
+        "live": true,
+        "started": true,
+        "busy": false,
+        "coachActive": false,
+        "coachOwner": false,
+        "coachId": null,
+        "gated": null,
+        "seed": "halcyon:1:muj8w114",
+        "paused": false,
+        "pauseOpen": false,
+        "ended": false,
+        "drafting": false,
+        "draftOpen": false,
+        "draft": [],
+        "sol": 2,
+        "phase": "day",
+        "t": 74.17,
+        "userPaused": false,
+        "beacon": "locked",
+        "charge": 0,
+        "coreHp": 3000,
+        "coreMax": 3000,
+        "buildings": 6,
+        "colonists": 10,
+        "fauna": 0,
+        "stock": {
+          "ferrite": 73.91999999999999,
+          "ice": 69,
+          "aurelite": 0,
+          "rations": 13.750000000000021,
+          "alloy": 25,
+          "prism": 0,
+          "cell": 0
+        },
+        "armed": null,
+        "chip": null,
+        "acceptsInput": true
+      }
+    },
+    "build:dock-deaf:sol3 policy:pulse_turret": {
+      "resolved": "live",
+      "state": {
+        "active": [
+          "Game"
+        ],
+        "live": true,
+        "started": true,
+        "busy": false,
+        "coachActive": false,
+        "coachOwner": false,
+        "coachId": null,
+        "gated": null,
+        "seed": "halcyon:1:muj8w114",
+        "paused": false,
+        "pauseOpen": false,
+        "ended": false,
+        "drafting": false,
+        "draftOpen": false,
+        "draft": [],
+        "sol": 3,
+        "phase": "day",
+        "t": 126.17,
+        "userPaused": false,
+        "beacon": "locked",
+        "charge": 0,
+        "coreHp": 3000,
+        "coreMax": 3000,
+        "buildings": 9,
+        "colonists": 12,
+        "fauna": 0,
+        "stock": {
+          "ferrite": 67.75854545454553,
+          "ice": 57,
+          "aurelite": 0,
+          "rations": 18.725000000000023,
+          "alloy": 20,
+          "prism": 0,
+          "cell": 0
+        },
+        "armed": null,
+        "chip": null,
+        "acceptsInput": true
+      }
+    },
+    "build:dock-deaf:sol4 policy:pulse_turret": {
+      "resolved": "live",
+      "state": {
+        "active": [
+          "Game"
+        ],
+        "live": true,
+        "started": true,
+        "busy": false,
+        "coachActive": false,
+        "coachOwner": false,
+        "coachId": null,
+        "gated": null,
+        "seed": "halcyon:1:muj8w114",
+        "paused": false,
+        "pauseOpen": false,
+        "ended": false,
+        "drafting": false,
+        "draftOpen": false,
+        "draft": [],
+        "sol": 4,
+        "phase": "day",
+        "t": 180.17,
+        "userPaused": false,
+        "beacon": "locked",
+        "charge": 0,
+        "coreHp": 3000,
+        "coreMax": 3000,
+        "buildings": 10,
+        "colonists": 12,
+        "fauna": 1,
+        "stock": {
+          "ferrite": 101.75854545454553,
+          "ice": 43,
+          "aurelite": 0,
+          "rations": 20.47500000000033,
+          "alloy": 15,
+          "prism": 0,
+          "cell": 0
+        },
+        "armed": null,
+        "chip": null,
+        "acceptsInput": true
+      }
+    },
+    "build:dock-deaf:sol5 policy:pulse_turret": {
+      "resolved": "live",
+      "state": {
+        "active": [
+          "Game"
+        ],
+        "live": true,
+        "started": true,
+        "busy": false,
+        "coachActive": false,
+        "coachOwner": false,
+        "coachId": null,
+        "gated": null,
+        "seed": "halcyon:1:muj8w114",
+        "paused": false,
+        "pauseOpen": false,
+        "ended": false,
+        "drafting": false,
+        "draftOpen": false,
+        "draft": [],
+        "sol": 5,
+        "phase": "day",
+        "t": 236.15,
+        "userPaused": false,
+        "beacon": "locked",
+        "charge": 0,
+        "coreHp": 3000,
+        "coreMax": 3000,
+        "buildings": 11,
+        "colonists": 12,
+        "fauna": 2,
+        "stock": {
+          "ferrite": 155.77854545454554,
+          "ice": 29,
+          "aurelite": 0,
+          "rations": 21.875000000000647,
+          "alloy": 15,
+          "prism": 0,
+          "cell": 0
+        },
+        "armed": null,
+        "chip": null,
+        "acceptsInput": true
+      }
+    },
+    "chorusSwarmTrail": [
+      {
+        "start": 41,
+        "swarm": {
+          "x": 272,
+          "y": 248,
+          "cluster": 33,
+          "alive": 43
+        }
+      },
+      {
+        "hold": 0,
+        "near": 48,
+        "from": {
+          "t": 128138,
+          "req": 935,
+          "last": "hurt",
+          "dirPaused": false,
+          "coach": false,
+          "paused": false,
+          "fauna": 43,
+          "engaged": 43,
+          "phase": "night",
+          "kills": 92
+        },
+        "to": {
+          "t": 131642,
+          "req": 988,
+          "last": "moth",
+          "dirPaused": false,
+          "coach": false,
+          "paused": false,
+          "fauna": 51,
+          "engaged": 50,
+          "phase": "night",
+          "kills": 93
+        }
+      },
+      {
+        "hold": 1,
+        "near": 51,
+        "from": {
+          "t": 131642,
+          "req": 988,
+          "last": "moth",
+          "dirPaused": false,
+          "coach": false,
+          "paused": false,
+          "fauna": 51,
+          "engaged": 50,
+          "phase": "night",
+          "kills": 93
+        },
+        "to": {
+          "t": 135145,
+          "req": 1042,
+          "last": "hurt",
+          "dirPaused": false,
+          "coach": false,
+          "paused": false,
+          "fauna": 55,
+          "engaged": 55,
+          "phase": "night",
+          "kills": 97
+        }
+      },
+      {
+        "hold": 2,
+        "near": 59,
+        "from": {
+          "t": 135146,
+          "req": 1042,
+          "last": "hurt",
+          "dirPaused": false,
+          "coach": false,
+          "paused": false,
+          "fauna": 55,
+          "engaged": 55,
+          "phase": "night",
+          "kills": 97
+        },
+        "to": {
+          "t": 138647,
+          "req": 1093,
+          "last": "hurt",
+          "dirPaused": false,
+          "coach": false,
+          "paused": false,
+          "fauna": 61,
+          "engaged": 60,
+          "phase": "night",
+          "kills": 99
+        }
+      }
+    ],
+    "chorusAtMark": {
+      "fauna": 61,
+      "peakFauna": 61,
+      "nearView": 59,
+      "charge": 0.691,
+      "coreHp": 1500,
+      "beacon": "charging"
+    },
+    "build:dock-deaf:sol7 policy:ferrite_drill": {
+      "resolved": "live",
+      "state": {
+        "active": [
+          "Game"
+        ],
+        "live": true,
+        "started": true,
+        "busy": false,
+        "coachActive": false,
+        "coachOwner": false,
+        "coachId": null,
+        "gated": null,
+        "seed": "halcyon:1:muj8w114",
+        "paused": false,
+        "pauseOpen": false,
+        "ended": false,
+        "drafting": false,
+        "draftOpen": false,
+        "draft": [],
+        "sol": 7,
+        "phase": "day",
+        "t": 354.12,
+        "userPaused": false,
+        "beacon": "charging",
+        "charge": 0.797,
+        "coreHp": 2000,
+        "coreMax": 3000,
+        "buildings": 10,
+        "colonists": 9,
+        "fauna": 67,
+        "stock": {
+          "ferrite": 100,
+          "ice": 77,
+          "aurelite": 0,
+          "rations": 0,
+          "alloy": 90,
+          "prism": 40,
+          "cell": 28
+        },
+        "armed": null,
+        "chip": null,
+        "acceptsInput": true
+      }
+    },
+    "results:win": {
+      "result": {
+        "won": true,
+        "reason": "beacon",
+        "sols": 6,
+        "data": 156
+      },
+      "texts": [
+        "LAUNCHED",
+        "Halcyon Flats · rung 1\nThe Ark heard the Spire. The colony is going home.",
+        "Sols survived",
+        "6 / 10",
+        "Colonists saved",
+        "9",
+        "Colonists lost",
+        "3",
+        "Landing",
+        "+30",
+        "Sols",
+        "+48",
+        "Launch",
+        "+60",
+        "Orders",
+        "+18",
+        "DATA",
+        "+156",
+        "★",
+        "★",
+        "★",
+        "+3 new ★ · Rung 2 opened",
+        "NEXT RUNG",
+        "HUB"
+      ]
+    },
+    "epochs": [
+      {
+        "label": "until:end of run",
+        "frames": 13056,
+        "fpsSamples": 2009,
+        "marks": [
+          "draft-open",
+          "chorus"
+        ],
+        "sceneTrail": [
+          "559:Game",
+          "83997:GameOver",
+          "86369:Game",
+          "147729:GameOver",
+          "150986:Hub"
+        ]
+      }
+    ],
+    "certificationCaveat": "This cert is CONDITIONAL. 1 beat group(s) were certified from a teleported position rather than reached by play: colony-beacon-stock (1 beat(s)). Presentation and state transitions are certified; REACHABILITY is not.",
+    "captureFence": {
+      "count": 22,
+      "ms": 7286,
+      "unrecovered": 0,
+      "note": "page time fenced out of the fps record by screenshots"
+    },
+    "audio": {
+      "muted": true,
+      "mechanisms": [
+        "URL param on every load: http://192.168.101.53:5432/?mute=1",
+        "page-side: media elements muted, AudioContext suspended with its destination shadowed by a gain pinned at 0, Phaser sound manager muted"
+      ],
+      "storageTouched": false,
+      "lastSilenceResult": {
+        "mediaMuted": 0,
+        "contextsPatched": false,
+        "contexts": 1,
+        "phaserSound": true
+      },
+      "probe": {
+        "href": "http://192.168.101.53:5432/?mute=1",
+        "urlMute": "1",
+        "audioSnapshot": {
+          "muted": true,
+          "forcedByUrl": true,
+          "storedPreference": false,
+          "masterGain": null,
+          "contextState": null,
+          "requested": 1207,
+          "played": 0,
+          "lastRequested": "ui",
+          "musicDuck": null,
+          "samplesDecoded": 0,
+          "settings": {
+            "music": 0.9,
+            "sfx": 0.9,
+            "reduceMotion": true
+          }
+        },
+        "contexts": [
+          {
+            "state": "running",
+            "destinationGain": 0
+          }
+        ],
+        "phaserMuted": true,
+        "media": 0
+      }
+    }
+  },
+  "phases": [
+    {
+      "t": 2,
+      "msg": "phase: boot on a wiped save"
+    },
+    {
+      "t": 1473,
+      "msg": "phase: Landing 1 FTUE"
+    },
+    {
+      "t": 2556,
+      "msg": "FTUE beat \"ore\" (gated)"
+    },
+    {
+      "t": 4457,
+      "msg": "FTUE beat \"dock\" (gated)"
+    },
+    {
+      "t": 13175,
+      "msg": "FTUE beat \"dusk\""
+    },
+    {
+      "t": 14243,
+      "msg": "FTUE beat \"dusk-resume\" (gated)"
+    },
+    {
+      "t": 18092,
+      "msg": "FTUE beat \"draft\""
+    },
+    {
+      "t": 32942,
+      "msg": "FTUE beat \"vent\" (gated)"
+    },
+    {
+      "t": 55475,
+      "msg": "major ftue:beats: 5 of the 6 coach beats (§14 FTUE) appeared by sol 4"
+    },
+    {
+      "t": 55476,
+      "msg": "phase: pause"
+    },
+    {
+      "t": 58359,
+      "msg": "phase: loss (core lost)"
+    },
+    {
+      "t": 87391,
+      "msg": "phase: win (Beacon)"
+    },
+    {
+      "t": 113327,
+      "msg": "TELEPORT colony-beacon-stock: the Beacon Spire price ({\"alloy\":100,\"prism\":20}) and the charge cells are granted: a cert-length session cannot earn them; the Spire placement, BEACON and CHARGE are real taps — everything until teleportEnd() is certified from a placed position"
+    },
+    {
+      "t": 149970,
+      "msg": "phase: control sweep"
+    },
+    {
+      "t": 150883,
+      "msg": "sweep results: 0 tapped, 0 reacted, 0 dead, 0 declared no-op, 2 skipped"
+    },
+    {
+      "t": 157981,
+      "msg": "sweep hub:land > R2: 0 tapped, 0 reacted, 0 dead, 0 declared no-op, 0 skipped"
+    },
+    {
+      "t": 160029,
+      "msg": "sweep hub:land > R3: 0 tapped, 0 reacted, 0 dead, 0 declared no-op, 0 skipped"
+    },
+    {
+      "t": 172251,
+      "msg": "sweep hub:land: 15 tapped, 15 reacted, 0 dead, 0 declared no-op, 3 skipped"
+    },
+    {
+      "t": 177076,
+      "msg": "sweep hub:ark > Bunk Racks: 1 tapped, 1 reacted, 0 dead, 0 declared no-op, 0 skipped"
+    },
+    {
+      "t": 180613,
+      "msg": "sweep hub:ark > Settler Charter: 0 tapped, 0 reacted, 0 dead, 0 declared no-op, 0 skipped"
+    },
+    {
+      "t": 209875,
+      "msg": "sweep hub:ark: 14 tapped, 14 reacted, 0 dead, 0 declared no-op, 2 skipped"
+    },
+    {
+      "t": 218558,
+      "msg": "sweep hub:log > Container@636,1008: 4 tapped, 4 reacted, 0 dead, 0 declared no-op, 4 skipped"
+    },
+    {
+      "t": 220283,
+      "msg": "sweep hub:log: 2 tapped, 2 reacted, 0 dead, 0 declared no-op, 2 skipped"
+    },
+    {
+      "t": 220320,
+      "msg": "major budget:fps-unnamed-window: the worst unnamed 3s window of the run held 54fps median / 54fps min (budget 55/40) at t=559ms — no named peak beat covers it. Name that beat in the adapter to make it a blocker, or confirm it is the host machine."
+    }
+  ],
+  "teleports": [
+    {
+      "id": "colony-beacon-stock",
+      "reason": "the Beacon Spire price ({\"alloy\":100,\"prism\":20}) and the charge cells are granted: a cert-length session cannot earn them; the Spire placement, BEACON and CHARGE are real taps; the core and the Spire are sustained at >= 50 % hp through the charge (the cert colony cannot hold the Chorus)",
+      "placement": null,
+      "requiredPx": null,
+      "closestPx": null,
+      "budgetMs": null,
+      "atMs": 113327,
+      "beats": [
+        "win: Beacon launch"
+      ],
+      "surfaces": [
+        "spire-ready",
+        "beacon-confirm",
+        "chorus",
+        "results-win"
+      ],
+      "outcomes": [
+        "win"
+      ]
+    }
+  ],
+  "conditional": true,
+  "certification": "conditional"
+}

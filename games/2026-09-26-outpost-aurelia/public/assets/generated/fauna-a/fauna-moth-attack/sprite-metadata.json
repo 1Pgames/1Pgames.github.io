@@ -1,0 +1,253 @@
+{
+  "source": {
+    "file": "omp-image-158f2b3cfe448fd8.jpg",
+    "provider": "xai-oauth",
+    "rawFile": "raw-source.jpg",
+    "width": 1024,
+    "height": 1024
+  },
+  "grid": {
+    "rows": 2,
+    "cols": 2
+  },
+  "output": {
+    "cellSize": 256,
+    "cellHeight": 256,
+    "align": "center",
+    "scaleMode": "fit",
+    "fit": 0.86,
+    "fullBleed": false,
+    "threshold": 150,
+    "feather": 55,
+    "edgeThreshold": 170,
+    "sampling": "smooth",
+    "durationMs": 100,
+    "componentMode": "largest",
+    "componentPadding": 0,
+    "minComponentArea": 1,
+    "profileApplied": "fauna-moth",
+    "overrides": []
+  },
+  "qc": {
+    "strict": true,
+    "passed": true,
+    "failures": [],
+    "waived": [],
+    "notes": [],
+    "postureChange": [
+      "profile-body-scale-drift:0.2874>0.0800 (raise --max-profile-scale-drift or pass --posture-change if the action changes posture on purpose)",
+      "output-subject-height-drift:0.2860>0.0800 (raise --max-profile-scale-drift or pass --posture-change if the action changes posture on purpose)"
+    ],
+    "keyedPixels": 826349,
+    "summary": {
+      "frameCount": 4,
+      "validFrameCount": 4,
+      "emptyCount": 0,
+      "sourceEdgeTouchCount": 0,
+      "outputEdgeTouchCount": 0,
+      "pasteClampedCount": 0,
+      "bodyScaleMean": 0.5751953125,
+      "bodyScaleCv": 0.05219159982661935,
+      "anchorXStd": 0.0041432037960149265,
+      "anchorYStd": 0.014534058658337125,
+      "anchorYMean": 0.4892578125,
+      "outputSubjectHeightMean": 145,
+      "profileBodyScaleDrift": 0.2874316939890711,
+      "outputSubjectHeightDrift": 0.2860310421286032
+    },
+    "retryHints": [],
+    "background": {
+      "keyedFraction": 0.7868127822875977,
+      "edgeKeyFraction": 1,
+      "foreignRegionCount": 0,
+      "cellCoverage": [
+        0.23867034912109375,
+        0.18371963500976562,
+        0.19218826293945312,
+        0.23817062377929688
+      ],
+      "emptyCells": [],
+      "cell": {
+        "width": 512,
+        "height": 512,
+        "aspect": 1
+      },
+      "geometryMismatch": false,
+      "contaminated": false,
+      "findings": []
+    }
+  },
+  "scaleProfile": {
+    "path": "/Users/tmwh/homework/1Pgames/games/2026-09-26-outpost-aurelia/art/exports/fauna-a/fauna-moth-walk/fauna-moth-scale.json",
+    "name": "fauna-moth",
+    "version": 2
+  },
+  "frames": [
+    {
+      "index": 0,
+      "file": "frames/frame-000.png",
+      "sourceBox": {
+        "left": 0,
+        "top": 0,
+        "width": 512,
+        "height": 512
+      },
+      "subjectBox": {
+        "left": 72,
+        "top": 82,
+        "width": 371,
+        "height": 321
+      },
+      "alignedBox": {
+        "left": 37,
+        "top": 49,
+        "width": 182,
+        "height": 158
+      },
+      "sourceAnchor": {
+        "x": 257.5,
+        "y": 242.5
+      },
+      "targetAnchor": {
+        "x": 128,
+        "y": 128
+      },
+      "empty": false,
+      "componentCount": 1,
+      "subjectArea": 62264,
+      "droppedArea": 0,
+      "bodyScale": 0.626953125,
+      "sourceEdgeTouch": false,
+      "outputEdgeTouch": false,
+      "pasteClamped": false,
+      "scale": 0.49142857142857144
+    },
+    {
+      "index": 1,
+      "file": "frames/frame-001.png",
+      "sourceBox": {
+        "left": 512,
+        "top": 0,
+        "width": 512,
+        "height": 512
+      },
+      "subjectBox": {
+        "left": 87,
+        "top": 119,
+        "width": 347,
+        "height": 285
+      },
+      "alignedBox": {
+        "left": 43,
+        "top": 58,
+        "width": 171,
+        "height": 140
+      },
+      "sourceAnchor": {
+        "x": 260.5,
+        "y": 261.5
+      },
+      "targetAnchor": {
+        "x": 128,
+        "y": 128
+      },
+      "empty": false,
+      "componentCount": 1,
+      "subjectArea": 47868,
+      "droppedArea": 0,
+      "bodyScale": 0.556640625,
+      "sourceEdgeTouch": false,
+      "outputEdgeTouch": false,
+      "pasteClamped": false,
+      "scale": 0.49142857142857144
+    },
+    {
+      "index": 2,
+      "file": "frames/frame-002.png",
+      "sourceBox": {
+        "left": 0,
+        "top": 512,
+        "width": 512,
+        "height": 512
+      },
+      "subjectBox": {
+        "left": 50,
+        "top": 109,
+        "width": 409,
+        "height": 288
+      },
+      "alignedBox": {
+        "left": 28,
+        "top": 57,
+        "width": 201,
+        "height": 142
+      },
+      "sourceAnchor": {
+        "x": 254.5,
+        "y": 253
+      },
+      "targetAnchor": {
+        "x": 128,
+        "y": 128
+      },
+      "empty": false,
+      "componentCount": 1,
+      "subjectArea": 49969,
+      "droppedArea": 0,
+      "bodyScale": 0.5625,
+      "sourceEdgeTouch": false,
+      "outputEdgeTouch": false,
+      "pasteClamped": false,
+      "scale": 0.49142857142857144
+    },
+    {
+      "index": 3,
+      "file": "frames/frame-003.png",
+      "sourceBox": {
+        "left": 512,
+        "top": 512,
+        "width": 512,
+        "height": 512
+      },
+      "subjectBox": {
+        "left": 49,
+        "top": 103,
+        "width": 417,
+        "height": 284
+      },
+      "alignedBox": {
+        "left": 26,
+        "top": 58,
+        "width": 205,
+        "height": 140
+      },
+      "sourceAnchor": {
+        "x": 257.5,
+        "y": 245
+      },
+      "targetAnchor": {
+        "x": 128,
+        "y": 128
+      },
+      "empty": false,
+      "componentCount": 1,
+      "subjectArea": 62126,
+      "droppedArea": 0,
+      "bodyScale": 0.5546875,
+      "sourceEdgeTouch": false,
+      "outputEdgeTouch": false,
+      "pasteClamped": false,
+      "scale": 0.49142857142857144
+    }
+  ],
+  "reprocess": {
+    "tool": "art/exports/fauna-a/refit.py",
+    "chromaGuard": "off",
+    "reason": "marker scaleMode key ignored (field is `scale`); fit 0.86",
+    "processedInput": "raw-source.jpg",
+    "deshadowRepaintedPx": null,
+    "markerMetadata": "sprite-metadata.marker.json",
+    "styleProfile": "games/2026-09-26-outpost-aurelia/art/style.json"
+  },
+  "provenanceNote": "marker metadata of the accepted 2nd generation was overwritten by refit; source.file patched to that generation id"
+}

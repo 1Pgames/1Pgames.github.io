@@ -3830,9 +3830,1551 @@ async function arenaPhaseControlSweep(ctx) {
   }
 }
 
+// --- colony family adapter ---------------------------------------------------
+
+/**
+ * Colony builders (`src/slices/colony/`, family A subgenre base builder —
+ * Outpost Aurelia). A Landing is 10 sols on a generated site: the player taps
+ * a dock slot and a lit tile to build; the director owns the sol clock; a
+ * Landing ends on the Beacon launch (win), the core lost / every colonist lost
+ * / the Long Night deadline (loss) or ABANDON. Scenes: Boot, Preload, Hub,
+ * Game, GameOver (PRD §14b: a wiped save boots straight into Landing 1, no hub).
+ *
+ * GAME SCENE PROBE SURFACE (agreed with W5, `slices/colony/game.ts`, public):
+ * `colony` (ColonyState), `director` (ColonyDirector), `threat`, `camera`,
+ * `setup`, `seed`, `speed`, `paused` (pause panel up), `ended`, `started`,
+ * `busy`, `coachActive`, `coachId` / `coachGated` (optional: the beat on
+ * screen and, for a beat completed by a placement, `{ def }`), `armed`,
+ * `tileToScreen(col, row, out)`, `composition()`. Everything else is read off
+ * the model the scene drives.
+ *
+ * WHAT IS FAST-FORWARDED, AND WHY THAT IS HONEST
+ * The sol clock is advanced with the director's own `skip(seconds)` (the dev
+ * `skipTime` path — whole simulated seconds through the real update, so every
+ * spawn, fight and dawn still happens in order): 10 sols are ~10 minutes at
+ * 1×. Building is real input (dock tap + tile tap). The WIN needs a Beacon
+ * Spire (read live from `costOf('beacon_spire')`) that no cert-length session earns, so the win
+ * runs inside a `ctx.teleport` span: the stock is granted and the clock moved
+ * to sol 6 through the scene's model, the Spire is placed and the BEACON is
+ * triggered by real taps, and the report says so (`certification:
+ * conditional`). Balance is the sim's gate (`npm run sim -- --family colony`),
+ * never this adapter's.
+ */
+const colonyAdapter = {
+  name: 'colony',
+  gameScene: 'Game',
+  /** §14b: a wiped save lands in Landing 1; a recovered checkpoint in GameOver (ABANDONED); everyone else in the Hub. */
+  bootScenes: ['Game', 'Hub', 'GameOver'],
+  /** PRD §13 peak-fps beats: the Chorus (Beacon charge, 180 fauna) and night 9. */
+  heavyBeats: ['chorus', 'night9'],
+  phases: [colonyPhaseFirstLanding, colonyPhasePause, colonyPhaseLoss, colonyPhaseWin, colonyPhaseControlSweep],
+
+  page: {
+    /**
+     * Engine contract fields plus the colony's own. A coach beat is on screen
+     * whenever `coachId` is set — the pausing owner (`coachActive` on the
+     * scene: the dusk beat) AND the hints (ore / dock / vent / draft / grid),
+     * whose tap catcher or swap-gate dims own the screen just the same. The
+     * dusk beat has two screens (spotlight, then the RESUME panel); the panel
+     * is reported as `dusk-resume` so walking it is not mistaken for a repeat.
+     * `gated` names the action that completes the beat (§14 FTUE table).
+     */
+    state: () => {
+      const g = window.__GAME__;
+      const active = g.scene.scenes.filter((sc) => sc.scene.isActive()).map((sc) => sc.scene.key);
+      const s = g.scene.getScene('Game');
+      const live = active.includes('Game');
+      const started = live && !!s && s.started === true && !!s.colony && !!s.director;
+      const beat = started ? (s.coachId ?? null) : null;
+      const panel = beat === 'dusk' && !!s.coach && s.coach.duskPanel !== null && s.coach.duskPanel !== undefined;
+      const coachId = beat === null ? null : panel ? 'dusk-resume' : beat;
+      const coachActive = started && (s.coachActive === true || coachId !== null);
+      const GATES = {
+        ore: { def: 'ferrite_drill', via: 'deposit' },
+        'dusk-resume': { def: 'pulse_turret', via: 'resume' },
+        dock: { def: null, via: 'tap-then-build' },
+        vent: { def: 'vent_tap', via: 'tap-then-build' },
+        grid: { def: 'relay_pylon', via: 'tap-then-build' },
+        // Hint (never an input owner): rations falling with no terrace — taught by placing a Hydro Terrace.
+        feed: { def: 'hydro_terrace', via: 'tap-then-build' },
+      };
+      const gate = coachId !== null ? GATES[coachId] ?? null : null;
+      const base = {
+        active,
+        live,
+        started,
+        busy: started && s.busy === true,
+        coachActive,
+        coachOwner: started && s.coachActive === true,
+        coachId,
+        gated: gate === null ? null : { beat: coachId, ...gate, name: gate.def && s.buildingNames ? s.buildingNames[gate.def] : null },
+      };
+      if (!started) return { ...base, paused: false, ended: false, drafting: false, pauseOpen: false, acceptsInput: false };
+      const d = s.director;
+      const m = s.colony;
+      const drafting = d.draftCards !== null && d.draftCards !== undefined;
+      const core = m.core;
+      return {
+        ...base,
+        seed: s.seed,
+        paused: s.paused === true,
+        pauseOpen: s.paused === true,
+        ended: s.ended === true || d.ended === true,
+        drafting,
+        // The overlay opens after the dawn ceremony (1.4 s): cards exist only once it is up.
+        draftOpen: s.draft !== null && s.draft !== undefined,
+        draft: drafting ? d.draftCards.map((c) => c.name) : [],
+        sol: m.clock.sol,
+        phase: m.clock.phase,
+        t: Math.round(d.elapsedSeconds * 100) / 100,
+        userPaused: d.isPaused === true,
+        beacon: m.beacon,
+        charge: Math.round(m.beaconCharge * 1000) / 1000,
+        coreHp: core ? Math.round(core.hp) : 0,
+        coreMax: core ? core.maxHp : 0,
+        buildings: m.buildings.size,
+        colonists: m.colonists,
+        fauna: s.threat ? s.threat.liveCount : 0,
+        stock: { ...m.stock },
+        armed: s.armed ?? null,
+        chip: s.depositChip ? { ...s.depositChip } : null,
+        acceptsInput: live && s.paused !== true && s.ended !== true && !drafting && !coachActive && s.busy !== true,
+      };
+    },
+
+    /** Interactive objects with their screen centres (same maths as the input plugin; arena `controls` verbatim in spirit). */
+    controls: () => {
+      const g = window.__GAME__;
+      const out = [];
+      const labelOf = (o) => {
+        if (typeof o.text === 'string' && o.text.length > 0) return o.text;
+        const d = o.getData ? o.getData('label') : undefined;
+        if (typeof d === 'string' && d.length > 0) return d;
+        if (d && typeof d.text === 'string') return d.text;
+        if (o.list) for (const c of o.list) {
+          const t = labelOf(c);
+          if (t) return t;
+        }
+        return '';
+      };
+      const textsOf = (o, acc) => {
+        if (typeof o.text === 'string' && o.text.length > 0) acc.push(o.text);
+        if (o.list) for (const c of o.list) textsOf(c, acc);
+        return acc;
+      };
+      for (const s of g.scene.scenes.filter((sc) => sc.scene.isActive())) {
+        const cams = s.cameras.cameras;
+        const walk = (list, chainVisible, chainAlpha) => {
+          for (const o of list) {
+            const visible = chainVisible && o.visible !== false;
+            const alpha = chainAlpha * (o.alpha ?? 1);
+            if (o.input && o.input.enabled !== false && o.input.hitArea) {
+              const hit = o.input.hitArea;
+              let cx = 0;
+              let cy = 0;
+              let w = o.width || 0;
+              let h = o.height || 0;
+              if (hit.width !== undefined) {
+                cx = hit.x + hit.width / 2;
+                cy = hit.y + hit.height / 2;
+                w = hit.width;
+                h = hit.height;
+              } else if (hit.radius !== undefined) {
+                cx = hit.x;
+                cy = hit.y;
+                w = hit.radius * 2;
+                h = w;
+              }
+              const mtx = o.getWorldTransformMatrix();
+              const lx = cx - (o.displayOriginX ?? 0);
+              const ly = cy - (o.displayOriginY ?? 0);
+              const wx = mtx.a * lx + mtx.c * ly + mtx.tx;
+              const wy = mtx.b * lx + mtx.d * ly + mtx.ty;
+              let top = o;
+              while (top.parentContainer) top = top.parentContainer;
+              const filter = top.cameraFilter || 0;
+              const cam = [...cams].reverse().find((c) => (filter & c.id) === 0) ?? s.cameras.main;
+              const sx = cam.x + (wx - cam.scrollX * (o.scrollFactorX ?? 1)) * cam.zoom;
+              const sy = cam.y + (wy - cam.scrollY * (o.scrollFactorY ?? 1)) * cam.zoom;
+              out.push({
+                scene: s.scene.key,
+                label: labelOf(o),
+                texts: textsOf(o, []).slice(0, 8),
+                x: Math.round(sx),
+                y: Math.round(sy),
+                w: Math.round(w * Math.hypot(mtx.a, mtx.b)),
+                h: Math.round(h * Math.hypot(mtx.c, mtx.d)),
+                visible,
+                alpha: Math.round(alpha * 100) / 100,
+                depth: top.depth ?? 0,
+                inView: sx >= cam.x && sx <= cam.x + cam.width && sy >= cam.y && sy <= cam.y + cam.height,
+                cardId: (o.getData && o.getData('cardId')) ?? null,
+                buildingId: (o.getData && o.getData('buildingId')) ?? null,
+                noop: (o.getData && o.getData('noop')) || null,
+                type: o.type,
+              });
+            }
+            if (o.list) walk(o.list, visible, alpha);
+          }
+        };
+        walk(s.children.list, true, 1);
+      }
+      return out;
+    },
+
+    /**
+     * View/model agreement: every building has a view object, occupancy
+     * matches the building map, stocks are finite and inside [0, cap], the
+     * core stands while the Landing is live, fauna count matches the pool.
+     */
+    invariants: () => {
+      const g = window.__GAME__;
+      const s = g.scene.getScene('Game');
+      if (!s || !s.scene.isActive() || s.started !== true || !s.colony) return { skipped: true, count: 0, violations: [] };
+      const m = s.colony;
+      const v = [];
+      const occ = new Map();
+      for (let i = 0; i < m.occ.length; i += 1) if (m.occ[i] !== 0) occ.set(m.occ[i], (occ.get(m.occ[i]) ?? 0) + 1);
+      for (const b of m.buildings.values()) {
+        if (!occ.has(b.uid)) v.push(`building ${b.def}#${b.uid} holds no tile`);
+        if (!(b.hp > 0) && b.def !== 'lander_core') v.push(`building ${b.def}#${b.uid} alive at hp ${b.hp}`);
+        if (b.hp > b.maxHp + 1e-6) v.push(`building ${b.def}#${b.uid} hp ${b.hp} > max ${b.maxHp}`);
+      }
+      for (const uid of occ.keys()) if (!m.buildings.has(uid)) v.push(`tile occupied by missing building #${uid}`);
+      const view = m.view();
+      for (const [k, n] of Object.entries(view.stock)) {
+        if (!Number.isFinite(n) || n < -1e-6) v.push(`stock ${k} = ${n}`);
+        else if (n > view.caps[k] + 1e-6) v.push(`stock ${k} ${n} over cap ${view.caps[k]}`);
+      }
+      if (!(s.ended === true) && (!m.core || m.core.hp <= 0)) v.push('live Landing without a standing core');
+      if (s.threat && s.threat.fauna) {
+        const alive = s.threat.fauna.pool.filter((f) => f.alive).length;
+        if (alive !== s.threat.liveCount) v.push(`fauna pool ${alive} alive vs liveCount ${s.threat.liveCount}`);
+      }
+      if (m.colonists < 0 || m.colonists > view.beds + 50) v.push(`colonists ${m.colonists} vs beds ${view.beds}`);
+      return { count: v.length, violations: v.slice(0, 12) };
+    },
+
+    /** Results scene read-out: the LandingResult the scene renders plus its texts. */
+    results: () => {
+      const g = window.__GAME__;
+      const s = g.scene.getScene('GameOver');
+      if (!s || !s.scene.isActive()) return null;
+      const texts = [];
+      const walk = (list) => {
+        for (const o of list) {
+          if (typeof o.text === 'string' && o.text.length > 0 && o.visible !== false) texts.push(o.text);
+          if (o.list) walk(o.list);
+        }
+      };
+      walk(s.children.list);
+      const r = s.result ?? null;
+      return { result: r ? { won: r.won, reason: r.reason, sols: r.solsSurvived, data: r.data ? r.data.total : null } : null, texts };
+    },
+
+    /**
+     * Legal on-screen tiles for `def`, nearest the core first (deposits for
+     * extractors), in screen px — up to 40, so the node side can drop the ones
+     * a panel or button covers. Empty when none is on screen.
+     */
+    validTiles: (def) => {
+      const s = window.__GAME__.scene.getScene('Game');
+      const m = s.colony;
+      const out = { x: 0, y: 0 };
+      const { core } = m.map;
+      const found = [];
+      const seen = new Set();
+      // Playfield band only (§14: y 232-964) minus the ContextStrip (y 872-956); the dock and HUD own the rest.
+      const push = (col, row) => {
+        const k = `${col},${row}`;
+        if (seen.has(k) || !m.canPlace(def, col, row).ok) return;
+        seen.add(k);
+        s.tileToScreen(col, row, out);
+        if (out.x < 48 || out.x > 672 || out.y < 260 || out.y > 850) return;
+        found.push({ col, row, x: Math.round(out.x), y: Math.round(out.y) });
+      };
+      for (let r = 1; r <= 14 && found.length < 40; r += 1) {
+        for (let dr = -r; dr <= r; dr += 1) {
+          for (let dc = -r; dc <= r; dc += 1) if (Math.max(Math.abs(dc), Math.abs(dr)) === r) push(core.col + dc, core.row + dr);
+        }
+      }
+      for (const d of m.map.deposits) if (found.length < 40) push(d.col, d.row);
+      return found;
+    },
+
+    /** Can `def` be paid for and is it unlocked (the dock's own enable rule). */
+    buildable: (def) => {
+      const m = window.__GAME__.scene.getScene('Game').colony;
+      // In bounds on the core's own tile, so the rule order (bounds → locked → …) reports `locked` first.
+      const probe = m.canPlace(def, m.map.core.col, m.map.core.row);
+      return { afford: m.canAfford(m.costOf(def)), locked: probe.why === 'locked', cost: m.costOf(def) };
+    },
+
+    /** Standing buildings per def (the day policy's targets are counts). */
+    census: () => {
+      const m = window.__GAME__.scene.getScene('Game').colony;
+      const n = {};
+      for (const b of m.buildings.values()) n[b.def] = (n[b.def] ?? 0) + 1;
+      return n;
+    },
+
+    /** Centre of the coach spotlight on screen (the ore beat's swap-gate hole), null when none. */
+    coachHole: () => {
+      const s = window.__GAME__.scene.getScene('Game');
+      const c = s && s.coach && s.coach.current;
+      const r = c && c.rect;
+      if (!r || r.w <= 0 || r.h <= 0) return null;
+      return { x: Math.round(r.x + r.w / 2), y: Math.round(r.y + r.h / 2), step: c.step };
+    },
+
+    /** Live fauna within 900 world px of the view centre — the same count the audio probe gates on. */
+    nearCount: () => {
+      const s = window.__GAME__.scene.getScene('Game');
+      if (!s || !s.threat || !s.threat.fauna) return 0;
+      const view = { x: 0, y: 0 };
+      s.camera.screenToWorld(360, 598, view);
+      // Engaged fauna only: a retreating (dawn) or burrowed body is not combat.
+      return s.threat.fauna.pool.filter((f) => f.alive && !f.retreating && !f.hidden && (f.x - view.x) ** 2 + (f.y - view.y) ** 2 <= 900 * 900).length;
+    },
+
+    /**
+     * No legal Spire anywhere (the lit field is full): the legal Relay Pylon tile that would light the most
+     * clear 3 × 3 ground (unblocked, unoccupied, deposit-free, within 4 tiles of the relay), nearest the core on ties.
+     */
+    spireRelaySpot: () => {
+      const s = window.__GAME__.scene.getScene('Game');
+      const m = s.colony;
+      const { core } = m.map;
+      const clear = (c, r) => {
+        for (let dr = 0; dr < 3; dr += 1) {
+          for (let dc = 0; dc < 3; dc += 1) {
+            const col = c + dc;
+            const row = r + dr;
+            if (col < 0 || row < 0 || col >= m.map.cols || row >= m.map.rows) return false;
+            const i = m.tileIndex(col, row);
+            if (m.map.blocked[i] === 1 || m.occ[i] !== 0 || m.depositAt[i] !== 0) return false;
+          }
+        }
+        return true;
+      };
+      let best = null;
+      let bestN = 0;
+      for (let r = 1; r <= 20; r += 1) {
+        for (let dr = -r; dr <= r; dr += 1) {
+          for (let dc = -r; dc <= r; dc += 1) {
+            if (Math.max(Math.abs(dc), Math.abs(dr)) !== r) continue;
+            const col = core.col + dc;
+            const row = core.row + dr;
+            if (!m.canPlace('relay_pylon', col, row).ok) continue;
+            let n = 0;
+            for (let y = -4; y <= 2; y += 1) for (let x = -4; x <= 2; x += 1) if (!(x >= -2 && x <= 0 && y >= -2 && y <= 0) && clear(col + x, row + y)) n += 1;
+            if (n > bestN) {
+              bestN = n;
+              best = { col, row, windows: n };
+            }
+          }
+        }
+      }
+      return best;
+    },
+
+    /** Screen centre of tile (col, row). */
+    tileScreen: (col, row) => {
+      const s = window.__GAME__.scene.getScene('Game');
+      const out = { x: 0, y: 0 };
+      s.tileToScreen(col, row, out);
+      return { col, row, x: Math.round(out.x), y: Math.round(out.y) };
+    },
+
+    /** Screen centre of the Lander Core (3 × 3 footprint). */
+    coreScreen: () => {
+      const s = window.__GAME__.scene.getScene('Game');
+      if (!s || !s.colony) return null;
+      const { core } = s.colony.map;
+      const out = { x: 0, y: 0 };
+      s.tileToScreen(core.col + 1, core.row + 1, out);
+      return { x: Math.round(out.x), y: Math.round(out.y) };
+    },
+
+    /** Screen point of the densest fauna cluster (the alive fauna with the most others within 600 world px), with its size. */
+    swarmScreen: () => {
+      const s = window.__GAME__.scene.getScene('Game');
+      if (!s || !s.threat || !s.threat.fauna) return null;
+      const alive = s.threat.fauna.pool.filter((f) => f.alive && !f.retreating && !f.hidden);
+      let best = null;
+      let bestN = 0;
+      for (let i = 0; i < alive.length; i += 3) {
+        const a = alive[i];
+        let n = 0;
+        for (const b of alive) if ((a.x - b.x) ** 2 + (a.y - b.y) ** 2 <= 600 * 600) n += 1;
+        if (n > bestN) {
+          bestN = n;
+          best = a;
+        }
+      }
+      if (best === null) return null;
+      const out = { x: 0, y: 0 };
+      s.camera.worldToScreen(best.x, best.y, out);
+      return { x: Math.round(out.x), y: Math.round(out.y), cluster: bestN, alive: alive.length };
+    },
+
+    /** Screen centre of the nearest lit, revealed, open vent (the `vent` beat's target), null when none. */
+    nearestVent: () => {
+      const s = window.__GAME__.scene.getScene('Game');
+      const m = s.colony;
+      const core = m.map.core;
+      let best = null;
+      let bestD = Infinity;
+      for (const d of m.map.deposits) {
+        if (d.kind !== 'vent') continue;
+        const i = m.tileIndex(d.col, d.row);
+        if (m.lit[i] !== 1 || m.revealed[i] !== 1 || m.occ[i] !== 0) continue;
+        const dist = Math.hypot(d.col - core.col, d.row - core.row);
+        if (dist < bestD) {
+          bestD = dist;
+          best = d;
+        }
+      }
+      if (best === null) return null;
+      const a = { x: 0, y: 0 };
+      const b = { x: 0, y: 0 };
+      s.tileToScreen(best.col, best.row, a);
+      s.tileToScreen(best.col + 1, best.row + 1, b);
+      return { x: Math.round((a.x + b.x) / 2), y: Math.round((a.y + b.y) / 2) };
+    },
+
+    /** Teleport-only (the win span): a poststep floor of 50 % hp on the core and the Spire while `on`. */
+    sustain: (on) => {
+      const g = window.__GAME__;
+      const c = window.__CERT__ || (window.__CERT__ = {});
+      if (c.colonySustain) {
+        g.events.off('poststep', c.colonySustain);
+        c.colonySustain = null;
+      }
+      if (!on) return false;
+      c.colonySustain = () => {
+        const s = g.scene.getScene('Game');
+        if (!s || !s.colony || s.ended) return;
+        for (const b of s.colony.buildings.values()) {
+          if (b.def !== 'lander_core' && b.def !== 'beacon_spire') continue;
+          if (b.hp < b.maxHp * 0.5) b.hp = b.maxHp * 0.5;
+        }
+      };
+      g.events.on('poststep', c.colonySustain);
+      return true;
+    },
+
+    /** Nearest legal anchor for `def` anywhere on the map (the camera may have to pan to it), with its screen point. */
+    legalAnchor: (def) => {
+      const s = window.__GAME__.scene.getScene('Game');
+      const m = s.colony;
+      const { core } = m.map;
+      const out = { x: 0, y: 0 };
+      for (let r = 1; r <= 40; r += 1) {
+        for (let dr = -r; dr <= r; dr += 1) {
+          for (let dc = -r; dc <= r; dc += 1) {
+            if (Math.max(Math.abs(dc), Math.abs(dr)) !== r) continue;
+            const col = core.col + dc;
+            const row = core.row + dr;
+            if (!m.canPlace(def, col, row).ok) continue;
+            s.tileToScreen(col, row, out);
+            return { col, row, x: Math.round(out.x), y: Math.round(out.y) };
+          }
+        }
+      }
+      return null;
+    },
+
+    /**
+     * Arms a one-shot page-side watch for the next placement: the first frame
+     * the new building's view exists in the map view (`anchorOf`), on the page
+     * clock. The engine's ack probe only keys interactive objects and texts, so
+     * a building sprite appearing is invisible to it; this reads the view the
+     * player actually sees.
+     */
+    watchPlace: (before) => {
+      const g = window.__GAME__;
+      const s = g.scene.getScene('Game');
+      const w = { before, at: null, uid: null };
+      window.__CERT_PLACE__ = w;
+      const out = { x: 0, y: 0 };
+      const hook = () => {
+        const m = s.colony;
+        if (!m || m.buildings.size <= w.before) return;
+        let uid = 0;
+        for (const b of m.buildings.values()) uid = Math.max(uid, b.uid);
+        if (s.mapView && s.mapView.anchorOf(uid, out)) {
+          w.at = performance.now();
+          w.uid = uid;
+          g.events.off('postrender', hook);
+        }
+      };
+      g.events.on('postrender', hook);
+      return true;
+    },
+
+    /** ms from the placing pointerup to the first rendered frame holding the new building's view; null when not seen. */
+    placeAck: () => {
+      const w = window.__CERT_PLACE__;
+      const up = window.__CERT__ ? window.__CERT__.lastPointerUp : null;
+      if (!w || w.at === null || up === null || up === undefined) return null;
+      return Math.round((w.at - up) * 10) / 10;
+    },
+
+    /** Director fast-forward (the dev `skipTime` path): whole simulated seconds, stopping at a draft, a coach, a hold or the end. */
+    skip: (seconds) => {
+      const s = window.__GAME__.scene.getScene('Game');
+      if (!s || !s.director || s.ended) return null;
+      const d = s.director;
+      const until = d.elapsedSeconds + seconds;
+      let guard = 0;
+      while (d.elapsedSeconds < until - 1e-6 && !d.isPaused && !d.ended && s.coachActive !== true && s.paused !== true && guard < 20000) {
+        d.update(Math.min(100, (until - d.elapsedSeconds) * 1000));
+        // A declared sustain (win span only) holds between fast-forward steps too, not just between frames.
+        if (window.__CERT__ && window.__CERT__.colonySustain) window.__CERT__.colonySustain();
+        guard += 1;
+      }
+      return { t: d.elapsedSeconds, sol: s.colony.clock.sol, phase: s.colony.clock.phase, ended: d.ended };
+    },
+
+    /** Seconds to the next dusk / dawn boundary. */
+    nextBoundary: () => {
+      const d = window.__GAME__.scene.getScene('Game').director;
+      return d.secondsToNextBoundary();
+    },
+
+    /** Teleport-only: the Beacon's price and sol 6 through the scene's own model (the win span). */
+    stageBeacon: () => {
+      const s = window.__GAME__.scene.getScene('Game');
+      const m = s.colony;
+      m.stock.alloy = Math.max(m.stock.alloy, 190);
+      m.stock.prism = Math.max(m.stock.prism, 60);
+      m.stock.cell = Math.max(m.stock.cell, 40);
+      m.stock.ferrite = Math.max(m.stock.ferrite, 150);
+      return { sol: m.clock.sol, beacon: m.beacon };
+    },
+
+    /** Teleport-only loss staging: the core at 1 % so tonight's swarm settles the loss by the real fight. */
+    weakenCore: () => {
+      const s = window.__GAME__.scene.getScene('Game');
+      const core = s.colony.core;
+      if (!core) return null;
+      core.hp = Math.max(1, core.maxHp * 0.01);
+      return core.hp;
+    },
+
+    /** Colony world composition: every screen of the generated site from the model's props (tiles → px). */
+    installProbe: () => {
+      const g = window.__GAME__;
+      const c = window.__CERT__;
+      if (!g || !c) return false;
+      if (c.probe && c.probe.hook) return true;
+      const P = { audio: [], actors: [], composition: [], lastA: 0, lastB: 0, maps: new Set(), hook: null };
+      c.probe = P;
+      P.hook = () => {
+        const now = performance.now();
+        if (now - P.lastA < 250) return;
+        P.lastA = now;
+        const s = g.scene.getScene('Game');
+        if (!s || !s.scene.isActive() || s.started !== true || !s.colony || s.paused || s.ended) return;
+        // LIVE play only: a draft, a Beacon confirm or a pausing coach holds the director and freezes the swarm.
+        if (!s.director || s.director.isPaused || s.coachActive === true) return;
+        const cam = s.cameras.main;
+        const zoom = s.camera && typeof s.camera.zoom === 'number' ? s.camera.zoom : cam.zoom;
+        const tile = 64;
+        // Camera centre in world px (the colony camera scrolls a root container, so ask it, not the Phaser camera).
+        const view = { x: cam.midPoint.x, y: cam.midPoint.y };
+        if (s.camera && typeof s.camera.screenToWorld === 'function') s.camera.screenToWorld(360, 598, view);
+        // Combat = engaged fauna: a retreating (dawn) or burrowed body neither fights nor voices.
+        const pool = s.threat && s.threat.fauna ? s.threat.fauna.pool.filter((f) => f.alive && !f.retreating && !f.hidden) : [];
+        const near = pool.filter((f) => (f.x - view.x) ** 2 + (f.y - view.y) ** 2 <= 900 * 900).length;
+        const au = typeof window.__AUDIO__ === 'function' ? window.__AUDIO__() : null;
+        if (au && typeof au.requested === 'number') {
+          P.audio.push({ t: Math.round(now), req: au.requested, near, onScreen: near });
+          if (P.audio.length > 8000) P.audio.shift();
+        }
+        if (now - P.lastB < 2000) return;
+        P.lastB = now;
+        const comp = typeof s.composition === 'function' ? s.composition() : null;
+        const sizes = comp && Array.isArray(comp.faunaLongEdgePx) ? comp.faunaLongEdgePx : [];
+        P.actors.push({
+          t: Math.round(now),
+          gameW: g.scale.width,
+          // The Lander Core stands in for the hero (PRD §1c readability: 192 px at zoom 1).
+          hero: { px: Math.round(192 * zoom), src: 'lander core 3 tiles × zoom' },
+          enemies: sizes.slice(0, 60).map((px) => ({ kind: 'fauna', px: Math.round(px), src: 'scene.composition()' })),
+        });
+        if (P.actors.length > 600) P.actors.shift();
+        const map = s.colony.map;
+        const key = `${s.seed}:${map.cols}x${map.rows}`;
+        if (P.maps.has(key)) return;
+        P.maps.add(key);
+        const tw = 720 / zoom;
+        const th = 1280 / zoom;
+        const W = map.cols * tile;
+        const H = map.rows * tile;
+        const cols = Math.max(1, Math.floor(W / tw));
+        const rows = Math.max(1, Math.floor(H / th));
+        const ring = cols >= 3 && rows >= 3;
+        const tiles = new Map();
+        for (const p of map.props) {
+          const x = (p.col + 0.5) * tile;
+          const y = (p.row + 0.5) * tile;
+          const col = Math.floor(x / tw);
+          const row = Math.floor(y / th);
+          if (col < 0 || row < 0 || col >= cols || row >= rows) continue;
+          if (ring && (col === 0 || row === 0 || col === cols - 1 || row === rows - 1)) continue;
+          const i = row * cols + col;
+          if (!tiles.has(i)) tiles.set(i, { props: 0, kinds: new Set(), cells: new Set(), overlaps: 0 });
+          const tl = tiles.get(i);
+          tl.props += 1;
+          tl.kinds.add(p.id);
+          const cell = `${p.col},${p.row}`;
+          if (tl.cells.has(cell)) tl.overlaps += 1;
+          tl.cells.add(cell);
+        }
+        for (let row = 0; row < rows; row += 1) {
+          for (let col = 0; col < cols; col += 1) {
+            if (ring && (col === 0 || row === 0 || col === cols - 1 || row === rows - 1)) continue;
+            const x = tiles.get(row * cols + col);
+            P.composition.push({ t: Math.round(now), source: 'colony.map.props', props: x ? x.props : 0, kinds: x ? x.kinds.size : 0, decals: 0, decalAlphaMax: 0, overlaps: x ? x.overlaps : 0 });
+          }
+        }
+      };
+      g.events.on('poststep', P.hook);
+      return true;
+    },
+
+    drainProbe: () => {
+      const P = window.__CERT__ && window.__CERT__.probe;
+      if (!P) return null;
+      const out = { audio: P.audio, actors: P.actors, composition: P.composition };
+      P.audio = [];
+      P.actors = [];
+      P.composition = [];
+      return out;
+    },
+  },
+
+  // --- node-side orchestration ---------------------------------------------
+
+  async controls(ctx) {
+    return ctx.evalPage(this.page.controls);
+  },
+
+  /** A settled, pressable control (same centre and alpha twice). */
+  async findControl(ctx, pick, { tries = 16, settleMs = 120 } = {}) {
+    let last = null;
+    for (let i = 0; i < tries; i += 1) {
+      const all = await this.controls(ctx);
+      const now = all.find(pick) ?? null;
+      if (now !== null && last !== null && now.x === last.x && now.y === last.y && now.alpha === last.alpha && now.visible && now.alpha > 0.02) return { match: now, all };
+      last = now;
+      await ctx.sleep(settleMs);
+    }
+    return { match: last, all: await this.controls(ctx) };
+  },
+
+  async press(ctx, pick, { what, label = null, measureAck = true } = {}) {
+    const { match, all } = await this.findControl(ctx, pick);
+    if (match === null) {
+      ctx.blocker('ui:missing-button', `expected a "${what}" control on ${(await ctx.sceneKeys()).join('+')}`, {
+        available: all.filter((c) => c.visible && c.inView).map((c) => `${c.scene}:${c.label}@${c.x},${c.y}`),
+      });
+      throw new Error(`no control "${what}"`);
+    }
+    if (!match.inView) ctx.major('ui:control-off-screen', `"${what}" sits outside its camera's viewport`, match);
+    await ctx.tap(match.x, match.y, { label: label ?? `tap ${what}`, measureAck });
+    return match;
+  },
+
+  label: (text) => (c) => c.label === text,
+  labelRe: (re) => (c) => c.visible && re.test(c.label || ''),
+
+  /**
+   * Taps a scene-changing control (found by `pick` with the adapter's own
+   * centre maths — the template `Control` is a top-left container, which the
+   * engine's `pgButtons` would tap by its corner) and times the handover on
+   * the page clock: the pointerup → the first frame `expectKey` is active.
+   * Recorded in `measurements.transitions` exactly as `ctx.navigate` does.
+   */
+  async navigate(ctx, pick, expectKey, { what, timeout = 8000 } = {}) {
+    const n = await ctx.evalPage(() => window.__CERT__.scenes.length);
+    await this.press(ctx, pick, { what, label: `nav ${what}` });
+    const t0 = await ctx.lastUpAt();
+    const ok = await this.poll(ctx, async () => (await ctx.sceneKeys()).includes(expectKey), timeout);
+    if (!ok) {
+      ctx.blocker('flow:nav-failed', `"${what}" did not reach ${expectKey} within ${timeout}ms`, { keys: await ctx.sceneKeys() });
+      return null;
+    }
+    const trail = await ctx.evalPage((k) => window.__CERT__.scenes.slice(k).map((s) => ({ t: s.t, keys: s.keys })), n);
+    const arrival = trail.find((s) => s.keys.split('+').includes(expectKey));
+    const ms = arrival ? Math.round(arrival.t - t0) : null;
+    const cold = !ctx.warmScenes.has(expectKey);
+    ctx.warmScenes.add(expectKey);
+    ctx.report.measurements.transitions.samples.push({ from: what, to: expectKey, ms, cold, trail: trail.map((s) => s.keys) });
+    await ctx.refreshView();
+    return { ms, t0 };
+  },
+
+  /** A condition poll that does NOT file a blocker on timeout. */
+  async poll(ctx, fn, timeoutMs = 3000) {
+    const deadline = Date.now() + timeoutMs;
+    for (;;) {
+      const v = await fn().catch(() => false);
+      if (v) return v;
+      if (Date.now() > deadline) return false;
+      await ctx.sleep(90);
+    }
+  },
+
+  /**
+   * Picks the first card of every open draft by tapping it (a Landing draft
+   * pauses the director). A draft coach hint sitting on the cards is walked
+   * first; the first draft also carries the swallowed-input probe.
+   */
+  async clearDraft(ctx, { max = 4, shoot = false } = {}) {
+    for (let i = 0; i < max; i += 1) {
+      let st = await ctx.state();
+      if (!st.started || !st.drafting) return st;
+      if (!st.draftOpen) {
+        // Director drafting, overlay not up yet: the dawn ceremony plays first.
+        await this.poll(ctx, async () => {
+          const now = await ctx.state();
+          return now.draftOpen || !now.drafting;
+        }, 6000);
+        st = await ctx.state();
+        if (!st.drafting) return st;
+        await ctx.sleep(350);
+      }
+      if (st.coachId === null) {
+        // The draft beat starts the frame after the overlay opens: give it the chance to land before the pick.
+        await this.poll(ctx, async () => (await ctx.state()).coachId !== null, 700);
+        st = await ctx.state();
+      }
+      if (st.coachId !== null) {
+        await ctx.pumpCoaches();
+        st = await ctx.state();
+        if (!st.drafting) return st;
+      }
+      if (shoot) {
+        await ctx.sleep(400);
+        await ctx.shot(`draft-sol${st.sol}`);
+      }
+      if (!ctx.report.measurements.swallowedInput.probed) await this.probeSwallowedInput(ctx);
+      const names = st.draft;
+      const { match } = await this.findControl(ctx, (c) => c.scene === 'Game' && c.visible && c.alpha > 0.5 && (c.cardId !== null || names.includes(c.label)));
+      if (match === null) {
+        ctx.blocker('draft:no-card', 'a draft is open but no card control can be tapped', { draft: names });
+        throw new Error('draft card missing');
+      }
+      await ctx.tap(match.x, match.y, { label: 'draft pick', measureAck: i === 0 });
+      await this.poll(ctx, async () => {
+        const now = await ctx.state();
+        return !now.drafting || now.draft.join() !== names.join();
+      }, 3000);
+    }
+    return ctx.state();
+  },
+
+  /**
+   * "Input during a ceremony": while the Dawn Directive draft is up, the HUD
+   * pause icon (II) must refuse legibly — covered by the draft's scrim (a
+   * topmost interactive object) or drawn disabled (§14b: "II is refused, dim
+   * + deaf") — and no pause overlay may stack on the draft.
+   */
+  async probeSwallowedInput(ctx) {
+    const m = ctx.report.measurements.swallowedInput;
+    const all = await this.controls(ctx);
+    // The HUD II (hud.ts: 88 × 88 at 496,144): a disabled Control drops its input, so fall back to where it is drawn.
+    const ii = await ctx.evalPage(() => {
+      const s = window.__GAME__.scene.getScene('Game');
+      let hit = null;
+      const walk = (list, a) => {
+        for (const o of list) {
+          const alpha = a * (o.alpha ?? 1);
+          if (o.type === 'Text' && o.text === 'II' && o.parentContainer) {
+            const p = o.parentContainer;
+            const mtx = p.getWorldTransformMatrix();
+            hit = { x: Math.round(mtx.tx + (p.width || 88) / 2), y: Math.round(mtx.ty + (p.height || 88) / 2), alpha: Math.round(alpha * 100) / 100, interactive: !!(p.input && p.input.enabled), depth: 0 };
+          }
+          if (o.list) walk(o.list, alpha);
+        }
+      };
+      walk(s.children.list, 1);
+      return hit;
+    });
+    if (ii === null) return;
+    const covering = all
+      .filter((c) => c.scene === 'Game' && c.visible && c.alpha > 0.02 && c.label !== 'II' && Math.abs(c.x - ii.x) <= c.w / 2 && Math.abs(c.y - ii.y) <= c.h / 2)
+      .sort((a, b) => a.depth - b.depth);
+    const top = covering[covering.length - 1] ?? null;
+    m.probed = true;
+    m.surface = 'HUD pause icon during the Dawn Directive draft';
+    await ctx.tap(ii.x, ii.y, { label: 'pause tap during draft' });
+    await ctx.sleep(BUDGETS.ackMs + 160);
+    const after = await ctx.state();
+    const dimmed = !ii.interactive && ii.alpha < 0.9;
+    const legible = dimmed || (top !== null && top.depth > 1000);
+    const heldTheLine = after.drafting && !after.pauseOpen;
+    m.detail = { pause: ii, topmost: top && { label: top.label, depth: top.depth, noop: top.noop }, after: { drafting: after.drafting, pauseOpen: after.pauseOpen } };
+    m.reacted = legible && heldTheLine;
+    m.verdict = m.reacted ? 'pass' : 'fail';
+    if (!m.reacted) {
+      ctx.blocker(
+        'budget:swallowed-input',
+        !heldTheLine ? 'a pause tap during the draft opened the pause overlay — two modals stack' : 'the pause icon neither dims nor sits under the draft scrim: the tap is silently dropped',
+        m.detail,
+      );
+    }
+  },
+
+  /**
+   * Builds `def` by real input: its dock slot (`buildingId`) or its Build
+   * sheet card (behind ALL, found by the scene-reported name), then a legal
+   * tile on screen that no panel or button covers. Sticky build mode is ended
+   * with ESC only while something is still armed (ESC with nothing armed opens
+   * the pause panel). Returns 1 when a building was placed.
+   */
+  async build(ctx, def, name, tag, { pump = true, retry = true, pan = false, at = null } = {}) {
+    let st = await ctx.state();
+    if (pump && st.coachId !== null) {
+      await ctx.pumpCoaches();
+      st = await ctx.state();
+    }
+    if (st.drafting) {
+      // A dawn draft owns the screen (map and dock refuse taps under it): pick first.
+      await this.clearDraft(ctx);
+      st = await ctx.state();
+    }
+    const can = await ctx.evalPage(this.page.buildable, def);
+    if (can.locked || !can.afford) {
+      ctx.note(`build:skipped:${tag}:${def}`, { reason: can.locked ? 'locked' : 'unaffordable', cost: can.cost, stock: st.stock });
+      return 0;
+    }
+    if (!pan && (await ctx.evalPage(this.page.validTiles, def)).length === 0) {
+      ctx.note(`build:off-screen:${tag}:${def}`, 'no legal tile on screen; skipped');
+      return 0;
+    }
+    if (pan) {
+      // The camera freezes while something is armed (polish round): bring the target on screen BEFORE arming.
+      const onScreenNow = async () => {
+        if (at) {
+          const p = await ctx.evalPage(this.page.tileScreen, at.col, at.row);
+          return p.x >= 120 && p.x <= 600 && p.y >= 400 && p.y <= 800;
+        }
+        return (await ctx.evalPage(this.page.validTiles, def)).length > 0;
+      };
+      for (let i = 0; i < 8 && !(await onScreenNow()); i += 1) {
+        const far = at ? await ctx.evalPage(this.page.tileScreen, at.col, at.row) : await ctx.evalPage(this.page.legalAnchor, def);
+        if (far === null) break;
+        await this.panToward(ctx, far);
+      }
+    }
+    const before = st.buildings;
+    // The BuildDock band (interface-direction §5): slots 1-4 at y 964-1056 carry `buildingId`.
+    const inDock = async () => (await this.controls(ctx)).find((c) => c.scene === 'Game' && c.visible && c.alpha > 0.5 && c.buildingId === def);
+    // Build sheet cards (y 540-1060, scissor-clipped list): the card must sit wholly above the band bottom to take a tap.
+    const inSheet = async () => (await this.controls(ctx)).find((c) => c.scene === 'Game' && c.visible && c.buildingId === null && name && c.texts.includes(name));
+    // A BuildingCard (a tap that landed on a standing building) or a deposit chip owns the bottom band and hides
+    // the dock: close it with ESC — game.onEsc closes the card, then the chip, BEFORE it would ever pause.
+    const panels = () => ctx.evalPage(() => {
+      const s = window.__GAME__.scene.getScene('Game');
+      return { card: s.card && s.card.uid !== null && s.card.uid !== undefined ? s.card.uid : null, chip: s.depositChip !== null && s.depositChip !== undefined, armed: s.armed ?? null, paused: s.paused === true };
+    });
+    for (let k = 0; k < 2; k += 1) {
+      const p = await panels();
+      if (p.paused || p.armed !== null || (p.card === null && !p.chip)) break;
+      ctx.note(`build:closed-panel:${tag}:${def}`, p);
+      await ctx.page.keyboard.down('Escape');
+      await ctx.page.keyboard.up('Escape');
+      await ctx.sleep(250);
+    }
+    let slot = await inDock();
+    // The Build sheet is open while any Game control sits at the sheet depth (ui/sheet.ts SHEET_DEPTH 3000).
+    const sheetOpen = async () => (await this.controls(ctx)).some((c) => c.scene === 'Game' && c.visible && c.depth >= 3000 && c.depth < 3050);
+    // Close it by its own 88×88 X (top-right of the 740-px sheet: 656, 596) — never ESC, which pauses when nothing is stacked.
+    const closeSheet = async () => {
+      if (!(await sheetOpen())) return;
+      await ctx.tap(656, 596, { label: `${tag}: close Build sheet (X)`, measureAck: false });
+      await this.poll(ctx, async () => !(await sheetOpen()), 1500);
+    };
+    // No dock at all (neither the slot nor ALL takes input): the dawn ceremony is about to open the draft, which
+    // deafens the dock. Wait for it, answer it, and look again — once.
+    const dockLive = async () => (await this.controls(ctx)).some((c) => c.scene === 'Game' && c.visible && c.label === 'ALL' && c.y > 960);
+    if (!slot && !(await dockLive())) {
+      const why = await this.poll(ctx, async () => ((await ctx.state()).drafting ? 'draft' : (await dockLive()) ? 'live' : false), 4000);
+      ctx.note(`build:dock-deaf:${tag}:${def}`, { resolved: why || 'timeout', state: await ctx.state() });
+      if (why === 'draft') {
+        await this.clearDraft(ctx);
+        await this.poll(ctx, dockLive, 2000);
+      }
+      if (!(await ctx.evalPage(this.page.buildable, def)).afford) return 0;
+      slot = await inDock();
+    }
+    if (!slot) {
+      for (let attempt = 0; attempt < 2 && !(await sheetOpen()); attempt += 1) {
+        const all = (await this.controls(ctx)).find((c) => c.scene === 'Game' && c.visible && c.label === 'ALL' && c.y > 960);
+        if (!all) break;
+        // A hint catcher fading out still eats a tap: walk any beat first.
+        if (pump && (await ctx.state()).coachId !== null) await ctx.pumpCoaches();
+        await ctx.tap(all.x, all.y, { label: `${tag}: dock ALL` });
+        const opened = await this.poll(ctx, sheetOpen, 1200);
+        (this.allTrace ??= []).push({ tag, def, attempt, all: { x: all.x, y: all.y, alpha: all.alpha }, opened: !!opened, notice: await ctx.evalPage(() => { const s = window.__GAME__.scene.getScene('Game'); let t = null; const w = (l) => { for (const o of l) { if (o.type === 'Text' && o.visible && o.y > 860 && o.y < 960 && o.text) t = o.text; if (o.list) w(o.list); } }; w(s.children.list); return t; }).catch(() => null) });
+        if (this.allTrace.length > 30) this.allTrace.shift();
+      }
+      if (await sheetOpen()) {
+        const sheetCtl = async () => (await this.controls(ctx)).filter((c) => c.scene === 'Game' && c.depth >= 3000 && c.depth < 3050).map((c) => ({ label: c.label, texts: c.texts.slice(0, 3), x: c.x, y: c.y, vis: c.visible, a: c.alpha, id: c.buildingId }));
+        if (this.allTrace && this.allTrace.length) this.allTrace[this.allTrace.length - 1].sheetBefore = (await sheetCtl()).slice(0, 30);
+        await ctx.sleep(200);
+        const cat = this.sheetCategory[def];
+        const chip = cat ? (await this.controls(ctx)).find((c) => c.scene === 'Game' && c.visible && c.label === cat && c.y < 960) : null;
+        if (chip) {
+          await ctx.tap(chip.x, chip.y, { label: `${tag}: sheet ${cat}` });
+          await ctx.sleep(350);
+        }
+        slot = await inSheet();
+        if (!slot && this.allTrace && this.allTrace.length) Object.assign(this.allTrace[this.allTrace.length - 1], { cat, chipFound: !!chip, name, sheetAfter: (await sheetCtl()).slice(0, 30) });
+        if (slot && slot.y + slot.h / 2 > 1060) {
+          // Below the clip: scroll the list up by a real drag inside it.
+          const dy = Math.min(300, slot.y + slot.h / 2 - 1040);
+          await ctx.drag(360, 1000, 360, 1000 - dy - 20);
+          await ctx.sleep(500);
+          slot = await inSheet();
+        }
+      }
+    }
+    if (!slot) {
+      const ui = await ctx.evalPage(() => {
+        const s = window.__GAME__.scene.getScene('Game');
+        const hudII = [];
+        const walk = (list) => { for (const o of list) { if (o.type === 'Text' && o.text === 'II' && o.parentContainer) { const p = o.parentContainer; hudII.push({ alpha: p.alpha, input: !!(p.input && p.input.enabled) }); } if (o.list) walk(o.list); } };
+        walk(s.children.list);
+        return {
+          panels: { card: s.card?.uid ?? null, chip: s.depositChip ?? null, armed: s.armed ?? null, coach: s.coachId ?? null, coachActive: s.coachActive ?? null, overlayOpen: s.overlayOpen ?? null, ceremony: s.ceremonyActive ?? null },
+          modal: { draft: s.draft != null, pendingDraft: s.pendingDraft != null, draftCards: s.director?.draftCards != null, paused: s.paused === true, pauseMenu: s.pauseMenu != null, confirm: s.confirm != null, clockHolds: s.clockHolds ?? null, dirPaused: s.director?.isPaused ?? null },
+          input: { scene: s.input.enabled, manager: window.__GAME__.input.enabled, topOnly: s.input.topOnly, sceneInputActive: s.sys.input?.isActive?.() ?? null },
+          hudII,
+        };
+      }).catch((e) => String(e));
+      await ctx.shot(`no-dock-slot-${def}`);
+      const band = (await this.controls(ctx)).filter((c) => c.scene === 'Game' && c.y > 940).map((c) => ({ label: c.label, id: c.buildingId, x: c.x, alpha: c.alpha, visible: c.visible, depth: c.depth }));
+      ctx.major('build:no-dock-slot', `no dock slot or Build sheet card for ${name} (${def}) while it is affordable and unlocked`, { def, sheetOpen: await sheetOpen(), ui, band, allTrace: (this.allTrace ?? []).slice(-4), controls: (await this.controls(ctx)).filter((c) => c.visible && c.inView).map((c) => `${c.label}|${c.texts.join('/')}@${c.x},${c.y}`) });
+      await closeSheet();
+      return 0;
+    }
+    // A hint beat that starts mid-build (vent at 20 live seconds, dock after ore) lays a catcher over the
+    // screen and eats the next tap: walk it, then start this build over once.
+    const interrupted = async () => {
+      if (!pump) return false;
+      if ((await ctx.state()).coachId === null) return false;
+      await ctx.pumpCoaches();
+      return true;
+    };
+    if (await interrupted()) return retry ? this.build(ctx, def, name, tag, { pump, retry: false, pan, at }) : 0;
+    const seenArmed = new Set();
+    const armedIs = async () => {
+      const a = (await ctx.state()).armed;
+      seenArmed.add(a);
+      return a === def;
+    };
+    await ctx.tap(slot.x, slot.y, { label: `${tag}: arm ${def}`, measureAck: true });
+    let armed = await this.poll(ctx, armedIs, 1500);
+    if (!armed) {
+      if (await interrupted()) return retry ? this.build(ctx, def, name, tag, { pump, retry: false, pan, at }) : 0;
+      const first = { slot, seenArmed: [...seenArmed], state: await ctx.state(), dock: (await this.controls(ctx)).filter((c) => c.scene === 'Game' && c.visible && c.y > 960).map((c) => ({ id: c.buildingId, label: c.label, x: c.x, alpha: c.alpha })) };
+      // A second, identical tap tells a dropped tap from a refused one.
+      const again = await inDock();
+      if (again) await ctx.tap(again.x, again.y, { label: `${tag}: arm ${def} (second tap)`, measureAck: false });
+      armed = again ? await this.poll(ctx, armedIs, 1500) : false;
+      ctx.major('build:arm-failed', `tapping the ${name} control did not arm ${def}${armed ? ' (a second identical tap did)' : ''}`, { first, secondTapArmed: armed, seenArmed: [...seenArmed] });
+      if (!armed) return 0;
+    }
+    const onScreen = (t) => t.x >= 48 && t.x <= 672 && t.y >= 260 && t.y <= 850;
+    const pickTile = async () => {
+      const tiles = at ? [await ctx.evalPage(this.page.tileScreen, at.col, at.row)].filter(onScreen) : await ctx.evalPage(this.page.validTiles, def);
+      const cover = (await this.controls(ctx)).filter((c) => c.visible && c.alpha > 0.02 && c.w * c.h < 0.45 * 720 * 1280);
+      return tiles.find((t) => !cover.some((c) => Math.abs(c.x - t.x) <= c.w / 2 + 8 && Math.abs(c.y - t.y) <= c.h / 2 + 8)) ?? null;
+    };
+    let tile = await pickTile();
+    // Off screen: pan the camera toward the target (or the nearest legal anchor) with a real one-finger drag (a rested lift, no fling).
+    for (let i = 0; tile === null && pan && i < 6; i += 1) {
+      const far = at ? await ctx.evalPage(this.page.tileScreen, at.col, at.row) : await ctx.evalPage(this.page.legalAnchor, def);
+      if (far === null) break;
+      await this.panToward(ctx, far);
+      tile = await pickTile();
+    }
+    if (tile === null) {
+      if (pan) ctx.major('build:no-legal-tile', `no legal, uncovered tile for ${def} could be brought on screen`, { def, anchor: await ctx.evalPage(this.page.legalAnchor, def) });
+      else ctx.note(`build:off-screen:${tag}:${def}`, 'no legal tile on screen; skipped');
+    } else {
+      if (await interrupted()) return retry ? this.build(ctx, def, name, tag, { pump, retry: false, pan, at }) : 0;
+      await ctx.evalPage(this.page.watchPlace, before);
+      await ctx.tap(tile.x, tile.y, { label: `${tag}: place ${def}` });
+    }
+    const placed = tile !== null && (await this.poll(ctx, async () => (await ctx.state()).buildings > before, 2500));
+    if (placed) {
+      await ctx.sleep(120);
+      const ms = await ctx.evalPage(this.page.placeAck);
+      const m = (ctx.report.notes.placeAck ??= { budgetMs: BUDGETS.ackMs, source: 'pointerup → first rendered frame holding the new building view (page clock)', samples: [] });
+      m.samples.push({ label: `${tag}: place ${def}`, ms });
+      if (ms !== null && ms > BUDGETS.ackMs) ctx.blocker('budget:place-ack', `placing ${def} showed the building ${ms}ms after the tap (budget ${BUDGETS.ackMs}ms)`, { def, ms });
+    }
+    if (tile !== null && !placed) {
+      if (await interrupted()) return retry ? this.build(ctx, def, name, tag, { pump, retry: false, pan, at }) : 0;
+      ctx.major('build:tap-did-not-place', `tapping a legal tile for ${def} placed nothing`, { tile, state: await ctx.state() });
+    }
+    if ((await ctx.state()).armed !== null) {
+      await ctx.page.keyboard.down('Escape');
+      await ctx.page.keyboard.up('Escape');
+      await ctx.sleep(150);
+    }
+    return placed ? 1 : 0;
+  },
+
+  /**
+   * One real one-finger pan of the map toward a screen point: down on open
+   * ground mid-playfield, move in steps, REST before lifting (the game reads
+   * a rested lift as "stop here", not a fling), then let the camera settle.
+   */
+  async panToward(ctx, target) {
+    const cx = 360;
+    const cy = 600;
+    // Measured: a rested 200 px drag moved the view ~450 world px at zoom 1 (drag gain + glide), so aim short and iterate.
+    const clamp = (v) => Math.max(-160, Math.min(160, v * 0.4));
+    const dx = clamp(cx - target.x);
+    const dy = clamp(cy - target.y);
+    const v = await ctx.refreshView();
+    const at = (x, y) => ({ x: v.left + x * v.sx, y: v.top + y * v.sy });
+    const a = at(cx, cy);
+    await ctx.page.mouse.move(a.x, a.y);
+    await ctx.page.mouse.down();
+    for (let i = 1; i <= 12; i += 1) {
+      const p = at(cx + (dx * i) / 12, cy + (dy * i) / 12);
+      await ctx.page.mouse.move(p.x, p.y);
+      await ctx.sleep(16);
+    }
+    await ctx.sleep(160);
+    await ctx.page.mouse.up();
+    await ctx.sleep(300);
+  },
+
+  /** Any building the day dock offers that is affordable and placeable on screen (the `dock` beat's "second building"). */
+  async buildAny(ctx, tag) {
+    const slots = (await this.controls(ctx)).filter((c) => c.scene === 'Game' && c.visible && c.buildingId !== null && c.alpha > 0.9);
+    for (const s of slots) {
+      const names = await ctx.evalPage(() => window.__GAME__.scene.getScene('Game').buildingNames);
+      if ((await this.build(ctx, s.buildingId, names[s.buildingId], tag, { pump: false })) > 0) return 1;
+    }
+    ctx.note(`build:any:${tag}`, 'no docked building could be placed');
+    return 0;
+  },
+
+  /**
+   * Completes the beat on screen the way the coach teaches it (§14 FTUE):
+   * - `ore` (swap-gate): tap the lit ore in the spotlight, then the ContextStrip BUILD chip;
+   * - `dusk-resume`: place the turret docked in slot 1 when affordable, then RESUME;
+   * - `dock` / `vent` / `grid` (tap hints): tap to read, then build what the hint names.
+   */
+  async completeGate(ctx, gated) {
+    if (gated.via === 'deposit') {
+      const before = (await ctx.state()).buildings;
+      const hole = await ctx.evalPage(this.page.coachHole);
+      if (hole === null) {
+        ctx.blocker('ftue:ore-no-spotlight', 'the ore beat is up but its spotlight rect is empty', await ctx.state());
+        return;
+      }
+      await ctx.tap(hole.x, hole.y, { label: 'coach ore: tap the deposit', measureAck: true });
+      const chip = await this.poll(ctx, async () => (await ctx.state()).chip !== null, 2000);
+      if (!chip) {
+        ctx.blocker('ftue:ore-no-chip', 'tapping the spotlit ore did not open its BUILD chip', { hole });
+        return;
+      }
+      const { match } = await this.findControl(ctx, (c) => c.scene === 'Game' && c.visible && /^BUILD /.test(c.label));
+      if (match === null) {
+        ctx.blocker('ftue:ore-no-build', 'the ContextStrip shows no BUILD chip after the ore tap', { controls: (await this.controls(ctx)).map((c) => c.label) });
+        return;
+      }
+      await ctx.tap(match.x, match.y, { label: 'coach ore: BUILD chip', measureAck: true });
+      const placed = await this.poll(ctx, async () => (await ctx.state()).buildings > before, 2500);
+      if (!placed) ctx.blocker('ftue:ore-not-built', 'the BUILD chip did not place the Ferrite Drill', await ctx.state());
+      else if (ctx.report.measurements.tapDepth.taps === 0) {
+        // Boot lands in Landing 1 with no tap (§14b); the core action is the deposit tap + the BUILD chip.
+        ctx.report.measurements.tapDepth.taps = 2;
+        ctx.report.measurements.tapDepth.path = 'boot (0 taps) → ore deposit → BUILD chip';
+      }
+      return;
+    }
+    if (gated.via === 'resume') {
+      const slot1 = (await this.controls(ctx)).find((c) => c.scene === 'Game' && c.visible && c.buildingId !== null && c.x < 130 && c.y > 960);
+      const def = slot1 ? slot1.buildingId : gated.def;
+      const names = await ctx.evalPage(() => window.__GAME__.scene.getScene('Game').buildingNames);
+      await this.build(ctx, def, names[def], 'coach dusk', { pump: false, pan: true });
+      await this.press(ctx, (c) => c.scene === 'Game' && c.visible && c.label === 'RESUME', { what: 'dusk RESUME', label: 'coach dusk RESUME' });
+      return;
+    }
+    // A tap hint: its full-screen catcher reads the beat; the action it names teaches it (law 3).
+    await ctx.tap(360, 640, { label: `coach ${gated.beat} continue` });
+    await this.poll(ctx, async () => (await ctx.state()).coachId !== gated.beat, 3000);
+    // The catcher fades out over a few frames and still takes taps while it does.
+    await ctx.sleep(500);
+    if (gated.def === null) await this.buildAny(ctx, `coach ${gated.beat}`);
+    else await this.build(ctx, gated.def, gated.name, `coach ${gated.beat}`, { pump: false, pan: true });
+  },
+
+  /** Build sheet category chip per building (`ui/colony/buildSheet.ts` CATS). */
+  sheetCategory: {
+    ferrite_drill: 'MINE', rime_borer: 'MINE', aurel_harvester: 'MINE',
+    vent_tap: 'POWER', sun_sail: 'POWER', charge_bank: 'POWER',
+    hydro_terrace: 'MAKE', alloy_smelter: 'MAKE', prism_cutter: 'MAKE', lumen_foundry: 'ARK',
+    relay_pylon: 'GRID', cargo_silo: 'GRID', beacon_spire: 'ARK',
+    hab_dome: 'HOME', hearth_commons: 'HOME',
+    pulse_turret: 'DEF', arc_coil: 'DEF', flak_mortar: 'DEF', plate_barricade: 'DEF',
+  },
+
+  /**
+   * The cert's pick policy (a plain player, not a balance bot): once per sol,
+   * at day, by real dock/sheet taps, top up a small economy and a turret line
+   * that grows by one a sol. Placement legality is the model's own `canPlace`.
+   * Balance is the sim's gate; this only keeps the Landing alive long enough
+   * to walk its beats.
+   */
+  async dayPolicy(ctx, st) {
+    const key = `${st.seed}:${st.sol}`;
+    if (ctx.colonyPolicy && ctx.colonyPolicy.key === key && ctx.colonyPolicy.t <= st.t) return;
+    ctx.colonyPolicy = { key, t: st.t };
+    const names = await ctx.evalPage(() => window.__GAME__.scene.getScene('Game').buildingNames);
+    const census = await ctx.evalPage(this.page.census);
+    // No smelter: at 2 Fe → 1 alloy/s it eats the Fe the turret line needs; the starting 30 alloy covers six turrets.
+    const targets = [
+      ['ferrite_drill', 2],
+      ['pulse_turret', 1],
+      ['sun_sail', 1],
+      ['rime_borer', 1],
+      ['hydro_terrace', (census.rime_borer ?? 0) > 0 ? 1 : 0],
+      ['ferrite_drill', 3],
+      ['pulse_turret', Math.min(6, 2 * st.sol)],
+      ['sun_sail', 2],
+    ];
+    let built = 0;
+    for (const [def, want] of targets) {
+      if (built >= 5) break;
+      const now = await ctx.state();
+      if (!now.started || now.ended || now.drafting || now.pauseOpen) break;
+      const have = (await ctx.evalPage(this.page.census))[def] ?? 0;
+      if (have >= want) continue;
+      const can = await ctx.evalPage(this.page.buildable, def);
+      if (!can.afford || can.locked) continue;
+      built += await this.build(ctx, def, names[def], `sol${st.sol} policy`);
+    }
+    const after = await ctx.state();
+    (ctx.report.notes.colonyTimeline ??= []).push({ sol: st.sol, t: after.t, built, buildings: after.buildings, stock: after.stock, coreHp: after.coreHp, colonists: after.colonists });
+  },
+
+  /** Runs the Landing forward: coaches pumped, drafts picked, the clock skipped a boundary at a time. */
+  async advance(ctx, until, { label, maxSteps = 60, shootDrafts = false, policy = true } = {}) {
+    for (let i = 0; i < maxSteps; i += 1) {
+      const st = await ctx.state();
+      if (!st.started || st.ended || (await until(st))) return st;
+      if (st.coachId !== null) {
+        await ctx.pumpCoaches();
+        continue;
+      }
+      if (st.drafting) {
+        await this.clearDraft(ctx, { shoot: shootDrafts });
+        continue;
+      }
+      if (st.coachActive || st.userPaused || st.busy) {
+        // A hold with nothing to tap (coach hand-over, confirm, ceremony): let the frame loop release it.
+        await ctx.sleep(250);
+        continue;
+      }
+      if (policy && st.phase === 'day' && st.acceptsInput) await this.dayPolicy(ctx, st);
+      const secs = await ctx.evalPage(this.page.nextBoundary);
+      await ctx.evalPage(this.page.skip, Math.min(30, secs));
+      await ctx.sleep(120);
+    }
+    ctx.major('colony:advance-stalled', `${label}: the Landing did not reach its target in ${maxSteps} steps`, await ctx.state());
+    return ctx.state();
+  },
+
+  /** Page-clock instant the fresh Landing first accepts map/dock input; null (with the blocking state as evidence) when it never does. */
+  async playableAt(ctx, label) {
+    let last = null;
+    const at = await this.poll(ctx, async () => {
+      const st = await ctx.state();
+      last = st;
+      // Every Landing after the first opens on its landing pick at t = 0 (§5.3): tappable cards are playable input.
+      let ready = st.started && st.acceptsInput;
+      if (!ready && st.started && st.drafting && st.coachId === null && !st.pauseOpen && !st.busy) {
+        ready = (await this.controls(ctx)).some((c) => c.scene === 'Game' && c.cardId !== null && c.visible && c.alpha >= 0.95);
+      }
+      return ready ? ctx.evalPage(() => performance.now()) : false;
+    }, 20000);
+    if (!at) {
+      ctx.blocker('colony:not-playable', `${label}: the Landing never accepted input within 20 s`, last);
+      return null;
+    }
+    return at;
+  },
+
+  async results(ctx, tag) {
+    await ctx.waitFor(async () => (await ctx.sceneKeys()).includes('GameOver'), { label: `${tag} results`, timeout: 30000 });
+    await ctx.sleep(1400);
+    const res = await ctx.evalPage(this.page.results);
+    await ctx.shot(`results-${tag}`);
+    ctx.note(`results:${tag}`, res);
+    return res;
+  },
+};
+
+// --- colony phases -------------------------------------------------------------
+
+/** Wiped save → Landing 1 with no tap (§14b) → the six coach beats (§14 FTUE) → a mid-Landing draft. */
+async function colonyPhaseFirstLanding(ctx) {
+  const { adapter, report } = ctx;
+  ctx.log('phase: Landing 1 FTUE');
+  const keys = await ctx.sceneKeys();
+  if (!keys.includes('Game')) {
+    ctx.blocker('ftue:not-routed', `a wiped save booted into ${keys.join('+')}, not Landing 1 (§14b)`, { keys });
+    throw new Error('fresh save did not start Landing 1');
+  }
+  await ctx.waitFor(async () => (await ctx.state()).started, { label: 'Landing 1 boots' });
+  report.measurements.tapDepth.taps = 0;
+  await ctx.shot('landing1-start');
+  // The ore beat starts on the coach's first poll after create: wait for it, or the first dock tap lands on its dims.
+  await adapter.poll(ctx, async () => (await ctx.state()).coachId !== null, 4000);
+  await ctx.pumpCoaches();
+  // `dock` queues behind `ore` and starts on the coach's next 250 ms poll.
+  if (await adapter.poll(ctx, async () => (await ctx.state()).coachId !== null, 1500)) await ctx.pumpCoaches();
+  await ctx.sweep('Landing 1 start');
+
+  // Sol 1: the core action by real input — the ore beat's drill above, then the day build order (dock + sheet taps).
+  await adapter.dayPolicy(ctx, await ctx.state());
+  await ctx.pumpCoaches();
+  await ctx.sweep('after the first builds');
+
+  // First dusk: the telegraph arrows (coach beat `dusk`), then night 1 and the sol 2 draft.
+  await adapter.advance(ctx, async (st) => st.phase === 'dusk' || st.coachId === 'dusk', { label: 'first dusk' });
+  await ctx.sleep(300);
+  await ctx.shot('dusk1-arrows');
+  await ctx.pumpCoaches();
+  await adapter.advance(ctx, async (st) => st.drafting || st.sol >= 2, { label: 'first dawn' });
+  const drafted = await ctx.state();
+  if (drafted.drafting) {
+    ctx.mark('draft-open');
+    await adapter.clearDraft(ctx, { shoot: true });
+  } else {
+    ctx.major('draft:missing', 'the sol 2 dawn opened no Dawn Directive draft (§5.3)', drafted);
+  }
+  // The vent beat (t >= 20 live s) waits until an open vent sits in the playfield (critic2 #5: no camera jump):
+  // pan toward the nearest lit vent by real drags like a player scouting, walk the hint, then pan home.
+  let st2 = await ctx.state();
+  if (!ctx.seenBeats.has('vent') && st2.acceptsInput && st2.phase === 'day') {
+    // Coach PLAYFIELD is x 40-680, y 432-868 for the WHOLE vent rect (2 × 2 tiles): keep the centre well inside it.
+    const inField = (p) => p && p.x >= 150 && p.x <= 570 && p.y >= 540 && p.y <= 760;
+    const aim = async () => {
+      let v = await ctx.evalPage(adapter.page.nearestVent);
+      for (let i = 0; i < 6 && v && !inField(v); i += 1) {
+        await adapter.panToward(ctx, v);
+        v = await ctx.evalPage(adapter.page.nearestVent);
+      }
+      return v;
+    };
+    let vent = await aim();
+    // The beat's clock counts LIVE seconds only (coach poll ticks at 1×; the cert's fast-forward adds none): wait them out.
+    const liveSec = () => ctx.evalPage(() => window.__GAME__.scene.getScene('Game').coach?.liveSec ?? null);
+    const before = await liveSec();
+    let shown = false;
+    for (let k = 0; k < 6 && !shown && vent; k += 1) {
+      shown = await adapter.poll(ctx, async () => (await ctx.state()).coachId === 'vent', 5000);
+      if (!shown) vent = await aim();
+    }
+    ctx.note('colony:ventWalk', { vent, shown, liveSecBefore: before, liveSecAfter: await liveSec() });
+    if (shown) {
+      await ctx.pumpCoaches();
+      // Law 3: a hint tapped away (its Vent Tap unaffordable) must not return this visit.
+      const back = await adapter.poll(ctx, async () => (await ctx.state()).coachId === 'vent', 1500);
+      if (back) {
+        const s3 = await ctx.state();
+        ctx.note('colony:ventHintReturned', { stock: s3.stock, t: s3.t, census: await ctx.evalPage(adapter.page.census) });
+        await ctx.pumpCoaches();
+      }
+    }
+    for (let i = 0; i < 6; i += 1) {
+      const home = await ctx.evalPage(adapter.page.coreScreen);
+      if (!home || (Math.abs(home.x - 360) < 160 && Math.abs(home.y - 620) < 160)) break;
+      await adapter.panToward(ctx, home);
+      if ((await ctx.state()).coachId === 'vent') await ctx.pumpCoaches();
+    }
+  }
+  // Sols 2-4 carry the remaining FTUE beats (grid at the sol 4 dawn).
+  await adapter.advance(ctx, async (st) => st.sol >= 4, { label: 'sol 4', shootDrafts: false });
+  await adapter.poll(ctx, async () => (await ctx.state()).coachId !== null, 2500);
+  await adapter.advance(ctx, async (st) => st.coachId === null && !st.drafting, { label: 'sol 4 beats' });
+  const beats = [...ctx.seenBeats].filter((b) => b !== 'dusk-resume');
+  if (beats.length < 6) ctx.major('ftue:beats', `${beats.length} of the 6 coach beats (§14 FTUE) appeared by sol 4`, beats);
+  ctx.note('ftueBeats', [...ctx.seenBeats]);
+  await ctx.sweep('sol 4');
+}
+
+/** Pause: ESC / II opens it, the director holds, RESUME hands the colony back. */
+async function colonyPhasePause(ctx) {
+  const { adapter, report } = ctx;
+  ctx.log('phase: pause');
+  await adapter.clearDraft(ctx);
+  await ctx.page.keyboard.down('Escape');
+  await ctx.page.keyboard.up('Escape');
+  let open = await adapter.poll(ctx, async () => (await ctx.state()).pauseOpen, 2500);
+  if (!open) {
+    await adapter.press(ctx, (c) => c.scene === 'Game' && c.visible && /^(II|PAUSE)$/.test(c.label), { what: 'pause control', label: 'pause open' });
+    open = await adapter.poll(ctx, async () => (await ctx.state()).pauseOpen, 2500);
+  }
+  if (!open) {
+    ctx.blocker('pause:wont-open', 'neither ESC nor the pause control opened the pause panel', await ctx.state());
+    return;
+  }
+  await ctx.sleep(300);
+  await ctx.shot('pause');
+  const t0 = (await ctx.state()).t;
+  await ctx.sleep(900);
+  const t1 = (await ctx.state()).t;
+  if (t1 !== t0) ctx.blocker('pause:clock-runs', `the sol clock ran under the pause panel (${t0} → ${t1})`, { t0, t1 });
+  ctx.note('pauseControls', (await adapter.controls(ctx)).filter((c) => c.scene === 'Game' && c.visible).map((c) => c.label));
+  await adapter.press(ctx, adapter.labelRe(/^RESUME$/), { what: 'RESUME', label: 'pause RESUME' });
+  const resumeAt = await ctx.lastUpAt();
+  const playable = await ctx.waitFor(async () => {
+    const st = await ctx.state();
+    return !st.pauseOpen && st.acceptsInput ? ctx.evalPage(() => performance.now()) : false;
+  }, { label: 'playable after RESUME' });
+  report.measurements.retryToPlayable.samples.push({ label: 'pause RESUME -> playable', ms: Math.round(playable - resumeAt) });
+  await ctx.sleep(900);
+  if ((await ctx.state()).t === t1) ctx.blocker('pause:clock-held-after-resume', 'the sol clock did not run again after RESUME', await ctx.state());
+  await ctx.sweep('after RESUME');
+}
+
+/** Loss: the Landing runs on to night 9 (heavy beat) or its end; a weakened core lets the swarm settle it. */
+async function colonyPhaseLoss(ctx) {
+  const { adapter, report } = ctx;
+  ctx.log('phase: loss (core lost)');
+  await adapter.advance(ctx, async (st) => st.sol >= 9 && st.phase === 'night', { label: 'night 9', maxSteps: 80 });
+  let st = await ctx.state();
+  if (!st.ended) {
+    ctx.mark('night9');
+    await ctx.shot('night9');
+    await ctx.sweep('night 9');
+    ctx.teleport('colony-core-weakened', { reason: 'the core is set to 1 % hp so the night-9 swarm settles the loss inside the cert budget (the fight itself is real)' });
+    ctx.teleportBeat('loss: core lost');
+    await ctx.evalPage(adapter.page.weakenCore);
+    await adapter.advance(ctx, async (s) => s.ended, { label: 'core lost', maxSteps: 40 });
+  }
+  const res = await adapter.results(ctx, 'loss');
+  const r = res && res.result;
+  // Settled INSIDE any open span, so teleportEnd tags a weakened-core loss as certified from a placed position.
+  if (r && !r.won) report.outcomes.loss = { via: r.reason, sols: r.sols, data: r.data, headline: res.texts[0] ?? null };
+  ctx.teleportEnd();
+  if (!r || r.won) ctx.blocker('loss:not-settled', 'the lost Landing did not settle a loss result', res);
+
+  // RETRY → a new Landing accepting taps ≤ 2 s.
+  const isRetry = (c) => c.scene === 'GameOver' && c.visible && /^(RETRY|LAND AGAIN)$/.test(c.label);
+  if (!(await adapter.controls(ctx)).some(isRetry)) {
+    ctx.blocker('results:no-retry', 'the loss results offer no RETRY (§14b)', (await adapter.controls(ctx)).map((c) => c.label));
+    return;
+  }
+  const nav = await adapter.navigate(ctx, isRetry, 'Game', { what: 'results RETRY' });
+  if (nav === null) return;
+  const at = await adapter.playableAt(ctx, 'retry playable');
+  report.measurements.retryToPlayable.samples.push({ label: 'results RETRY -> playable', ms: at === null ? null : Math.round(at - nav.t0) });
+  if (at === null) {
+    await ctx.shot('retry-not-playable');
+    // Walk whatever holds the fresh Landing (a coach beat) so the win leg can still run.
+    await ctx.pumpCoaches();
+  }
+  await ctx.shot('retry-landing');
+  await ctx.sweep('retry Landing');
+}
+
+/** Win: the Beacon from sol 6 (teleported stock), the Chorus (heavy beat), the launch, results. */
+async function colonyPhaseWin(ctx) {
+  const { adapter, report } = ctx;
+  ctx.log('phase: win (Beacon)');
+  let st = await adapter.advance(ctx, async (s) => s.sol >= 6 && s.phase === 'day', { label: 'sol 6', maxSteps: 80 });
+  if (st.ended || !st.started) {
+    ctx.blocker('win:landing-lost-before-sol6', `the retried Landing ended before the Beacon unlocks (sol ${st.sol}, ${st.phase})`, st);
+    return;
+  }
+  const price = await ctx.evalPage(() => JSON.stringify(window.__GAME__.scene.getScene('Game').colony.costOf('beacon_spire')));
+  ctx.teleport('colony-beacon-stock', { reason: `the Beacon Spire price (${price}) and the charge cells are granted: a cert-length session cannot earn them; the Spire placement, BEACON and CHARGE are real taps` });
+  ctx.teleportBeat('win: Beacon launch');
+  await ctx.evalPage(adapter.page.stageBeacon);
+  const names = await ctx.evalPage(() => window.__GAME__.scene.getScene('Game').buildingNames ?? null);
+  // A full lit field leaves no clear 3 × 3: light fresh ground with a Relay Pylon first (real taps), as a player would.
+  for (let k = 0; k < 3 && (await ctx.evalPage(adapter.page.legalAnchor, 'beacon_spire')) === null; k += 1) {
+    const spot = await ctx.evalPage(adapter.page.spireRelaySpot);
+    ctx.note(`colony:spireRelay${k}`, spot);
+    if (spot === null) break;
+    await adapter.build(ctx, 'relay_pylon', names?.relay_pylon ?? 'Relay Pylon', 'win: light Spire ground', { pan: true, at: spot });
+    await ctx.sleep(400);
+  }
+  await adapter.build(ctx, 'beacon_spire', names?.beacon_spire ?? 'Beacon Spire', 'win', { pan: true });
+  const ready = await adapter.poll(ctx, async () => (await ctx.state()).beacon === 'ready', 4000);
+  if (!ready) {
+    ctx.blocker('win:spire-not-placed', 'the Beacon Spire could not be placed by taps with its price in stock', await ctx.state());
+    ctx.teleportEnd();
+    return;
+  }
+  await ctx.sleep(400);
+  await ctx.shot('spire-ready');
+  // The ContextStrip action button reads BEACON once the Spire stands lit with the cells in stock.
+  const beaconBtn = await adapter.poll(ctx, async () => (await adapter.controls(ctx)).find((c) => c.scene === 'Game' && c.visible && c.alpha > 0.5 && c.label === 'BEACON') ?? false, 6000);
+  if (!beaconBtn) {
+    ctx.blocker('win:no-beacon-button', 'the Spire stands with the cells in stock but no BEACON control appeared', { state: await ctx.state(), controls: (await adapter.controls(ctx)).filter((c) => c.visible).map((c) => c.label) });
+    ctx.teleportEnd();
+    return;
+  }
+  await adapter.press(ctx, (c) => c.scene === 'Game' && c.visible && c.label === 'BEACON', { what: 'BEACON', label: 'trigger BEACON' });
+  await ctx.sleep(300);
+  await ctx.shot('beacon-confirm');
+  await adapter.press(ctx, (c) => c.scene === 'Game' && c.visible && c.alpha > 0.5 && c.label === 'CHARGE', { what: 'CHARGE (Beacon confirm)', label: 'confirm CHARGE' });
+  const charging = await adapter.poll(ctx, async () => (await ctx.state()).beacon === 'charging', 4000);
+  if (!charging) {
+    ctx.blocker('win:beacon-no-charge', 'BEACON → CHARGE did not start the charge', await ctx.state());
+    ctx.teleportEnd();
+    return;
+  }
+  // The Chorus (180 fauna over 60 s) would overrun a cert-length colony, so the span also SUSTAINS the core and the
+  // Spire (hp floor 50 %, from the loop's poststep) — declared here; the fight, the charge and the launch run on the real update.
+  ctx.teleportSpan.rec.reason += '; the core and the Spire are sustained at >= 50 % hp through the charge (the cert colony cannot hold the Chorus)';
+  await ctx.evalPage(adapter.page.sustain, true);
+  // A dawn draft (or a coach) freezes the swarm under its overlay: answer it before any live measurement.
+  const liveNow = async () => {
+    let now = await ctx.state();
+    for (let k = 0; k < 4 && (now.drafting || now.coachId !== null); k += 1) {
+      if (now.coachId !== null) await ctx.pumpCoaches();
+      if ((await ctx.state()).drafting) await adapter.clearDraft(ctx);
+      now = await ctx.state();
+    }
+    return now;
+  };
+  let peak = 0;
+  for (let i = 0; i < 30; i += 1) {
+    st = await liveNow();
+    if (st.ended || st.beacon !== 'charging') break;
+    peak = Math.max(peak, st.fauna);
+    // Stop fast-forwarding the moment 24+ ENGAGED fauna are near the view: the real-frame hold below is the audio window.
+    if (st.fauna >= 120 || i === 29 || (await ctx.evalPage(adapter.page.nearCount)) >= 24) break;
+    await ctx.evalPage(adapter.page.skip, 2);
+    await ctx.sleep(150);
+  }
+  // The heavy beat, in real frames: the Chorus at its thickest, with the director running.
+  st = await liveNow();
+  ctx.mark('chorus');
+  await ctx.sleep(6000);
+  // Combat audio needs 20+ fauna within 900 px of the view for >= 2 s of LIVE play: pan the camera onto the densest
+  // cluster with real one-finger drags (fast-forwarding 3 s when no cluster is big enough yet), then hold real time.
+  let near = await ctx.evalPage(adapter.page.nearCount);
+  const swarmTrail = [{ start: near, swarm: await ctx.evalPage(adapter.page.swarmScreen) }];
+  for (let i = 0; i < 14 && near < 24; i += 1) {
+    const now = await liveNow();
+    if (now.ended || now.beacon !== 'charging') break;
+    const swarm = await ctx.evalPage(adapter.page.swarmScreen);
+    swarmTrail.push({ near, swarm });
+    if (swarm && swarm.cluster >= 22) await adapter.panToward(ctx, swarm);
+    else {
+      await ctx.evalPage(adapter.page.skip, 3);
+      await ctx.sleep(200);
+    }
+    near = await ctx.evalPage(adapter.page.nearCount);
+  }
+  await liveNow();
+  const probeOf = () => ctx.evalPage(() => {
+    const s = window.__GAME__.scene.getScene('Game');
+    const au = typeof window.__AUDIO__ === 'function' ? window.__AUDIO__() : null;
+    const engaged = s.threat && s.threat.fauna ? s.threat.fauna.pool.filter((f) => f.alive && !f.retreating && !f.hidden).length : 0;
+    return { t: Math.round(performance.now()), req: au ? au.requested : null, last: au ? au.lastRequested : null, dirPaused: !!(s.director && s.director.isPaused), coach: s.coachActive === true, paused: s.paused === true, fauna: s.threat ? s.threat.liveCount : 0, engaged, phase: s.colony.clock.phase, kills: s.colony.kills ?? null };
+  });
+  // Hold real frames over the fight (the probe samples at 4 Hz); re-aim once if the cluster drifts off.
+  for (let k = 0; k < 3 && near >= 20; k += 1) {
+    const a = await probeOf();
+    await ctx.sleep(3500);
+    near = await ctx.evalPage(adapter.page.nearCount);
+    swarmTrail.push({ hold: k, near, from: a, to: await probeOf() });
+    if (near < 20) {
+      const swarm = await ctx.evalPage(adapter.page.swarmScreen);
+      if (swarm && swarm.cluster >= 20) await adapter.panToward(ctx, swarm);
+      near = await ctx.evalPage(adapter.page.nearCount);
+    }
+  }
+  ctx.note('chorusSwarmTrail', swarmTrail);
+  st = await ctx.state();
+  ctx.note('chorusAtMark', { fauna: st.fauna, peakFauna: Math.max(peak, st.fauna), nearView: near, charge: st.charge, coreHp: st.coreHp, beacon: st.beacon });
+  await ctx.shot('chorus');
+  await ctx.sweep('Chorus');
+  await adapter.advance(ctx, async (s) => s.ended, { label: 'Beacon launch', maxSteps: 60 });
+  const res = await adapter.results(ctx, 'win');
+  await ctx.evalPage(adapter.page.sustain, false).catch(() => null);
+  const r = res && res.result;
+  // Settled INSIDE the span, so teleportEnd tags the outcome as certified from the placed position.
+  if (r && r.won) report.outcomes.win = { via: 'beacon', sols: r.sols, data: r.data, headline: res.texts[0] ?? null };
+  ctx.teleportEnd();
+  if (!r || !r.won) ctx.blocker('win:not-settled', 'the Beacon launch did not settle a won Landing', res);
+}
+
+/** Control sweep over the results and the Hub the loop feeds. */
+async function colonyPhaseControlSweep(ctx) {
+  const { adapter } = ctx;
+  ctx.log('phase: control sweep');
+  // Navigation certified elsewhere, or that leaves the surface for a new Landing (DAILY / LAUNCH / NEXT RUNG / LAND AGAIN).
+  const NAV = /^(RESUME|ABANDON|RETRY|LAND|LAUNCH|CONTINUE|HUB|PLAY|START|DAILY|NEXT RUNG|LAND AGAIN)$|RESET|DELETE|WIPE|ERASE|QUIT/i;
+  const skip = (c) => NAV.test((c.label || '').trim());
+  const inScene = (scene) => async () => (await adapter.controls(ctx)).filter((c) => c.scene === scene);
+  if ((await ctx.sceneKeys()).includes('GameOver')) {
+    await ctx.sweepControls('results', { list: inScene('GameOver'), skip, here: async () => (await ctx.sceneKeys()).includes('GameOver') });
+    const isHub = (c) => c.scene === 'GameOver' && c.visible && /^(HUB|CONTINUE)$/.test(c.label);
+    if ((await adapter.controls(ctx)).some(isHub)) await adapter.navigate(ctx, isHub, 'Hub', { what: 'results HUB' });
+  }
+  const inHub = await adapter.poll(ctx, async () => (await ctx.sceneKeys()).includes('Hub'), 6000);
+  if (!inHub) {
+    ctx.major('controls:no-hub', 'the results never routed to the Hub (§14b)', { keys: await ctx.sceneKeys() });
+    return;
+  }
+  await ctx.sleep(600);
+  await ctx.shot('hub');
+  // Per Hub tab (hub.ts TABS: LAND / ARK / LOG): a tab tap leaves the surface under test, so every tab gets its own
+  // sweep whose `restore` taps back into it.
+  const tabOf = () => ctx.evalPage(() => {
+    const h = window.__GAME__.scene.getScene('Hub');
+    return h && h.scene.isActive() ? h.tabId ?? null : null;
+  });
+  for (const [name, id] of [['LAND', 'land'], ['ARK', 'ark'], ['LOG', 'log']]) {
+    const toTab = async () => {
+      if (!(await ctx.sceneKeys()).includes('Hub')) return false;
+      // Close any sheet a tapped control left up (its X / scrim; ESC is the sheet stack's own exit law on the Hub).
+      for (let k = 0; k < 3 && (await adapter.controls(ctx)).some((c) => c.scene === 'Hub' && c.visible && c.depth >= 3000); k += 1) {
+        await ctx.page.keyboard.down('Escape');
+        await ctx.page.keyboard.up('Escape');
+        await ctx.sleep(250);
+      }
+      if ((await tabOf()) === id) return true;
+      const tab = (await adapter.controls(ctx)).find((c) => c.scene === 'Hub' && c.visible && c.label === name && c.depth < 3000);
+      if (!tab) return false;
+      await ctx.tap(tab.x, tab.y, { label: `sweep: ${name} tab`, measureAck: false });
+      await adapter.poll(ctx, async () => (await tabOf()) === id, 3000);
+      await ctx.sleep(300);
+      return (await tabOf()) === id;
+    };
+    if (!(await toTab())) {
+      ctx.major('controls:sweep-left-hub', `the control sweep could not open the Hub ${name} tab`, { keys: await ctx.sceneKeys(), tab: await tabOf() });
+      break;
+    }
+    // The selected tab re-selecting itself is state, not an action; the tab itself is certified by `toTab` above.
+    await ctx.sweepControls(`hub:${id}`, { list: inScene('Hub'), skip: (c) => skip(c) || c.label === name, here: async () => (await tabOf()) === id, restore: toTab });
+  }
+}
+
 // --- engine -----------------------------------------------------------------
 
-export const adapters = { board: boardAdapter, arena: arenaAdapter };
+export const adapters = { board: boardAdapter, arena: arenaAdapter, colony: colonyAdapter };
 
 const median = (xs) => {
   if (xs.length === 0) return null;
@@ -4782,8 +6324,14 @@ async function phaseBoot(ctx) {
   // journal refreshed every second, measured on Duskhaul V2) would otherwise
   // re-write its save between the wipe and the reload, and the "fresh" boot
   // settles that journal as an abandoned run instead of starting the FTUE.
+  // Stop every scene FIRST, through the SceneManager (immediate outside a step;
+  // ScenePlugin.stop only queues, and a sleeping loop never drains the queue):
+  // SHUTDOWN unhooks hide/blur persistence, which the reload's blur would
+  // otherwise fire AFTER the wipe (measured on Outpost Aurelia, a §14b hide
+  // checkpoint). Then freeze the loop.
   await ctx.evalPage(() => {
     const g = window.__GAME__;
+    if (g && g.scene) for (const s of g.scene.getScenes(false)) if (s.scene.isActive() || s.scene.isPaused()) g.scene.stop(s.scene.key);
     if (g && g.loop && typeof g.loop.sleep === 'function') g.loop.sleep();
     return true;
   });
@@ -5452,11 +7000,13 @@ export async function runFuzz({
         }
       })
       .catch(() => {});
-    // Freeze the loop first so a game that persists while running cannot
-    // re-write its save between the wipe and the reload (see `phaseBoot`).
+    // Stop every scene through the manager, then freeze the loop, so a game
+    // that persists while running (or on hide/blur) cannot re-write its save
+    // between the wipe and the reload (see `phaseBoot`).
     await tab
       .evaluate(() => {
         const g = window.__GAME__;
+        if (g && g.scene) for (const s of g.scene.getScenes(false)) if (s.scene.isActive() || s.scene.isPaused()) g.scene.stop(s.scene.key);
         if (g && g.loop && typeof g.loop.sleep === 'function') g.loop.sleep();
         return true;
       })

@@ -1,0 +1,32 @@
+{
+  "version": 2,
+  "name": "fauna-matron",
+  "processing": {
+    "cellSize": 512,
+    "cellHeight": 512,
+    "align": "feet",
+    "scaleMode": "preserve",
+    "fit": 0.86,
+    "threshold": 150,
+    "feather": 55,
+    "edgeThreshold": 170,
+    "sampling": "smooth",
+    "componentMode": "largest",
+    "componentPadding": 0,
+    "minComponentArea": 1
+  },
+  "reference": {
+    "rows": 2,
+    "cols": 2,
+    "bodyScaleMean": 0.8515625,
+    "bodyScaleCv": 0,
+    "anchorYMean": 0.8916015625,
+    "sourceToOutputScale": 0.86,
+    "sourceCellWidth": 512,
+    "sourceCellHeight": 512,
+    "outputSubjectHeightMean": 375
+  },
+  "qc": {
+    "maxBodyScaleDrift": 0.08
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "version": 2,
+  "name": "fauna-brute",
+  "processing": {
+    "cellSize": 256,
+    "cellHeight": 256,
+    "align": "bottom",
+    "scaleMode": "fit",
+    "fit": 0.86,
+    "threshold": 150,
+    "feather": 55,
+    "edgeThreshold": 170,
+    "sampling": "smooth",
+    "componentMode": "largest",
+    "componentPadding": 0,
+    "minComponentArea": 1
+  },
+  "reference": {
+    "rows": 2,
+    "cols": 2,
+    "bodyScaleMean": 0.5234375,
+    "bodyScaleCv": 0,
+    "anchorYMean": 0.763671875,
+    "sourceToOutputScale": 0.5049541284403669,
+    "sourceCellWidth": 512,
+    "sourceCellHeight": 512,
+    "outputSubjectHeightMean": 135
+  },
+  "qc": {
+    "maxBodyScaleDrift": 0.08
+  }
+}

@@ -1,0 +1,90 @@
+{
+  "kind": "fuzz",
+  "passed": true,
+  "slug": "2026-09-26-outpost-aurelia",
+  "seconds": 240,
+  "budgetSource": "content clock: RunDirector.durationSeconds",
+  "contentClockS": 702,
+  "seed": 1,
+  "actions": 1336,
+  "wipedKeys": [
+    "2026-09-26-outpost-aurelia:meta",
+    "2026-09-26-outpost-aurelia:tut:feed",
+    "2026-09-26-outpost-aurelia:colony:log",
+    "2026-09-26-outpost-aurelia:colony:activeLanding",
+    "2026-09-26-outpost-aurelia:tut:sheet-build",
+    "2026-09-26-outpost-aurelia:tut:dusk",
+    "2026-09-26-outpost-aurelia:tut:ore",
+    "2026-09-26-outpost-aurelia:tut:grid",
+    "2026-09-26-outpost-aurelia:tut:dock",
+    "2026-09-26-outpost-aurelia:tut:vent",
+    "2026-09-26-outpost-aurelia:tut:draft"
+  ],
+  "audio": {
+    "muted": true,
+    "url": "http://192.168.101.53:5432/?mute=1",
+    "storageTouched": false,
+    "pageSide": {
+      "mediaMuted": 0,
+      "contextsPatched": false,
+      "contexts": 1,
+      "phaserSound": true
+    },
+    "forcedByUrl": true,
+    "played": 0,
+    "probe": {
+      "href": "http://192.168.101.53:5432/?mute=1",
+      "urlMute": "1",
+      "audioSnapshot": {
+        "muted": true,
+        "forcedByUrl": true,
+        "storedPreference": false,
+        "masterGain": null,
+        "contextState": null,
+        "requested": 0,
+        "played": 0,
+        "lastRequested": null,
+        "musicDuck": null,
+        "samplesDecoded": 0,
+        "settings": {
+          "music": 1,
+          "sfx": 1,
+          "reduceMotion": false
+        }
+      },
+      "contexts": [
+        {
+          "state": "suspended",
+          "destinationGain": 0
+        }
+      ],
+      "phaserMuted": true,
+      "media": 0
+    }
+  },
+  "transitions": 11,
+  "offGameNavigations": 0,
+  "throttles": [],
+  "handovers": [],
+  "distinctScenes": [
+    "Game",
+    "GameOver",
+    "Hub"
+  ],
+  "failures": [],
+  "sceneTrail": [
+    "Game",
+    "GameOver",
+    "Hub",
+    "Game",
+    "GameOver",
+    "Hub",
+    "Game",
+    "GameOver",
+    "Game",
+    "GameOver",
+    "Hub",
+    "Game"
+  ],
+  "finishedAt": "2026-09-27T03:10:37.730Z"
+}

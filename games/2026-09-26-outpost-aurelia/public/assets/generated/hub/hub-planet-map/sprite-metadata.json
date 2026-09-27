@@ -1,0 +1,138 @@
+{
+  "source": {
+    "file": "omp-image-158f2b0966848fa5.png",
+    "provider": "xai-oauth",
+    "rawFile": "raw-source.png",
+    "generatedWithoutMarker": true
+  },
+  "grid": {
+    "rows": 1,
+    "cols": 1
+  },
+  "output": {
+    "cellSize": 720,
+    "cellHeight": 900,
+    "align": "center",
+    "scaleMode": "fit",
+    "fit": 1,
+    "fullBleed": true,
+    "threshold": 1,
+    "feather": 0,
+    "edgeThreshold": 1,
+    "sampling": "smooth",
+    "durationMs": 0,
+    "componentMode": "none",
+    "componentPadding": 0,
+    "minComponentArea": 1,
+    "profileApplied": null,
+    "overrides": []
+  },
+  "qc": {
+    "strict": true,
+    "passed": true,
+    "failures": [],
+    "waived": [],
+    "notes": [
+      "background-contamination-waived:full-bleed (edgeKeyFraction 0.000, foreignRegionCount 1)"
+    ],
+    "keyedPixels": 0,
+    "summary": {
+      "frameCount": 1,
+      "validFrameCount": 1,
+      "emptyCount": 0,
+      "sourceEdgeTouchCount": 0,
+      "outputEdgeTouchCount": 0,
+      "pasteClampedCount": 0,
+      "bodyScaleMean": 1,
+      "bodyScaleCv": 0,
+      "anchorXStd": 0,
+      "anchorYStd": 0,
+      "anchorYMean": 0.5,
+      "outputSubjectHeightMean": 900
+    },
+    "retryHints": [],
+    "background": {
+      "keyedFraction": 0,
+      "edgeKeyFraction": 0,
+      "foreignRegionCount": 1,
+      "cellCoverage": [
+        1
+      ],
+      "emptyCells": [],
+      "cell": {
+        "width": 1776,
+        "height": 2220,
+        "aspect": 0.8
+      },
+      "geometryMismatch": false,
+      "contaminated": true,
+      "findings": [
+        "edge-key-fraction:0.00<0.60",
+        "foreign-region-count:1>0"
+      ]
+    }
+  },
+  "frames": [
+    {
+      "index": 0,
+      "file": "frames/frame-000.png",
+      "sourceBox": {
+        "left": 0,
+        "top": 0,
+        "width": 1776,
+        "height": 2220
+      },
+      "subjectBox": {
+        "left": 0,
+        "top": 0,
+        "width": 1776,
+        "height": 2220
+      },
+      "alignedBox": {
+        "left": 0,
+        "top": 0,
+        "width": 720,
+        "height": 900
+      },
+      "sourceAnchor": {
+        "x": 888,
+        "y": 1110
+      },
+      "targetAnchor": {
+        "x": 360,
+        "y": 450
+      },
+      "empty": false,
+      "componentCount": 1,
+      "subjectArea": 3942720,
+      "droppedArea": 0,
+      "bodyScale": 1,
+      "sourceEdgeTouch": false,
+      "outputEdgeTouch": false,
+      "pasteClamped": false,
+      "scale": 0.40540540540540543
+    }
+  ],
+  "rekey": {
+    "tool": "art/exports/hub/fitcrop.py",
+    "frameInsetPx": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "cropBox": [
+      0,
+      74,
+      1776,
+      2294
+    ],
+    "target": [
+      720,
+      900
+    ],
+    "vbias": 0.0,
+    "croppedRaw": "raw-cropped.png",
+    "markerMetadata": "sprite-metadata.marker.json"
+  }
+}

@@ -1,0 +1,112 @@
+{
+  "source": {
+    "file": "raw-source.jpg",
+    "provider": "xai-oauth",
+    "rawFile": null,
+    "width": 1024,
+    "height": 1024
+  },
+  "grid": {
+    "rows": 1,
+    "cols": 1
+  },
+  "output": {
+    "cellSize": 256,
+    "cellHeight": 256,
+    "align": "bottom",
+    "scaleMode": "fit",
+    "fit": 0.9,
+    "fullBleed": false,
+    "threshold": 150,
+    "feather": 55,
+    "edgeThreshold": 170,
+    "sampling": "smooth",
+    "durationMs": 0,
+    "componentMode": "all",
+    "componentPadding": 0,
+    "minComponentArea": 1,
+    "profileApplied": null,
+    "overrides": []
+  },
+  "qc": {
+    "strict": true,
+    "passed": true,
+    "failures": [],
+    "waived": [],
+    "notes": [],
+    "keyedPixels": 618861,
+    "summary": {
+      "frameCount": 1,
+      "validFrameCount": 1,
+      "emptyCount": 0,
+      "sourceEdgeTouchCount": 0,
+      "outputEdgeTouchCount": 0,
+      "pasteClampedCount": 0,
+      "bodyScaleMean": 0.89453125,
+      "bodyScaleCv": 0,
+      "anchorXStd": 0,
+      "anchorYStd": 0,
+      "anchorYMean": 0.947265625,
+      "outputSubjectHeightMean": 230
+    },
+    "retryHints": [],
+    "background": {
+      "keyedFraction": 0.5892953872680664,
+      "edgeKeyFraction": 1,
+      "foreignRegionCount": 0,
+      "cellCoverage": [
+        0.4107046127319336
+      ],
+      "emptyCells": [],
+      "cell": {
+        "width": 1024,
+        "height": 1024,
+        "aspect": 1
+      },
+      "geometryMismatch": false,
+      "contaminated": false,
+      "findings": []
+    }
+  },
+  "frames": [
+    {
+      "index": 0,
+      "file": "frames/frame-000.png",
+      "sourceBox": {
+        "left": 0,
+        "top": 0,
+        "width": 1024,
+        "height": 1024
+      },
+      "subjectBox": {
+        "left": 184,
+        "top": 54,
+        "width": 652,
+        "height": 916
+      },
+      "alignedBox": {
+        "left": 46,
+        "top": 13,
+        "width": 164,
+        "height": 230
+      },
+      "sourceAnchor": {
+        "x": 510,
+        "y": 970
+      },
+      "targetAnchor": {
+        "x": 128,
+        "y": 243
+      },
+      "empty": false,
+      "componentCount": 1,
+      "subjectArea": 429625,
+      "droppedArea": 0,
+      "bodyScale": 0.89453125,
+      "sourceEdgeTouch": false,
+      "outputEdgeTouch": false,
+      "pasteClamped": false,
+      "scale": 0.251528384279476
+    }
+  ]
+}

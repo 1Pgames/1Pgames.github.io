@@ -1,0 +1,253 @@
+{
+  "source": {
+    "file": "raw-source.jpg",
+    "provider": "xai-oauth",
+    "rawFile": null,
+    "width": 1024,
+    "height": 1024
+  },
+  "grid": {
+    "rows": 2,
+    "cols": 2
+  },
+  "output": {
+    "cellSize": 512,
+    "cellHeight": 512,
+    "align": "feet",
+    "scaleMode": "preserve",
+    "fit": 0.86,
+    "fullBleed": false,
+    "threshold": 150,
+    "feather": 55,
+    "edgeThreshold": 170,
+    "sampling": "smooth",
+    "durationMs": 120,
+    "componentMode": "all",
+    "componentPadding": 0,
+    "minComponentArea": 1,
+    "profileApplied": "fauna-matron",
+    "overrides": [
+      "componentMode"
+    ]
+  },
+  "qc": {
+    "strict": false,
+    "passed": true,
+    "failures": [],
+    "waived": [
+      "profile-body-scale-drift:0.1433>0.0800 (raise --max-profile-scale-drift or pass --posture-change if the action changes posture on purpose)",
+      "output-subject-height-drift:0.1427>0.0800 (raise --max-profile-scale-drift or pass --posture-change if the action changes posture on purpose)"
+    ],
+    "notes": [],
+    "keyedPixels": 798336,
+    "summary": {
+      "frameCount": 4,
+      "validFrameCount": 4,
+      "emptyCount": 0,
+      "sourceEdgeTouchCount": 0,
+      "outputEdgeTouchCount": 0,
+      "pasteClampedCount": 0,
+      "bodyScaleMean": 0.7294921875,
+      "bodyScaleCv": 0.0013386880856760374,
+      "anchorXStd": 0.0009765625,
+      "anchorYStd": 0.0008457279333832408,
+      "anchorYMean": 0.93212890625,
+      "outputSubjectHeightMean": 321.5,
+      "profileBodyScaleDrift": 0.143348623853211,
+      "outputSubjectHeightDrift": 0.14266666666666672
+    },
+    "retryHints": [
+      {
+        "failure": "profile-body-scale-drift",
+        "promptDelta": "Match this action's character height exactly to the locked reference profile; the rendered character is noticeably taller or shorter than the profile it is supposed to match."
+      },
+      {
+        "failure": "output-subject-height-drift",
+        "promptDelta": "Match the character's exported pixel height to the locked scale profile's reference output height; the current render's on-canvas height diverges too far from the profile after scaling."
+      }
+    ],
+    "background": {
+      "keyedFraction": 0.7589435577392578,
+      "edgeKeyFraction": 1,
+      "foreignRegionCount": 0,
+      "cellCoverage": [
+        0.24112319946289062,
+        0.24110031127929688,
+        0.24094772338867188,
+        0.24105453491210938
+      ],
+      "emptyCells": [],
+      "cell": {
+        "width": 512,
+        "height": 512,
+        "aspect": 1
+      },
+      "geometryMismatch": false,
+      "contaminated": false,
+      "findings": []
+    }
+  },
+  "scaleProfile": {
+    "path": "/Users/tmwh/homework/1Pgames/games/2026-09-26-outpost-aurelia/art/exports/fauna-b/fauna-matron-walk/fauna-matron-scale.json",
+    "name": "fauna-matron",
+    "version": 2
+  },
+  "frames": [
+    {
+      "index": 0,
+      "file": "frames/frame-000.png",
+      "sourceBox": {
+        "left": 0,
+        "top": 0,
+        "width": 512,
+        "height": 512
+      },
+      "subjectBox": {
+        "left": 94,
+        "top": 120,
+        "width": 320,
+        "height": 373
+      },
+      "alignedBox": {
+        "left": 117,
+        "top": 169,
+        "width": 275,
+        "height": 321
+      },
+      "sourceAnchor": {
+        "x": 256,
+        "y": 477
+      },
+      "targetAnchor": {
+        "x": 256,
+        "y": 476
+      },
+      "empty": false,
+      "componentCount": 1,
+      "subjectArea": 62571,
+      "droppedArea": 0,
+      "bodyScale": 0.728515625,
+      "sourceEdgeTouch": false,
+      "outputEdgeTouch": false,
+      "pasteClamped": false,
+      "scale": 0.86
+    },
+    {
+      "index": 1,
+      "file": "frames/frame-001.png",
+      "sourceBox": {
+        "left": 512,
+        "top": 0,
+        "width": 512,
+        "height": 512
+      },
+      "subjectBox": {
+        "left": 95,
+        "top": 120,
+        "width": 319,
+        "height": 373
+      },
+      "alignedBox": {
+        "left": 117,
+        "top": 169,
+        "width": 274,
+        "height": 321
+      },
+      "sourceAnchor": {
+        "x": 257,
+        "y": 477
+      },
+      "targetAnchor": {
+        "x": 256,
+        "y": 476
+      },
+      "empty": false,
+      "componentCount": 1,
+      "subjectArea": 62560,
+      "droppedArea": 0,
+      "bodyScale": 0.728515625,
+      "sourceEdgeTouch": false,
+      "outputEdgeTouch": false,
+      "pasteClamped": false,
+      "scale": 0.86
+    },
+    {
+      "index": 2,
+      "file": "frames/frame-002.png",
+      "sourceBox": {
+        "left": 0,
+        "top": 512,
+        "width": 512,
+        "height": 512
+      },
+      "subjectBox": {
+        "left": 94,
+        "top": 120,
+        "width": 320,
+        "height": 374
+      },
+      "alignedBox": {
+        "left": 117,
+        "top": 168,
+        "width": 275,
+        "height": 322
+      },
+      "sourceAnchor": {
+        "x": 256,
+        "y": 478
+      },
+      "targetAnchor": {
+        "x": 256,
+        "y": 476
+      },
+      "empty": false,
+      "componentCount": 1,
+      "subjectArea": 62542,
+      "droppedArea": 0,
+      "bodyScale": 0.73046875,
+      "sourceEdgeTouch": false,
+      "outputEdgeTouch": false,
+      "pasteClamped": false,
+      "scale": 0.86
+    },
+    {
+      "index": 3,
+      "file": "frames/frame-003.png",
+      "sourceBox": {
+        "left": 512,
+        "top": 512,
+        "width": 512,
+        "height": 512
+      },
+      "subjectBox": {
+        "left": 95,
+        "top": 120,
+        "width": 319,
+        "height": 374
+      },
+      "alignedBox": {
+        "left": 117,
+        "top": 169,
+        "width": 274,
+        "height": 322
+      },
+      "sourceAnchor": {
+        "x": 257,
+        "y": 477
+      },
+      "targetAnchor": {
+        "x": 256,
+        "y": 476
+      },
+      "empty": false,
+      "componentCount": 1,
+      "subjectArea": 62557,
+      "droppedArea": 0,
+      "bodyScale": 0.73046875,
+      "sourceEdgeTouch": false,
+      "outputEdgeTouch": false,
+      "pasteClamped": false,
+      "scale": 0.86
+    }
+  ]
+}

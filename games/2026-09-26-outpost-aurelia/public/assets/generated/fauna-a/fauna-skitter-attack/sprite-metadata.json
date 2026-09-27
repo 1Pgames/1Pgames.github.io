@@ -1,0 +1,248 @@
+{
+  "source": {
+    "file": "omp-image-158f2b393f848fcf.jpg",
+    "provider": "xai-oauth",
+    "rawFile": "raw-source.jpg",
+    "width": 1024,
+    "height": 1024
+  },
+  "grid": {
+    "rows": 2,
+    "cols": 2
+  },
+  "output": {
+    "cellSize": 256,
+    "cellHeight": 256,
+    "align": "bottom",
+    "scaleMode": "fit",
+    "fit": 0.86,
+    "fullBleed": false,
+    "threshold": 150,
+    "feather": 55,
+    "edgeThreshold": 170,
+    "sampling": "smooth",
+    "durationMs": 100,
+    "componentMode": "largest",
+    "componentPadding": 0,
+    "minComponentArea": 1,
+    "profileApplied": "fauna-skitter",
+    "overrides": []
+  },
+  "qc": {
+    "strict": true,
+    "passed": true,
+    "failures": [],
+    "waived": [],
+    "notes": [],
+    "keyedPixels": 901415,
+    "summary": {
+      "frameCount": 4,
+      "validFrameCount": 4,
+      "emptyCount": 0,
+      "sourceEdgeTouchCount": 0,
+      "outputEdgeTouchCount": 0,
+      "pasteClampedCount": 0,
+      "bodyScaleMean": 0.45947265625,
+      "bodyScaleCv": 0.04840825493700478,
+      "anchorXStd": 0.01131243441230771,
+      "anchorYStd": 0.016970846872053483,
+      "anchorYMean": 0.763671875,
+      "outputSubjectHeightMean": 153.25,
+      "profileBodyScaleDrift": 0.06689342403628107,
+      "outputSubjectHeightDrift": 0.06794425087108014
+    },
+    "retryHints": [],
+    "background": {
+      "keyedFraction": 0.8587408065795898,
+      "edgeKeyFraction": 1,
+      "foreignRegionCount": 0,
+      "cellCoverage": [
+        0.13959884643554688,
+        0.14359664916992188,
+        0.14168930053710938,
+        0.1401519775390625
+      ],
+      "emptyCells": [],
+      "cell": {
+        "width": 512,
+        "height": 512,
+        "aspect": 1
+      },
+      "geometryMismatch": false,
+      "contaminated": false,
+      "findings": []
+    }
+  },
+  "scaleProfile": {
+    "path": "/Users/tmwh/homework/1Pgames/games/2026-09-26-outpost-aurelia/art/exports/fauna-a/fauna-skitter-walk/fauna-skitter-scale.json",
+    "name": "fauna-skitter",
+    "version": 2
+  },
+  "frames": [
+    {
+      "index": 0,
+      "file": "frames/frame-000.png",
+      "sourceBox": {
+        "left": 0,
+        "top": 0,
+        "width": 512,
+        "height": 512
+      },
+      "subjectBox": {
+        "left": 64,
+        "top": 162,
+        "width": 357,
+        "height": 218
+      },
+      "alignedBox": {
+        "left": 12,
+        "top": 96,
+        "width": 233,
+        "height": 142
+      },
+      "sourceAnchor": {
+        "x": 242.5,
+        "y": 380
+      },
+      "targetAnchor": {
+        "x": 128,
+        "y": 238
+      },
+      "empty": false,
+      "componentCount": 1,
+      "subjectArea": 36376,
+      "droppedArea": 0,
+      "bodyScale": 0.42578125,
+      "sourceEdgeTouch": false,
+      "outputEdgeTouch": false,
+      "pasteClamped": false,
+      "scale": 0.6513609467455621
+    },
+    {
+      "index": 1,
+      "file": "frames/frame-001.png",
+      "sourceBox": {
+        "left": 512,
+        "top": 0,
+        "width": 512,
+        "height": 512
+      },
+      "subjectBox": {
+        "left": 64,
+        "top": 153,
+        "width": 388,
+        "height": 246
+      },
+      "alignedBox": {
+        "left": 2,
+        "top": 78,
+        "width": 253,
+        "height": 160
+      },
+      "sourceAnchor": {
+        "x": 258,
+        "y": 399
+      },
+      "targetAnchor": {
+        "x": 128,
+        "y": 238
+      },
+      "empty": false,
+      "componentCount": 1,
+      "subjectArea": 37382,
+      "droppedArea": 0,
+      "bodyScale": 0.48046875,
+      "sourceEdgeTouch": false,
+      "outputEdgeTouch": false,
+      "pasteClamped": false,
+      "scale": 0.6513609467455621
+    },
+    {
+      "index": 2,
+      "file": "frames/frame-002.png",
+      "sourceBox": {
+        "left": 0,
+        "top": 512,
+        "width": 512,
+        "height": 512
+      },
+      "subjectBox": {
+        "left": 59,
+        "top": 153,
+        "width": 375,
+        "height": 232
+      },
+      "alignedBox": {
+        "left": 6,
+        "top": 87,
+        "width": 244,
+        "height": 151
+      },
+      "sourceAnchor": {
+        "x": 246.5,
+        "y": 385
+      },
+      "targetAnchor": {
+        "x": 128,
+        "y": 238
+      },
+      "empty": false,
+      "componentCount": 1,
+      "subjectArea": 36910,
+      "droppedArea": 0,
+      "bodyScale": 0.453125,
+      "sourceEdgeTouch": false,
+      "outputEdgeTouch": false,
+      "pasteClamped": false,
+      "scale": 0.6513609467455621
+    },
+    {
+      "index": 3,
+      "file": "frames/frame-003.png",
+      "sourceBox": {
+        "left": 512,
+        "top": 512,
+        "width": 512,
+        "height": 512
+      },
+      "subjectBox": {
+        "left": 63,
+        "top": 155,
+        "width": 377,
+        "height": 245
+      },
+      "alignedBox": {
+        "left": 5,
+        "top": 78,
+        "width": 246,
+        "height": 160
+      },
+      "sourceAnchor": {
+        "x": 251.5,
+        "y": 400
+      },
+      "targetAnchor": {
+        "x": 128,
+        "y": 238
+      },
+      "empty": false,
+      "componentCount": 1,
+      "subjectArea": 36487,
+      "droppedArea": 0,
+      "bodyScale": 0.478515625,
+      "sourceEdgeTouch": false,
+      "outputEdgeTouch": false,
+      "pasteClamped": false,
+      "scale": 0.6513609467455621
+    }
+  ],
+  "reprocess": {
+    "tool": "art/exports/fauna-a/refit.py",
+    "chromaGuard": "off",
+    "reason": "marker scaleMode key ignored (field is `scale`); fit 0.86",
+    "processedInput": "raw-clean.png",
+    "deshadowRepaintedPx": null,
+    "markerMetadata": "sprite-metadata.marker.json",
+    "styleProfile": "games/2026-09-26-outpost-aurelia/art/style.json"
+  }
+}

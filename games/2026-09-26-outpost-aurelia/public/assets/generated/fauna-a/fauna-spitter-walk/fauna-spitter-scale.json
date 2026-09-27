@@ -1,0 +1,32 @@
+{
+  "version": 2,
+  "name": "fauna-spitter",
+  "processing": {
+    "cellSize": 256,
+    "cellHeight": 256,
+    "align": "bottom",
+    "scaleMode": "fit",
+    "fit": 0.72,
+    "threshold": 150,
+    "feather": 55,
+    "edgeThreshold": 170,
+    "sampling": "smooth",
+    "componentMode": "largest",
+    "componentPadding": 0,
+    "minComponentArea": 1
+  },
+  "reference": {
+    "rows": 2,
+    "cols": 2,
+    "bodyScaleMean": 0.72900390625,
+    "bodyScaleCv": 0.00116011440560541,
+    "anchorYMean": 0.87060546875,
+    "sourceToOutputScale": 0.49283422459893045,
+    "sourceCellWidth": 512,
+    "sourceCellHeight": 512,
+    "outputSubjectHeightMean": 184
+  },
+  "qc": {
+    "maxBodyScaleDrift": 0.08
+  }
+}

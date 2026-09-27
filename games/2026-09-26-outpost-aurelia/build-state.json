@@ -1,0 +1,1464 @@
+{
+  "wave": "release-verify",
+  "tasks": [
+    {
+      "name": "Integrator",
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/scripts/**",
+        "games/2026-09-26-outpost-aurelia/src/sim/kits/**",
+        "games/2026-09-26-outpost-aurelia/review/**"
+      ],
+      "status": "done"
+    },
+    {
+      "name": "CertRun",
+      "ownershipGlobs": [
+        "scripts/cert-driver.mjs",
+        "games/2026-09-26-outpost-aurelia/cert-report.json",
+        "games/2026-09-26-outpost-aurelia/fuzz-report.json",
+        "games/2026-09-26-outpost-aurelia/shots/cert/**"
+      ],
+      "status": "done"
+    }
+  ],
+  "standingOrders": [
+    {
+      "id": "so-1",
+      "order": "Art agents get image generation via the kernel-hosted `generate_image(args_json)` tool (passed in task `tools`), which forwards to xd://generate_image; outputs land in a temp dir and must be copied into art/exports or public/assets/generated.",
+      "issuedAt": "2026-09-26T20:31:00Z",
+      "evidence": "art-director type lacks xd://generate_image (tool-missing, n=1); bridge call from orchestrator kernel generated 1 image via xai-oauth grok-imagine-image, n=1",
+      "supersedes": null
+    },
+    {
+      "id": "so-2",
+      "order": "Sprite export marker uses \"scale\":\"fit\" (not scaleMode); explicit input images come BEFORE the vision anchor (Image 1 = explicit input, Image 2 = anchor); when an explicit-input export fails strict source-edge-touch, reprocess the raw without the chroma guard (rekey).",
+      "issuedAt": "2026-09-26T21:13:00Z",
+      "evidence": "ArtBuildingsB/C/A measured: scaleMode ignored (extensions/sprite-generate.ts:26,694); input order at sprite-generate.ts:860; 5/5 input-image exports failed with guard, passed without",
+      "supersedes": null
+    },
+    {
+      "id": "so-3",
+      "order": "Integrator (build-integrator) is the seam owner for the integration wave and may amend contracts.ts/data/types.ts/sim/colony/types.ts per the authorized list in its dispatch.",
+      "issuedAt": "2026-09-27T00:36:00Z",
+      "evidence": "code-review.md MAJORs (bridge cast, kit switch, 33 local constants) + workstream contract requests",
+      "supersedes": null
+    },
+    {
+      "id": "so-4",
+      "order": "Second bounded balance round (max 3 iterations) authorized beyond the skill's 3-iteration budget because 0% skilled-lane wins means no Landing is shown winnable (review blocker); bots frozen during this round.",
+      "issuedAt": "2026-09-27T01:36:00Z",
+      "evidence": "200-run batch: bastion/sprawl/spire/kin 0% win, core-lost 185-200/200; SimDev-3 20-run: core-lost 20/20 all skilled lanes",
+      "supersedes": null
+    }
+  ],
+  "waves": [
+    {
+      "wave": "prd",
+      "agent": "Designer",
+      "type": "game-designer",
+      "attempt": 1,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/PRD.md"
+      ],
+      "startedAt": "2026-09-26T19:45:00Z",
+      "endedAt": "2026-09-26T20:22:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://Designer"
+    },
+    {
+      "wave": "flow",
+      "agent": "FlowDesigner",
+      "type": "ux-flow-designer",
+      "attempt": 1,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/PRD.md"
+      ],
+      "startedAt": "2026-09-26T20:25:00Z",
+      "endedAt": "2026-09-26T20:33:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://FlowDesigner"
+    },
+    {
+      "wave": "greybox",
+      "agent": "Greybox",
+      "type": "gameplay-programmer",
+      "attempt": 1,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/src/slices/colony/**",
+        "games/2026-09-26-outpost-aurelia/src/scenes/game.ts",
+        "games/2026-09-26-outpost-aurelia/src/sim/family.ts"
+      ],
+      "startedAt": "2026-09-26T20:25:00Z",
+      "endedAt": "2026-09-26T21:00:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://Greybox"
+    },
+    {
+      "wave": "art-lock",
+      "agent": "ArtDirector",
+      "type": "art-director",
+      "attempt": 1,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/art/**",
+        "games/2026-09-26-outpost-aurelia/public/assets/generated/**"
+      ],
+      "startedAt": "2026-09-26T20:25:00Z",
+      "endedAt": "2026-09-26T20:27:00Z",
+      "status": "dead",
+      "cause": {
+        "kind": "tool-missing",
+        "evidence": "read xd://generate_image \u2192 \"No such tool: xd://generate_image\"",
+        "source": "job result"
+      },
+      "artifact": "history://ArtDirector"
+    },
+    {
+      "wave": "art-lock",
+      "agent": "ArtDirector",
+      "type": "art-director",
+      "attempt": 2,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/art/**",
+        "games/2026-09-26-outpost-aurelia/public/assets/generated/**"
+      ],
+      "startedAt": "2026-09-26T20:31:00Z",
+      "endedAt": "2026-09-26T20:50:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://ArtDirector-2"
+    },
+    {
+      "wave": "art-1",
+      "agent": "ArtBuildingsA",
+      "type": "art-director",
+      "attempt": 1,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/public/assets/generated/buildings-a/**",
+        "games/2026-09-26-outpost-aurelia/art/briefs/reports/buildings-a.md",
+        "games/2026-09-26-outpost-aurelia/art/exports/buildings-a/**"
+      ],
+      "startedAt": "2026-09-26T20:52:00Z",
+      "endedAt": "2026-09-26T21:12:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://ArtBuildingsA"
+    },
+    {
+      "wave": "art-1",
+      "agent": "ArtBuildingsB",
+      "type": "art-director",
+      "attempt": 1,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/public/assets/generated/buildings-b/**",
+        "games/2026-09-26-outpost-aurelia/art/briefs/reports/buildings-b.md",
+        "games/2026-09-26-outpost-aurelia/art/exports/buildings-b/**"
+      ],
+      "startedAt": "2026-09-26T20:52:00Z",
+      "endedAt": "2026-09-26T21:40:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://ArtBuildingsB"
+    },
+    {
+      "wave": "art-1",
+      "agent": "ArtBuildingsC",
+      "type": "art-director",
+      "attempt": 1,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/public/assets/generated/buildings-c/**",
+        "games/2026-09-26-outpost-aurelia/art/briefs/reports/buildings-c.md",
+        "games/2026-09-26-outpost-aurelia/art/exports/buildings-c/**"
+      ],
+      "startedAt": "2026-09-26T20:52:00Z",
+      "endedAt": "2026-09-26T21:12:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://ArtBuildingsC"
+    },
+    {
+      "wave": "art-1",
+      "agent": "ArtFaunaA",
+      "type": "art-director",
+      "attempt": 1,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/public/assets/generated/fauna-a/**",
+        "games/2026-09-26-outpost-aurelia/art/briefs/reports/fauna-a.md",
+        "games/2026-09-26-outpost-aurelia/art/exports/fauna-a/**"
+      ],
+      "startedAt": "2026-09-26T20:52:00Z",
+      "endedAt": "2026-09-26T21:35:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://ArtFaunaA"
+    },
+    {
+      "wave": "art-1",
+      "agent": "ArtFaunaB",
+      "type": "art-director",
+      "attempt": 1,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/public/assets/generated/fauna-b/**",
+        "games/2026-09-26-outpost-aurelia/art/briefs/reports/fauna-b.md",
+        "games/2026-09-26-outpost-aurelia/art/exports/fauna-b/**"
+      ],
+      "startedAt": "2026-09-26T20:52:00Z",
+      "endedAt": "2026-09-26T21:35:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://ArtFaunaB"
+    },
+    {
+      "wave": "art-1",
+      "agent": "ArtTerrain",
+      "type": "art-director",
+      "attempt": 1,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/public/assets/generated/terrain/**",
+        "games/2026-09-26-outpost-aurelia/art/briefs/reports/terrain.md",
+        "games/2026-09-26-outpost-aurelia/art/exports/terrain/**"
+      ],
+      "startedAt": "2026-09-26T20:52:00Z",
+      "endedAt": "2026-09-26T21:12:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://ArtTerrain"
+    },
+    {
+      "wave": "art-1",
+      "agent": "ArtIconsA",
+      "type": "art-director",
+      "attempt": 1,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/public/assets/generated/icons-a/**",
+        "games/2026-09-26-outpost-aurelia/public/assets/generated/ui/**",
+        "games/2026-09-26-outpost-aurelia/art/briefs/reports/icons-a.md",
+        "games/2026-09-26-outpost-aurelia/art/briefs/reports/ui.md",
+        "games/2026-09-26-outpost-aurelia/art/exports/icons-a/**",
+        "games/2026-09-26-outpost-aurelia/art/exports/ui/**"
+      ],
+      "startedAt": "2026-09-26T20:52:00Z",
+      "endedAt": "2026-09-26T21:35:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://ArtIconsA"
+    },
+    {
+      "wave": "art-1",
+      "agent": "ArtIconsB",
+      "type": "art-director",
+      "attempt": 1,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/public/assets/generated/icons-b/**",
+        "games/2026-09-26-outpost-aurelia/art/briefs/reports/icons-b.md",
+        "games/2026-09-26-outpost-aurelia/art/exports/icons-b/**"
+      ],
+      "startedAt": "2026-09-26T20:52:00Z",
+      "endedAt": "2026-09-26T21:35:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://ArtIconsB"
+    },
+    {
+      "wave": "art-1",
+      "agent": "ArtMotionFx",
+      "type": "art-director",
+      "attempt": 1,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/public/assets/generated/colony-motion/**",
+        "games/2026-09-26-outpost-aurelia/public/assets/generated/fx/**",
+        "games/2026-09-26-outpost-aurelia/art/briefs/reports/colony-motion.md",
+        "games/2026-09-26-outpost-aurelia/art/briefs/reports/fx.md",
+        "games/2026-09-26-outpost-aurelia/art/exports/colony-motion/**",
+        "games/2026-09-26-outpost-aurelia/art/exports/fx/**"
+      ],
+      "startedAt": "2026-09-26T20:52:00Z",
+      "endedAt": "2026-09-26T21:12:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://ArtMotionFx"
+    },
+    {
+      "wave": "art-1",
+      "agent": "ArtHubBg",
+      "type": "art-director",
+      "attempt": 1,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/public/assets/generated/hub/**",
+        "games/2026-09-26-outpost-aurelia/public/assets/generated/bg/**",
+        "games/2026-09-26-outpost-aurelia/art/briefs/reports/hub.md",
+        "games/2026-09-26-outpost-aurelia/art/briefs/reports/bg.md",
+        "games/2026-09-26-outpost-aurelia/art/exports/hub/**",
+        "games/2026-09-26-outpost-aurelia/art/exports/bg/**",
+        "games/2026-09-26-outpost-aurelia/public/cover.png",
+        "games/2026-09-26-outpost-aurelia/shots/og.png"
+      ],
+      "startedAt": "2026-09-26T20:52:00Z",
+      "endedAt": "2026-09-26T21:35:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://ArtHubBg"
+    },
+    {
+      "wave": "greybox-verdict",
+      "agent": "GreyboxCritic",
+      "type": "game-critic",
+      "attempt": 1,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/shots/critic/greybox/**"
+      ],
+      "startedAt": "2026-09-26T21:02:00Z",
+      "endedAt": "2026-09-26T21:35:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://GreyboxCritic"
+    },
+    {
+      "wave": "art-2",
+      "agent": "ArtStates",
+      "type": "art-director",
+      "attempt": 1,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/public/assets/generated/building-states/**",
+        "games/2026-09-26-outpost-aurelia/art/briefs/reports/building-states.md",
+        "games/2026-09-26-outpost-aurelia/art/exports/building-states/**"
+      ],
+      "startedAt": "2026-09-26T21:13:00Z",
+      "endedAt": "2026-09-26T21:55:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://ArtStates"
+    },
+    {
+      "wave": "art-2",
+      "agent": "ArtWorld",
+      "type": "art-director",
+      "attempt": 1,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/public/assets/generated/deposits/**",
+        "games/2026-09-26-outpost-aurelia/public/assets/generated/relics/**",
+        "games/2026-09-26-outpost-aurelia/art/briefs/reports/deposits.md",
+        "games/2026-09-26-outpost-aurelia/art/briefs/reports/relics.md",
+        "games/2026-09-26-outpost-aurelia/art/exports/deposits/**",
+        "games/2026-09-26-outpost-aurelia/art/exports/relics/**"
+      ],
+      "startedAt": "2026-09-26T21:13:00Z",
+      "endedAt": "2026-09-26T21:55:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://ArtWorld"
+    },
+    {
+      "wave": "art-2",
+      "agent": "ArtProps",
+      "type": "art-director",
+      "attempt": 1,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/public/assets/generated/world-props/**",
+        "games/2026-09-26-outpost-aurelia/art/briefs/reports/world-props.md",
+        "games/2026-09-26-outpost-aurelia/art/exports/world-props/**"
+      ],
+      "startedAt": "2026-09-26T21:13:00Z",
+      "endedAt": "2026-09-26T21:55:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://ArtProps"
+    },
+    {
+      "wave": "greybox-respec",
+      "agent": "Designer",
+      "type": "game-designer",
+      "attempt": 2,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/PRD.md"
+      ],
+      "startedAt": "2026-09-26T21:36:00Z",
+      "endedAt": "2026-09-26T21:55:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://Designer-2"
+    },
+    {
+      "wave": "art-2",
+      "agent": "ArtApex",
+      "type": "art-director",
+      "attempt": 1,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/public/assets/generated/apex/**",
+        "games/2026-09-26-outpost-aurelia/art/exports/apex/**",
+        "games/2026-09-26-outpost-aurelia/art/briefs/reports/apex.md"
+      ],
+      "startedAt": "2026-09-26T21:41:00Z",
+      "endedAt": "2026-09-26T22:00:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://ArtApex"
+    },
+    {
+      "wave": "greybox",
+      "agent": "Greybox",
+      "type": "gameplay-programmer",
+      "attempt": 2,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/src/slices/colony/**",
+        "games/2026-09-26-outpost-aurelia/src/scenes/game.ts",
+        "games/2026-09-26-outpost-aurelia/src/sim/family.ts"
+      ],
+      "startedAt": "2026-09-26T21:56:00Z",
+      "endedAt": "2026-09-26T22:12:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://Greybox",
+      "note": "greybox rebuild after NO-FUN (bounded: once)"
+    },
+    {
+      "wave": "art-consolidate",
+      "agent": "ArtOwner",
+      "type": "art-director",
+      "attempt": 1,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/art/manifest.json",
+        "games/2026-09-26-outpost-aurelia/art/tools/**",
+        "games/2026-09-26-outpost-aurelia/art/generation-plan.md",
+        "games/2026-09-26-outpost-aurelia/art/briefs/reports/_consolidation.md",
+        "games/2026-09-26-outpost-aurelia/public/assets/generated/{hero,enemies-light,enemies-heavy,pickups-fx,arena,props}/**"
+      ],
+      "startedAt": "2026-09-26T22:01:00Z",
+      "endedAt": "2026-09-26T22:12:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://ArtOwner"
+    },
+    {
+      "wave": "greybox-verdict",
+      "agent": "GreyboxCritic",
+      "type": "game-critic",
+      "attempt": 2,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/shots/critic/greybox2/**"
+      ],
+      "startedAt": "2026-09-26T22:13:00Z",
+      "endedAt": "2026-09-26T22:30:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://GreyboxCritic2",
+      "verdict": "FUN (conditional)"
+    },
+    {
+      "wave": "audio",
+      "agent": "AudioDev",
+      "type": "fx-artist",
+      "attempt": 1,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/public/assets/audio/**",
+        "games/2026-09-26-outpost-aurelia/art/briefs/sfx-elevenlabs/**",
+        "games/2026-09-26-outpost-aurelia/art/briefs/audio-brief.md",
+        "games/2026-09-26-outpost-aurelia/src/data/audio.ts",
+        "games/2026-09-26-outpost-aurelia/src/core/audio.ts",
+        "games/2026-09-26-outpost-aurelia/src/core/music.ts"
+      ],
+      "startedAt": "2026-09-26T22:20:00Z",
+      "endedAt": "2026-09-26T22:45:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://AudioDev"
+    },
+    {
+      "wave": "contracts",
+      "agent": "Greybox",
+      "type": "gameplay-programmer",
+      "attempt": 3,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/src/slices/colony/contracts.ts",
+        "games/2026-09-26-outpost-aurelia/src/slices/colony/data/types.ts",
+        "games/2026-09-26-outpost-aurelia/src/sim/colony/types.ts",
+        "games/2026-09-26-outpost-aurelia/src/slices/colony/content.ts",
+        "games/2026-09-26-outpost-aurelia/src/slices/colony/tuning.ts",
+        "games/2026-09-26-outpost-aurelia/PRD.md"
+      ],
+      "startedAt": "2026-09-26T22:31:00Z",
+      "endedAt": "2026-09-26T22:45:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://Greybox"
+    },
+    {
+      "wave": "build",
+      "agent": "ModelDev",
+      "type": "gameplay-programmer",
+      "attempt": 1,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/src/slices/colony/model/**"
+      ],
+      "startedAt": "2026-09-26T22:47:00Z",
+      "endedAt": "2026-09-27T00:20:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://ModelDev"
+    },
+    {
+      "wave": "build",
+      "agent": "ThreatDev",
+      "type": "gameplay-programmer",
+      "attempt": 1,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/src/slices/colony/threat/**"
+      ],
+      "startedAt": "2026-09-26T22:47:00Z",
+      "endedAt": "2026-09-27T00:20:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://ThreatDev"
+    },
+    {
+      "wave": "build",
+      "agent": "ContentDev",
+      "type": "level-designer",
+      "attempt": 1,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/src/slices/colony/data/buildings.ts",
+        "games/2026-09-26-outpost-aurelia/src/slices/colony/data/fauna.ts",
+        "games/2026-09-26-outpost-aurelia/src/slices/colony/data/swarms.ts",
+        "games/2026-09-26-outpost-aurelia/src/slices/colony/data/directives.ts",
+        "games/2026-09-26-outpost-aurelia/src/slices/colony/data/protocols.ts",
+        "games/2026-09-26-outpost-aurelia/src/slices/colony/data/kits.ts",
+        "games/2026-09-26-outpost-aurelia/src/slices/colony/data/orders.ts",
+        "games/2026-09-26-outpost-aurelia/src/slices/colony/data/sites.ts",
+        "games/2026-09-26-outpost-aurelia/src/slices/colony/data/ark.ts",
+        "games/2026-09-26-outpost-aurelia/src/slices/colony/data/relics.ts",
+        "games/2026-09-26-outpost-aurelia/src/slices/colony/data/goods.ts",
+        "games/2026-09-26-outpost-aurelia/src/slices/colony/content.ts",
+        "games/2026-09-26-outpost-aurelia/src/slices/colony/tuning.ts"
+      ],
+      "startedAt": "2026-09-26T22:47:00Z",
+      "endedAt": "2026-09-27T00:20:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://ContentDev"
+    },
+    {
+      "wave": "build",
+      "agent": "UiDev",
+      "type": "ui-engineer",
+      "attempt": 1,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/src/ui/colony/**",
+        "games/2026-09-26-outpost-aurelia/src/scenes/hub/**",
+        "games/2026-09-26-outpost-aurelia/src/scenes/gameover.ts",
+        "games/2026-09-26-outpost-aurelia/src/scenes/menu.ts",
+        "games/2026-09-26-outpost-aurelia/src/scenes/meta.ts",
+        "games/2026-09-26-outpost-aurelia/src/data/metaCatalog.ts"
+      ],
+      "startedAt": "2026-09-26T22:47:00Z",
+      "endedAt": "2026-09-27T00:20:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://UiDev"
+    },
+    {
+      "wave": "build",
+      "agent": "ViewDev",
+      "type": "gameplay-programmer",
+      "attempt": 1,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/src/slices/colony/game.ts",
+        "games/2026-09-26-outpost-aurelia/src/slices/colony/view/**",
+        "games/2026-09-26-outpost-aurelia/src/scenes/game.ts",
+        "games/2026-09-26-outpost-aurelia/src/scenes/boot.ts",
+        "games/2026-09-26-outpost-aurelia/src/scenes/preload.ts",
+        "games/2026-09-26-outpost-aurelia/src/main.ts",
+        "games/2026-09-26-outpost-aurelia/src/config.ts",
+        "games/2026-09-26-outpost-aurelia/src/core/keys.ts",
+        "games/2026-09-26-outpost-aurelia/src/core/textures.ts",
+        "games/2026-09-26-outpost-aurelia/src/data/art.ts",
+        "games/2026-09-26-outpost-aurelia/src/slices/arena/**",
+        "games/2026-09-26-outpost-aurelia/src/objects/**",
+        "games/2026-09-26-outpost-aurelia/src/systems/arena.ts",
+        "games/2026-09-26-outpost-aurelia/src/systems/combat.ts"
+      ],
+      "startedAt": "2026-09-26T22:47:00Z",
+      "endedAt": "2026-09-27T00:20:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://ViewDev"
+    },
+    {
+      "wave": "build",
+      "agent": "SimDev",
+      "type": "gameplay-programmer",
+      "attempt": 1,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/src/sim/families/colony.ts",
+        "games/2026-09-26-outpost-aurelia/src/sim/colony/runLanding.ts",
+        "games/2026-09-26-outpost-aurelia/src/sim/colony/bots.ts",
+        "games/2026-09-26-outpost-aurelia/src/sim/colony/lanes.ts",
+        "games/2026-09-26-outpost-aurelia/src/sim/family.ts",
+        "games/2026-09-26-outpost-aurelia/src/sim/wiring.ts",
+        "games/2026-09-26-outpost-aurelia/src/sim/kits/colonyMap.selftest.ts",
+        "games/2026-09-26-outpost-aurelia/src/sim/kits/draft.selftest.ts",
+        "games/2026-09-26-outpost-aurelia/src/sim/kits/ark.selftest.ts",
+        "scripts/cert-driver.mjs"
+      ],
+      "startedAt": "2026-09-26T22:47:00Z",
+      "endedAt": "2026-09-27T00:20:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://SimDev"
+    },
+    {
+      "wave": "review",
+      "agent": "Reviewer",
+      "type": "code-reviewer",
+      "attempt": 1,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/review/**"
+      ],
+      "startedAt": "2026-09-27T00:21:00Z",
+      "endedAt": "2026-09-27T00:35:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://Reviewer",
+      "verdict": "REQUEST-CHANGES"
+    },
+    {
+      "wave": "integrate",
+      "agent": "Integrator",
+      "type": "build-integrator",
+      "attempt": 1,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/src/**",
+        "games/2026-09-26-outpost-aurelia/scripts/**",
+        "games/2026-09-26-outpost-aurelia/PRD.md",
+        "games/2026-09-26-outpost-aurelia/review/**"
+      ],
+      "excluding": [
+        "games/2026-09-26-outpost-aurelia/src/sim/colony/bots.ts",
+        "games/2026-09-26-outpost-aurelia/src/sim/colony/lanes.ts",
+        "games/2026-09-26-outpost-aurelia/src/sim/colony/runLanding.ts",
+        "games/2026-09-26-outpost-aurelia/src/sim/kits/draft.selftest.ts",
+        "games/2026-09-26-outpost-aurelia/src/sim/families/colony.ts"
+      ],
+      "startedAt": "2026-09-27T00:36:00Z",
+      "endedAt": "2026-09-27T01:05:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://Integrator"
+    },
+    {
+      "wave": "integrate",
+      "agent": "SimDev",
+      "type": "gameplay-programmer",
+      "attempt": 2,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/src/sim/colony/bots.ts",
+        "games/2026-09-26-outpost-aurelia/src/sim/colony/lanes.ts",
+        "games/2026-09-26-outpost-aurelia/src/sim/colony/runLanding.ts",
+        "games/2026-09-26-outpost-aurelia/src/sim/kits/draft.selftest.ts",
+        "games/2026-09-26-outpost-aurelia/src/sim/families/colony.ts"
+      ],
+      "startedAt": "2026-09-27T00:36:00Z",
+      "endedAt": "2026-09-27T01:05:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://SimDev-2",
+      "note": "bot-vs-balance diagnosis"
+    },
+    {
+      "wave": "balance",
+      "agent": "Balance",
+      "type": "level-designer",
+      "attempt": 1,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/src/slices/colony/tuning.ts",
+        "games/2026-09-26-outpost-aurelia/src/slices/colony/data/**",
+        "games/2026-09-26-outpost-aurelia/src/slices/colony/threat/terrain.ts",
+        "games/2026-09-26-outpost-aurelia/PRD.md"
+      ],
+      "startedAt": "2026-09-27T01:06:00Z",
+      "endedAt": "2026-09-27T01:35:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://Balance"
+    },
+    {
+      "wave": "balance",
+      "agent": "SimDev",
+      "type": "gameplay-programmer",
+      "attempt": 3,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/src/sim/colony/bots.ts",
+        "games/2026-09-26-outpost-aurelia/src/sim/colony/lanes.ts",
+        "games/2026-09-26-outpost-aurelia/src/sim/colony/runLanding.ts",
+        "games/2026-09-26-outpost-aurelia/src/sim/kits/draft.selftest.ts",
+        "games/2026-09-26-outpost-aurelia/src/sim/families/colony.ts"
+      ],
+      "startedAt": "2026-09-27T01:06:00Z",
+      "endedAt": "2026-09-27T01:35:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://SimDev-3"
+    },
+    {
+      "wave": "feel",
+      "agent": "FeelPass",
+      "type": "fx-artist",
+      "attempt": 1,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/src/slices/colony/view/**",
+        "games/2026-09-26-outpost-aurelia/src/slices/colony/game.ts",
+        "games/2026-09-26-outpost-aurelia/src/ui/colony/**",
+        "games/2026-09-26-outpost-aurelia/src/core/juice.ts",
+        "games/2026-09-26-outpost-aurelia/shots/feel/**"
+      ],
+      "startedAt": "2026-09-27T01:07:00Z",
+      "endedAt": "2026-09-27T01:35:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://FeelPass"
+    },
+    {
+      "wave": "balance-2",
+      "agent": "Balance",
+      "type": "level-designer",
+      "attempt": 2,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/src/slices/colony/tuning.ts",
+        "games/2026-09-26-outpost-aurelia/src/slices/colony/data/**",
+        "games/2026-09-26-outpost-aurelia/src/slices/colony/threat/terrain.ts",
+        "games/2026-09-26-outpost-aurelia/PRD.md"
+      ],
+      "startedAt": "2026-09-27T01:36:00Z",
+      "endedAt": "2026-09-27T02:05:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://Balance2",
+      "note": "second bounded balance round: first round (3 iterations) ended at 0% skilled wins; orchestrator deviation logged"
+    },
+    {
+      "wave": "qa",
+      "agent": "QA",
+      "type": "game-qa",
+      "attempt": 1,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/shots/qa/**",
+        "games/2026-09-26-outpost-aurelia/review/qa.md"
+      ],
+      "startedAt": "2026-09-27T01:38:00Z",
+      "endedAt": "2026-09-27T02:00:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://QA"
+    },
+    {
+      "wave": "qa",
+      "agent": "CertRun",
+      "type": "gameplay-programmer",
+      "attempt": 1,
+      "ownershipGlobs": [
+        "scripts/cert-driver.mjs",
+        "games/2026-09-26-outpost-aurelia/cert-report.json",
+        "games/2026-09-26-outpost-aurelia/fuzz-report.json",
+        "games/2026-09-26-outpost-aurelia/shots/cert/**"
+      ],
+      "startedAt": "2026-09-27T01:38:00Z",
+      "endedAt": "2026-09-27T02:40:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://CertRun"
+    },
+    {
+      "wave": "qa",
+      "agent": "FlowAudit",
+      "type": "ux-flow-designer",
+      "attempt": 1,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/review/flow-audit.md",
+        "games/2026-09-26-outpost-aurelia/shots/flow/**"
+      ],
+      "startedAt": "2026-09-27T01:38:00Z",
+      "endedAt": "2026-09-27T02:00:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://FlowAudit"
+    },
+    {
+      "wave": "fix-1",
+      "agent": "UiDev",
+      "type": "ui-engineer",
+      "attempt": 2,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/src/ui/colony/**",
+        "games/2026-09-26-outpost-aurelia/src/scenes/hub/**",
+        "games/2026-09-26-outpost-aurelia/src/scenes/gameover.ts",
+        "games/2026-09-26-outpost-aurelia/src/ui/sheet.ts",
+        "games/2026-09-26-outpost-aurelia/src/ui/coach.ts"
+      ],
+      "startedAt": "2026-09-27T02:01:00Z",
+      "endedAt": "2026-09-27T02:40:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://UiDev"
+    },
+    {
+      "wave": "fix-1",
+      "agent": "ViewDev",
+      "type": "gameplay-programmer",
+      "attempt": 2,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/src/slices/colony/game.ts",
+        "games/2026-09-26-outpost-aurelia/src/slices/colony/view/**"
+      ],
+      "startedAt": "2026-09-27T02:01:00Z",
+      "endedAt": "2026-09-27T02:40:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://ViewDev"
+    },
+    {
+      "wave": "balance-2",
+      "agent": "SimDev",
+      "type": "gameplay-programmer",
+      "attempt": 4,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/src/sim/colony/bots.ts",
+        "games/2026-09-26-outpost-aurelia/src/sim/colony/lanes.ts"
+      ],
+      "startedAt": "2026-09-27T02:06:00Z",
+      "endedAt": "2026-09-27T02:40:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://SimDev-3"
+    },
+    {
+      "wave": "fix-2",
+      "agent": "ModelDev",
+      "type": "gameplay-programmer",
+      "attempt": 2,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/src/slices/colony/model/**"
+      ],
+      "startedAt": "2026-09-27T02:41:00Z",
+      "endedAt": "2026-09-27T03:15:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://ModelDev"
+    },
+    {
+      "wave": "fix-2",
+      "agent": "ViewDev",
+      "type": "gameplay-programmer",
+      "attempt": 3,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/src/slices/colony/game.ts",
+        "games/2026-09-26-outpost-aurelia/src/slices/colony/view/**"
+      ],
+      "startedAt": "2026-09-27T02:41:00Z",
+      "endedAt": "2026-09-27T03:15:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://ViewDev"
+    },
+    {
+      "wave": "critic",
+      "agent": "Critic",
+      "type": "game-critic",
+      "attempt": 1,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/shots/critic/build1/**"
+      ],
+      "startedAt": "2026-09-27T02:41:00Z",
+      "endedAt": "2026-09-27T03:15:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://Critic"
+    },
+    {
+      "wave": "fix-3",
+      "agent": "ModelDev",
+      "type": "gameplay-programmer",
+      "attempt": 3,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/src/slices/colony/model/**"
+      ],
+      "startedAt": "2026-09-27T03:16:00Z",
+      "endedAt": "2026-09-27T03:45:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://ModelDev"
+    },
+    {
+      "wave": "fix-3",
+      "agent": "ViewDev",
+      "type": "gameplay-programmer",
+      "attempt": 4,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/src/slices/colony/game.ts",
+        "games/2026-09-26-outpost-aurelia/src/slices/colony/view/**"
+      ],
+      "startedAt": "2026-09-27T03:16:00Z",
+      "endedAt": "2026-09-27T03:45:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://ViewDev"
+    },
+    {
+      "wave": "fix-3",
+      "agent": "UiDev",
+      "type": "ui-engineer",
+      "attempt": 3,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/src/ui/colony/**",
+        "games/2026-09-26-outpost-aurelia/src/scenes/hub/**",
+        "games/2026-09-26-outpost-aurelia/src/scenes/gameover.ts",
+        "games/2026-09-26-outpost-aurelia/src/ui/sheet.ts",
+        "games/2026-09-26-outpost-aurelia/src/ui/coach.ts",
+        "games/2026-09-26-outpost-aurelia/src/ui/widgets.ts"
+      ],
+      "startedAt": "2026-09-27T03:16:00Z",
+      "endedAt": "2026-09-27T03:45:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://UiDev"
+    },
+    {
+      "wave": "fix-3",
+      "agent": "Balance",
+      "type": "level-designer",
+      "attempt": 3,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/src/slices/colony/tuning.ts",
+        "games/2026-09-26-outpost-aurelia/src/slices/colony/data/**",
+        "games/2026-09-26-outpost-aurelia/PRD.md"
+      ],
+      "startedAt": "2026-09-27T03:16:00Z",
+      "endedAt": "2026-09-27T03:45:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://Balance2"
+    },
+    {
+      "wave": "critic",
+      "agent": "Critic",
+      "type": "game-critic",
+      "attempt": 2,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/shots/critic/build2/**"
+      ],
+      "startedAt": "2026-09-27T03:46:00Z",
+      "endedAt": "2026-09-27T03:50:00Z",
+      "status": "dead",
+      "cause": {
+        "kind": "context-exhaustion",
+        "evidence": "Critic: \"I've used my request budget: I was told to wrap up at 200, and the run is force-stopped at 300.\"",
+        "source": "agent message"
+      },
+      "artifact": null
+    },
+    {
+      "wave": "integrate-2",
+      "agent": "Integrator",
+      "type": "build-integrator",
+      "attempt": 2,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/scripts/**",
+        "games/2026-09-26-outpost-aurelia/src/sim/kits/**",
+        "games/2026-09-26-outpost-aurelia/review/**"
+      ],
+      "startedAt": "2026-09-27T03:46:00Z",
+      "endedAt": "2026-09-27T04:20:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://Integrator"
+    },
+    {
+      "wave": "critic",
+      "agent": "Critic",
+      "type": "game-critic",
+      "attempt": 3,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/shots/critic/build2/**"
+      ],
+      "startedAt": "2026-09-27T03:51:00Z",
+      "endedAt": "2026-09-27T04:20:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://CriticSkilled"
+    },
+    {
+      "wave": "fix-4",
+      "agent": "ModelDev",
+      "type": "gameplay-programmer",
+      "attempt": 4,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/src/slices/colony/model/**"
+      ],
+      "startedAt": "2026-09-27T04:21:00Z",
+      "endedAt": "2026-09-27T04:45:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://ModelDev"
+    },
+    {
+      "wave": "fix-4",
+      "agent": "ViewDev",
+      "type": "gameplay-programmer",
+      "attempt": 5,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/src/slices/colony/game.ts",
+        "games/2026-09-26-outpost-aurelia/src/slices/colony/view/**"
+      ],
+      "startedAt": "2026-09-27T04:21:00Z",
+      "endedAt": "2026-09-27T05:10:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://ViewDev"
+    },
+    {
+      "wave": "fix-4",
+      "agent": "UiDev",
+      "type": "ui-engineer",
+      "attempt": 4,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/src/ui/colony/**",
+        "games/2026-09-26-outpost-aurelia/src/scenes/hub/**",
+        "games/2026-09-26-outpost-aurelia/src/ui/sheet.ts",
+        "games/2026-09-26-outpost-aurelia/src/ui/coach.ts",
+        "games/2026-09-26-outpost-aurelia/src/ui/widgets.ts"
+      ],
+      "startedAt": "2026-09-27T04:21:00Z",
+      "endedAt": "2026-09-27T05:10:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://UiDev"
+    },
+    {
+      "wave": "balance-3",
+      "agent": "Balance",
+      "type": "level-designer",
+      "attempt": 4,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/src/slices/colony/tuning.ts",
+        "games/2026-09-26-outpost-aurelia/src/slices/colony/data/**",
+        "games/2026-09-26-outpost-aurelia/src/slices/colony/threat/terrain.ts",
+        "games/2026-09-26-outpost-aurelia/PRD.md"
+      ],
+      "startedAt": "2026-09-27T04:46:00Z",
+      "endedAt": "2026-09-27T05:10:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://Balance2",
+      "note": "third balance round with live human evidence; orchestrator deviation from 3-iteration budget logged (so-4)"
+    },
+    {
+      "wave": "verify-2",
+      "agent": "CriticSkilled2",
+      "type": "game-critic",
+      "attempt": 1,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/shots/critic/build3/**"
+      ],
+      "startedAt": "2026-09-27T05:11:00Z",
+      "endedAt": "2026-09-27T05:45:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://CriticSkilled2"
+    },
+    {
+      "wave": "verify-2",
+      "agent": "CertRun",
+      "type": "gameplay-programmer",
+      "attempt": 2,
+      "ownershipGlobs": [
+        "scripts/cert-driver.mjs",
+        "games/2026-09-26-outpost-aurelia/cert-report.json",
+        "games/2026-09-26-outpost-aurelia/fuzz-report.json",
+        "games/2026-09-26-outpost-aurelia/shots/cert/**"
+      ],
+      "startedAt": "2026-09-27T05:11:00Z",
+      "endedAt": "2026-09-27T07:45:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://CertRun-2"
+    },
+    {
+      "wave": "verify-2",
+      "agent": "QA2",
+      "type": "game-qa",
+      "attempt": 1,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/review/qa2.md",
+        "games/2026-09-26-outpost-aurelia/shots/qa2/**"
+      ],
+      "startedAt": "2026-09-27T05:11:00Z",
+      "endedAt": "2026-09-27T05:45:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://QA2"
+    },
+    {
+      "wave": "fix-5",
+      "agent": "ThreatDev",
+      "type": "gameplay-programmer",
+      "attempt": 2,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/src/slices/colony/threat/fauna.ts",
+        "games/2026-09-26-outpost-aurelia/src/slices/colony/threat/swarm.ts",
+        "games/2026-09-26-outpost-aurelia/src/slices/colony/threat/index.ts",
+        "games/2026-09-26-outpost-aurelia/src/slices/colony/threat/defense.ts"
+      ],
+      "startedAt": "2026-09-27T05:46:00Z",
+      "endedAt": "2026-09-27T06:20:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://ThreatDev"
+    },
+    {
+      "wave": "fix-5",
+      "agent": "ModelDev",
+      "type": "gameplay-programmer",
+      "attempt": 5,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/src/slices/colony/model/**"
+      ],
+      "startedAt": "2026-09-27T05:46:00Z",
+      "endedAt": "2026-09-27T06:20:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://ModelDev"
+    },
+    {
+      "wave": "fix-5",
+      "agent": "ViewDev",
+      "type": "gameplay-programmer",
+      "attempt": 6,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/src/slices/colony/game.ts",
+        "games/2026-09-26-outpost-aurelia/src/slices/colony/view/**"
+      ],
+      "startedAt": "2026-09-27T05:46:00Z",
+      "endedAt": "2026-09-27T06:20:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://ViewDev"
+    },
+    {
+      "wave": "balance-4",
+      "agent": "Balance",
+      "type": "level-designer",
+      "attempt": 5,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/src/slices/colony/tuning.ts",
+        "games/2026-09-26-outpost-aurelia/src/slices/colony/data/**",
+        "games/2026-09-26-outpost-aurelia/src/slices/colony/threat/terrain.ts",
+        "games/2026-09-26-outpost-aurelia/PRD.md"
+      ],
+      "startedAt": "2026-09-27T06:21:00Z",
+      "endedAt": "2026-09-27T06:50:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://Balance2"
+    },
+    {
+      "wave": "verify-3",
+      "agent": "CriticSkilled3",
+      "type": "game-critic",
+      "attempt": 1,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/shots/critic/build4/**"
+      ],
+      "startedAt": "2026-09-27T06:51:00Z",
+      "endedAt": "2026-09-27T07:15:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://CriticSkilled3"
+    },
+    {
+      "wave": "balance-4",
+      "agent": "SimDev",
+      "type": "gameplay-programmer",
+      "attempt": 5,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/src/sim/colony/bots.ts",
+        "games/2026-09-26-outpost-aurelia/src/sim/colony/lanes.ts"
+      ],
+      "startedAt": "2026-09-27T06:51:00Z",
+      "endedAt": "2026-09-27T07:15:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://SimDev-3"
+    },
+    {
+      "wave": "fix-6",
+      "agent": "ModelDev",
+      "type": "gameplay-programmer",
+      "attempt": 6,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/src/slices/colony/model/**"
+      ],
+      "startedAt": "2026-09-27T07:16:00Z",
+      "endedAt": "2026-09-27T07:45:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://ModelDev"
+    },
+    {
+      "wave": "fix-6",
+      "agent": "ViewDev",
+      "type": "gameplay-programmer",
+      "attempt": 7,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/src/slices/colony/game.ts",
+        "games/2026-09-26-outpost-aurelia/src/slices/colony/view/**"
+      ],
+      "startedAt": "2026-09-27T07:16:00Z",
+      "endedAt": "2026-09-27T07:45:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://ViewDev"
+    },
+    {
+      "wave": "fix-6",
+      "agent": "UiDev",
+      "type": "ui-engineer",
+      "attempt": 7,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/src/ui/colony/**",
+        "games/2026-09-26-outpost-aurelia/src/ui/coach.ts",
+        "games/2026-09-26-outpost-aurelia/src/ui/sheet.ts"
+      ],
+      "startedAt": "2026-09-27T07:16:00Z",
+      "endedAt": "2026-09-27T07:45:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://UiDev"
+    },
+    {
+      "wave": "fix-6",
+      "agent": "Balance",
+      "type": "level-designer",
+      "attempt": 6,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/src/slices/colony/tuning.ts",
+        "games/2026-09-26-outpost-aurelia/src/slices/colony/data/**",
+        "games/2026-09-26-outpost-aurelia/PRD.md"
+      ],
+      "startedAt": "2026-09-27T07:16:00Z",
+      "endedAt": "2026-09-27T07:45:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://Balance2"
+    },
+    {
+      "wave": "fix-7",
+      "agent": "UiDev",
+      "type": "ui-engineer",
+      "attempt": 8,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/src/ui/colony/**",
+        "games/2026-09-26-outpost-aurelia/src/scenes/gameover.ts",
+        "games/2026-09-26-outpost-aurelia/src/scenes/hub/**",
+        "games/2026-09-26-outpost-aurelia/src/ui/coach.ts"
+      ],
+      "startedAt": "2026-09-27T07:46:00Z",
+      "endedAt": "2026-09-27T08:10:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://UiDev"
+    },
+    {
+      "wave": "fix-7",
+      "agent": "ViewDev",
+      "type": "gameplay-programmer",
+      "attempt": 8,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/src/slices/colony/game.ts",
+        "games/2026-09-26-outpost-aurelia/src/slices/colony/view/**"
+      ],
+      "startedAt": "2026-09-27T07:46:00Z",
+      "endedAt": "2026-09-27T08:10:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://ViewDev"
+    },
+    {
+      "wave": "final-verify",
+      "agent": "CertRun",
+      "type": "gameplay-programmer",
+      "attempt": 3,
+      "ownershipGlobs": [
+        "scripts/cert-driver.mjs",
+        "games/2026-09-26-outpost-aurelia/cert-report.json",
+        "games/2026-09-26-outpost-aurelia/fuzz-report.json",
+        "games/2026-09-26-outpost-aurelia/shots/cert/**"
+      ],
+      "startedAt": "2026-09-27T08:11:00Z",
+      "endedAt": "2026-09-27T08:45:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://CertRun-2"
+    },
+    {
+      "wave": "final-verify",
+      "agent": "CriticFinal",
+      "type": "game-critic",
+      "attempt": 1,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/shots/critic/build5/**"
+      ],
+      "startedAt": "2026-09-27T08:11:00Z",
+      "endedAt": "2026-09-27T08:58:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://CriticFinal",
+      "verdict": "SHIP"
+    },
+    {
+      "wave": "final-verify",
+      "agent": "Integrator",
+      "type": "build-integrator",
+      "attempt": 3,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/scripts/**",
+        "games/2026-09-26-outpost-aurelia/src/sim/kits/**",
+        "games/2026-09-26-outpost-aurelia/review/**"
+      ],
+      "startedAt": "2026-09-27T08:11:00Z",
+      "endedAt": "2026-09-27T08:45:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://Integrator"
+    },
+    {
+      "wave": "fix-8",
+      "agent": "UiDev",
+      "type": "ui-engineer",
+      "attempt": 9,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/src/ui/colony/coachBeats.ts",
+        "games/2026-09-26-outpost-aurelia/src/ui/colony/dock.ts"
+      ],
+      "startedAt": "2026-09-27T08:40:00Z",
+      "endedAt": "2026-09-27T08:48:00Z",
+      "status": "done",
+      "cause": {
+        "kind": "provider-error",
+        "evidence": "Wake turn failed: [anthropic/claude-opus-5-5] aborted. No answer was produced.",
+        "source": "agent message"
+      },
+      "artifact": "history://UiDev",
+      "note": "complete work, lost result: coachBeats.ts complete() always saves tut flag (line 132) + dock.ts dawn refusal notice (line 190) verified on disk; tsc clean"
+    },
+    {
+      "wave": "final-verify",
+      "agent": "CertRun",
+      "type": "gameplay-programmer",
+      "attempt": 4,
+      "ownershipGlobs": [
+        "scripts/cert-driver.mjs",
+        "games/2026-09-26-outpost-aurelia/cert-report.json",
+        "games/2026-09-26-outpost-aurelia/fuzz-report.json",
+        "games/2026-09-26-outpost-aurelia/shots/cert/**"
+      ],
+      "startedAt": "2026-09-27T08:49:00Z",
+      "endedAt": "2026-09-27T09:30:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://CertRun-2"
+    },
+    {
+      "wave": "polish-1",
+      "agent": "ModelDev",
+      "type": "gameplay-programmer",
+      "attempt": 7,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/src/slices/colony/model/**"
+      ],
+      "startedAt": "2026-09-27T08:59:00Z",
+      "endedAt": "2026-09-27T09:30:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://ModelDev"
+    },
+    {
+      "wave": "polish-1",
+      "agent": "ViewDev",
+      "type": "gameplay-programmer",
+      "attempt": 9,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/src/slices/colony/game.ts",
+        "games/2026-09-26-outpost-aurelia/src/slices/colony/view/**"
+      ],
+      "startedAt": "2026-09-27T08:59:00Z",
+      "endedAt": "2026-09-27T09:30:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://ViewDev"
+    },
+    {
+      "wave": "polish-1",
+      "agent": "UiDev",
+      "type": "ui-engineer",
+      "attempt": 10,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/src/ui/colony/**"
+      ],
+      "startedAt": "2026-09-27T08:59:00Z",
+      "endedAt": "2026-09-27T09:30:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://UiDev"
+    },
+    {
+      "wave": "polish-1",
+      "agent": "Balance",
+      "type": "level-designer",
+      "attempt": 7,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/src/slices/colony/tuning.ts",
+        "games/2026-09-26-outpost-aurelia/src/slices/colony/data/**",
+        "games/2026-09-26-outpost-aurelia/src/slices/colony/threat/terrain.ts",
+        "games/2026-09-26-outpost-aurelia/PRD.md"
+      ],
+      "startedAt": "2026-09-27T08:59:00Z",
+      "endedAt": "2026-09-27T09:30:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://Balance2"
+    },
+    {
+      "wave": "release-verify",
+      "agent": "Integrator",
+      "type": "build-integrator",
+      "attempt": 4,
+      "ownershipGlobs": [
+        "games/2026-09-26-outpost-aurelia/scripts/**",
+        "games/2026-09-26-outpost-aurelia/src/sim/kits/**",
+        "games/2026-09-26-outpost-aurelia/review/**"
+      ],
+      "startedAt": "2026-09-27T09:31:00Z",
+      "endedAt": "2026-09-27T10:05:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://Integrator"
+    },
+    {
+      "wave": "release-verify",
+      "agent": "CertRun",
+      "type": "gameplay-programmer",
+      "attempt": 5,
+      "ownershipGlobs": [
+        "scripts/cert-driver.mjs",
+        "games/2026-09-26-outpost-aurelia/cert-report.json",
+        "games/2026-09-26-outpost-aurelia/fuzz-report.json",
+        "games/2026-09-26-outpost-aurelia/shots/cert/**"
+      ],
+      "startedAt": "2026-09-27T09:31:00Z",
+      "endedAt": "2026-09-27T10:05:00Z",
+      "status": "done",
+      "cause": null,
+      "artifact": "agent://CertRun-2"
+    }
+  ]
+}

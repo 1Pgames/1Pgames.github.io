@@ -1,0 +1,32 @@
+{
+  "version": 2,
+  "name": "fauna-skitter",
+  "processing": {
+    "cellSize": 256,
+    "cellHeight": 256,
+    "align": "feet",
+    "scaleMode": "preserve",
+    "fit": 0.86,
+    "threshold": 150,
+    "feather": 55,
+    "edgeThreshold": 170,
+    "sampling": "smooth",
+    "componentMode": "largest",
+    "componentPadding": 0,
+    "minComponentArea": 1
+  },
+  "reference": {
+    "rows": 2,
+    "cols": 2,
+    "bodyScaleMean": 0.4306640625,
+    "bodyScaleCv": 0.0022675736961451248,
+    "anchorYMean": 0.74267578125,
+    "sourceToOutputScale": 0.43,
+    "sourceCellWidth": 512,
+    "sourceCellHeight": 512,
+    "outputSubjectHeightMean": 95
+  },
+  "qc": {
+    "maxBodyScaleDrift": 0.08
+  }
+}
